@@ -1,0 +1,24 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite the method paper below."
+title: "qutip-bundling: stochastic bundling of Lindblad operators for QuTiP"
+authors:
+  - family-names: Adhikari
+    given-names: Sayak
+    email: sayak.adhikari@mail.huji.ac.il
+  - family-names: Baer
+    given-names: Roi
+    email: roi.baer@gmail.com
+references:
+  - type: article
+    title: "Stochastically Bundled Dissipators for the Quantum Master Equation"
+    authors:
+      - family-names: Adhikari
+        given-names: Sayak
+      - family-names: Baer
+        given-names: Roi
+    journal: "Journal of Chemical Theory and Computation"
+    volume: 21
+    start: 4142
+    end: 4150
+    year: 2025
+    doi: 10.1021/acs.jctc.5c00145
