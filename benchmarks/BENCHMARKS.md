@@ -58,7 +58,7 @@ Because the energy eigenbasis mixes all the sites, essentially every pair of
 levels contributes a Davies operator, and `N_L` climbs steeply with size — 64
 operators at dimension 16, over 2000 at dimension 128. This is a recognizable
 model across condensed-matter and quantum-computing work, and it is bundling's
-natural home: many operators, all of comparable weight.
+natural home: a large operator count that grows quickly with system size.
 
 ### Oscillator + bath
 
@@ -92,10 +92,11 @@ rises far more gently and continues well past where the full solve stops.
 The practical reading: **below the crossover, use the full master equation;
 above it, bundling is what lets the calculation finish at all.** On the spin
 chain the full solve at dimension 32 (218 operators) takes around a minute,
-versus under a second for bundling — and at dimension 128 (≈2200 operators) the
-full solve is out of reach while bundling completes in seconds. The oscillator
-shows the same pattern even more sharply, with the full solve taking minutes at
-a size bundling handles in about a second.
+versus under a second for bundling — roughly an 80× speedup at that size — and
+at dimension 128 (≈2200 operators) the full solve is out of reach while bundling
+completes in seconds. The oscillator shows the same pattern even more sharply:
+at dimension 32 the full solve takes several minutes where bundling finishes in
+about a second.
 
 ## Result 2 — accuracy versus the bundle size M
 
@@ -109,12 +110,16 @@ stochastic realizations. As `M` grows the bundled mean tightens onto the
 reference and the band narrows — the approximation is not a fixed compromise but
 a dial the user controls.
 
-The two systems show *why* the operator count matters. On the spin chain (only
-64 operators) the bias and spread at small `M` are clearly visible, shrinking as
-`M` increases toward the reference. On the oscillator (128 operators) even
-`M = 2` already sits on top of the reference, because averaging over a denser
-operator set suppresses the variance faster. More operators is not just
-bundling's speed advantage — it is also where its accuracy is cheapest.
+The two systems also differ in how cleanly the bundled mean tracks the
+reference at small `M`. On the spin chain the bias and spread at `M = 2` are
+clearly visible and shrink steadily as `M` grows. On the oscillator the bundled
+mean already sits essentially on the reference at `M = 2` — the residual error
+there is roughly an order of magnitude smaller at the same `M` (see the frontier
+numbers below). How quickly bundling converges in `M` is therefore
+system-dependent: it is set by the spread of the individual operator
+contributions to the dissipator, not by the Hilbert-space dimension alone, so it
+is worth checking the convergence on your own system rather than assuming a
+fixed `M` is enough.
 
 ## Result 3 — accuracy-versus-cost against mcsolve
 
@@ -137,9 +142,10 @@ several seconds of trajectories — roughly an order of magnitude cheaper at
 matched accuracy. (At the very loosest accuracy a handful of trajectories is
 the single cheapest point, so for a quick rough look `mcsolve` is fine.) On the
 oscillator the gap is much larger: bundling reaches errors around `10^-3` in
-under a second, while `mcsolve` after a thousand trajectories and many seconds
-is still one to two orders of magnitude less accurate. This is the regime
-bundling is built for, and it is where the method most clearly earns its place.
+under a second, while `mcsolve` after a thousand trajectories and roughly 20
+seconds is still near `10^-1` — about two orders of magnitude less accurate at
+far higher cost. This is the regime bundling is built for, and it is where the
+method most clearly earns its place.
 
 ## Reproducing and reading these numbers
 

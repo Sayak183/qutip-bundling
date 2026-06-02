@@ -53,7 +53,7 @@ folder.
 ## Install
 
 ```bash
-pip install qutip-bundling           # once published to PyPI
+pip install qutip-bundling           
 # or, from a checkout:
 pip install -e ".[examples,test]"
 ```
