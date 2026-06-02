@@ -48,7 +48,9 @@ bundling reaches the same accuracy for less compute on both test systems. See
 [`benchmarks/BENCHMARKS.md`](benchmarks/BENCHMARKS.md) for the full study —
 both systems defined, accuracy-versus-`M` convergence, and the
 accuracy-versus-cost frontier — all reproducible with the scripts in that
-folder.
+folder. The benchmark scripts also accept optional Davies-construction
+thresholds, e.g. `COUPLING_THRESHOLD=1e-6`, so you can separate build-time
+operator pruning from the bundling parameter `M`.
 
 ## Install
 

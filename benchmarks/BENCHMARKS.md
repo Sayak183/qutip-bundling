@@ -10,7 +10,12 @@ folder:
   Monte-Carlo trajectory solver `mcsolve`.
 
 Both scripts are self-contained: `pip install qutip-bundling matplotlib`, then
-`python benchmark_scaling.py`. Re-running them regenerates every figure here.
+`python benchmark_scaling.py` and `python benchmark_vs_mcsolve.py`. Re-running
+them regenerates every figure here. By default the scripts use the full,
+unpruned Davies/Lindblad operator set. To study build-time sparsity separately
+from bundling, set environment variables such as `COUPLING_THRESHOLD=1e-6`;
+thresholded runs write suffix-tagged figures instead of overwriting the default
+benchmark figures.
 
 ## What is being measured
 
@@ -146,6 +151,36 @@ under a second, while `mcsolve` after a thousand trajectories and roughly 20
 seconds is still near `10^-1` — about two orders of magnitude less accurate at
 far higher cost. This is the regime bundling is built for, and it is where the
 method most clearly earns its place.
+
+
+## Optional sparsity study
+
+The benchmark scripts expose the same Davies-operator thresholds as the public
+API. The most useful knob is `COUPLING_THRESHOLD`, which prunes weak
+`|<a|X|b>|` coupling elements while building the original operator set. This is
+separate from the bundle size `M`: the threshold changes the retained Lindblad
+equation itself, while `M` controls how many bundled operators approximate the
+retained equation.
+
+Examples:
+
+```bash
+# full, unpruned benchmark
+python benchmark_scaling.py
+python benchmark_vs_mcsolve.py
+
+# sparse/operator-pruned benchmark
+COUPLING_THRESHOLD=1e-6 python benchmark_scaling.py
+COUPLING_THRESHOLD=1e-6 python benchmark_vs_mcsolve.py
+```
+
+For sparse runs the terminal output and plot titles report `N_L` as
+`retained/full`, for example `N_L = 42/128`. The deterministic `mesolve`
+reference, bundled solver, and `mcsolve` all use the same retained operator set
+in a thresholded run, so the frontier still compares solvers fairly for that
+chosen Lindblad equation. To measure the physical error introduced by pruning
+itself, compare observables from the thresholded run against the
+`COUPLING_THRESHOLD=0` run.
 
 ## Reproducing and reading these numbers
 
