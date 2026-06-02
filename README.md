@@ -34,6 +34,22 @@ the *bare* `L_alpha`, never bundled), and a single bundled `mesolve` call
 reproduces full master-equation dynamics with `M` independent of the
 Hilbert-space dimension — per-step cost drops from `O(N^5)` to `O(N^3)`.
 
+## Benchmarks
+
+On a dissipative spin chain, full `mesolve` (paying for all `N_L` Lindblad
+operators) becomes infeasible as the system grows, while bundling — using only
+`M` of them — keeps going at a fraction of the cost:
+
+![cost versus system size](benchmarks/benchmark_scaling_spin_chain.png)
+
+Below the crossover the full solve is the better choice; above it, bundling is
+what lets the calculation finish. Against QuTiP's trajectory solver `mcsolve`,
+bundling reaches the same accuracy for less compute on both test systems. See
+[`benchmarks/BENCHMARKS.md`](benchmarks/BENCHMARKS.md) for the full study —
+both systems defined, accuracy-versus-`M` convergence, and the
+accuracy-versus-cost frontier — all reproducible with the scripts in that
+folder.
+
 ## Install
 
 ```bash
