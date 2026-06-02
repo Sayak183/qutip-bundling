@@ -57,6 +57,45 @@ includes the rate, so the dissipator is
 with no extra ``gamma`` out front. If you have your own operators that do
 *not* include the rate, multiply them by ``sqrt(gamma)`` before bundling.
 
+## Sparsity and thresholds
+
+When the coupling operator ``X`` is sparse in the energy eigenbasis,
+most Bohr pairs contribute a negligible operator and can be skipped.
+This package exposes that as opt-in thresholds; every one defaults to
+``0.0`` (keep everything), so leaving them alone reproduces the full,
+unpruned operator set exactly.
+
+Two distinct quantities can be thresholded -- they are *not*
+interchangeable, which is why they are separate arguments:
+
+* **Coupling element**, ``|<a|X|b>|``. Controlled by
+  ``coupling_threshold`` in :func:`davies_operators`. A pair below this
+  is dropped *before* ``gamma`` is evaluated or any matrix is built, so
+  this is the knob that actually speeds up the build (the construction
+  iterates only the significant entries instead of all ``N**2`` pairs).
+
+* **Operator weight**, ``sqrt(gamma(omega)) * |<a|X|b>|`` -- equivalently
+  ``sqrt(gamma) * ||L||``, the norm of the resulting collapse operator.
+  Controlled by ``threshold`` in both :func:`davies_operators` and
+  :func:`build_collapse_ops`. This is the master keep gate: it accounts
+  for both how strongly two levels couple *and* how fast the bath drives
+  that transition.
+
+The reference C++ (StochLind) uses a single scalar ``sparcity`` applied
+at several nested levels -- on the coupling element, on the rate, and on
+their product. The two arguments here expose the two that matter in
+practice; setting them equal mimics the C++ closely, but keeping them
+separate lets you prune cheaply on coupling without committing to the
+same cut on the weighted operator.
+
+**Choosing a value.** Start at ``0.0`` and confirm your physics. Then
+raise ``coupling_threshold`` until the operator count drops but the
+observable you care about does not move beyond your tolerance -- the
+dropped operators were contributing essentially nothing. A threshold a
+few orders of magnitude below the typical ``|<a|X|b>|`` is usually safe;
+too aggressive a value silently removes real dissipation channels and
+changes the steady state. Always re-check against the unpruned result.
+
 ## Lamb shift
 
 The Lamb-shift Hamiltonian is built from the **bare** operators (without
@@ -67,6 +106,14 @@ the ``sqrt(gamma)`` factor and without bundling), as
 It is a coherent term added to the system Hamiltonian once; it is not
 part of the dissipator and is never bundled. When ``imag_gamma`` is zero
 it vanishes.
+
+The Lamb shift has its *own* threshold (``lamb_shift_threshold`` in
+:func:`davies_operators`), because its terms are filtered against
+``|imag_gamma(omega)|`` -- a different quantity from the operator weight
+above. By default it inherits the operator ``threshold``, which means an
+aggressive operator cut would also drop Lamb-shift terms by an unrelated
+criterion. If you prune operators hard but still want the full Lamb
+shift, set ``lamb_shift_threshold=0.0`` to decouple the two.
 
 ## Initial state
 

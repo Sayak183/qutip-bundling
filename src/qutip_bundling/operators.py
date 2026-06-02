@@ -108,6 +108,8 @@ def davies_operators(
     *,
     imag_gamma: SpectralInput | float | None = None,
     threshold: float = 0.0,
+    coupling_threshold: float = 0.0,
+    lamb_shift_threshold: float | None = None,
     return_bare: bool = False,
 ):
     """Build Davies/Bohr collapse operators directly from H and a coupling op.
@@ -151,7 +153,27 @@ def davies_operators(
         ``sum  imag_gamma(omega) * L^dag L`` built from the same bare
         operators. ``None`` (default) skips it.
     threshold : float
-        Drop operators whose ``sqrt(gamma) * |<a|X|b>|`` is below this.
+        Drop operators whose weight ``sqrt(gamma) * |<a|X|b>|`` is below
+        this (the master keep gate; matches StochLind's
+        ``lInfnorm * sqrtG > sparcity``). Default ``0.0`` keeps everything.
+    coupling_threshold : float
+        Prune Bohr pairs whose bare coupling element ``|<a|X|b>|`` is below
+        this *before* the spectral function is evaluated or any operator is
+        materialized. Because ``X`` is typically sparse in the energy
+        eigenbasis, this is where the build-time speedup comes from: the
+        construction iterates only the significant entries instead of all
+        ``N**2`` pairs. Default ``0.0`` keeps every pair (modulo the
+        long-standing ``1e-14`` numerical floor), so behavior is unchanged
+        unless you opt in. This is a different quantity from ``threshold``:
+        it acts on the coupling alone, not coupling times rate.
+    lamb_shift_threshold : float or None
+        Threshold passed to :func:`lamb_shift_hamiltonian` for dropping
+        Lamb-shift terms. ``None`` (default) reuses ``threshold`` -- the
+        original behavior -- but note the Lamb-shift filter compares against
+        ``|imag_gamma|``, a third distinct quantity, so an aggressive
+        operator ``threshold`` would otherwise silently prune Lamb-shift
+        terms by an unrelated criterion. Set this explicitly (e.g. ``0.0``)
+        to decouple the two.
     return_bare : bool
         If True, also return the bare operators and Bohr frequencies, so
         you can pass them to :func:`lamb_shift_hamiltonian` yourself or
@@ -183,33 +205,49 @@ def davies_operators(
     evals, evecs = np.linalg.eigh(H_arr)
     X_eig = evecs.conj().T @ np.asarray(X.full()) @ evecs
 
+    # 1) Coupling-element prune (StochLind's first and cheapest cut).
+    #    X is usually sparse in the energy eigenbasis, so select the
+    #    significant <a|X|b> first and iterate only those: O(N**2) -> O(nnz).
+    #    np.argwhere yields indices in row-major (a, b) order, identical to
+    #    the original double loop. The 1e-14 floor is the historical hard
+    #    cutoff; with coupling_threshold=0.0 the surviving set and order are
+    #    exactly what the original full loop produced.
+    amp_floor = 1e-14
+    coup_cut = coupling_threshold if coupling_threshold > amp_floor else amp_floor
+    pairs = np.argwhere(np.abs(X_eig) >= coup_cut)
+    a_idx = pairs[:, 0]
+    b_idx = pairs[:, 1]
+    amps = X_eig[a_idx, b_idx]
+    omega_all = evals[b_idx] - evals[a_idx]      # sign convention (see docstring)
+
+    # 2) Spectral weighting, evaluated once over the survivors.
+    gammas = evaluate_spectral(gamma, omega_all, name="gamma")
+    if np.any(gammas < 0):
+        raise ValueError("gamma must be non-negative.")
+    sg_all = np.sqrt(gammas)
+    weights = sg_all * np.abs(amps)
+
+    # 3) Master weight gate (StochLind: lInfnorm * sqrtG > sparcity).
+    keep = (weights >= threshold) & (weights != 0.0)
+
     L_ops: list[qutip.Qobj] = []
     omegas: list[float] = []
     c_ops: list[qutip.Qobj] = []
-    for a in range(evals.size):
-        for b in range(evals.size):
-            amp = X_eig[a, b]
-            if abs(amp) < 1e-14:
-                continue
-            omega = evals[b] - evals[a]          # sign convention (see docstring)
-            g = gamma(float(omega))
-            if g < 0:
-                raise ValueError("gamma must be non-negative.")
-            sg = math.sqrt(g)
-            weight = sg * abs(amp)
-            if weight < threshold or weight == 0.0:
-                continue
-            P = np.outer(evecs[:, a], evecs[:, b].conj())
-            bare = qutip.Qobj(amp * P, dims=H.dims)
-            L_ops.append(bare)
-            omegas.append(omega)
-            c_ops.append(sg * bare)
+    for a, b, amp, omega, sg, k in zip(a_idx, b_idx, amps, omega_all, sg_all, keep):
+        if not k:
+            continue
+        P = np.outer(evecs[:, a], evecs[:, b].conj())
+        bare = qutip.Qobj(amp * P, dims=H.dims)
+        L_ops.append(bare)
+        omegas.append(float(omega))
+        c_ops.append(float(sg) * bare)
 
     omegas_arr = np.asarray(omegas)
+    ls_threshold = threshold if lamb_shift_threshold is None else lamb_shift_threshold
     out: list = [c_ops]
     if imag_gamma is not None:
         out.append(lamb_shift_hamiltonian(L_ops, omegas_arr, imag_gamma,
-                                           threshold=threshold))
+                                           threshold=ls_threshold))
     if return_bare:
         out.append((L_ops, omegas_arr))
 
@@ -243,9 +281,13 @@ def build_collapse_ops(
        ``L_alpha``, prefer :func:`davies_operators`, which bakes in the
        correct sign.
 
-    Operators whose ``sqrt(gamma)`` falls below ``threshold`` are dropped
-    -- the analogue of the ``sparcity`` cutoff in the C++ reference
-    implementation. Default ``threshold=0.0`` keeps everything.
+    Operators whose weight ``sqrt(gamma(omega_alpha)) * ||L_alpha||`` falls
+    below ``threshold`` are dropped -- the analogue of the ``sparcity``
+    cutoff in the C++ reference implementation, and the same quantity
+    :func:`davies_operators` thresholds on (for a Davies operator
+    ``L = amp*|a><b|`` the trace norm ``||L||`` equals ``|amp|``, so a given
+    ``threshold`` selects the same operators through either entry point).
+    Default ``threshold=0.0`` keeps everything.
 
     Parameters
     ----------
@@ -257,7 +299,8 @@ def build_collapse_ops(
     gamma
         Real spectral function ``gamma(omega) >= 0``, callable or array.
     threshold
-        Drop operators with ``sqrt(gamma(omega_alpha)) < threshold``.
+        Drop operators whose weight ``sqrt(gamma(omega_alpha)) * ||L_alpha||``
+        is below this. Matches the semantics of ``davies_operators``.
 
     Returns
     -------
@@ -277,9 +320,14 @@ def build_collapse_ops(
     sqrtg = np.sqrt(gammas)
     out: list[qutip.Qobj] = []
     for alpha, sg in enumerate(sqrtg):
-        if sg < threshold:
-            continue
-        if sg == 0.0:
+        # Weight is the norm of the resulting collapse operator,
+        # sqrt(gamma) * ||L||. This makes `threshold` mean the same thing
+        # here as in davies_operators -- rate times coupling strength, the
+        # single sparsity scalar of the StochLind C++ reference -- rather
+        # than the rate alone. For a Davies operator L = amp*|a><b| the
+        # (trace) norm ||L|| equals |amp|, so the two entry points agree.
+        weight = float(sg) * L_ops[alpha].norm()
+        if weight < threshold or weight == 0.0:
             continue
         out.append(sg * L_ops[alpha])
     return out

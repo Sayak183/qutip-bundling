@@ -1,5 +1,29 @@
 # Changelog
 
+## Unreleased
+- **Behavior change:** `build_collapse_ops` now applies `threshold` to the
+  full collapse-operator weight `sqrt(gamma) * ||L||`, not to `sqrt(gamma)`
+  alone. This makes `threshold` mean the same thing as in
+  `davies_operators` (rate times coupling strength) and matches the single
+  sparsity scalar of the StochLind C++ reference. Behavior is unchanged for
+  `threshold=0.0` (the default) and for the rate=0 drop; only nonzero
+  thresholds applied to operators of differing norm are affected.
+- `davies_operators` gained two opt-in keyword arguments, both defaulting to
+  current behavior:
+  - `coupling_threshold` (default `0.0`): prunes Bohr pairs whose bare
+    coupling element `|<a|X|b>|` is below the cutoff *before* the spectral
+    function is evaluated or any operator is built. Because the coupling
+    operator is typically sparse in the energy eigenbasis, the build now
+    iterates only the significant entries (O(nnz) instead of O(N**2)),
+    mirroring the first sparsity cut in the StochLind C++ reference. With
+    the default `0.0` the surviving operator set is bit-for-bit identical to
+    before.
+  - `lamb_shift_threshold` (default `None` = inherit `threshold`): lets the
+    Lamb-shift term use its own cutoff. Previously an aggressive operator
+    `threshold` could silently drop Lamb-shift terms, because that filter
+    compares against `|imag_gamma|`, an unrelated quantity. Set this
+    explicitly to decouple the two.
+
 ## 0.5.0
 - `mesolve_ensemble` / `mesolve_jackknife` now expose `.std` (trajectory
   standard deviation) and `.samples` (raw per-realization data) in addition

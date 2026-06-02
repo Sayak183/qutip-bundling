@@ -100,6 +100,45 @@ def test_build_collapse_ops_threshold_drops_small():
     assert len(c) == 3
 
 
+def test_build_collapse_ops_threshold_uses_product_not_rate():
+    """`threshold` compares against sqrt(gamma)*||L||, not sqrt(gamma) alone.
+    An operator with a small rate but large coupling can survive a threshold
+    that the rate alone would fall below -- matching davies_operators."""
+    dim = 4
+    big = qutip.Qobj(5.0 * qutip.create(dim).full())     # large-norm operator
+    small = qutip.Qobj(0.01 * qutip.create(dim).full())  # small-norm operator
+    L_ops = [big, small]
+    omegas = np.array([1.0, 1.0])
+    gvals = np.array([0.04, 0.04])                        # sqrt(gamma) = 0.2
+
+    # Rate alone (0.2) is below 0.5, so the OLD behavior would drop both.
+    # Product weight is 0.2*||L||: large for `big`, tiny for `small`.
+    c = build_collapse_ops(L_ops, omegas, gamma=gvals, threshold=0.5)
+    assert len(c) == 1                                    # only `big` survives
+    assert c[0].norm() == pytest.approx(0.2 * big.norm())
+
+
+def test_build_collapse_ops_threshold_matches_davies():
+    """The same threshold selects the same operators whether you go through
+    davies_operators or rebuild via build_collapse_ops."""
+    dim = 5
+    H = qutip.num(dim) + 0.1 * qutip.num(dim) ** 2
+    X = qutip.destroy(dim) + qutip.create(dim)
+    gamma = _ohmic(0.4)
+    thr = 0.05
+
+    c_davies, (L_ops, omegas) = davies_operators(
+        H, X, gamma, threshold=thr, return_bare=True)
+    # Rebuild bare->collapse with the same threshold; bare ops here are the
+    # post-threshold survivors, so re-thresholding must keep all of them and
+    # reproduce the davies collapse operators.
+    c_rebuilt = build_collapse_ops(L_ops, omegas, gamma, threshold=thr)
+    assert len(c_rebuilt) == len(c_davies)
+    D_davies = sum(qutip.lindblad_dissipator(c) for c in c_davies)
+    D_rebuilt = sum(qutip.lindblad_dissipator(c) for c in c_rebuilt)
+    assert (D_davies - D_rebuilt).norm() < 1e-10
+
+
 def test_build_collapse_ops_rejects_negative_gamma():
     L_ops, omegas = make_bare_operators(4, 3)
     with pytest.raises(ValueError):
@@ -493,3 +532,96 @@ def test_davies_works_with_non_ohmic_spectral_function():
     E = np.real(np.asarray(
         qutip.mesolve(H, rho0, tlist, c_ops=c_ops, e_ops=[H]).expect[0]))
     assert E[-1] < E[0] - 0.5
+
+# --------------------------------------------------------------------------
+# davies_operators -- sparsity / threshold options (opt-in, default-preserving)
+# --------------------------------------------------------------------------
+def _ohmic(kT):
+    def gamma(w):
+        if abs(w) < 1e-10:
+            return 0.3 * kT
+        return 0.3 * w / (1.0 - math.exp(-w / kT))
+    return gamma
+
+
+def test_coupling_threshold_default_is_identical():
+    """coupling_threshold=0.0 (default) must reproduce the full operator set
+    exactly -- same count and same operators."""
+    dim = 6
+    H = qutip.num(dim) + 0.1 * qutip.num(dim) ** 2
+    X = qutip.destroy(dim) + qutip.create(dim)
+    g = _ohmic(0.3)
+    c_default = davies_operators(H, X, g)
+    c_explicit = davies_operators(H, X, g, coupling_threshold=0.0)
+    assert len(c_default) == len(c_explicit)
+    for ca, cb in zip(c_default, c_explicit):
+        assert (ca - cb).norm() < 1e-15
+
+
+def test_coupling_threshold_prunes_negligible_without_error():
+    """A modest coupling_threshold drops only negligible-coupling operators,
+    leaving the dissipator unchanged when X is sparse in the eigenbasis."""
+    N = 4
+    si, sx, sz = qutip.qeye(2), qutip.sigmax(), qutip.sigmaz()
+
+    def op(o, i):
+        lst = [si] * N
+        lst[i] = o
+        return qutip.tensor(lst)
+
+    H = sum(op(sz, i) for i in range(N)) + 0.5 * sum(
+        op(sx, i) * op(sx, i + 1) for i in range(N - 1))
+    X = op(sx, 0)
+    g = _ohmic(0.5)
+
+    c_full = davies_operators(H, X, g)
+    c_pruned = davies_operators(H, X, g, coupling_threshold=1e-2)
+    assert len(c_pruned) <= len(c_full)
+
+    D_full = sum(qutip.lindblad_dissipator(c) for c in c_full)
+    D_pruned = sum(qutip.lindblad_dissipator(c) for c in c_pruned)
+    assert (D_full - D_pruned).norm() / D_full.norm() < 1e-9
+
+
+def test_coupling_threshold_reduces_operator_count_when_aggressive():
+    """A large coupling_threshold actually removes operators."""
+    dim = 6
+    H = qutip.num(dim) + 0.1 * qutip.num(dim) ** 2
+    X = qutip.destroy(dim) + qutip.create(dim)
+    g = _ohmic(0.5)
+    n_full = len(davies_operators(H, X, g))
+    n_pruned = len(davies_operators(H, X, g, coupling_threshold=10.0))
+    assert n_pruned < n_full
+
+
+def test_lamb_shift_threshold_defaults_to_operator_threshold():
+    """With lamb_shift_threshold unset, the Lamb shift uses the operator
+    threshold -- the original behavior."""
+    dim = 5
+    H = qutip.num(dim) + 0.1 * qutip.num(dim) ** 2
+    X = qutip.destroy(dim) + qutip.create(dim)
+    ig = lambda w: 0.02 * w
+    _, H_LS = davies_operators(H, X, _ohmic(0.5), imag_gamma=ig, threshold=0.0)
+    _, H_LS_inherit = davies_operators(
+        H, X, _ohmic(0.5), imag_gamma=ig, threshold=0.0,
+        lamb_shift_threshold=None)
+    assert (H_LS - H_LS_inherit).norm() < 1e-12
+
+
+def test_lamb_shift_threshold_decouples_from_operator_threshold():
+    """An aggressive operator threshold should NOT silently kill the Lamb
+    shift when lamb_shift_threshold is set independently."""
+    dim = 5
+    H = qutip.num(dim) + 0.1 * qutip.num(dim) ** 2
+    X = qutip.destroy(dim) + qutip.create(dim)
+    ig = lambda w: 0.02 * w
+    _, H_LS_baseline = davies_operators(H, X, _ohmic(0.5), imag_gamma=ig)
+    # inheriting an aggressive operator threshold wipes the Lamb shift...
+    _, H_LS_inherit = davies_operators(
+        H, X, _ohmic(0.5), imag_gamma=ig, threshold=0.05)
+    assert H_LS_inherit.norm() < 1e-12
+    # ...but decoupling restores it to the unfiltered value.
+    _, H_LS_decoupled = davies_operators(
+        H, X, _ohmic(0.5), imag_gamma=ig, threshold=0.05,
+        lamb_shift_threshold=0.0)
+    assert (H_LS_decoupled - H_LS_baseline).norm() < 1e-12
