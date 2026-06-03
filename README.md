@@ -21,7 +21,7 @@ The dissipator is *quadratic* in the operators, so it can be reproduced **in
 expectation** by a much smaller set of `M` randomly *bundled* operators:
 
 ```
-R_m = (1 / sqrt(M)) * sum_alpha  r_{m,alpha} * c_alpha
+$R_m = (1 / sqrt(M)) * sum_alpha  r_{m,alpha} * c_alpha$
 ```
 
 where the `r_{m,alpha}` are independent random numbers with zero mean and unit
