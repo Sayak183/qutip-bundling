@@ -1,10 +1,10 @@
 """
-benchmark_vs_mcsolve.py
-=========================================
+benchmark_vs_mcsolve_updated.py
+===============================
 
 Accuracy-vs-cost benchmark for `qutip-bundling` against QuTiP's Monte-Carlo
 trajectory solver (`qutip.mcsolve`), run over the same two systems as
-benchmark_scaling.py.
+benchmark_scaling_updated.py.
 
 Both methods are stochastic and have different accuracy knobs:
 
@@ -15,38 +15,23 @@ The fair comparison is therefore an accuracy-vs-cost frontier: sweep each
 method's knob and plot max-over-time error against wall-clock time. Lower-left
 means lower error and lower cost.
 
-This version also supports Davies-operator sparsity controls:
-
-    * DAVIES_THRESHOLD       -> original davies_operators threshold
-    * COUPLING_THRESHOLD     -> prunes weak Davies coupling blocks while building c_ops
-    * LAMB_SHIFT_THRESHOLD   -> optional independent Lamb-shift threshold
-
-For thresholded runs, the full mesolve reference, bundled solver, and mcsolve
-all use the same retained/pruned c_ops. The script prints both the retained
-operator count and the unpruned count, e.g. N_L = 42/128.
-
-Environment-variable examples:
-
-    PowerShell:
-        $env:COUPLING_THRESHOLD="1e-6"
-        python benchmark_vs_mcsolve.py
-
-    Bash/Linux:
-        COUPLING_THRESHOLD=1e-6 python benchmark_vs_mcsolve.py
+Updates in this version:
+    * Prints the original full number of Lindblad operators N_L explicitly.
+    * Caps requested M values by N_L.
+    * Adds error bars from independent repeats: mean +/- SEM in both time and
+      error.
+    * Avoids calling the full mesolve reference "exact" in labels.
 
 Produces, per system:
     benchmark_frontier_<system>.png
-or, for sparse runs:
-    benchmark_frontier_<system>_cthresh_1em6.png
 
 Requirements:  pip install qutip-bundling matplotlib
-Run:           python benchmark_vs_mcsolve.py
+Run:           python benchmark_vs_mcsolve_updated.py
 """
 
 from __future__ import annotations
 
 import math
-import os
 import time
 import numpy as np
 import qutip
@@ -59,25 +44,10 @@ M_VALUES = [1, 2, 4, 8, 16]            # bundling knob
 NTRAJ_VALUES = [10, 50, 200, 1000]     # mcsolve knob
 N_REALIZATIONS = 16                    # repeats averaged for bundled mean
 N_REPEATS = 4                          # independent repeats -> SEM bars
+SUBSTEPS = 4                           # RK4 substeps per TLIST interval for SLB;
+                                       # stated so the SLB integration resolution
+                                       # is explicit alongside mcsolve's ntraj
 TLIST = np.linspace(0.0, 5.0, 80)
-
-# Davies operator sparsity controls.  Defaults reproduce the full, unpruned
-# operator set.  Set from the shell to avoid editing the file for each run.
-DAVIES_THRESHOLD = float(os.environ.get("DAVIES_THRESHOLD", "0.0"))
-COUPLING_THRESHOLD = float(os.environ.get("COUPLING_THRESHOLD", "0.0"))
-
-
-def _env_float_or_none(name: str) -> float | None:
-    raw = os.environ.get(name)
-    if raw is None:
-        return None
-    raw = raw.strip()
-    if raw == "" or raw.lower() in {"none", "null"}:
-        return None
-    return float(raw)
-
-
-LAMB_SHIFT_THRESHOLD = _env_float_or_none("LAMB_SHIFT_THRESHOLD")
 
 ALPHA, KT, OMEGA_C = 0.3, 0.5, 8.0
 
@@ -126,8 +96,8 @@ def build_oscillator_bath(n_fock: int, omega0=1.0, anh=0.1, spin_gap=1.0, coupli
 
 #   name              builder               fixed size, small enough for full mesolve reference
 SYSTEMS = [
-    ("spin_chain",      build_spin_chain,      4),   # dim 16, expected unpruned N_L=64
-    ("oscillator_bath", build_oscillator_bath, 8),   # dim 16, expected unpruned N_L=128
+    ("spin_chain",      build_spin_chain,      4),   # dim 16, expected N_L=64
+    ("oscillator_bath", build_oscillator_bath, 8),   # dim 16, expected N_L=128
 ]
 
 
@@ -156,96 +126,16 @@ def capped_unique_m_values(n_lindblad: int) -> list[int]:
     return values
 
 
-def make_davies_ops(H: qutip.Qobj, X: qutip.Qobj):
-    """Build c_ops using the configured sparsity controls."""
-    return davies_operators(
-        H,
-        X,
-        gamma,
-        threshold=DAVIES_THRESHOLD,
-        coupling_threshold=COUPLING_THRESHOLD,
-        lamb_shift_threshold=LAMB_SHIFT_THRESHOLD,
-    )
-
-
-def make_unpruned_davies_ops(H: qutip.Qobj, X: qutip.Qobj):
-    """Build the baseline full c_ops for counting only."""
-    return davies_operators(
-        H,
-        X,
-        gamma,
-        threshold=0.0,
-        coupling_threshold=0.0,
-        lamb_shift_threshold=None,
-    )
-
-
-def sparsity_active() -> bool:
-    return (
-        DAVIES_THRESHOLD != 0.0
-        or COUPLING_THRESHOLD != 0.0
-        or LAMB_SHIFT_THRESHOLD is not None
-    )
-
-
-def nl_label(n_l: int, n_l_full: int) -> str:
-    if n_l == n_l_full and not sparsity_active():
-        return str(n_l)
-    return f"{n_l}/{n_l_full}"
-
-
-def format_float_for_filename(x: float | None) -> str:
-    if x is None:
-        return "none"
-    return f"{x:g}".replace("+", "").replace("-", "m").replace(".", "p")
-
-
-def output_suffix() -> str:
-    parts: list[str] = []
-    if DAVIES_THRESHOLD != 0.0:
-        parts.append(f"thresh_{format_float_for_filename(DAVIES_THRESHOLD)}")
-    if COUPLING_THRESHOLD != 0.0:
-        parts.append(f"cthresh_{format_float_for_filename(COUPLING_THRESHOLD)}")
-    if LAMB_SHIFT_THRESHOLD is not None:
-        parts.append(f"lamb_{format_float_for_filename(LAMB_SHIFT_THRESHOLD)}")
-    return "" if not parts else "_" + "_".join(parts)
-
-
 # ===========================================================================
 # FRONTIER BENCHMARK
 # ===========================================================================
 def frontier(name, build, size):
     H, X, psi0 = build(size)
     rho0 = qutip.ket2dm(psi0)
-
-    c_ops_full = make_unpruned_davies_ops(H, X)
-    n_l_full = len(c_ops_full)
-
-    if sparsity_active():
-        c_ops = make_davies_ops(H, X)
-    else:
-        c_ops = c_ops_full
+    c_ops = davies_operators(H, X, gamma)
     n_l = len(c_ops)
 
-    if n_l == 0:
-        raise ValueError(
-            f"[{name}] No Lindblad operators survived the configured thresholds. "
-            "Lower DAVIES_THRESHOLD/COUPLING_THRESHOLD."
-        )
-
-    label = nl_label(n_l, n_l_full)
-    print(f"\n[{name}] dim={H.shape[0]}, Lindblad operators N_L={label}")
-    print(
-        f"    DAVIES_THRESHOLD={DAVIES_THRESHOLD:g}, "
-        f"COUPLING_THRESHOLD={COUPLING_THRESHOLD:g}, "
-        f"LAMB_SHIFT_THRESHOLD={LAMB_SHIFT_THRESHOLD}"
-    )
-    if n_l != n_l_full:
-        print(f"    retained {n_l} of {n_l_full} unpruned Davies/Lindblad operators")
-
-    # Reference is the deterministic Lindblad solution for the same retained
-    # c_ops.  Thus, for thresholded runs, the frontier compares bundling and
-    # mcsolve on the pruned Lindblad equation.
+    print(f"\n[{name}] dim={H.shape[0]}, original Lindblad operators N_L={n_l}")
     reference = np.real(qutip.mesolve(H, rho0, TLIST, c_ops=c_ops, e_ops=[H]).expect[0])
 
     m_values = capped_unique_m_values(n_l)
@@ -259,6 +149,7 @@ def frontier(name, build, size):
             ens = mesolve_ensemble(
                 H, rho0, TLIST, c_ops, M=m_eff, e_ops=[H],
                 n_realizations=N_REALIZATIONS, rng=1000 + r, backend="native",
+                substeps=SUBSTEPS,
             )
             times.append(time.perf_counter() - t0)
             errors.append(max_err(ens.expect[0], reference))
@@ -275,16 +166,10 @@ def frontier(name, build, size):
     print("  mcsolve (sweep ntraj):")
     for nt in NTRAJ_VALUES:
         times, errors = [], []
-        for r in range(N_REPEATS):
+        for _r in range(N_REPEATS):
             t0 = time.perf_counter()
             mc = qutip.mcsolve(
-                H,
-                psi0,
-                TLIST,
-                c_ops,
-                e_ops=[H],
-                ntraj=nt,
-                seeds=2000 + r,
+                H, psi0, TLIST, c_ops, e_ops=[H], ntraj=nt,
                 options={"progress_bar": False},
             )
             times.append(time.perf_counter() - t0)
@@ -301,8 +186,6 @@ def frontier(name, build, size):
     return {
         "dim": H.shape[0],
         "n_l": n_l,
-        "n_l_full": n_l_full,
-        "n_l_label": label,
         "m_values": m_values,
         "b_time_mean": np.asarray(b_time_mean),
         "b_time_sem": np.asarray(b_time_sem),
@@ -324,7 +207,6 @@ def main():
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
 
-    suffix = output_suffix()
     for name, build, size in SYSTEMS:
         out = frontier(name, build, size)
 
@@ -334,7 +216,7 @@ def main():
             out["b_time_mean"], out["b_err_mean"],
             xerr=out["b_time_sem"], yerr=out["b_err_sem"],
             fmt="s-", color="tab:green", lw=2, ms=8, capsize=3,
-            label="bundling (this work)",
+            label="Stochastic Lindblad bundling (SLB)",
         )
         for x, y, m_eff in zip(out["b_time_mean"], out["b_err_mean"], out["m_values"]):
             ax.annotate(
@@ -356,18 +238,28 @@ def main():
 
         ax.set_xscale("log")
         ax.set_yscale("log")
-        ax.set_xlabel("wall-clock time (s)  ->  cheaper to the left")
-        ax.set_ylabel("max-over-time error vs full mesolve reference  ->  better at the bottom")
+        ax.set_xlabel("wall-clock time (s)  (lower is better)")
+        ax.set_ylabel(r"max error in $\langle H\rangle$  (lower is better)")
         ax.set_title(
-            rf"{name} (dim {out['dim']}, $N_L$={out['n_l_label']}): accuracy-vs-cost frontier"
+            rf"{name} (dim {out['dim']}, $N_L$={out['n_l']}): accuracy-vs-cost frontier"
+        )
+        # Make the comparison fair and reproducible: state each method's swept
+        # knob and integration resolution. SLB sweeps M at fixed RK4 substeps;
+        # mcsolve sweeps ntraj. Both share the same time grid and reference.
+        ax.text(
+            0.99, 0.02,
+            f"SLB: sweep M={M_VALUES}, {SUBSTEPS} RK4 substep(s)/step, "
+            f"{N_REALIZATIONS} realizations\n"
+            f"mcsolve: sweep ntraj={NTRAJ_VALUES}",
+            transform=ax.transAxes, ha="right", va="bottom", fontsize=7,
+            color="dimgray",
         )
         ax.grid(True, which="both", alpha=0.3)
         ax.legend(frameon=False)
         fig.tight_layout()
-        filename = f"benchmark_frontier_{name}{suffix}.png"
-        fig.savefig(filename, dpi=130, bbox_inches="tight")
+        fig.savefig(f"benchmark_frontier_{name}.png", dpi=130, bbox_inches="tight")
         plt.close(fig)
-        print(f"  saved {filename}")
+        print(f"  saved benchmark_frontier_{name}.png")
 
 
 if __name__ == "__main__":

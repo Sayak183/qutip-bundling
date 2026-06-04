@@ -1,6 +1,6 @@
 """
-benchmark_scaling.py
-=====================================
+benchmark_scaling_updated.py
+============================
 
 Speed/scaling + accuracy benchmark for `qutip-bundling`, run over TWO systems:
 
@@ -17,59 +17,46 @@ For each system it produces:
     benchmark_accuracy_<system>.png   <H(t)> versus time, full mesolve reference
                                       vs bundled curves at selected M values.
 
-Sparsity control:
-
-    The Davies/Lindblad operator construction can now be pruned through
-    COUPLING_THRESHOLD.  This is separate from the bundling parameter M.
-
-        COUPLING_THRESHOLD = 0.0      -> keep the full Davies operator set
-        COUPLING_THRESHOLD > 0.0      -> drop weak coupling blocks while building
-                                        the original Lindblad operator set
-
-    You may set the value directly below, or override it from the shell:
-
-        PowerShell:
-            $env:COUPLING_THRESHOLD="1e-6"
-            python benchmark_scaling.py
-
-        bash:
-            COUPLING_THRESHOLD=1e-6 python benchmark_scaling.py
-
-    The figures and terminal output report both the retained operator count and,
-    when pruning is active, the unpruned count:
-
-        N_L = retained/full
-
 Updates in this version:
-    * Prints the original/full and retained Lindblad-operator counts explicitly.
-    * Adds N_L and any active threshold values directly to plot titles.
-    * Uses system-specific M ladders for accuracy plots.
-    * Avoids calling full mesolve "exact"; it is labeled as a Lindblad reference.
+    * Prints the original full number of Lindblad operators N_L explicitly.
+    * Adds N_L directly to the accuracy-plot title.
+    * Uses only M = 2 and M = 8 in the accuracy plots by default, because larger
+      M curves may be visually redundant when they already sit on top of the
+      full-mesolve reference.
+    * Avoids calling full mesolve "exact"; it is labeled as the full Lindblad
+      reference.
     * Softens the scaling-plot wall label to "stopped by time/RAM budget".
-    * Makes output names threshold-aware so sparse runs do not overwrite the
-      threshold-zero figures unless OUTPUT_SUFFIX is explicitly set.
 
 Requirements:  pip install qutip-bundling matplotlib
-Run:           python benchmark_scaling.py
+Run:           python benchmark_scaling_updated.py
 """
 
 from __future__ import annotations
 
 import math
-import os
 import time
 import numpy as np
 import qutip
 from qutip_bundling import davies_operators, mesolve_ensemble
-
 
 # ===========================================================================
 # CONFIG
 # ===========================================================================
 M = 4                       # number of bundled operators for the timing sweep
 N_REALIZATIONS = 8          # stochastic repeats averaged for the bundled mean
+SUBSTEPS = 4                # RK4 substeps per TLIST step for SLB (native backend).
+                            # >=2 is required for stability on the stiffer
+                            # oscillator at larger sizes (substeps=1 diverges
+                            # there); the result is already converged by 2, so 4
+                            # carries margin at negligible cost. Stated on the
+                            # plot for a fair comparison against mcsolve's ntraj.
 
-# M ladder for the accuracy figure. These are system-specific so the plots do
+# SLB bundle sizes shown on the cost-vs-size plot. Three accuracy levels: the
+# cost of each rises with size, and mcsolve is matched to the most accurate
+# (largest M) so the comparison is against SLB's best available accuracy.
+M_SCALING = [2, 4, 8]
+
+# M ladder for the accuracy figure.  These are system-specific so the plots do
 # not become visually cluttered when M=8 is already essentially on the reference.
 ACCURACY_M_BY_SYSTEM = {
     "oscillator_bath": [2, 8],
@@ -81,33 +68,11 @@ FULL_TIME_BUDGET = 60.0     # stop full mesolve once one solve exceeds this
 MAX_FULL_DIM = 64           # never attempt full mesolve above this dimension
 TLIST = np.linspace(0.0, 5.0, 40)
 
-# ---------------------------------------------------------------------------
-# Davies/Lindblad sparsity controls
-# ---------------------------------------------------------------------------
-# Legacy threshold passed to davies_operators/build_collapse_ops. Keep this at
-# zero for the main benchmark unless you intentionally want the old threshold.
-DAVIES_THRESHOLD = float(os.environ.get("DAVIES_THRESHOLD", "0.0"))
-
-# New pruning threshold for weak system-bath coupling blocks during the Davies
-# operator build. This controls the sparsity/original operator count N_L.
-COUPLING_THRESHOLD = float(os.environ.get("COUPLING_THRESHOLD", "0.0"))
-
-# Lamb-shift pruning threshold. None means inherit DAVIES_THRESHOLD, matching the
-# implementation's default. This benchmark does not use imag_gamma, but the
-# option is exposed for completeness.
-_lamb_shift_env = os.environ.get("LAMB_SHIFT_THRESHOLD", "None").strip()
-LAMB_SHIFT_THRESHOLD: float | None
-if _lamb_shift_env.lower() in {"", "none", "null"}:
-    LAMB_SHIFT_THRESHOLD = None
-else:
-    LAMB_SHIFT_THRESHOLD = float(_lamb_shift_env)
-
-# If True and COUPLING_THRESHOLD > 0, build the unpruned operator set once too,
-# only to report the original N_L. This is useful for captions/diagnostics.
-REPORT_UNPRUNED_N_L = True
-
-# Optional manual output suffix. If empty, sparse runs get an automatic suffix.
-OUTPUT_SUFFIX = os.environ.get("OUTPUT_SUFFIX", "")
+# Fixed mcsolve trajectory counts. Rather than search for the ntraj that
+# matches SLB (which produced confusing lower bounds), we run a few fixed
+# values and simply report the cost AND the error each one achieves. No
+# matching, no "+": every method reports what it cost and how accurate it was.
+NTRAJ_FIXED = [50, 200, 1000]
 
 # Shared detailed-balance ohmic bath.
 ALPHA, KT, OMEGA_C = 0.3, 0.5, 8.0
@@ -117,92 +82,6 @@ def gamma(omega: float) -> float:
     if abs(omega) < 1e-10:
         return ALPHA * KT
     return ALPHA * omega * math.exp(-abs(omega) / OMEGA_C) / (1.0 - math.exp(-omega / KT))
-
-
-# ===========================================================================
-# SPARSITY / OUTPUT HELPERS
-# ===========================================================================
-def make_davies_ops(H: qutip.Qobj, X: qutip.Qobj, *, coupling_threshold: float | None = None):
-    """Build Davies operators using the benchmark's sparsity settings."""
-    if coupling_threshold is None:
-        coupling_threshold = COUPLING_THRESHOLD
-    return davies_operators(
-        H, X, gamma,
-        threshold=DAVIES_THRESHOLD,
-        coupling_threshold=float(coupling_threshold),
-        lamb_shift_threshold=LAMB_SHIFT_THRESHOLD,
-    )
-
-
-def count_unpruned_ops(H: qutip.Qobj, X: qutip.Qobj, retained_count: int) -> int:
-    """Return the fully threshold-zero operator count for reporting only."""
-    if not REPORT_UNPRUNED_N_L or not sparsity_active():
-        return retained_count
-    return len(
-        davies_operators(
-            H, X, gamma,
-            threshold=0.0,
-            coupling_threshold=0.0,
-            lamb_shift_threshold=None,
-        )
-    )
-
-
-def n_l_label(retained: int, full: int) -> str:
-    """Human-readable operator count label."""
-    if retained == full:
-        return f"{retained}"
-    return f"{retained}/{full}"
-
-
-def safe_float_label(x: float) -> str:
-    """Compact float string safe for filenames."""
-    return f"{x:g}".replace("-", "m").replace("+", "").replace(".", "p")
-
-
-def sparsity_active() -> bool:
-    """Whether this run changes the Davies/Lindblad operator construction."""
-    return (
-        DAVIES_THRESHOLD != 0.0
-        or COUPLING_THRESHOLD != 0.0
-        or LAMB_SHIFT_THRESHOLD is not None
-    )
-
-
-def sparsity_label() -> str:
-    """Short label for plot titles."""
-    parts: list[str] = []
-    if DAVIES_THRESHOLD != 0.0:
-        parts.append(rf"$\tau_w$={DAVIES_THRESHOLD:g}")
-    if COUPLING_THRESHOLD != 0.0:
-        parts.append(rf"$\tau_c$={COUPLING_THRESHOLD:g}")
-    if LAMB_SHIFT_THRESHOLD is not None:
-        parts.append(rf"$\tau_{{LS}}$={LAMB_SHIFT_THRESHOLD:g}")
-    return "" if not parts else ", " + ", ".join(parts)
-
-
-def output_filename(kind: str, system_name: str) -> str:
-    """Figure filename, with automatic sparsity suffix for nonzero thresholds."""
-    suffix = OUTPUT_SUFFIX
-    if not suffix:
-        parts: list[str] = []
-        if DAVIES_THRESHOLD != 0.0:
-            parts.append(f"thresh_{safe_float_label(DAVIES_THRESHOLD)}")
-        if COUPLING_THRESHOLD != 0.0:
-            parts.append(f"cthresh_{safe_float_label(COUPLING_THRESHOLD)}")
-        if LAMB_SHIFT_THRESHOLD is not None:
-            parts.append(f"lamb_{safe_float_label(LAMB_SHIFT_THRESHOLD)}")
-        suffix = "" if not parts else "_" + "_".join(parts)
-    return f"benchmark_{kind}_{system_name}{suffix}.png"
-
-
-def print_sparsity_config() -> None:
-    lamb = "None" if LAMB_SHIFT_THRESHOLD is None else f"{LAMB_SHIFT_THRESHOLD:g}"
-    print("\nDavies/Lindblad construction settings:")
-    print(f"  DAVIES_THRESHOLD       = {DAVIES_THRESHOLD:g}")
-    print(f"  COUPLING_THRESHOLD     = {COUPLING_THRESHOLD:g}")
-    print(f"  LAMB_SHIFT_THRESHOLD   = {lamb}")
-    print(f"  REPORT_UNPRUNED_N_L    = {REPORT_UNPRUNED_N_L}")
 
 
 # ===========================================================================
@@ -267,51 +146,53 @@ def capped_unique_m_values(name: str, n_lindblad: int) -> list[int]:
     return values
 
 
-def require_nonempty_c_ops(name: str, dim: int, c_ops: list[qutip.Qobj]) -> None:
-    """Fail clearly if the sparsity threshold removed every dissipator."""
-    if len(c_ops) == 0:
-        raise ValueError(
-            f"[{name}] dim={dim}: COUPLING_THRESHOLD={COUPLING_THRESHOLD:g} "
-            "removed all Davies/Lindblad operators. Reduce COUPLING_THRESHOLD."
-        )
+def _run_mcsolve(H, psi0, c_ops, ntraj):
+    """Run mcsolve at a fixed ntraj; return (time_s, expect_array)."""
+    try:
+        t0 = time.perf_counter()
+        res = qutip.mcsolve(H, psi0, TLIST, c_ops=c_ops, e_ops=[H],
+                            ntraj=ntraj, options={"progress_bar": False})
+        tm = time.perf_counter() - t0
+    except TypeError:
+        t0 = time.perf_counter()
+        res = qutip.mcsolve(H, psi0, TLIST, c_ops=c_ops, e_ops=[H], ntraj=ntraj)
+        tm = time.perf_counter() - t0
+    return tm, np.real(res.expect[0])
 
 
 def run_scaling(name, build, sizes):
-    dims, ops, full_ops, t_full, t_bundled = [], [], [], [], []
+    """Measure cost AND error for every method at fixed knobs across sizes.
+
+    No accuracy matching: each method is run at fixed settings (SLB at each M
+    in M_SCALING, mcsolve at each ntraj in NTRAJ_FIXED, full mesolve exact) and
+    we record both its wall-clock cost and the error it achieves vs the full
+    reference. Error is only defined where the reference is computable.
+    """
+    dims, ops, t_full = [], [], []
+    t_bundled = {m: [] for m in M_SCALING}
+    e_bundled = {m: [] for m in M_SCALING}
+    t_mc = {nt: [] for nt in NTRAJ_FIXED}
+    e_mc = {nt: [] for nt in NTRAJ_FIXED}
     full_feasible, wall_dim = True, None
 
-    print(
-        f"\n[{name}]  {'dim':>5} {'N_L kept':>9} {'N_L full':>9} "
-        f"{'full mesolve':>14} {'bundled':>12}"
-    )
+    print(f"\n[{name}]  cost (s) and max-error vs reference at fixed knobs")
     for s in sizes:
         H, X, psi0 = build(s)
         rho0 = qutip.ket2dm(psi0)
         dim = H.shape[0]
-
-        c_ops = make_davies_ops(H, X)
-        require_nonempty_c_ops(name, dim, c_ops)
+        c_ops = davies_operators(H, X, gamma)
         n_l = len(c_ops)
-        n_l_full = count_unpruned_ops(H, X, n_l)
-
         dims.append(dim)
         ops.append(n_l)
-        full_ops.append(n_l_full)
 
-        m_timing = min(M, n_l)
-        t0 = time.perf_counter()
-        mesolve_ensemble(
-            H, rho0, TLIST, c_ops, M=m_timing, e_ops=[H],
-            n_realizations=N_REALIZATIONS, rng=0, backend="native",
-        )
-        tb = time.perf_counter() - t0
-        t_bundled.append(tb)
-
+        # Reference first (if feasible), so errors can be measured this size.
+        ref = None
         if full_feasible and dim <= MAX_FULL_DIM:
             try:
                 t0 = time.perf_counter()
-                qutip.mesolve(H, rho0, TLIST, c_ops=c_ops, e_ops=[H])
+                ref_res = qutip.mesolve(H, rho0, TLIST, c_ops=c_ops, e_ops=[H])
                 tf = time.perf_counter() - t0
+                ref = np.real(ref_res.expect[0])
                 t_full.append(tf)
                 if tf > FULL_TIME_BUDGET:
                     full_feasible = False
@@ -325,35 +206,67 @@ def run_scaling(name, build, sizes):
             t_full.append(np.nan)
             tf = float("nan")
 
-        fstr = f"{tf:11.2f}s" if np.isfinite(tf) else "   (wall)   "
-        print(f"           {dim:>5} {n_l:>9} {n_l_full:>9} {fstr:>14} {tb:10.2f}s")
+        def err_vs_ref(curve):
+            return (float(np.max(np.abs(curve - ref)))
+                    if ref is not None else np.nan)
+
+        # SLB at each M: cost + error.
+        for m in M_SCALING:
+            m_timing = min(m, n_l)
+            t0 = time.perf_counter()
+            ens = mesolve_ensemble(
+                H, rho0, TLIST, c_ops, M=m_timing, e_ops=[H],
+                n_realizations=N_REALIZATIONS, rng=0, backend="native",
+                substeps=SUBSTEPS,
+            )
+            t_bundled[m].append(time.perf_counter() - t0)
+            e_bundled[m].append(err_vs_ref(np.real(ens.expect[0])))
+
+        # mcsolve at each fixed ntraj: cost + error. Only run where a reference
+        # exists -- past the wall there is nothing to measure error against, and
+        # mcsolve at large ntraj on big systems is prohibitively slow (e.g. a
+        # single ntraj=1000 run can take ~an hour at dim 64+), so running it
+        # there would buy an unusable (nan-error) point at enormous cost.
+        for nt in NTRAJ_FIXED:
+            if ref is not None:
+                tm, curve = _run_mcsolve(H, psi0, c_ops, nt)
+                t_mc[nt].append(tm)
+                e_mc[nt].append(err_vs_ref(curve))
+            else:
+                t_mc[nt].append(np.nan)
+                e_mc[nt].append(np.nan)
+
+        fstr = f"{tf:8.2f}s" if np.isfinite(tf) else " (wall) "
+        slb_str = " ".join(f"M{m}:{t_bundled[m][-1]:.2f}/{e_bundled[m][-1]:.1e}"
+                           for m in M_SCALING)
+        if ref is not None:
+            mc_str = " ".join(f"nt{nt}:{t_mc[nt][-1]:.2f}/{e_mc[nt][-1]:.1e}"
+                              for nt in NTRAJ_FIXED)
+        else:
+            mc_str = "mcsolve skipped (past wall, no reference)"
+        print(f"   dim={dim:>4} N_L={n_l:>5} full={fstr}  {slb_str}  {mc_str}")
 
     t_full = np.array(t_full)
     if wall_dim is None and any(~np.isfinite(t_full)):
         wall_dim = dims[int(np.argmax(~np.isfinite(t_full)))]
 
-    return (
-        np.array(dims), np.array(ops), np.array(full_ops),
-        t_full, np.array(t_bundled), wall_dim,
-    )
+    arr = lambda d: {k: np.array(v) for k, v in d.items()}
+    return {
+        "dims": np.array(dims), "ops": np.array(ops), "t_full": t_full,
+        "t_bundled": arr(t_bundled), "e_bundled": arr(e_bundled),
+        "t_mc": arr(t_mc), "e_mc": arr(e_mc), "wall_dim": wall_dim,
+    }
 
 
 def run_accuracy(name, build, size):
     H, X, psi0 = build(size)
     rho0 = qutip.ket2dm(psi0)
     dim = H.shape[0]
-
-    c_ops = make_davies_ops(H, X)
-    require_nonempty_c_ops(name, dim, c_ops)
+    c_ops = davies_operators(H, X, gamma)
     n_l = len(c_ops)
-    n_l_full = count_unpruned_ops(H, X, n_l)
     tlist = np.linspace(0.0, 5.0, 80)
 
-    print(
-        f"[{name}] accuracy plot: dim={dim}, "
-        f"retained/full Lindblad operators N_L={n_l_label(n_l, n_l_full)}, "
-        f"coupling_threshold={COUPLING_THRESHOLD:g}"
-    )
+    print(f"[{name}] accuracy plot: dim={dim}, original Lindblad operators N_L={n_l}")
 
     reference = np.real(qutip.mesolve(H, rho0, tlist, c_ops=c_ops, e_ops=[H]).expect[0])
 
@@ -365,6 +278,7 @@ def run_accuracy(name, build, size):
         ens = mesolve_ensemble(
             H, rho0, tlist, c_ops, M=m_eff, e_ops=[H],
             n_realizations=32, rng=0, backend="native",
+            substeps=SUBSTEPS,
         )
         mean = np.real(ens.expect[0])
         std = (
@@ -374,7 +288,7 @@ def run_accuracy(name, build, size):
         )
         curves[m_eff] = (mean, std)
 
-    return tlist, reference, curves, dim, n_l, n_l_full
+    return tlist, reference, curves, dim, n_l
 
 
 # ===========================================================================
@@ -385,66 +299,116 @@ def main():
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
 
-    print_sparsity_config()
-
     for name, build, sizes, acc_size in SYSTEMS:
-        dims, ops, full_ops, t_full, t_bundled, wall_dim = run_scaling(name, build, sizes)
-        tlist, reference, curves, acc_dim, acc_n_l, acc_n_l_full = run_accuracy(name, build, acc_size)
+        sc = run_scaling(name, build, sizes)
+        tlist, reference, curves, acc_dim, acc_n_l = run_accuracy(name, build, acc_size)
 
-        # Scaling figure.
-        fig, ax = plt.subplots(figsize=(6.6, 4.8))
+        dims, ops, t_full, wall_dim = sc["dims"], sc["ops"], sc["t_full"], sc["wall_dim"]
+        green_shades = ["#9ccc9c", "#4caf50", "#1b5e20"]
+        purple_shades = ["#c9b3e6", "#9b6fd4", "#5e3b9e"]
+
+        # Two panels sharing the size axis: cost (top), error (bottom). Every
+        # method is at FIXED settings; we read cost above and the accuracy it
+        # achieved below. No accuracy matching.
+        fig, (axc, axe) = plt.subplots(
+            2, 1, figsize=(7.0, 7.4), sharex=True,
+            gridspec_kw={"height_ratios": [1, 1]},
+        )
+
+        # --- cost panel ---
         fin = np.isfinite(t_full)
-        ax.loglog(
-            dims[fin], t_full[fin], "o-", color="tab:red", lw=2, ms=7,
-            label=r"mesolve reference (retained $N_L$ ops)",
-        )
-        ax.loglog(
-            dims, t_bundled, "s-", color="tab:green", lw=2, ms=7,
-            label=fr"bundled ($M$={M} of retained $N_L$, {N_REALIZATIONS}x)  [this work]",
-        )
+        axc.loglog(dims[fin], t_full[fin], "o-", color="tab:red", lw=2, ms=7,
+                   label=r"full mesolve (exact, all $N_L$ ops)")
+        for m, col in zip(M_SCALING, green_shades):
+            axc.loglog(dims, sc["t_bundled"][m], "s-", color=col, lw=2, ms=6,
+                       label=fr"SLB, $M$={m}")
+        for nt, col in zip(NTRAJ_FIXED, purple_shades):
+            axc.loglog(dims, sc["t_mc"][nt], "^-", color=col, lw=1.8, ms=6,
+                       label=fr"mcsolve, ntraj={nt}")
         if wall_dim is not None:
-            ax.axvline(wall_dim, color="tab:red", ls="--", lw=1.2, alpha=0.7)
-            ax.text(
-                wall_dim, ax.get_ylim()[1],
-                " full mesolve\n stopped past here\n (time/RAM budget)",
-                color="tab:red", va="top", ha="left", fontsize=8,
-            )
-        for d, n, nf, tb in zip(dims, ops, full_ops, t_bundled):
-            label = rf"$N_L$={n}" if n == nf else rf"$N_L$={n}/{nf}"
-            ax.annotate(
-                label, (d, tb), textcoords="offset points",
-                xytext=(0, -15), fontsize=8, ha="center", color="dimgray",
-            )
-        ax.set_xlabel("Hilbert-space dimension")
-        ax.set_ylabel("wall-clock time (s)")
-        ax.set_title(f"{name}: cost vs system size{sparsity_label()}")
-        ax.grid(True, which="both", alpha=0.3)
-        ax.legend(frameon=False)
+            for a in (axc, axe):
+                a.axvline(wall_dim, color="tab:red", ls="--", lw=1.2, alpha=0.6)
+            axc.text(wall_dim, axc.get_ylim()[0],
+                     "full mesolve\nstopped past here ", color="tab:red",
+                     va="bottom", ha="right", fontsize=7.5)
+        axc.set_ylabel("wall-clock time (s)")
+        axc.set_title(f"{name}: cost and accuracy vs system size (fixed settings)")
+        axc.grid(True, which="both", alpha=0.3)
+        axc.legend(frameon=False, fontsize=7.5, ncol=2)
+        axc.text(
+            0.01, 0.02,
+            f"SLB: M={M_SCALING}, {SUBSTEPS} RK4 substep(s)/step, "
+            f"{N_REALIZATIONS} realizations\nmcsolve: ntraj={NTRAJ_FIXED}",
+            transform=axc.transAxes, ha="left", va="bottom", fontsize=7,
+            color="dimgray",
+        )
+
+        secax = axc.secondary_xaxis("top")
+        secax.set_xticks(dims)
+        secax.set_xticklabels([str(int(n)) for n in ops])
+        secax.minorticks_off()
+        secax.set_xlabel(r"number of Lindblad operators $N_L$ (full dissipator)")
+
+        # --- error panel ---
+        for m, col in zip(M_SCALING, green_shades):
+            e = sc["e_bundled"][m]
+            ef = np.isfinite(e)
+            axe.loglog(dims[ef], e[ef], "s-", color=col, lw=2, ms=6,
+                       label=fr"SLB, $M$={m}")
+        for nt, col in zip(NTRAJ_FIXED, purple_shades):
+            e = sc["e_mc"][nt]
+            ef = np.isfinite(e)
+            axe.loglog(dims[ef], e[ef], "^-", color=col, lw=1.8, ms=6,
+                       label=fr"mcsolve, ntraj={nt}")
+        axe.set_xlabel("Hilbert-space dimension")
+        axe.set_ylabel(r"max error in $\langle H\rangle$ vs exact")
+        axe.grid(True, which="both", alpha=0.3)
+        axe.text(0.99, 0.96,
+                 "error measured only where the exact\nreference is computable",
+                 transform=axe.transAxes, ha="right", va="top",
+                 fontsize=7, color="dimgray")
+
         fig.tight_layout()
-        scaling_file = output_filename("scaling", name)
-        fig.savefig(scaling_file, dpi=130, bbox_inches="tight")
+        fig.savefig(f"benchmark_scaling_{name}.png", dpi=130, bbox_inches="tight")
         plt.close(fig)
-        print(f"  saved {scaling_file}")
+        print(f"  saved benchmark_scaling_{name}.png")
 
         # Accuracy figure.
-        fig, ax = plt.subplots(figsize=(6.6, 4.8))
-        ax.plot(tlist, reference, "k-", lw=2.6, label="Lindblad reference (mesolve)", zorder=5)
-        palette = ["tab:orange", "tab:blue", "tab:green", "tab:purple", "tab:brown"]
+        # Two panels sharing time: <H(t)> on top, and the residual
+        # <H>_SLB - <H>_ref below. On easy systems (oscillator) the SLB curves
+        # sit on the reference and are invisible in the top panel alone; the
+        # residual panel is where their convergence in M actually shows.
+        fig, (ax, axr) = plt.subplots(
+            2, 1, figsize=(6.6, 6.2), sharex=True,
+            gridspec_kw={"height_ratios": [3, 1.4]},
+        )
+        # Reference drawn thin and behind so overlaying SLB curves stay visible.
+        ax.plot(tlist, reference, "k-", lw=1.4, alpha=0.7,
+                label="full Lindblad reference (mesolve)", zorder=1)
+        palette = ["tab:orange", "tab:blue", "tab:green", "tab:purple"]
         for (m_eff, (mean, std)), col in zip(sorted(curves.items()), palette):
-            ax.plot(tlist, mean, "-", color=col, lw=1.6, label=f"bundled M={m_eff}")
+            ax.plot(tlist, mean, "-", color=col, lw=1.6, label=f"SLB, M={m_eff}",
+                    zorder=3)
             ax.fill_between(tlist, mean - std, mean + std, color=col, alpha=0.16)
-        ax.set_xlabel("time")
+            axr.plot(tlist, mean - reference, "-", color=col, lw=1.4)
+        axr.axhline(0.0, color="k", lw=1.0, alpha=0.7)
+        axr.set_xlabel("time")
+        axr.set_ylabel(r"$\langle H\rangle_{\rm SLB}-\langle H\rangle_{\rm ref}$")
         ax.set_ylabel(r"$\langle H\rangle$")
+        if name == "spin_chain":
+            size_str = f"{int(round(math.log2(acc_dim)))} spins, dim {acc_dim}"
+        elif name == "oscillator_bath":
+            size_str = f"Fock cutoff {acc_dim // 2}, dim {acc_dim}"
+        else:
+            size_str = f"dim {acc_dim}"
         ax.set_title(
-            rf"{name} (dim {acc_dim}, $N_L$={n_l_label(acc_n_l, acc_n_l_full)}"
-            rf"{sparsity_label()}): bundled vs mesolve"
+            rf"{name} ({size_str}, $N_L$={acc_n_l}): SLB vs full Lindblad reference"
         )
         ax.legend(frameon=False)
         fig.tight_layout()
-        accuracy_file = output_filename("accuracy", name)
-        fig.savefig(accuracy_file, dpi=130, bbox_inches="tight")
+        fig.savefig(f"benchmark_accuracy_{name}.png", dpi=130, bbox_inches="tight")
         plt.close(fig)
-        print(f"  saved {accuracy_file}")
+        print(f"  saved benchmark_accuracy_{name}.png")
 
 
 if __name__ == "__main__":

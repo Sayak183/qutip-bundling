@@ -10,30 +10,26 @@ folder:
   Monte-Carlo trajectory solver `mcsolve`.
 
 Both scripts are self-contained: `pip install qutip-bundling matplotlib`, then
-`python benchmark_scaling.py` and `python benchmark_vs_mcsolve.py`. Re-running
-them regenerates every figure here. By default the scripts use the full,
-unpruned Davies/Lindblad operator set. To study build-time sparsity separately
-from bundling, set environment variables such as `COUPLING_THRESHOLD=1e-6`;
-thresholded runs write suffix-tagged figures instead of overwriting the default
-benchmark figures.
+`python benchmark_scaling.py`. Re-running them regenerates every figure here.
 
 ## What is being measured
 
 A Lindblad master equation with a large number `N_L` of collapse operators is
 expensive: the dissipator costs one matrix product per operator, and `N_L`
 typically grows as `N^2` in the Hilbert-space dimension `N`, so propagating the
-full equation scales as roughly `O(N^5)` per step. The bundling method replaces
-the `N_L` operators with `M` random *bundled* combinations whose dissipator
-equals the full one in expectation. With `M` held fixed as the system grows,
+full equation scales as roughly `O(N^5)` per step. Stochastic Lindblad
+bundling (SLB) replaces the `N_L` operators with `M` random *bundled*
+combinations whose dissipator equals the full one in expectation. With `M`
+held fixed as the system grows,
 the per-step cost drops to `O(N^3)`.
 
 The benchmarks therefore ask two distinct questions, and it is worth keeping
 them separate:
 
-1. **Does it scale?** As the system grows, does the wall-clock cost of bundling
+1. **Does it scale?** As the system grows, does the wall-clock cost of SLB
    really grow more slowly than the full master equation — and where is the
    crossover below which the full solve is simply the better choice?
-2. **Is it accurate, and at what price?** Bundling is a stochastic
+2. **Is it accurate, and at what price?** SLB is a stochastic
    approximation with a tunable knob `M`. More bundles means less error but more
    work. The honest way to judge a stochastic method is not raw speed but the
    error it achieves for a given amount of compute, compared against the other
@@ -61,9 +57,10 @@ magnetization `X = sum_i sigma_x(i)`, and the chain starts fully polarized. The
 system size is set by the number of spins, so the Hilbert dimension is `2^n`.
 Because the energy eigenbasis mixes all the sites, essentially every pair of
 levels contributes a Davies operator, and `N_L` climbs steeply with size — 64
-operators at dimension 16, over 2000 at dimension 128. This is a recognizable
-model across condensed-matter and quantum-computing work, and it is bundling's
-natural home: a large operator count that grows quickly with system size.
+operators at dimension 16 (4 spins), over 2000 at dimension 128 (7 spins). This
+is a recognizable model across condensed-matter and quantum-computing work, and
+it is SLB's natural home: a large operator count that grows quickly with system
+size.
 
 ### Oscillator + bath
 
@@ -77,31 +74,49 @@ H = omega0 * (n + 1/2)  +  anh * n^2  +  (spin_gap/2) * sigma_z  +  coupling * x
 with `omega0 = 1.0`, `anh = 0.1`, `spin_gap = 1.0`, `coupling = 0.3`. The bath
 couples through the oscillator position `X = x`, and the system size is set by
 the Fock-space truncation. This system is close to the molecular/vibronic
-physics the method was originally developed for, so it shows how bundling
+physics the method was originally developed for, so it shows how SLB
 behaves on a realistic problem rather than only on an idealized chain.
 
-## Result 1 — cost versus system size
+## Result 1 — cost and accuracy versus system size
 
 ![spin chain scaling](benchmark_scaling_spin_chain.png)
 
 ![oscillator scaling](benchmark_scaling_oscillator_bath.png)
 
-Each point is annotated with `N_L`, the number of Lindblad operators at that
-size. The red curve (full `mesolve`, paying for all `N_L` operators) is faster
-for the smallest systems, where the sampling overhead of bundling does not yet
-pay off. Its cost then rises steeply and reaches a point — marked by the dashed
-line — past which a single solve exceeds the time/memory budget. The green
-curve (bundling, using only `M = 4` of the `N_L` operators) starts higher but
-rises far more gently and continues well past where the full solve stops.
+Each figure has two panels sharing the size axis: wall-clock cost on top and the
+max-over-time error in `<H(t)>` (vs the exact reference) below. Every method is
+run at **fixed settings** — full `mesolve` (exact), SLB at `M = 2, 4, 8`, and
+`mcsolve` at `ntraj = 50, 200, 1000` — and we simply report what each one costs
+and how accurate it turned out to be. There is no accuracy matching; you read
+cost in the top panel and the accuracy that buys in the bottom panel. The top
+axis shows `N_L`, the number of Lindblad operators in the full dissipator,
+aligned with the Hilbert dimension.
 
-The practical reading: **below the crossover, use the full master equation;
-above it, bundling is what lets the calculation finish at all.** On the spin
-chain the full solve at dimension 32 (218 operators) takes around a minute,
-versus under a second for bundling — roughly an 80× speedup at that size — and
-at dimension 128 (≈2200 operators) the full solve is out of reach while bundling
-completes in seconds. The oscillator shows the same pattern even more sharply:
-at dimension 32 the full solve takes several minutes where bundling finishes in
-about a second.
+**Cost (top).** Full `mesolve` is cheapest on the smallest systems, then rises
+steeply and reaches the dashed line, past which a single solve exceeds the
+time/memory budget. SLB (greens, cost rising gently with `M`) stays cheap and
+continues well past that wall — it only ever propagates `M` operators,
+independent of `N_L`. `mcsolve` (purples) costs more, rising with `ntraj`.
+Beyond the wall there is no exact reference to measure error against, so
+`mcsolve` is not run there (it is both unmeasurable and, at large `ntraj` on big
+systems, prohibitively slow); only SLB's cost continues.
+
+**Accuracy (bottom).** This is what keeps the cost panel honest: SLB is not
+exact, and the bottom panel shows exactly how much error each `M` carries. The
+SLB curves sit at the bottom (most accurate) — SLB at `M = 8` is consistently
+more accurate than `mcsolve` at any of the trajectory counts shown, while also
+costing less. Read together, the two panels say SLB is both cheaper and more
+accurate than `mcsolve` here, and that full `mesolve` is exact but becomes
+infeasible at dimension 32–64.
+
+Two practical notes. The speedups are real but quoted alongside their accuracy,
+not in isolation: on the spin chain the full solve at dimension 32 (218
+operators) takes around a minute versus a few seconds for SLB, and at dimension
+128 (≈2200 operators) the full solve is out of reach while SLB still completes.
+And SLB's stochastic integrator needs at least two RK4 substeps per step to stay
+stable on the stiffer oscillator at the larger sizes — a single substep diverges
+there — so these runs use four (stated in the figure caption); the result is
+already converged by two.
 
 ## Result 2 — accuracy versus the bundle size M
 
@@ -120,7 +135,7 @@ reference at small `M`. On the spin chain the bias and spread at `M = 2` are
 clearly visible and shrink steadily as `M` grows. On the oscillator the bundled
 mean already sits essentially on the reference at `M = 2` — the residual error
 there is roughly an order of magnitude smaller at the same `M` (see the frontier
-numbers below). How quickly bundling converges in `M` is therefore
+numbers below). How quickly SLB converges in `M` is therefore
 system-dependent: it is set by the spread of the individual operator
 contributions to the dissipator, not by the Hilbert-space dimension alone, so it
 is worth checking the convergence on your own system rather than assuming a
@@ -134,53 +149,30 @@ fixed `M` is enough.
 
 This is the comparison against the other stochastic option, QuTiP's
 quantum-trajectory solver `mcsolve`. Both methods have an accuracy knob —
-bundle size `M` for bundling, trajectory count `ntraj` for `mcsolve` — so
+bundle size `M` for SLB, trajectory count `ntraj` for `mcsolve` — so
 neither raw speed nor raw accuracy alone is a fair summary. Each curve sweeps
-its own knob; the axes are wall-clock time (cheaper to the left) and
-max-over-time error against the full reference (better at the bottom), so the
-method sitting toward the **lower-left wins at matched accuracy**. Error bars
-are the standard error over independent repeats.
+its own knob; the axes are wall-clock time and max-over-time error in `<H(t)>`
+against the full reference (lower is better on both), so the method sitting
+toward the **lower-left wins at matched accuracy**. Error bars are the standard
+error over independent repeats.
 
-On the spin chain, bundling sits below `mcsolve` across the useful range: to
-reach an error near 0.02 it needs well under a second, where `mcsolve` needs
-several seconds of trajectories — roughly an order of magnitude cheaper at
+For the comparison to be fair, both methods are run at a stated integration
+resolution: SLB sweeps `M` at a fixed number of RK4 substeps per time step
+(noted in the figure caption), and `mcsolve` sweeps `ntraj` at QuTiP's default
+tolerances. Both share the same time grid and the same full-Lindblad
+reference, so a point's horizontal position reflects real work, not a coarser
+integration hidden in one method.
+
+On the spin chain, SLB sits below `mcsolve` across most of the range: to reach
+an error near 0.02 it needs a few seconds (at `M = 16`), where `mcsolve` needs
+roughly three times as long in trajectories to match — a few times cheaper at
 matched accuracy. (At the very loosest accuracy a handful of trajectories is
 the single cheapest point, so for a quick rough look `mcsolve` is fine.) On the
-oscillator the gap is much larger: bundling reaches errors around `10^-3` in
-under a second, while `mcsolve` after a thousand trajectories and roughly 20
-seconds is still near `10^-1` — about two orders of magnitude less accurate at
-far higher cost. This is the regime bundling is built for, and it is where the
-method most clearly earns its place.
-
-
-## Optional sparsity study
-
-The benchmark scripts expose the same Davies-operator thresholds as the public
-API. The most useful knob is `COUPLING_THRESHOLD`, which prunes weak
-`|<a|X|b>|` coupling elements while building the original operator set. This is
-separate from the bundle size `M`: the threshold changes the retained Lindblad
-equation itself, while `M` controls how many bundled operators approximate the
-retained equation.
-
-Examples:
-
-```bash
-# full, unpruned benchmark
-python benchmark_scaling.py
-python benchmark_vs_mcsolve.py
-
-# sparse/operator-pruned benchmark
-COUPLING_THRESHOLD=1e-6 python benchmark_scaling.py
-COUPLING_THRESHOLD=1e-6 python benchmark_vs_mcsolve.py
-```
-
-For sparse runs the terminal output and plot titles report `N_L` as
-`retained/full`, for example `N_L = 42/128`. The deterministic `mesolve`
-reference, bundled solver, and `mcsolve` all use the same retained operator set
-in a thresholded run, so the frontier still compares solvers fairly for that
-chosen Lindblad equation. To measure the physical error introduced by pruning
-itself, compare observables from the thresholded run against the
-`COUPLING_THRESHOLD=0` run.
+oscillator the gap is far larger: SLB reaches errors around `10^-3` in a few
+seconds, while `mcsolve` after a thousand trajectories and roughly half a minute
+is still near `10^-1` — about two orders of magnitude less accurate at higher
+cost. This is the regime SLB is built for, and it is where the method most
+clearly earns its place.
 
 ## Reproducing and reading these numbers
 

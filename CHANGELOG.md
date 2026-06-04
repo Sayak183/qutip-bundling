@@ -23,9 +23,6 @@
     `threshold` could silently drop Lamb-shift terms, because that filter
     compares against `|imag_gamma|`, an unrelated quantity. Set this
     explicitly to decouple the two.
-- Benchmark scripts now expose the same Davies-construction thresholds through
-  environment variables (`DAVIES_THRESHOLD`, `COUPLING_THRESHOLD`, and
-  `LAMB_SHIFT_THRESHOLD`) and report retained/full `N_L` counts.
 
 ## 0.5.0
 - `mesolve_ensemble` / `mesolve_jackknife` now expose `.std` (trajectory
