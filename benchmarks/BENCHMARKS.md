@@ -174,15 +174,83 @@ is still near `10^-1` — about two orders of magnitude less accurate at higher
 cost. This is the regime SLB is built for, and it is where the method most
 clearly earns its place.
 
+## Result 4 — validation and robustness
+
+The three results above establish the headline claims. This section collects the
+checks that answer the obvious follow-up doubts: that the comparison is fair,
+that SLB reproduces more than one easy observable, that it converges at the rate
+the theory predicts, and that none of it hinges on a lucky random seed. Each
+check has its own script and figure.
+
+**Beyond energy: a coherence observable.** Energy is a forgiving target — it is
+essentially diagonal in the energy eigenbasis, so matching `<H(t)>` says little
+about the off-diagonal part of the state. As a harder test we also track the
+energy-eigenstate coherence the dynamics most strongly populates (`|a><b| +
+h.c.`, with the pair `(a,b)` chosen by the largest `|<a|rho(t)|b>|` in the exact
+solution).
+
+![spin chain coherence](benchmark_coherence_spin_chain.png)
+
+![oscillator coherence](benchmark_coherence_oscillator_bath.png)
+
+These are genuine off-diagonal signals — the spin-chain coherence decays from
+about 0.4, the oscillator coherence swings through zero and oscillates — and SLB
+tracks them with the same convergence in `M` it shows for energy. Reproducing a
+coherence, not just a population, is direct evidence SLB captures the state
+rather than one easy projection of it.
+
+**Convergence at the predicted rate.** SLB is a Monte Carlo estimator, so two
+quantities should fall with `M` at two different, theory-fixed rates: the
+statistical spread as `M^(-1/2)`, and the finite-`M` bias faster, as `M^(-1)`.
+
+![spin chain convergence](benchmark_convergence_spin_chain.png)
+
+![oscillator convergence](benchmark_convergence_oscillator_bath.png)
+
+Fitting the measured slopes gives close to `-0.5` for the spread and `-1.0` for
+the bias on both systems, landing on the guide lines. Matching the predicted
+exponents (not merely "getting smaller") is hard to fake by tuning, and is the
+strongest single check that the estimator behaves as derived.
+
+**Bias versus system size, with jackknife correction.** At fixed `M` the
+finite-`M` bias grows with system size — visible as the SLB error climbing in
+Result 1. The jackknife study quantifies this and shows the built-in jackknife
+correction suppresses it.
+
+![spin chain jackknife](benchmark_jackknife_spin_chain.png)
+
+![oscillator jackknife](benchmark_jackknife_oscillator_bath.png)
+
+The uncorrected bias rises steeply with dimension while the jackknife-corrected
+bias stays comparatively flat — so the error growth at fixed `M` is a known,
+correctable effect, not a breakdown of the method.
+
+**Seed robustness.** Both SLB and mcsolve are stochastic; the other figures fix
+one seed for reproducibility. Recomputing the frontier across several
+independent master seeds shows the conclusion does not depend on the seed.
+
+![spin chain seed robustness](benchmark_seed_robustness_spin_chain.png)
+
+The per-seed frontiers (faint) cluster tightly around the seed-average (bold),
+and the SLB points stay below the mcsolve points for every seed.
+
+**mcsolve fairness.** So the cost comparison cannot be dismissed as an artifact
+of hidden settings, `mcsolve` in Result 3 is run single-threaded (matching SLB's
+single-threaded realization loop) with its ODE tolerances stated explicitly
+(`atol=1e-8`, `rtol=1e-6`), both shown in the figure caption. Removing
+mcsolve's multi-core advantage this way does not change the conclusion — SLB
+still reaches a given accuracy at lower cost.
+
 ## Reproducing and reading these numbers
 
 The absolute times depend on the machine, the CPU core count, and the BLAS
 build, so treat them as relative comparisons rather than fixed constants. A few
 notes for anyone re-running:
 
-- `mcsolve` parallelizes its trajectories across CPU cores, so its position on
-  the frontier shifts with the number of cores available; state the core count
-  when reporting.
+- `mcsolve` parallelizes its trajectories across CPU cores, so its wall-clock
+  cost depends on the core count. The Result 3 frontier pins it single-threaded
+  to match SLB's single-threaded loop; if you allow it multiple cores its points
+  shift left, so state the core count when reporting.
 - The first solve of any method pays one-time import and compilation costs; for
   careful timing, discard a warm-up run.
 - The system size, time grid, and tolerances are identical across all methods
