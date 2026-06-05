@@ -47,6 +47,16 @@ N_REPEATS = 4                          # independent repeats -> SEM bars
 SUBSTEPS = 4                           # RK4 substeps per TLIST interval for SLB;
                                        # stated so the SLB integration resolution
                                        # is explicit alongside mcsolve's ntraj
+# Fairness controls for mcsolve (see Result 3 discussion):
+#  - run single-threaded ("map": "serial") so wall-clock matches SLB's
+#    single-threaded realization loop, rather than mcsolve getting a free
+#    multi-core speedup SLB doesn't.
+#  - state the ODE tolerances explicitly so the integration accuracy of both
+#    methods is disclosed (mcsolve is adaptive; SLB is fixed at SUBSTEPS).
+MC_ATOL = 1e-8
+MC_RTOL = 1e-6
+MC_OPTIONS = {"progress_bar": False, "map": "serial",
+              "atol": MC_ATOL, "rtol": MC_RTOL}
 TLIST = np.linspace(0.0, 5.0, 80)
 
 ALPHA, KT, OMEGA_C = 0.3, 0.5, 8.0
@@ -168,10 +178,17 @@ def frontier(name, build, size):
         times, errors = [], []
         for _r in range(N_REPEATS):
             t0 = time.perf_counter()
-            mc = qutip.mcsolve(
-                H, psi0, TLIST, c_ops, e_ops=[H], ntraj=nt,
-                options={"progress_bar": False},
-            )
+            try:
+                mc = qutip.mcsolve(
+                    H, psi0, TLIST, c_ops, e_ops=[H], ntraj=nt,
+                    options=MC_OPTIONS,
+                )
+            except (TypeError, KeyError):
+                # older/newer qutip: fall back to whatever options it accepts
+                mc = qutip.mcsolve(
+                    H, psi0, TLIST, c_ops, e_ops=[H], ntraj=nt,
+                    options={"progress_bar": False},
+                )
             times.append(time.perf_counter() - t0)
             errors.append(max_err(mc.expect[0], reference))
 
@@ -250,7 +267,9 @@ def main():
             0.99, 0.02,
             f"SLB: sweep M={M_VALUES}, {SUBSTEPS} RK4 substep(s)/step, "
             f"{N_REALIZATIONS} realizations\n"
-            f"mcsolve: sweep ntraj={NTRAJ_VALUES}",
+            f"mcsolve: sweep ntraj={NTRAJ_VALUES}, single-thread, "
+            f"atol={MC_ATOL:g}/rtol={MC_RTOL:g}\n"
+            f"(both single-thread; same time grid and reference)",
             transform=ax.transAxes, ha="right", va="bottom", fontsize=7,
             color="dimgray",
         )

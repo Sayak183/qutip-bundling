@@ -258,6 +258,31 @@ def run_scaling(name, build, sizes):
     }
 
 
+def _populated_coherence_op(H, ref_states):
+    """Hermitian coherence operator |a><b| + h.c. for the energy-eigenstate pair
+    (a, b) whose coherence is *most populated by the actual dynamics* (largest
+    |<a|rho(t)|b>| over the reference trajectory). This guarantees we track a
+    coherence the system genuinely develops -- picking by coupling strength can
+    land on a pair the dynamics never populates (value ~ machine zero), which is
+    uninformative. <H> is essentially diagonal, so this off-diagonal is exactly
+    what energy cannot see."""
+    Ha = 0.5 * (np.asarray(H.full()) + np.asarray(H.full()).conj().T)
+    evals, evecs = np.linalg.eigh(Ha)
+    R = evecs.conj().T  # rows are eigenvectors
+    best = (0, 1, -1.0)
+    for s in ref_states:
+        rho_e = R @ np.asarray(s.full()) @ R.conj().T
+        ab = np.abs(rho_e)
+        np.fill_diagonal(ab, 0.0)
+        i, j = np.unravel_index(int(np.argmax(ab)), ab.shape)
+        if ab[i, j] > best[2]:
+            best = (int(i), int(j), float(ab[i, j]))
+    a, b = best[0], best[1]
+    P = np.outer(evecs[:, a], evecs[:, b].conj())
+    C = qutip.Qobj(P + P.conj().T, dims=H.dims)
+    return C, (a, b), best[2]
+
+
 def run_accuracy(name, build, size):
     H, X, psi0 = build(size)
     rho0 = qutip.ket2dm(psi0)
@@ -266,34 +291,78 @@ def run_accuracy(name, build, size):
     n_l = len(c_ops)
     tlist = np.linspace(0.0, 5.0, 80)
 
-    print(f"[{name}] accuracy plot: dim={dim}, original Lindblad operators N_L={n_l}")
+    # Reference states once: used both to choose the coherence and to get the
+    # exact <H>, <C> curves.
+    ref_states = qutip.mesolve(H, rho0, tlist, c_ops=c_ops, e_ops=[]).states
+    C, (ia, ib), peak = _populated_coherence_op(H, ref_states)
+    e_ops = [H, C]   # energy (diagonal-dominated) and a genuinely populated coherence
 
-    reference = np.real(qutip.mesolve(H, rho0, tlist, c_ops=c_ops, e_ops=[H]).expect[0])
+    print(f"[{name}] accuracy plot: dim={dim}, N_L={n_l}; coherence on eigenstate "
+          f"pair ({ia},{ib}), peak |rho_ab|={peak:.2e}")
 
-    curves = {}
+    references = [np.real(qutip.expect(H, ref_states)),
+                  np.real(qutip.expect(C, ref_states))]
+
+    # curves[obs_index][M] = (mean, std)
+    curves = [{}, {}]
     m_values = capped_unique_m_values(name, n_l)
     print(f"[{name}] accuracy M values shown: {m_values}")
 
     for m_eff in m_values:
         ens = mesolve_ensemble(
-            H, rho0, tlist, c_ops, M=m_eff, e_ops=[H],
+            H, rho0, tlist, c_ops, M=m_eff, e_ops=e_ops,
             n_realizations=32, rng=0, backend="native",
             substeps=SUBSTEPS,
         )
-        mean = np.real(ens.expect[0])
-        std = (
-            np.asarray(ens.std[0], float)
-            if getattr(ens, "std", None) is not None
-            else np.asarray(ens.sem[0], float) * math.sqrt(32)
-        )
-        curves[m_eff] = (mean, std)
+        for oi in (0, 1):
+            mean = np.real(ens.expect[oi])
+            std = (
+                np.asarray(ens.std[oi], float)
+                if getattr(ens, "std", None) is not None
+                else np.asarray(ens.sem[oi], float) * math.sqrt(32)
+            )
+            curves[oi][m_eff] = (mean, std)
 
-    return tlist, reference, curves, dim, n_l
+    return tlist, references, curves, dim, n_l, (ia, ib)
 
 
 # ===========================================================================
 # MAIN
 # ===========================================================================
+def _accuracy_figure(plt, name, tlist, reference, curves, acc_dim, acc_n_l,
+                     obs_math, fname_suffix, subtitle):
+    """Two panels: observable vs time (top) and residual vs reference (bottom),
+    one SLB curve per M. Used for both <H> and the coherence observable."""
+    fig, (ax, axr) = plt.subplots(
+        2, 1, figsize=(6.6, 6.2), sharex=True,
+        gridspec_kw={"height_ratios": [3, 1.4]},
+    )
+    ax.plot(tlist, reference, "k-", lw=1.4, alpha=0.7,
+            label="full Lindblad reference (mesolve)", zorder=1)
+    palette = ["tab:orange", "tab:blue", "tab:green", "tab:purple"]
+    for (m_eff, (mean, std)), col in zip(sorted(curves.items()), palette):
+        ax.plot(tlist, mean, "-", color=col, lw=1.6, label=f"SLB, M={m_eff}",
+                zorder=3)
+        ax.fill_between(tlist, mean - std, mean + std, color=col, alpha=0.16)
+        axr.plot(tlist, mean - reference, "-", color=col, lw=1.4)
+    axr.axhline(0.0, color="k", lw=1.0, alpha=0.7)
+    axr.set_xlabel("time")
+    axr.set_ylabel(rf"${obs_math}_{{\rm SLB}}-{obs_math}_{{\rm ref}}$")
+    ax.set_ylabel(rf"${obs_math}$")
+    if name == "spin_chain":
+        size_str = f"{int(round(math.log2(acc_dim)))} spins, dim {acc_dim}"
+    elif name == "oscillator_bath":
+        size_str = f"Fock cutoff {acc_dim // 2}, dim {acc_dim}"
+    else:
+        size_str = f"dim {acc_dim}"
+    ax.set_title(rf"{name} ({size_str}, $N_L$={acc_n_l}): {subtitle}")
+    ax.legend(frameon=False)
+    fig.tight_layout()
+    fig.savefig(f"benchmark_{fname_suffix}_{name}.png", dpi=130, bbox_inches="tight")
+    plt.close(fig)
+    print(f"  saved benchmark_{fname_suffix}_{name}.png")
+
+
 def main():
     import matplotlib
     matplotlib.use("Agg")
@@ -301,7 +370,7 @@ def main():
 
     for name, build, sizes, acc_size in SYSTEMS:
         sc = run_scaling(name, build, sizes)
-        tlist, reference, curves, acc_dim, acc_n_l = run_accuracy(name, build, acc_size)
+        tlist, references, curves, acc_dim, acc_n_l, (ia, ib) = run_accuracy(name, build, acc_size)
 
         dims, ops, t_full, wall_dim = sc["dims"], sc["ops"], sc["t_full"], sc["wall_dim"]
         green_shades = ["#9ccc9c", "#4caf50", "#1b5e20"]
@@ -373,42 +442,19 @@ def main():
         plt.close(fig)
         print(f"  saved benchmark_scaling_{name}.png")
 
-        # Accuracy figure.
-        # Two panels sharing time: <H(t)> on top, and the residual
-        # <H>_SLB - <H>_ref below. On easy systems (oscillator) the SLB curves
-        # sit on the reference and are invisible in the top panel alone; the
-        # residual panel is where their convergence in M actually shows.
-        fig, (ax, axr) = plt.subplots(
-            2, 1, figsize=(6.6, 6.2), sharex=True,
-            gridspec_kw={"height_ratios": [3, 1.4]},
+        # Accuracy figures: energy (diagonal-dominated) and the dominant
+        # coherence (off-diagonal). Tracking both shows SLB reproduces
+        # populations AND coherences, not just the easy energy expectation.
+        _accuracy_figure(
+            plt, name, tlist, references[0], curves[0], acc_dim, acc_n_l,
+            obs_math=r"\langle H\rangle", fname_suffix="accuracy",
+            subtitle="SLB vs full Lindblad reference (energy)",
         )
-        # Reference drawn thin and behind so overlaying SLB curves stay visible.
-        ax.plot(tlist, reference, "k-", lw=1.4, alpha=0.7,
-                label="full Lindblad reference (mesolve)", zorder=1)
-        palette = ["tab:orange", "tab:blue", "tab:green", "tab:purple"]
-        for (m_eff, (mean, std)), col in zip(sorted(curves.items()), palette):
-            ax.plot(tlist, mean, "-", color=col, lw=1.6, label=f"SLB, M={m_eff}",
-                    zorder=3)
-            ax.fill_between(tlist, mean - std, mean + std, color=col, alpha=0.16)
-            axr.plot(tlist, mean - reference, "-", color=col, lw=1.4)
-        axr.axhline(0.0, color="k", lw=1.0, alpha=0.7)
-        axr.set_xlabel("time")
-        axr.set_ylabel(r"$\langle H\rangle_{\rm SLB}-\langle H\rangle_{\rm ref}$")
-        ax.set_ylabel(r"$\langle H\rangle$")
-        if name == "spin_chain":
-            size_str = f"{int(round(math.log2(acc_dim)))} spins, dim {acc_dim}"
-        elif name == "oscillator_bath":
-            size_str = f"Fock cutoff {acc_dim // 2}, dim {acc_dim}"
-        else:
-            size_str = f"dim {acc_dim}"
-        ax.set_title(
-            rf"{name} ({size_str}, $N_L$={acc_n_l}): SLB vs full Lindblad reference"
+        _accuracy_figure(
+            plt, name, tlist, references[1], curves[1], acc_dim, acc_n_l,
+            obs_math=rf"\langle C_{{{ia},{ib}}}\rangle", fname_suffix="coherence",
+            subtitle=rf"SLB vs reference (coherence on eigenstates {ia},{ib})",
         )
-        ax.legend(frameon=False)
-        fig.tight_layout()
-        fig.savefig(f"benchmark_accuracy_{name}.png", dpi=130, bbox_inches="tight")
-        plt.close(fig)
-        print(f"  saved benchmark_accuracy_{name}.png")
 
 
 if __name__ == "__main__":
