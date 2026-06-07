@@ -23,9 +23,9 @@ $$
 R_m = \frac{1}{\sqrt{M}} \sum_\alpha r_{m,\alpha}\, c_\alpha
 $$
 
-```
-R_m = (1 / sqrt(M)) * sum_alpha  r_{m,alpha} * c_alpha
-```
+$$
+R_m = \frac{1}{\sqrt{M}} \sum_\alpha r_{m,\alpha}\, c_\alpha
+$$
 
 where the `r_{m,alpha}` are independent random numbers with zero mean and unit
 second moment. The bundled dissipator is an **unbiased estimator** of the full
@@ -99,9 +99,9 @@ operators — it does not care how they were built. The bundling is a purely
 algebraic operation: it replaces `N_L` operators `{c_alpha}` with `M` random
 linear combinations
 
-```
-R_m = (1 / sqrt(M)) * sum_alpha r_{m,alpha} * c_alpha,
-```
+$$
+R_m = \frac{1}{\sqrt{M}} \sum_\alpha r_{m,\alpha}\, c_\alpha ,
+$$
 
 so that the bundled dissipator `sum_m D[R_m]` equals the full dissipator
 `sum_alpha D[c_alpha]` in expectation. Nothing in that statement assumes the
