@@ -24,7 +24,7 @@ $$
 R_m = \frac{1}{\sqrt{M}} \sum_\alpha r_{m,\alpha}\, c_\alpha
 $$
 
-where the `r_{m,alpha}` are independent random numbers with zero mean and unit
+where the $$r_{m,alpha}$$ are independent random numbers with zero mean and unit
 second moment. The bundled dissipator is an **unbiased estimator** of the full
 one for any `M`, and the bundled operators still have Lindblad form, so the
 dynamics stay completely positive and trace preserving.
