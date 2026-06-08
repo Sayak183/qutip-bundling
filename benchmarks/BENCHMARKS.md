@@ -67,13 +67,16 @@ An anharmonic oscillator coupled to a two-level spin, with the oscillator
 position coupling to the bath:
 
 $$
-H = \omega_0\left(n + \tfrac{1}{2}\right) + \chi n^2 + \frac{\Delta}{2}\sigma_z + g\,(x \otimes \sigma_x)
+H = \omega_0\left(n + \tfrac{1}{2}\right) + \chi n^2 + \frac{\Delta}{2}\sigma_z + g\(x \otimes \sigma_x)
 $$
 
 with $\omega_0 = 1.0$ (`omega0`), $\chi = 0.1$ (`anh`), $\Delta = 1.0$
 (`spin_gap`), and $g = 0.3$ (`coupling`). The bath couples through the
 oscillator position $X = x$, and the system size is set by the Fock-space
-truncation. This system is close to the molecular/vibronic
+truncation. The four terms are, in order: the bare oscillator (number operator $n$),
+its anharmonicity ($\chi n^2$), the two-level spin's energy splitting
+($\tfrac{\Delta}{2}\sigma_z$), and the oscillator–spin coupling through the
+oscillator position ($g\,x\otimes\sigma_x$). This system is close to the molecular/vibronic
 physics the method was originally developed for, so it shows how SLB
 behaves on a realistic problem rather than only on an idealized chain.
 
