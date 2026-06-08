@@ -48,7 +48,7 @@ levels, and weights each by the bath response at that frequency.
 A dissipative transverse-field Ising chain of `n` spins:
 
 $$
-H = -J \sum_i \sigma^z_i \sigma^z_{i+1} \;-\; h \sum_i \sigma^x_i
+H = -J \sum_i \sigma^z_i \sigma^z_{i+1} \-\ h \sum_i \sigma^x_i
 $$
 
 with `J = 1.0`, `h = 0.6`. The bath couples to the total transverse
