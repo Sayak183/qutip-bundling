@@ -70,9 +70,10 @@ $$
 H = \omega_0\left(n + \tfrac{1}{2}\right) + \chi\, n^2 + \frac{\Delta}{2}\,\sigma_z + g\, x\,\sigma_x
 $$
 
-with `omega0 = 1.0`, `anh = 0.1`, `spin_gap = 1.0`, `coupling = 0.3`. The bath
-couples through the oscillator position $X = x$, and the system size is set by
-the Fock-space truncation. This system is close to the molecular/vibronic
+with $\omega_0 = 1.0$ (`omega0`), $\chi = 0.1$ (`anh`), $\Delta = 1.0$
+(`spin_gap`), and $g = 0.3$ (`coupling`). The bath couples through the
+oscillator position $X = x$, and the system size is set by the Fock-space
+truncation. This system is close to the molecular/vibronic
 physics the method was originally developed for, so it shows how SLB
 behaves on a realistic problem rather than only on an idealized chain.
 
