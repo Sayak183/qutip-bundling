@@ -48,15 +48,15 @@ levels, and weights each by the bath response at that frequency.
 
 A dissipative transverse-field Ising chain of `n` spins:
 
-```
+$$
 H = -J * sum_i  sigma_z(i) sigma_z(i+1)   -   h * sum_i sigma_x(i)
-```
+$$
 
 with `J = 1.0`, `h = 0.6`. The bath couples to the total transverse
-magnetization `X = sum_i sigma_x(i)`, and the chain starts fully polarized. The
-system size is set by the number of spins, so the Hilbert dimension is `2^n`.
+magnetization $$X = sum_i sigma_x(i)$$, and the chain starts fully polarized. The
+system size is set by the number of spins, so the Hilbert dimension is $$2^n$$.
 Because the energy eigenbasis mixes all the sites, essentially every pair of
-levels contributes a Davies operator, and `N_L` climbs steeply with size — 64
+levels contributes a Davies operator, and $$N_L$$ climbs steeply with size — 64
 operators at dimension 16 (4 spins), over 2000 at dimension 128 (7 spins). This
 is a recognizable model across condensed-matter and quantum-computing work, and
 it is SLB's natural home: a large operator count that grows quickly with system
@@ -67,9 +67,9 @@ size.
 An anharmonic oscillator coupled to a two-level spin, with the oscillator
 position coupling to the bath:
 
-```
+$$
 H = omega0 * (n + 1/2)  +  anh * n^2  +  (spin_gap/2) * sigma_z  +  coupling * x * sigma_x
-```
+$$
 
 with `omega0 = 1.0`, `anh = 0.1`, `spin_gap = 1.0`, `coupling = 0.3`. The bath
 couples through the oscillator position `X = x`, and the system size is set by
@@ -84,19 +84,19 @@ behaves on a realistic problem rather than only on an idealized chain.
 ![oscillator scaling](benchmark_scaling_oscillator_bath.png)
 
 Each figure has two panels sharing the size axis: wall-clock cost on top and the
-max-over-time error in `<H(t)>` (vs the exact reference) below. Every method is
+max-over-time error in $$<H(t)>$$ (vs the exact reference) below. Every method is
 run at **fixed settings** — full `mesolve` (exact), SLB at `M = 2, 4, 8`, and
 `mcsolve` at `ntraj = 50, 200, 1000` — and we simply report what each one costs
 and how accurate it turned out to be. There is no accuracy matching; you read
 cost in the top panel and the accuracy that buys in the bottom panel. The top
-axis shows `N_L`, the number of Lindblad operators in the full dissipator,
+axis shows $$N_L$$, the number of Lindblad operators in the full dissipator,
 aligned with the Hilbert dimension.
 
 **Cost (top).** Full `mesolve` is cheapest on the smallest systems, then rises
 steeply and reaches the dashed line, past which a single solve exceeds the
 time/memory budget. SLB (greens, cost rising gently with `M`) stays cheap and
 continues well past that wall — it only ever propagates `M` operators,
-independent of `N_L`. `mcsolve` (purples) costs more, rising with `ntraj`.
+independent of $$N_L$$. `mcsolve` (purples) costs more, rising with `ntraj`.
 Beyond the wall there is no exact reference to measure error against, so
 `mcsolve` is not run there (it is both unmeasurable and, at large `ntraj` on big
 systems, prohibitively slow); only SLB's cost continues.
