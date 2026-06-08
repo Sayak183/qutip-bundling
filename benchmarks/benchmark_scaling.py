@@ -147,15 +147,24 @@ def capped_unique_m_values(name: str, n_lindblad: int) -> list[int]:
 
 
 def _run_mcsolve(H, psi0, c_ops, ntraj):
-    """Run mcsolve at a fixed ntraj; return (time_s, expect_array)."""
+    """Run mcsolve at a fixed ntraj; return (time_s, expect_array).
+
+    mcsolve is pinned single-threaded ("map": "serial") so its wall-clock time
+    is the full sequential cost of all ntraj trajectories -- matching SLB's
+    single-threaded realization loop. Without this, mcsolve would spread its
+    trajectories across CPU cores and be timed with a parallel speedup SLB does
+    not get, making the cost comparison unfair to SLB.
+    """
+    opts = {"progress_bar": False, "map": "serial"}
     try:
         t0 = time.perf_counter()
         res = qutip.mcsolve(H, psi0, TLIST, c_ops=c_ops, e_ops=[H],
-                            ntraj=ntraj, options={"progress_bar": False})
+                            ntraj=ntraj, options=opts)
         tm = time.perf_counter() - t0
-    except TypeError:
+    except (TypeError, KeyError):
         t0 = time.perf_counter()
-        res = qutip.mcsolve(H, psi0, TLIST, c_ops=c_ops, e_ops=[H], ntraj=ntraj)
+        res = qutip.mcsolve(H, psi0, TLIST, c_ops=c_ops, e_ops=[H], ntraj=ntraj,
+                            options={"progress_bar": False})
         tm = time.perf_counter() - t0
     return tm, np.real(res.expect[0])
 
@@ -407,7 +416,9 @@ def main():
         axc.text(
             0.01, 0.02,
             f"SLB: M={M_SCALING}, {SUBSTEPS} RK4 substep(s)/step, "
-            f"{N_REALIZATIONS} realizations\nmcsolve: ntraj={NTRAJ_FIXED}",
+            f"{N_REALIZATIONS} realizations averaged\n"
+            f"mcsolve: ntraj={NTRAJ_FIXED} trajectories averaged "
+            f"(both single-thread)",
             transform=axc.transAxes, ha="left", va="bottom", fontsize=7,
             color="dimgray",
         )
