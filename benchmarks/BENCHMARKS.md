@@ -67,7 +67,7 @@ An anharmonic oscillator coupled to a two-level spin, with the oscillator
 position coupling to the bath:
 
 $$
-H = \omega_0\left(n + \tfrac{1}{2}\right)\otimes I_s + \chi\, n^2 \otimes I_s + \frac{\Delta}{2}\,I_o\otimes\sigma_z + g\,(x \otimes \sigma_x)
+H = \omega_0\left(n + \tfrac{1}{2}\right) + \chi\, n^2 + \frac{\Delta}{2}\,\sigma_z + g\,(x \otimes \sigma_x)
 $$
 
 with $\omega_0 = 1.0$ (`omega0`), $\chi = 0.1$ (`anh`), $\Delta = 1.0$
