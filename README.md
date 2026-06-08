@@ -82,7 +82,7 @@ operators, not solver results:
 | Function | Purpose |
 |---|---|
 | `davies_operators(H, X, gamma)` | **recommended for Davies/Bohr setups** -- build collapse operators from `H` and coupling op `X`, correct sign baked in |
-| `build_collapse_ops(L_ops, omegas, gamma)` | bare $$L_\alpha$$ and the spectral function → standard collapse operators `sqrt(gamma) * L_alpha` |
+| `build_collapse_ops(L_ops, omegas, gamma)` | bare '$$L_\alpha$$' and the spectral function → standard collapse operators `sqrt(gamma) * $$L_\alpha$$` |
 | `bundle(c_ops, M, ...)` | **the method** -- any collapse-operator list → `M` randomly bundled operators |
 | `lamb_shift_hamiltonian(L_ops, omegas, imag_gamma)` | bare `L_alpha` and `Im Gamma` → Lamb-shift Hamiltonian `H_LS = sum_alpha imag_gamma * L^dag L` (built once) |
 
