@@ -67,7 +67,7 @@ An anharmonic oscillator coupled to a two-level spin, with the oscillator
 position coupling to the bath:
 
 $$
-H = \omega_0\!\left(n + \tfrac{1}{2}\right) + \mathrm{anh}\, n^2 + \frac{\mathrm{spin\_gap}}{2}\,\sigma_z + \mathrm{coupling}\, x\,\sigma_x
+H = \omega_0\left(n + \tfrac{1}{2}\right) + \mathrm{anh}\cdot n^2 + \frac{\mathrm{spin\_gap}}{2}\,\sigma_z + \mathrm{coupling}\cdot x\,\sigma_x
 $$
 
 with `omega0 = 1.0`, `anh = 0.1`, `spin_gap = 1.0`, `coupling = 0.3`. The bath
