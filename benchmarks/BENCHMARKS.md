@@ -14,14 +14,13 @@ Both scripts are self-contained: `pip install qutip-bundling matplotlib`, then
 
 ## What is being measured
 
-A Lindblad master equation with a large number $$N_L$$ of collapse operators is
-expensive: the dissipator costs one matrix product per operator, and $$N_L$$
-typically grows as $$N^2$$ in the Hilbert-space dimension $$N$$, so propagating the
-full equation scales as roughly $$O(N^5)$$ per step. Stochastic Lindblad
-bundling (SLB) replaces the $$N_L$$ operators with $$M$$ random *bundled*
-combinations whose dissipator equals the full one in expectation. With $$M$$
-held fixed as the system grows,
-the per-step cost drops to $$O(N^3)$$.
+A Lindblad master equation with a large number $N_L$ of collapse operators is
+expensive: the dissipator costs one matrix product per operator, and $N_L$
+typically grows as $N^2$ in the Hilbert-space dimension $N$, so propagating the
+full equation scales as roughly $O(N^5)$ per step. Stochastic Lindblad
+bundling (SLB) replaces the $N_L$ operators with $M$ random *bundled*
+combinations whose dissipator equals the full one in expectation. With $M$
+held fixed as the system grows, the per-step cost drops to $O(N^3)$.
 
 The benchmarks therefore ask two distinct questions, and it is worth keeping
 them separate:
@@ -49,14 +48,14 @@ levels, and weights each by the bath response at that frequency.
 A dissipative transverse-field Ising chain of `n` spins:
 
 $$
-H = -J * sum_i  sigma_z(i) sigma_z(i+1)   -   h * sum_i sigma_x(i)
+H = -J \sum_i \sigma^z_i \sigma^z_{i+1} \;-\; h \sum_i \sigma^x_i
 $$
 
 with `J = 1.0`, `h = 0.6`. The bath couples to the total transverse
-magnetization $$X = sum_i sigma_x(i)$$, and the chain starts fully polarized. The
-system size is set by the number of spins, so the Hilbert dimension is $$2^n$$.
+magnetization $X = \sum_i \sigma^x_i$, and the chain starts fully polarized. The
+system size is set by the number of spins, so the Hilbert dimension is $2^n$.
 Because the energy eigenbasis mixes all the sites, essentially every pair of
-levels contributes a Davies operator, and $$N_L$$ climbs steeply with size — 64
+levels contributes a Davies operator, and $N_L$ climbs steeply with size — 64
 operators at dimension 16 (4 spins), over 2000 at dimension 128 (7 spins). This
 is a recognizable model across condensed-matter and quantum-computing work, and
 it is SLB's natural home: a large operator count that grows quickly with system
@@ -68,11 +67,11 @@ An anharmonic oscillator coupled to a two-level spin, with the oscillator
 position coupling to the bath:
 
 $$
-H = omega0 * (n + 1/2)  +  anh * n^2  +  (spin_gap/2) * sigma_z  +  coupling * x * sigma_x
+H = \omega_0\!\left(n + \tfrac{1}{2}\right) + \mathrm{anh}\, n^2 + \frac{\mathrm{spin\_gap}}{2}\,\sigma_z + \mathrm{coupling}\, x\,\sigma_x
 $$
 
 with `omega0 = 1.0`, `anh = 0.1`, `spin_gap = 1.0`, `coupling = 0.3`. The bath
-couples through the oscillator position `X = x`, and the system size is set by
+couples through the oscillator position $X = x$, and the system size is set by
 the Fock-space truncation. This system is close to the molecular/vibronic
 physics the method was originally developed for, so it shows how SLB
 behaves on a realistic problem rather than only on an idealized chain.
@@ -84,19 +83,19 @@ behaves on a realistic problem rather than only on an idealized chain.
 ![oscillator scaling](benchmark_scaling_oscillator_bath.png)
 
 Each figure has two panels sharing the size axis: wall-clock cost on top and the
-max-over-time error in $$<H(t)>$$ (vs the exact reference) below. Every method is
-run at **fixed settings** — full `mesolve` (exact), SLB at `M = 2, 4, 8`, and
-`mcsolve` at `ntraj = 50, 200, 1000` — and we simply report what each one costs
-and how accurate it turned out to be. There is no accuracy matching; you read
-cost in the top panel and the accuracy that buys in the bottom panel. The top
-axis shows $$N_L$$, the number of Lindblad operators in the full dissipator,
-aligned with the Hilbert dimension.
+max-over-time error in $\langle H(t)\rangle$ (vs the exact reference) below.
+Every method is run at **fixed settings** — full `mesolve` (exact), SLB at
+`M = 2, 4, 8`, and `mcsolve` at `ntraj = 50, 200, 1000` — and we simply report
+what each one costs and how accurate it turned out to be. There is no accuracy
+matching; you read cost in the top panel and the accuracy that buys in the
+bottom panel. The top axis shows $N_L$, the number of Lindblad operators in the
+full dissipator, aligned with the Hilbert dimension.
 
 **Cost (top).** Full `mesolve` is cheapest on the smallest systems, then rises
 steeply and reaches the dashed line, past which a single solve exceeds the
 time/memory budget. SLB (greens, cost rising gently with `M`) stays cheap and
 continues well past that wall — it only ever propagates `M` operators,
-independent of $$N_L$$. `mcsolve` (purples) costs more, rising with `ntraj`.
+independent of $N_L$. `mcsolve` (purples) costs more, rising with `ntraj`.
 Beyond the wall there is no exact reference to measure error against, so
 `mcsolve` is not run there (it is both unmeasurable and, at large `ntraj` on big
 systems, prohibitively slow); only SLB's cost continues.
@@ -124,11 +123,11 @@ already converged by two.
 
 ![oscillator accuracy](benchmark_accuracy_oscillator_bath.png)
 
-These plot the energy expectation `<H(t)>` against the full Lindblad reference
-(black) as the system relaxes. The shaded band is one standard deviation over
-stochastic realizations. As `M` grows the bundled mean tightens onto the
-reference and the band narrows — the approximation is not a fixed compromise but
-a dial the user controls.
+These plot the energy expectation $\langle H(t)\rangle$ against the full Lindblad
+reference (black) as the system relaxes. The shaded band is one standard
+deviation over stochastic realizations. As `M` grows the bundled mean tightens
+onto the reference and the band narrows — the approximation is not a fixed
+compromise but a dial the user controls.
 
 The two systems also differ in how cleanly the bundled mean tracks the
 reference at small `M`. On the spin chain the bias and spread at `M = 2` are
@@ -151,10 +150,10 @@ This is the comparison against the other stochastic option, QuTiP's
 quantum-trajectory solver `mcsolve`. Both methods have an accuracy knob —
 bundle size `M` for SLB, trajectory count `ntraj` for `mcsolve` — so
 neither raw speed nor raw accuracy alone is a fair summary. Each curve sweeps
-its own knob; the axes are wall-clock time and max-over-time error in `<H(t)>`
-against the full reference (lower is better on both), so the method sitting
-toward the **lower-left wins at matched accuracy**. Error bars are the standard
-error over independent repeats.
+its own knob; the axes are wall-clock time and max-over-time error in
+$\langle H(t)\rangle$ against the full reference (lower is better on both), so
+the method sitting toward the **lower-left wins at matched accuracy**. Error
+bars are the standard error over independent repeats.
 
 For the comparison to be fair, both methods are run at a stated integration
 resolution: SLB sweeps `M` at a fixed number of RK4 substeps per time step
@@ -168,9 +167,9 @@ an error near 0.02 it needs a few seconds (at `M = 16`), where `mcsolve` needs
 roughly three times as long in trajectories to match — a few times cheaper at
 matched accuracy. (At the very loosest accuracy a handful of trajectories is
 the single cheapest point, so for a quick rough look `mcsolve` is fine.) On the
-oscillator the gap is far larger: SLB reaches errors around `10^-3` in a few
+oscillator the gap is far larger: SLB reaches errors around $10^{-3}$ in a few
 seconds, while `mcsolve` after a thousand trajectories and roughly half a minute
-is still near `10^-1` — about two orders of magnitude less accurate at higher
+is still near $10^{-1}$ — about two orders of magnitude less accurate at higher
 cost. This is the regime SLB is built for, and it is where the method most
 clearly earns its place.
 
@@ -183,11 +182,11 @@ the theory predicts, and that none of it hinges on a lucky random seed. Each
 check has its own script and figure.
 
 **Beyond energy: a coherence observable.** Energy is a forgiving target — it is
-essentially diagonal in the energy eigenbasis, so matching `<H(t)>` says little
-about the off-diagonal part of the state. As a harder test we also track the
-energy-eigenstate coherence the dynamics most strongly populates (`|a><b| +
-h.c.`, with the pair `(a,b)` chosen by the largest `|<a|rho(t)|b>|` in the exact
-solution).
+essentially diagonal in the energy eigenbasis, so matching $\langle H(t)\rangle$
+says little about the off-diagonal part of the state. As a harder test we also
+track the energy-eigenstate coherence the dynamics most strongly populates
+($|a\rangle\langle b| + \text{h.c.}$, with the pair $(a,b)$ chosen by the
+largest $|\langle a|\rho(t)|b\rangle|$ in the exact solution).
 
 ![spin chain coherence](benchmark_coherence_spin_chain.png)
 
@@ -201,13 +200,13 @@ rather than one easy projection of it.
 
 **Convergence at the predicted rate.** SLB is a Monte Carlo estimator, so two
 quantities should fall with `M` at two different, theory-fixed rates: the
-statistical spread as `M^(-1/2)`, and the finite-`M` bias faster, as `M^(-1)`.
+statistical spread as $M^{-1/2}$, and the finite-`M` bias faster, as $M^{-1}$.
 
 ![spin chain convergence](benchmark_convergence_spin_chain.png)
 
 ![oscillator convergence](benchmark_convergence_oscillator_bath.png)
 
-Fitting the measured slopes gives close to `-0.5` for the spread and `-1.0` for
+Fitting the measured slopes gives close to $-0.5$ for the spread and $-1.0$ for
 the bias on both systems, landing on the guide lines. Matching the predicted
 exponents (not merely "getting smaller") is hard to fake by tuning, and is the
 strongest single check that the estimator behaves as derived.
