@@ -15,13 +15,13 @@ Both scripts are self-contained: `pip install qutip-bundling matplotlib`, then
 ## What is being measured
 
 A Lindblad master equation with a large number $$N_L$$ of collapse operators is
-expensive: the dissipator costs one matrix product per operator, and `N_L`
-typically grows as `N^2` in the Hilbert-space dimension `N`, so propagating the
-full equation scales as roughly `O(N^5)` per step. Stochastic Lindblad
-bundling (SLB) replaces the `N_L` operators with `M` random *bundled*
-combinations whose dissipator equals the full one in expectation. With `M`
+expensive: the dissipator costs one matrix product per operator, and $$N_L$$
+typically grows as $$N^2$$ in the Hilbert-space dimension $$N$$, so propagating the
+full equation scales as roughly $$O(N^5)$$ per step. Stochastic Lindblad
+bundling (SLB) replaces the $$N_L$$ operators with $$M$$ random *bundled*
+combinations whose dissipator equals the full one in expectation. With $$M$$
 held fixed as the system grows,
-the per-step cost drops to `O(N^3)`.
+the per-step cost drops to $$O(N^3)$$.
 
 The benchmarks therefore ask two distinct questions, and it is worth keeping
 them separate:
