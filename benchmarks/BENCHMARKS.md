@@ -14,7 +14,7 @@ Both scripts are self-contained: `pip install qutip-bundling matplotlib`, then
 
 ## What is being measured
 
-A Lindblad master equation with a large number `N_L` of collapse operators is
+A Lindblad master equation with a large number $$N_L$$ of collapse operators is
 expensive: the dissipator costs one matrix product per operator, and `N_L`
 typically grows as `N^2` in the Hilbert-space dimension `N`, so propagating the
 full equation scales as roughly `O(N^5)` per step. Stochastic Lindblad
