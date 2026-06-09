@@ -625,3 +625,52 @@ def test_lamb_shift_threshold_decouples_from_operator_threshold():
         H, X, _ohmic(0.5), imag_gamma=ig, threshold=0.05,
         lamb_shift_threshold=0.0)
     assert (H_LS_decoupled - H_LS_baseline).norm() < 1e-12
+# --------------------------------------------------------------------------
+# native RK4 backend -- validate the hand-rolled propagator the large-N
+# benchmarks rely on (it is otherwise only exercised through the figures)
+# --------------------------------------------------------------------------
+def test_native_backend_matches_qutip_mesolve():
+    """The native RK4 stepper must agree with qutip.mesolve on a system small
+    enough for both. This pins the integrator that every large-N result uses."""
+    dim = 6
+    a = qutip.destroy(dim)
+    H = qutip.num(dim) + 0.2 * (a + a.dag())
+    c_ops = [0.4 * a, 0.15 * qutip.num(dim)]          # relaxation + dephasing
+    rho0 = qutip.ket2dm(qutip.basis(dim, dim - 1))
+    tlist = np.linspace(0, 6, 40)
+    e_ops = [qutip.num(dim), a + a.dag()]
+
+    ref = qutip.mesolve(H, rho0, tlist, c_ops=c_ops, e_ops=e_ops)
+    nat = rk4_mesolve(H, rho0, tlist, c_ops=c_ops, e_ops=e_ops, substeps=8)
+
+    for k in range(len(e_ops)):
+        assert np.allclose(nat.expect[k], np.real(ref.expect[k]), atol=1e-4)
+
+
+def test_native_backend_preserves_trace():
+    """RK4 conserves Tr(rho)=1 over the run (the Lindblad generator is
+    trace-free, so this should hold to ~machine precision)."""
+    dim = 5
+    H = qutip.num(dim)
+    c_ops = random_collapse_ops(15, dim, seed=3)
+    rho0 = qutip.ket2dm(qutip.basis(dim, dim - 1))
+    tlist = np.linspace(0, 5, 25)
+    res = rk4_mesolve(H, rho0, tlist, c_ops=c_ops, substeps=4,
+                      store_states=True)
+    for state in res.states:
+        assert abs(state.tr() - 1.0) < 1e-6
+
+
+def test_native_backend_rejects_options():
+    """Passing qutip `options` with backend='native' must raise rather than
+    silently drop them."""
+    dim = 4
+    H = qutip.num(dim)
+    c_ops = random_collapse_ops(8, dim, seed=1)
+    rho0 = qutip.ket2dm(qutip.basis(dim, 1))
+    tlist = np.linspace(0, 2, 10)
+    e_ops = [qutip.num(dim)]
+    with pytest.raises(ValueError):
+        mesolve_ensemble(H, rho0, tlist, c_ops, M=4, e_ops=e_ops,
+                         n_realizations=2, rng=0,
+                         backend="native", options={"atol": 1e-8})

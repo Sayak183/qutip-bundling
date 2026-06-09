@@ -90,6 +90,12 @@ def rk4_mesolve(
     Cost per step: O(K * N^3) for the dissipator plus O(N^3) for the
     coherent part and the precomputed anti-commutator.
 
+    The Lindblad generator is trace-free, so RK4 conserves ``Tr(rho)`` to
+    machine precision, and each substep re-Hermitizes ``rho``. Positivity is
+    not explicitly projected -- it holds only to the integrator's order, which
+    is why stiff systems need enough ``substeps`` (a single substep can
+    diverge). Validate against ``qutip.mesolve`` on a small system.
+
     Parameters
     ----------
     H, rho0, tlist, c_ops, e_ops

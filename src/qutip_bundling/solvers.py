@@ -83,6 +83,12 @@ def _solve(H, rho0, tlist, c_ops, e_ops, options, backend, substeps):
                               options=options)
         return np.real(np.asarray(res.expect))
     if backend == "native":
+        if options is not None:
+            raise ValueError(
+                "backend='native' does not use qutip `options`; they would "
+                "be silently ignored. Pass `substeps=` to set the native RK4 "
+                "resolution, or use backend='qutip' for qutip options."
+            )
         res = rk4_mesolve(H, rho0, tlist, c_ops=c_ops, e_ops=e_ops,
                            substeps=substeps)
         return np.asarray(res.expect)
