@@ -144,6 +144,48 @@ contributions to the dissipator, not by the Hilbert-space dimension alone, so it
 is worth checking the convergence on your own system rather than assuming a
 fixed `M` is enough.
 
+## How the two stochastic methods differ
+
+SLB and `mcsolve` are both Monte Carlo methods for the same master equation, but
+they randomize different things, which is why the comparison below is not
+obvious in advance.
+
+`mcsolve` **unravels** the master equation into random pure-state *trajectories*.
+A single trajectory is a wavefunction $|\psi(t)\rangle$ that drifts under a
+non-Hermitian effective Hamiltonian $H_{\rm eff} = H - \tfrac{i}{2}\sum_a
+L_a^\dagger L_a$, punctuated by random *quantum jumps*: at random times one of
+the original $N_L$ collapse operators $L_a$ fires (chosen with probability
+$\propto \langle\psi|L_a^\dagger L_a|\psi\rangle$) and the state is reset to
+$L_a|\psi\rangle$. No single trajectory is the answer; the density matrix is
+recovered by averaging over `ntraj` independent trajectories. Its randomness is
+in the *state path*, and it keeps all $N_L$ operators exact.
+
+SLB does the opposite. It keeps the **full density matrix** and randomizes the
+*operators*: each realization is an ordinary (deterministic) Lindblad evolution
+of $\rho$ in which the $N_L$ collapse operators are replaced by $M$ random
+bundles. No jumps, no wavefunctions — just a density-matrix ODE with fewer
+operators, recovered by averaging $\rho(t)$ over a handful of realizations. Its
+randomness is in the *operators*, and it keeps the full state.
+
+So the two attack the cost from opposite directions. `mcsolve` propagates cheap
+$N$-vectors but touches all $N_L$ operators and needs many trajectories to
+suppress its noise; SLB propagates the more expensive $N\times N$ density matrix
+but with only $M \ll N_L$ operators and few realizations. Which wins depends on
+$N$, $N_L$, $M$, and `ntraj` together — hence the empirical comparison.
+
+**Why wall-clock time is the comparison axis.** A single time step is not the
+same amount of work for the two methods — a density-matrix step with $M$
+operators for SLB versus a wavefunction step with $N_L$ operators for `mcsolve`
+— so counting time steps or samples would not be a fair common measure.
+Wall-clock time is, because it folds cost-per-step, step count, and sample count
+into one number. The methods also use different integrators: SLB uses fixed-step
+RK4 (its resolution set explicitly by the substep count in each figure), while
+`mcsolve` uses QuTiP's adaptive integrator at stated tolerances
+(`atol=1e-8`, `rtol=1e-6`). SLB is therefore not winning by integrating more
+loosely — if anything `mcsolve` integrates each trajectory more precisely; SLB
+wins by needing far fewer operators and far fewer samples to reach the same
+accuracy.
+
 ## Result 3 — accuracy-versus-cost against mcsolve
 
 ![spin chain frontier](benchmark_frontier_spin_chain.png)
@@ -161,10 +203,10 @@ bars are the standard error over independent repeats.
 
 For the comparison to be fair, both methods are run at a stated integration
 resolution: SLB sweeps `M` at a fixed number of RK4 substeps per time step
-(noted in the figure caption), and `mcsolve` sweeps `ntraj` at QuTiP's default
-tolerances. Both share the same time grid and the same full-Lindblad
-reference, so a point's horizontal position reflects real work, not a coarser
-integration hidden in one method.
+(noted in the figure caption), and `mcsolve` sweeps `ntraj` at the stated ODE
+tolerances (`atol=1e-8`, `rtol=1e-6`). Both share the same time grid and the
+same full-Lindblad reference, so a point's horizontal position reflects real
+work, not a coarser integration hidden in one method.
 
 On the spin chain, SLB sits below `mcsolve` across most of the range: to reach
 an error near 0.02 it needs a few seconds (at `M = 16`), where `mcsolve` needs
