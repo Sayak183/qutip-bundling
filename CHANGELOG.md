@@ -1,6 +1,13 @@
 # Changelog
 
 ## Unreleased
+- `mesolve_ensemble` / `mesolve_jackknife` now raise `ValueError` when
+  `options` is passed together with `backend="native"`, instead of silently
+  ignoring it. The native RK4 backend does not consume qutip integrator
+  `options`; use `substeps=` to set its resolution. Only affects callers that
+  previously passed `options` with the native backend (where it had no effect).
+- The native RK4 backend (`rk4_mesolve`) is now covered by tests asserting
+  agreement with `qutip.mesolve` and trace preservation.
 - **Behavior change:** `build_collapse_ops` now applies `threshold` to the
   full collapse-operator weight `sqrt(gamma) * ||L||`, not to `sqrt(gamma)`
   alone. This makes `threshold` mean the same thing as in
