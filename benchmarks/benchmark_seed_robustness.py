@@ -30,6 +30,10 @@ import qutip
 
 from benchmark_vs_mcsolve import (
     gamma, build_spin_chain, build_oscillator_bath, TLIST, max_err,
+    MC_OPTIONS,
+)
+from benchmark_scaling import (
+    format_slb_settings, format_mcsolve_settings, add_settings_footer,
 )
 from qutip_bundling import davies_operators, mesolve_ensemble
 
@@ -64,10 +68,10 @@ def frontier_for_seed(H, rho0, psi0, c_ops, reference, seed):
         t0 = time.perf_counter()
         try:
             mc = qutip.mcsolve(H, psi0, TLIST, c_ops, e_ops=[H], ntraj=nt,
-                               options={"progress_bar": False}, seeds=seed)
+                               options=MC_OPTIONS, seeds=seed)
         except TypeError:
             mc = qutip.mcsolve(H, psi0, TLIST, c_ops, e_ops=[H], ntraj=nt,
-                               options={"progress_bar": False})
+                               options=MC_OPTIONS)
         mc_t.append(time.perf_counter() - t0)
         mc_e.append(max_err(mc.expect[0], reference))
     return (np.array(slb_t), np.array(slb_e), np.array(mc_t), np.array(mc_e))
@@ -119,9 +123,16 @@ def main():
         ax.set_title(f"{name} (dim {dim}, $N_L$={n_l}): frontier across {len(SEEDS)} seeds")
         ax.grid(True, which="both", alpha=0.3)
         ax.legend(frameon=False, fontsize=8)
-        ax.text(0.99, 0.02, "faint lines: individual seeds", transform=ax.transAxes,
-                ha="right", va="bottom", fontsize=7, color="dimgray")
         fig.tight_layout()
+        add_settings_footer(
+            fig,
+            format_slb_settings(M=M_VALUES, substeps=SUBSTEPS,
+                                n_realizations=N_REALIZATIONS, swept=True),
+            format_mcsolve_settings(ntraj=NTRAJ_VALUES, atol=MC_OPTIONS["atol"],
+                                    rtol=MC_OPTIONS["rtol"], swept=True),
+            f"seed-averaged over {len(SEEDS)} master seeds; "
+            "faint lines = individual seeds",
+        )
         fig.savefig(f"benchmark_seed_robustness_{name}.png", dpi=130, bbox_inches="tight")
         plt.close(fig)
         print(f"  saved benchmark_seed_robustness_{name}.png")

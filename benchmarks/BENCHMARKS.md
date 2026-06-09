@@ -88,9 +88,10 @@ behaves on a realistic problem rather than only on an idealized chain.
 
 Each figure has two panels sharing the size axis: wall-clock cost on top and the
 max-over-time error in $\langle H(t)\rangle$ (vs the exact reference) below.
-Every method is run at **fixed settings** — full `mesolve` (exact), SLB at
-`M = 2, 4, 8`, and `mcsolve` at `ntraj = 50, 200, 1000` — and we simply report
-what each one costs and how accurate it turned out to be. There is no accuracy
+Every method is run at **fixed settings** — full `mesolve` (exact), SLB at a
+few bundle sizes, and `mcsolve` at a few trajectory counts (the exact values
+are in the figure caption) — and we simply report what each one costs and how
+accurate it turned out to be. There is no accuracy
 matching; you read cost in the top panel and the accuracy that buys in the
 bottom panel. The top axis shows $N_L$, the number of Lindblad operators in the
 full dissipator, aligned with the Hilbert dimension.
@@ -118,8 +119,8 @@ operators) takes around a minute versus a few seconds for SLB, and at dimension
 128 (≈2200 operators) the full solve is out of reach while SLB still completes.
 And SLB's stochastic integrator needs at least two RK4 substeps per step to stay
 stable on the stiffer oscillator at the larger sizes — a single substep diverges
-there — so these runs use four (stated in the figure caption); the result is
-already converged by two.
+there — so these runs use a small fixed number of substeps (stated in each
+figure caption); the result is already converged by two.
 
 ## Result 2 — accuracy versus the bundle size M
 

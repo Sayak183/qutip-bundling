@@ -33,6 +33,7 @@ import qutip
 
 from benchmark_scaling import (
     gamma, build_spin_chain, build_oscillator_bath, TLIST,
+    format_slb_settings, add_settings_footer,
 )
 from qutip_bundling import davies_operators, mesolve_ensemble
 
@@ -105,6 +106,13 @@ def main():
         ax.grid(True, which="both", alpha=0.3)
         ax.legend(frameon=False, fontsize=8)
         fig.tight_layout()
+        add_settings_footer(
+            fig,
+            format_slb_settings(M=M_VALUES, substeps=SUBSTEPS,
+                                n_realizations=N_REALIZATIONS, swept=True),
+            "spread = std over realizations; bias = |mean \u2212 ref|; "
+            "full-Lindblad reference",
+        )
         fig.savefig(f"benchmark_convergence_{name}.png", dpi=130, bbox_inches="tight")
         plt.close(fig)
         print(f"  saved benchmark_convergence_{name}.png")

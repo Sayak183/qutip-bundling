@@ -1,5 +1,5 @@
 """
-benchmark_scaling_updated.py
+benchmark_scaling.py
 ============================
 
 Speed/scaling + accuracy benchmark for `qutip-bundling`, run over TWO systems:
@@ -28,7 +28,7 @@ Updates in this version:
     * Softens the scaling-plot wall label to "stopped by time/RAM budget".
 
 Requirements:  pip install qutip-bundling matplotlib
-Run:           python benchmark_scaling_updated.py
+Run:           python benchmark_scaling.py
 """
 
 from __future__ import annotations
@@ -44,6 +44,10 @@ from qutip_bundling import davies_operators, mesolve_ensemble
 # ===========================================================================
 M = 4                       # number of bundled operators for the timing sweep
 N_REALIZATIONS = 8          # stochastic repeats averaged for the bundled mean
+ACCURACY_N_REALIZATIONS = 32  # realizations for the accuracy & coherence figures
+                              # (more than the timing sweep so the +/-1 std band
+                              # is well resolved); lifted from a literal so the
+                              # figure caption reads it, not a magic number.
 SUBSTEPS = 4                # RK4 substeps per TLIST step for SLB (native backend).
                             # >=2 is required for stability on the stiffer
                             # oscillator at larger sizes (substeps=1 diverges
@@ -82,6 +86,49 @@ def gamma(omega: float) -> float:
     if abs(omega) < 1e-10:
         return ALPHA * KT
     return ALPHA * omega * math.exp(-abs(omega) / OMEGA_C) / (1.0 - math.exp(-omega / KT))
+
+
+# ===========================================================================
+# SHARED FIGURE-CAPTION HELPERS
+# ===========================================================================
+# Single source of truth for the settings footer printed under every benchmark
+# figure. Each figure builds its caption from the SAME constants that drive its
+# run via these helpers, so a caption can never silently disagree with the code
+# that produced the figure. Imported by the other benchmark scripts.
+def format_slb_settings(*, M, substeps, n_realizations, n_repeats=None,
+                        swept=False, jackknife=False):
+    m = M if isinstance(M, int) else list(M)
+    head = "SLB: sweep M=" if swept else "SLB: M="
+    s = f"{head}{m}"
+    if jackknife:
+        s += " (jackknife-2)"
+    s += f", {substeps} RK4 substep(s)/step, {n_realizations} realizations"
+    if n_repeats:
+        s += f" \u00d7 {n_repeats} repeats"
+    return s
+
+
+def format_mcsolve_settings(*, ntraj, atol=None, rtol=None,
+                            single_thread=True, swept=False):
+    head = "mcsolve: sweep ntraj=" if swept else "mcsolve: ntraj="
+    s = f"{head}{list(ntraj)}"
+    if single_thread:
+        s += ", single-thread"
+    if atol is not None:
+        s += f", atol={atol:g}/rtol={rtol:g}"
+    return s
+
+
+def add_settings_footer(fig, *segments, y=-0.01, fontsize=7):
+    """Place one uniform settings caption centred below the whole figure.
+
+    Built from the run's own constants by the format_* helpers, so the caption
+    cannot disagree with the settings that produced the figure.
+    """
+    text = "   |   ".join(seg for seg in segments if seg)
+    fig.text(0.5, y, text, ha="center", va="top", fontsize=fontsize,
+             color="dimgray")
+    return text
 
 
 # ===========================================================================
@@ -322,7 +369,7 @@ def run_accuracy(name, build, size):
     for m_eff in m_values:
         ens = mesolve_ensemble(
             H, rho0, tlist, c_ops, M=m_eff, e_ops=e_ops,
-            n_realizations=32, rng=0, backend="native",
+            n_realizations=ACCURACY_N_REALIZATIONS, rng=0, backend="native",
             substeps=SUBSTEPS,
         )
         for oi in (0, 1):
@@ -330,7 +377,7 @@ def run_accuracy(name, build, size):
             std = (
                 np.asarray(ens.std[oi], float)
                 if getattr(ens, "std", None) is not None
-                else np.asarray(ens.sem[oi], float) * math.sqrt(32)
+                else np.asarray(ens.sem[oi], float) * math.sqrt(ACCURACY_N_REALIZATIONS)
             )
             curves[oi][m_eff] = (mean, std)
 
@@ -369,6 +416,13 @@ def _accuracy_figure(plt, name, tlist, reference, curves, acc_dim, acc_n_l,
     ax.set_title(rf"{name} ({size_str}, $N_L$={acc_n_l}): {subtitle}")
     ax.legend(frameon=False)
     fig.tight_layout()
+    add_settings_footer(
+        fig,
+        format_slb_settings(M=sorted(curves), substeps=SUBSTEPS,
+                            n_realizations=ACCURACY_N_REALIZATIONS),
+        "shaded band = \u00b11 std over realizations; "
+        "full-Lindblad reference (mesolve)",
+    )
     fig.savefig(f"benchmark_{fname_suffix}_{name}.png", dpi=130, bbox_inches="tight")
     plt.close(fig)
     print(f"  saved benchmark_{fname_suffix}_{name}.png")
@@ -414,7 +468,7 @@ def main():
         axc.set_ylabel("wall-clock time (s)")
         axc.set_title(f"{name}: cost and accuracy vs system size (fixed settings)")
         axc.grid(True, which="both", alpha=0.3)
-        axc.legend(frameon=False, fontsize=7.5, ncol=2)
+        axc.legend(frameon=False, fontsize=7.5, ncol=2, loc="upper left")
         secax = axc.secondary_xaxis("top")
         secax.set_xticks(dims)
         secax.set_xticklabels([str(int(n)) for n in ops])
@@ -444,13 +498,12 @@ def main():
         # Settings note placed below the whole figure so it never collides with
         # the wall label, legend, or data (the in-panel position was cramped on
         # the spin chain, where the wall lands mid-axis).
-        fig.text(
-            0.5, -0.01,
-            f"SLB: M={M_SCALING}, {SUBSTEPS} RK4 substep(s)/step, "
-            f"{N_REALIZATIONS} realizations averaged   |   "
-            f"mcsolve: ntraj={NTRAJ_FIXED} trajectories averaged   |   "
-            f"both single-thread, mcsolve atol=1e-8/rtol=1e-6",
-            ha="center", va="top", fontsize=7, color="dimgray",
+        add_settings_footer(
+            fig,
+            format_slb_settings(M=M_SCALING, substeps=SUBSTEPS,
+                                n_realizations=N_REALIZATIONS),
+            format_mcsolve_settings(ntraj=NTRAJ_FIXED, atol=1e-8, rtol=1e-6),
+            "both single-thread; same time grid and full-Lindblad reference",
         )
         fig.savefig(f"benchmark_scaling_{name}.png", dpi=130, bbox_inches="tight")
         plt.close(fig)

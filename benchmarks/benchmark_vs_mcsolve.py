@@ -1,10 +1,10 @@
 """
-benchmark_vs_mcsolve_updated.py
+benchmark_vs_mcsolve.py
 ===============================
 
 Accuracy-vs-cost benchmark for `qutip-bundling` against QuTiP's Monte-Carlo
 trajectory solver (`qutip.mcsolve`), run over the same two systems as
-benchmark_scaling_updated.py.
+benchmark_scaling.py.
 
 Both methods are stochastic and have different accuracy knobs:
 
@@ -26,7 +26,7 @@ Produces, per system:
     benchmark_frontier_<system>.png
 
 Requirements:  pip install qutip-bundling matplotlib
-Run:           python benchmark_vs_mcsolve_updated.py
+Run:           python benchmark_vs_mcsolve.py
 """
 
 from __future__ import annotations
@@ -36,6 +36,9 @@ import time
 import numpy as np
 import qutip
 from qutip_bundling import davies_operators, mesolve_ensemble
+from benchmark_scaling import (
+    format_slb_settings, format_mcsolve_settings, add_settings_footer,
+)
 
 # ===========================================================================
 # CONFIG
@@ -260,22 +263,19 @@ def main():
         ax.set_title(
             rf"{name} (dim {out['dim']}, $N_L$={out['n_l']}): accuracy-vs-cost frontier"
         )
-        # Make the comparison fair and reproducible: state each method's swept
-        # knob and integration resolution. SLB sweeps M at fixed RK4 substeps;
-        # mcsolve sweeps ntraj. Both share the same time grid and reference.
-        ax.text(
-            0.99, 0.02,
-            f"SLB: sweep M={M_VALUES}, {SUBSTEPS} RK4 substep(s)/step, "
-            f"{N_REALIZATIONS} realizations\n"
-            f"mcsolve: sweep ntraj={NTRAJ_VALUES}, single-thread, "
-            f"atol={MC_ATOL:g}/rtol={MC_RTOL:g}\n"
-            f"(both single-thread; same time grid and reference)",
-            transform=ax.transAxes, ha="right", va="bottom", fontsize=7,
-            color="dimgray",
-        )
         ax.grid(True, which="both", alpha=0.3)
         ax.legend(frameon=False)
         fig.tight_layout()
+        add_settings_footer(
+            fig,
+            format_slb_settings(M=M_VALUES, substeps=SUBSTEPS,
+                                n_realizations=N_REALIZATIONS,
+                                n_repeats=N_REPEATS, swept=True),
+            format_mcsolve_settings(ntraj=NTRAJ_VALUES, atol=MC_ATOL,
+                                    rtol=MC_RTOL, swept=True),
+            "error bars = SEM over repeats; same time grid and "
+            "full-Lindblad reference",
+        )
         fig.savefig(f"benchmark_frontier_{name}.png", dpi=130, bbox_inches="tight")
         plt.close(fig)
         print(f"  saved benchmark_frontier_{name}.png")

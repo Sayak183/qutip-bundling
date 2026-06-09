@@ -48,6 +48,8 @@ from benchmark_scaling import (
     build_spin_chain,
     build_oscillator_bath,
     TLIST,
+    format_slb_settings,
+    add_settings_footer,
 )
 
 # ===========================================================================
@@ -58,6 +60,9 @@ N_REALIZATIONS = 32          # enough that the SEM on the mean is well below the
                              # bias we are trying to resolve (bias does not shrink
                              # with realizations; the noise on its estimate does)
 SEED = 12345
+SUBSTEPS = 4                 # match the rest of the suite (native RK4);
+                             # mesolve_jackknife defaults to substeps=1,
+                             # which diverges on the stiff oscillator.
 
 # Sizes capped so the full-mesolve reference is affordable. The reference is a
 # full Lindblad solve with all N_L operators, so the largest size is limited by
@@ -110,6 +115,7 @@ def bias_at_size(name, build, size, rng):
     res = mesolve_jackknife(
         H, rho0, TLIST, c_ops, M=M, e_ops=[H],
         n_realizations=N_REALIZATIONS, rng=rng,
+        backend="native", substeps=SUBSTEPS,
     )
     corrected = np.real(res.expect[0])            # jackknife-corrected SLB
     direct = np.real(res.extra["direct"][0])      # uncorrected SLB
@@ -172,6 +178,13 @@ def main():
         secax.minorticks_off()
         secax.set_xlabel(r"number of Lindblad operators $N_L$")
 
+        add_settings_footer(
+            fig,
+            format_slb_settings(M=M, substeps=SUBSTEPS,
+                                n_realizations=N_REALIZATIONS, jackknife=True),
+            "error bars = SEM at worst-deviation time; single seed; "
+            "full-Lindblad reference",
+        )
         fig.savefig(f"benchmark_jackknife_{name}.png", dpi=130, bbox_inches="tight")
         plt.close(fig)
         print(f"  wrote benchmark_jackknife_{name}.png")
