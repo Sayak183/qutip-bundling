@@ -153,9 +153,11 @@ def _run_mcsolve(H, psi0, c_ops, ntraj):
     is the full sequential cost of all ntraj trajectories -- matching SLB's
     single-threaded realization loop. Without this, mcsolve would spread its
     trajectories across CPU cores and be timed with a parallel speedup SLB does
-    not get, making the cost comparison unfair to SLB.
+    not get, making the cost comparison unfair to SLB. The ODE tolerances are
+    stated explicitly (same values the frontier benchmark uses) so the two
+    scripts run mcsolve under identical, disclosed settings.
     """
-    opts = {"progress_bar": False, "map": "serial"}
+    opts = {"progress_bar": False, "map": "serial", "atol": 1e-8, "rtol": 1e-6}
     try:
         t0 = time.perf_counter()
         res = qutip.mcsolve(H, psi0, TLIST, c_ops=c_ops, e_ops=[H],
@@ -413,16 +415,6 @@ def main():
         axc.set_title(f"{name}: cost and accuracy vs system size (fixed settings)")
         axc.grid(True, which="both", alpha=0.3)
         axc.legend(frameon=False, fontsize=7.5, ncol=2)
-        axc.text(
-            0.01, 0.02,
-            f"SLB: M={M_SCALING}, {SUBSTEPS} RK4 substep(s)/step, "
-            f"{N_REALIZATIONS} realizations averaged\n"
-            f"mcsolve: ntraj={NTRAJ_FIXED} trajectories averaged "
-            f"(both single-thread)",
-            transform=axc.transAxes, ha="left", va="bottom", fontsize=7,
-            color="dimgray",
-        )
-
         secax = axc.secondary_xaxis("top")
         secax.set_xticks(dims)
         secax.set_xticklabels([str(int(n)) for n in ops])
@@ -449,6 +441,17 @@ def main():
                  fontsize=7, color="dimgray")
 
         fig.tight_layout()
+        # Settings note placed below the whole figure so it never collides with
+        # the wall label, legend, or data (the in-panel position was cramped on
+        # the spin chain, where the wall lands mid-axis).
+        fig.text(
+            0.5, -0.01,
+            f"SLB: M={M_SCALING}, {SUBSTEPS} RK4 substep(s)/step, "
+            f"{N_REALIZATIONS} realizations averaged   |   "
+            f"mcsolve: ntraj={NTRAJ_FIXED} trajectories averaged   |   "
+            f"both single-thread, mcsolve atol=1e-8/rtol=1e-6",
+            ha="center", va="top", fontsize=7, color="dimgray",
+        )
         fig.savefig(f"benchmark_scaling_{name}.png", dpi=130, bbox_inches="tight")
         plt.close(fig)
         print(f"  saved benchmark_scaling_{name}.png")
