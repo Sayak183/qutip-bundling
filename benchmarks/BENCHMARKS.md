@@ -48,7 +48,7 @@ levels, and weights each by the bath response at that frequency.
 A dissipative transverse-field Ising chain of `n` spins:
 
 $$
-H = -J \sum_i \sigma^z_i \sigma^z_{i+1} \-\ h \sum_i \sigma^x_i
+H = -J \sum_i \sigma^z_i \sigma^z_{i+1} - h \sum_i \sigma^x_i
 $$
 
 with `J = 1.0`, `h = 0.6`. The bath couples to the total transverse
@@ -67,7 +67,7 @@ An anharmonic oscillator coupled to a two-level spin, with the oscillator
 position coupling to the bath:
 
 $$
-H = \omega_0\left(n + \tfrac{1}{2}\right) + \chi n^2 + \frac{\Delta}{2}\sigma_z + g\(x \otimes \sigma_x)
+H = \omega_0\left(n + \tfrac{1}{2}\right) + \chi n^2 + \frac{\Delta}{2}\sigma_z + g(x \otimes \sigma_x)
 $$
 
 with $\omega_0 = 1.0$ (`omega0`), $\chi = 0.1$ (`anh`), $\Delta = 1.0$
@@ -252,10 +252,16 @@ statistical spread as $M^{-1/2}$, and the finite-`M` bias faster, as $M^{-1}$.
 
 ![oscillator convergence](benchmark_convergence_oscillator_bath.png)
 
-Fitting the measured slopes gives close to $-0.5$ for the spread and $-1.0$ for
-the bias on both systems, landing on the guide lines. Matching the predicted
-exponents (not merely "getting smaller") is hard to fake by tuning, and is the
-strongest single check that the estimator behaves as derived.
+Fitting the measured slopes recovers the predicted finite-$M$ bias rate of
+$M^{-1}$ on both systems ($M^{-0.99}$ for the spin chain, $M^{-0.97}$ for the
+oscillator) — and since the finite-$M$ bias is what sets SLB's accuracy, this
+is the central check. The statistical spread follows the Monte-Carlo
+$M^{-1/2}$ rate on the spin chain (fitted $M^{-0.52}$); on the oscillator it
+falls faster still, close to $M^{-1}$, so its run-to-run noise is suppressed
+more quickly than the worst-case Monte-Carlo bound rather than landing on the
+$M^{-1/2}$ guide. Matching the predicted bias exponent on both systems — not
+merely "getting smaller" — is hard to fake by tuning and is the strongest
+single check that the estimator behaves as derived.
 
 **Bias versus system size, with jackknife correction.** At fixed `M` the
 finite-`M` bias grows with system size — visible as the SLB error climbing in
