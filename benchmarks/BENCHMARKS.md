@@ -275,7 +275,11 @@ correction suppresses it.
 
 The uncorrected bias rises steeply with dimension while the jackknife-corrected
 bias stays comparatively flat — so the error growth at fixed `M` is a known,
-correctable effect, not a breakdown of the method.
+correctable effect, not a breakdown of the method. On the oscillator the
+correction is strong enough that the residual bias sits at the noise floor: the
+corrected points are consistent with zero, so their wide error bars on the log
+axis reflect a small absolute uncertainty around a near-zero value, not
+instability.
 
 **Seed robustness.** Both SLB and mcsolve are stochastic; the other figures fix
 one seed for reproducibility. Recomputing the frontier across several

@@ -56,7 +56,7 @@ from benchmark_scaling import (
 # CONFIG
 # ===========================================================================
 M = 4                        # fixed bundle size for the whole study (must be even)
-N_REALIZATIONS = 32          # enough that the SEM on the mean is well below the
+N_REALIZATIONS = 128         # enough that the SEM on the mean is well below the
                              # bias we are trying to resolve (bias does not shrink
                              # with realizations; the noise on its estimate does)
 SEED = 12345
