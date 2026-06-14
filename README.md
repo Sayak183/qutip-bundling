@@ -24,13 +24,13 @@ $$
 R_m = \frac{1}{\sqrt{M}} \sum_\alpha r_{m,\alpha}\, c_\alpha
 $$
 
-where the $$r_{m,\alpha}$$ are independent random numbers with zero mean and unit
+where the $r_{m,\alpha}$ are independent random numbers with zero mean and unit
 second moment. The bundled dissipator is an **unbiased estimator** of the full
 one for any `M`, and the bundled operators still have Lindblad form, so the
 dynamics stay completely positive and trace preserving.
 
 Pair that with the deterministic Davies Lamb-shift Hamiltonian (built from
-the *bare* $$L_\alpha$$, never bundled), and a single bundled `mesolve` call
+the *bare* $L_\alpha$, never bundled), and a single bundled `mesolve` call
 reproduces full master-equation dynamics with `M` independent of the
 Hilbert-space dimension — per-step cost drops from `O(N^5)` to `O(N^3)`.
 
@@ -82,9 +82,9 @@ operators, not solver results:
 | Function | Purpose |
 |---|---|
 | `davies_operators(H, X, gamma)` | **recommended for Davies/Bohr setups** -- build collapse operators from `H` and coupling op `X`, correct sign baked in |
-| `build_collapse_ops(L_ops, omegas, gamma)` | bare $$L_\alpha$$ and the spectral function → standard collapse operators $$sqrt(gamma) * L_\alpha$$ |
+| `build_collapse_ops(L_ops, omegas, gamma)` | bare $L_\alpha$ and the spectral function → standard collapse operators $\sqrt{\gamma}\,L_\alpha$ |
 | `bundle(c_ops, M, ...)` | **the method** -- any collapse-operator list → `M` randomly bundled operators |
-| `lamb_shift_hamiltonian(L_ops, omegas, imag_gamma)` | bare $$L_\alpha$$ and `Im Gamma` → Lamb-shift Hamiltonian $$H_LS = \sum_\alpha Im\gamma_\alpha * L_\alpha^\dagger* L_\alpha$$ (built once) |
+| `lamb_shift_hamiltonian(L_ops, omegas, imag_gamma)` | bare $L_\alpha$ and `Im Gamma` → Lamb-shift Hamiltonian $H_{LS} = \sum_\alpha \operatorname{Im}\gamma_\alpha\, L_\alpha^\dagger L_\alpha$ (built once) |
 
 Spectral inputs (`gamma`, `imag_gamma`) may be either a callable
 `f(omega) -> float` or an array aligned with `omegas`.
@@ -207,7 +207,7 @@ bundle → solve → average.
 
 Bundling is a Monte Carlo trick for the **dissipator only**. The Davies
 Lamb-shift Hamiltonian `H_LS` is a deterministic part of the renormalized
-Hamiltonian (eq. 4 of the paper) — it's built once from the bare $$L_\alpha$$,
+Hamiltonian (eq. 4 of the paper) — it's built once from the bare $L_\alpha$,
 added to the system Hamiltonian, and never enters the bundling step. If
 `imag_gamma` is identically zero (the paper's test cases), `H_LS = 0` and
 the package reduces to the dissipator-only case.
