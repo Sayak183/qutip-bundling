@@ -96,6 +96,8 @@ def rk4_mesolve(
     is why stiff systems need enough ``substeps`` (a single substep can
     diverge). Validate against ``qutip.mesolve`` on a small system.
 
+    Expectation values are recorded as real (observables assumed Hermitian).
+
     Parameters
     ----------
     H, rho0, tlist, c_ops, e_ops

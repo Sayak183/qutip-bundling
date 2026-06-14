@@ -132,6 +132,14 @@ def mesolve_ensemble(
     substeps
         For ``backend='native'``, number of RK4 substeps between each
         adjacent pair of times in ``tlist``. Increase for stiff systems.
+
+    Notes
+    -----
+    Observables are assumed Hermitian. Expectation values are returned as
+    real arrays (any imaginary part is discarded), identically on both
+    backends. Use Hermitian ``e_ops`` -- energy, populations, or coherence
+    operators of the form ``|a><b| + h.c.``; a non-Hermitian operator would
+    silently lose its imaginary part.
     """
     e_ops = list(e_ops)
     if not e_ops:
@@ -192,7 +200,8 @@ def mesolve_jackknife(
     ``BundledResult`` holds the jackknife-corrected mean;
     ``extra["direct"]`` holds the uncorrected estimate for comparison.
 
-    See :func:`mesolve_ensemble` for ``backend`` and ``substeps``.
+    See :func:`mesolve_ensemble` for ``backend``, ``substeps``, and the
+    Hermitian-observable convention (expectation values are returned real).
     """
     e_ops = list(e_ops)
     if not e_ops:
