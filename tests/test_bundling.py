@@ -674,3 +674,57 @@ def test_native_backend_rejects_options():
         mesolve_ensemble(H, rho0, tlist, c_ops, M=4, e_ops=e_ops,
                          n_realizations=2, rng=0,
                          backend="native", options={"atol": 1e-8})
+# --------------------------------------------------------------------------
+# edge cases: distribution variants, reproducibility, non-Hermitian e_ops
+# --------------------------------------------------------------------------
+@pytest.mark.parametrize("dist", ["phase", "pm1", "uniform"])
+def test_bundled_dissipator_unbiased_all_distributions(dist):
+    """Every phase distribution must give an unbiased dissipator estimator,
+    not just the default 'phase'."""
+    c_ops = random_collapse_ops(40, 4, seed=5)
+    D_full = full_dissipator(c_ops)
+    rng = np.random.default_rng(0)
+    n_samples = 300
+    acc = None
+    for _ in range(n_samples):
+        R = bundle(c_ops, M=8, distribution=dist, rng=rng)
+        d = full_dissipator(R)
+        acc = d if acc is None else acc + d
+    rel_err = (acc / n_samples - D_full).norm() / D_full.norm()
+    assert rel_err < 0.05
+
+
+def test_mesolve_ensemble_reproducible_with_seed():
+    """Same integer seed -> bit-identical results (the RNG fully determines
+    the draws). Guards against accidental use of global/entropy RNG state."""
+    dim = 4
+    a = qutip.destroy(dim)
+    H = qutip.num(dim) + 0.2 * (a + a.dag())
+    c_ops = random_collapse_ops(12, dim, seed=7)
+    rho0 = qutip.ket2dm(qutip.basis(dim, dim - 1))
+    tlist = np.linspace(0, 3, 16)
+    e_ops = [qutip.num(dim)]
+    r1 = mesolve_ensemble(H, rho0, tlist, c_ops, M=8, e_ops=e_ops,
+                          n_realizations=8, rng=123)
+    r2 = mesolve_ensemble(H, rho0, tlist, c_ops, M=8, e_ops=e_ops,
+                          n_realizations=8, rng=123)
+    assert np.array_equal(r1.expect[0], r2.expect[0])
+    assert np.array_equal(r1.std[0], r2.std[0])
+
+
+def test_non_hermitian_eop_returns_real_part():
+    """Documents the Hermitian-observable assumption: a non-Hermitian e_op
+    does not error; its expectation is returned real (imaginary part
+    discarded) and tracks the real part of the exact result."""
+    dim = 4
+    a = qutip.destroy(dim)
+    H = qutip.num(dim) + 0.3 * (a + a.dag())
+    c_ops = random_collapse_ops(12, dim, seed=2)
+    rho0 = qutip.ket2dm(qutip.basis(dim, dim - 1))
+    tlist = np.linspace(0, 3, 16)
+    exact = qutip.mesolve(H, rho0, tlist, c_ops=c_ops, e_ops=[a]).expect[0]
+    res = mesolve_ensemble(H, rho0, tlist, c_ops, M=8, e_ops=[a],
+                           n_realizations=64, rng=0)
+    got = np.asarray(res.expect[0])
+    assert got.dtype.kind == "f"                     # real-valued, not complex
+    assert np.allclose(got, np.real(exact), atol=0.05)
