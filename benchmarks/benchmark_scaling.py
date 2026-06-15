@@ -397,7 +397,8 @@ def _accuracy_figure(plt, name, tlist, reference, curves, acc_dim, acc_n_l,
     )
     ax.plot(tlist, reference, "k-", lw=1.4, alpha=0.7,
             label="full Lindblad reference (mesolve)", zorder=1)
-    palette = ["tab:orange", "tab:blue", "tab:green", "tab:purple"]
+    palette = ["tab:orange", "tab:blue", "tab:green", "tab:purple",
+               "tab:red", "tab:brown", "tab:pink", "tab:olive"]
     for (m_eff, (mean, std)), col in zip(sorted(curves.items()), palette):
         ax.plot(tlist, mean, "-", color=col, lw=1.6, label=f"SLB, M={m_eff}",
                 zorder=3)
