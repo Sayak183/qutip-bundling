@@ -1,6 +1,8 @@
 cff-version: 1.2.0
 message: "If you use this software, please cite the method paper below."
 title: "qutip-bundling: stochastic bundling of Lindblad operators for QuTiP"
+version: 0.6.0
+date-released: 2026-06-15
 license: BSD-3-Clause
 repository-code: "https://github.com/Sayak183/qutip-bundling"
 url: "https://github.com/Sayak183/qutip-bundling"

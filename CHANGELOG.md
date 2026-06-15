@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.6.0 — 2026-06-15
 - `mesolve_ensemble` / `mesolve_jackknife` now raise `ValueError` when
   `options` is passed together with `backend="native"`, instead of silently
   ignoring it. The native RK4 backend does not consume qutip integrator
