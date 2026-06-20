@@ -103,11 +103,11 @@ changes the steady state. Always re-check against the unpruned result.
 The Lamb-shift Hamiltonian is built from the **bare** operators (without
 the $$sqrt(\gamma)$$ factor and without bundling), as
 
-$$  H_{LS} = \sum_{\alpha} imag_\gamma(\omega_{\alpha}) * L_{\alpha}^{\dagger} L_{\alpha}$$
+$$  H_{LS} = \sum_{\alpha} \mathrm{Im}{\gamma}(\omega_{\alpha}) * L_{\alpha}^{\dagger} L_{\alpha}$$
 
 
 It is a coherent term added to the system Hamiltonian once; it is not
-part of the dissipator and is never bundled. When ``imag_gamma`` is zero
+part of the dissipator and is never bundled. When $$\mathrm{Im}{\gamma}$$ is zero
 it vanishes.
 
 The Lamb shift has its *own* threshold (``lamb_shift_threshold`` in
