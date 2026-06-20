@@ -36,7 +36,7 @@ Hilbert-space dimension — per-step cost drops from $$O(N^{5})$$ to $$O(N^{3})$
 
 ## Benchmarks
 
-On a dissipative spin chain, full `mesolve` (paying for all `N_L` Lindblad
+On a dissipative spin chain, full `mesolve` (paying for all $$N_{L}$$ Lindblad
 operators) becomes infeasible as the system grows, while bundling — using only
 `M` of them — keeps going at a fraction of the cost:
 
@@ -93,7 +93,7 @@ Spectral inputs (`gamma`, `imag_gamma`) may be either a callable
 
 `bundle` is the actual method, and it takes **any** list of collapse
 operators — it does not care how they were built. The bundling is a purely
-algebraic operation: it replaces `N_L` operators `{c_alpha}` with `M` random
+algebraic operation: it replaces $$N_{L}$$ operators `{c_alpha}` with `M` random
 linear combinations
 
 $$
