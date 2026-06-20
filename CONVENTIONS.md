@@ -52,7 +52,7 @@ L_{alpha}$$. That is the QuTiP convention: the collapse operator already
 includes the rate, so the dissipator is
 
 $$D[\rho] = \sum_{\alpha} ( c_{\alpha} \rho c_{\alpha}^{\dagger}
-                          - 0.5 \{{ c_{\alpha}^{\dagger} c_{\alpha}, \rho }\} )$$
+                          - 0.5 \{ c_{\alpha}^{\dagger} c_{\alpha}, \rho \} )$$
 
     
 
