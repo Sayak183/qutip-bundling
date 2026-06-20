@@ -51,8 +51,8 @@ The ohmic example used in the tests and demos satisfies this.
 L_{alpha}$$. That is the QuTiP convention: the collapse operator already
 includes the rate, so the dissipator is
 
-$$D[\rho] = \sum_{\alpha} ( c_{\alpha} \rho c_{\alpha}^dag
-                          - 0.5 { c_{\alpha}^dag c_{\alpha}, \rho } )$$
+$$D[\rho] = \sum_{\alpha} ( c_{\alpha} \rho c_{\alpha}^{\dagger}
+                          - 0.5 {{ c_{\alpha}^{\dagger} c_{\alpha}, \rho }} )$$
 
     
 
