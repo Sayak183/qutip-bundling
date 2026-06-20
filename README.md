@@ -87,22 +87,22 @@ operators, not solver results:
 | `bundle`($$c_{ops}$$, M, ...) | **the method** -- any collapse-operator list → $$M$$ randomly bundled operators |
 | `lamb_shift_hamiltonian`($$L_{ops}, \omega_{s}, \mathrm{Im}{\gamma}$$) | bare $L_\alpha$ and $$\mathrm{Im}{\gamma}$$ → Lamb-shift Hamiltonian $H_{LS} = \sum_\alpha \mathrm{Im}{\gamma_\alpha\} L_\alpha^\dagger L_\alpha$ (built once) |
 
-Spectral inputs (`gamma`, `imag_gamma`) may be either a callable
-`f(omega) -> float` or an array aligned with `omegas`.
+Spectral inputs ($$\gamma, \mathrm{Im}{\gamma}$$) may be either a callable
+f($$\omega$$) -> float or an array aligned with $$\omegas$$.
 
 ### Bringing your own operators (bundling is not tied to Davies)
 
 `bundle` is the actual method, and it takes **any** list of collapse
 operators — it does not care how they were built. The bundling is a purely
-algebraic operation: it replaces $$N_{L}$$ operators `{c_alpha}` with $$M$$ random
+algebraic operation: it replaces $$N_{L}$$ operators $$c_{alpha}$$ with $$M$$ random
 linear combinations
 
 $$
-R_m = \frac{1}{\sqrt{M}} \sum_\alpha r_{m,\alpha}\, c_\alpha ,
+R_m = \frac{1}{\sqrt{M}} \sum_\alpha r_{m,\alpha}\ c_\alpha ,
 $$
 
-so that the bundled dissipator `sum_m D[R_m]` equals the full dissipator
-`sum_alpha D[c_alpha]` in expectation. Nothing in that statement assumes the
+so that the bundled dissipator $$\sum_{m} D[R_{m}]$$ equals the full dissipator
+$$\sum_{\alpha} D[c_{\alpha}]$$ in expectation. Nothing in that statement assumes the
 Davies construction, an ohmic bath, or even a master equation derived from a
 microscopic model.
 
