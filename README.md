@@ -88,7 +88,7 @@ operators, not solver results:
 | `lamb_shift_hamiltonian`($$L_{ops}, \omega_{s}, \mathrm{Im}{\gamma}$$) | bare $L_\alpha$ and $$\mathrm{Im}{\gamma}$$ → Lamb-shift Hamiltonian $H_{LS} = \sum_\alpha \mathrm{Im}{\gamma_\alpha\} L_\alpha^\dagger L_\alpha$ (built once) |
 
 Spectral inputs ($$\gamma, \mathrm{Im}{\gamma}$$) may be either a callable
-f($$\omega$$) -> float or an array aligned with $$\omegas$$.
+f($$\omega$$) -> float or an array aligned with $$\omega$$.
 
 ### Bringing your own operators (bundling is not tied to Davies)
 
@@ -131,11 +131,11 @@ optional way to *produce* an operator list, not a requirement of the method.
 ### Any bath spectral function
 
 When you do use `davies_operators` or `build_collapse_ops`, the spectral
-function `gamma(omega)` is arbitrary — the library never assumes a particular
+function $$\gamma(\omega)$$ is arbitrary — the library never assumes a particular
 form (the ohmic example in the demos and tests is just an example). Pass any
 callable or array. For physically sensible relaxation to the Gibbs state it
 should be non-negative and satisfy detailed balance
-`gamma(-omega)/gamma(omega) = exp(-omega/kT)` (see CONVENTIONS.md). For
+$$\gamma(-\omega)/\gamma(\omega) = exp(-\omega/kT)$$ (see CONVENTIONS.md). For
 instance a Drude–Lorentz bath:
 
 ```python
@@ -150,7 +150,7 @@ c_ops = davies_operators(H, X, gamma_drude)
 ```
 
 A microscopically-derived construction may not even factor into
-`operators x gamma(omega)` — some methods hand you collapse operators with the
+operators x $$\gamma(\omega)$$ — some methods hand you collapse operators with the
 rates already included and no separate spectral function. Those just go
 straight into `bundle`.
 
@@ -207,7 +207,7 @@ bundle → solve → average.
 ## How the pieces fit together
 
 Bundling is a Monte Carlo trick for the **dissipator only**. The Davies
-Lamb-shift Hamiltonian `H_LS` is a deterministic part of the renormalized
+Lamb-shift Hamiltonian $$H_{LS}$$ is a deterministic part of the renormalized
 Hamiltonian (eq. 4 of the paper) — it's built once from the bare $L_\alpha$,
 added to the system Hamiltonian, and never enters the bundling step. If
 `imag_gamma` is identically zero (the paper's test cases), `H_LS = 0` and
