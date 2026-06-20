@@ -14,11 +14,11 @@ and use with the solvers you already know.
 ## What it does
 
 A Lindblad master equation with a large number $$N_{L}$$ of collapse operators is
-expensive: the dissipator costs one matrix product per operator, and `N_L`
+expensive: the dissipator costs one matrix product per operator, and $$N_{L}$$
 typically grows as the square of the Hilbert-space dimension.
 
 The dissipator is *quadratic* in the operators, so it can be reproduced **in
-expectation** by a much smaller set of `M` randomly *bundled* operators:
+expectation** by a much smaller set of $$M$$ randomly *bundled* operators:
 
 $$
 R_m = \frac{1}{\sqrt{M}} \sum_\alpha r_{m,\alpha}\, c_\alpha
@@ -26,13 +26,13 @@ $$
 
 where the $r_{m,\alpha}$ are independent random numbers with zero mean and unit
 second moment. The bundled dissipator is an **unbiased estimator** of the full
-one for any `M`, and the bundled operators still have Lindblad form, so the
+one for any $$M$$, and the bundled operators still have Lindblad form, so the
 dynamics stay completely positive and trace preserving.
 
 Pair that with the deterministic Davies Lamb-shift Hamiltonian (built from
 the *bare* $L_\alpha$, never bundled), and a single bundled `mesolve` call
-reproduces full master-equation dynamics with `M` independent of the
-Hilbert-space dimension — per-step cost drops from `O(N^5)` to `O(N^3)`.
+reproduces full master-equation dynamics with $$M$$ independent of the
+Hilbert-space dimension — per-step cost drops from $$O(N^{5})$$ to $$O(N^{3})$$.
 
 ## Benchmarks
 
