@@ -84,8 +84,8 @@ operators, not solver results:
 |---|---|
 | `davies_operators(H, X, `$$\gamma$$`)` | **recommended for Davies/Bohr setups** -- build collapse operators from `H` and coupling op `X`, correct sign baked in |
 | `build_collapse_ops`($$L_{ops}, \omega_{s}, \gamma$$) | bare $L_\alpha$ and the spectral function → standard collapse operators $\sqrt{\gamma}\,L_\alpha$ |
-| `bundle(c_ops, M, ...)` | **the method** -- any collapse-operator list → $$M$$ randomly bundled operators |
-| `lamb_shift_hamiltonian`($$L_{ops}, \omega_{s}, \mathrm{Im}{\gamma}$$) | bare $L_\alpha$ and `Im Gamma` → Lamb-shift Hamiltonian $H_{LS} = \sum_\alpha \mathrm{Im}\gamma_\alpha\, L_\alpha^\dagger L_\alpha$ (built once) |
+| `bundle`($$c_{ops}$$, M, ...) | **the method** -- any collapse-operator list → $$M$$ randomly bundled operators |
+| `lamb_shift_hamiltonian`($$L_{ops}, \omega_{s}, \mathrm{Im}{\gamma}$$) | bare $L_\alpha$ and $$\mathrm{Im}{\gamma}$$ → Lamb-shift Hamiltonian $H_{LS} = \sum_\alpha \mathrm{Im}{\gamma_\alpha\}, L_\alpha^\dagger L_\alpha$ (built once) |
 
 Spectral inputs (`gamma`, `imag_gamma`) may be either a callable
 `f(omega) -> float` or an array aligned with `omegas`.
