@@ -247,20 +247,20 @@ rather than one easy projection of it.
 
 **Convergence at the predicted rate.** SLB is a Monte Carlo estimator, so two
 quantities should fall with `M` at two different, theory-fixed rates: the
-statistical spread as $M^{-1/2}$, and the finite-`M` bias faster, as $M^{-1}$.
+statistical spread as $M^{-1/2}$, and the finite-`M` bias faster, as $$M^{-1}$$.
 
 ![spin chain convergence](benchmark_convergence_spin_chain.png)
 
 ![oscillator convergence](benchmark_convergence_oscillator_bath.png)
 
-Fitting the measured slopes recovers the predicted finite-$M$ bias rate of
-$M^{-1}$ on both systems ($M^{-0.99}$ for the spin chain, $M^{-0.97}$ for the
-oscillator) — and since the finite-$M$ bias is what sets SLB's accuracy, this
+Fitting the measured slopes recovers the predicted finite-$$M$$ bias rate of
+$$M^{-1}$$ on both systems ($$M^{-0.99}$$ for the spin chain, $$M^{-0.97}$$ for the
+oscillator) — and since the finite-$$M$$ bias is what sets SLB's accuracy, this
 is the central check. The statistical spread follows the Monte-Carlo
-$M^{-1/2}$ rate on the spin chain (fitted $M^{-0.52}$); on the oscillator it
-falls faster still, close to $M^{-1}$, so its run-to-run noise is suppressed
+$$M^{-1/2}$$ rate on the spin chain (fitted $$M^{-0.52}$$); on the oscillator it
+falls faster still, close to $$M^{-1}$$, so its run-to-run noise is suppressed
 more quickly than the worst-case Monte-Carlo bound rather than landing on the
-$M^{-1/2}$ guide. Matching the predicted bias exponent on both systems — not
+$$M^{-1/2}$$ guide. Matching the predicted bias exponent on both systems — not
 merely "getting smaller" — is hard to fake by tuning and is the strongest
 single check that the estimator behaves as derived.
 
