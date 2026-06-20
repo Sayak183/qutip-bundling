@@ -16,7 +16,7 @@ uses (and that :func:`davies_operators` enforces) is
     omega = E_b - E_a
 
 so that a transition from the **higher** level ``b`` to the **lower**
-level ``a`` has $$/omega > 0$$. Paired with a detailed-balance spectral
+level ``a`` has $$\omega > 0$$. Paired with a detailed-balance spectral
 function $$\gamma(\omega)$$ that is **large at positive frequency**, this
 makes energy-releasing (downward) transitions the fast ones, and the
 system relaxes toward thermal equilibrium / the ground state at low
@@ -47,12 +47,14 @@ The ohmic example used in the tests and demos satisfies this.
 
 ## Collapse-operator scaling
 
-``build_collapse_ops`` returns ``c_alpha = sqrt(gamma(omega_alpha)) *
-L_alpha``. That is the QuTiP convention: the collapse operator already
+``build_collapse_ops`` returns $$c_{\alpha} = sqrt(\gamma(\omega_{\alpha})) *
+L_{alpha}$$. That is the QuTiP convention: the collapse operator already
 includes the rate, so the dissipator is
 
-    D[rho] = sum_alpha ( c_alpha rho c_alpha^dag
-                          - 0.5 { c_alpha^dag c_alpha, rho } )
+$$D[\rho] = \sum_{\alpha} ( c_{\alpha} \rho c_{\alpha}^dag
+                          - 0.5 { c_{\alpha}^dag c_{\alpha}, \rho } )$$
+
+    
 
 with no extra ``gamma`` out front. If you have your own operators that do
 *not* include the rate, multiply them by ``sqrt(gamma)`` before bundling.
