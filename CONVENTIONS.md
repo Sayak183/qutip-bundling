@@ -13,7 +13,7 @@ A Davies/Bohr Lindblad operator connects two energy eigenstates,
 and carries an associated Bohr frequency. The convention this package
 uses (and that :func:`davies_operators` enforces) is
 
-    omega = E_b - E_a
+    $$omega = E_{b} - E_{a}$$
 
 so that a transition from the **higher** level ``b`` to the **lower**
 level ``a`` has ``omega > 0``. Paired with a detailed-balance spectral
