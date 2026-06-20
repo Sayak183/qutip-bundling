@@ -38,7 +38,7 @@ them separate:
 
 The benchmarks use two systems chosen to bracket the kinds of problems users
 bring to a Lindblad solver. Both relax toward thermal equilibrium under the
-same detailed-balance ohmic bath spectral function `gamma(omega)`, and in both
+same detailed-balance ohmic bath spectral function $$\gamma(omega)$$, and in both
 cases the collapse operators are built with `davies_operators(H, X, gamma)`,
 which diagonalizes `H`, forms one Bohr-frequency operator per pair of energy
 levels, and weights each by the bath response at that frequency.
