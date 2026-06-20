@@ -56,8 +56,8 @@ $$D[\rho] = \sum_{\alpha} ( c_{\alpha} \rho c_{\alpha}^{\dagger}
 
     
 
-with no extra ``gamma`` out front. If you have your own operators that do
-*not* include the rate, multiply them by ``sqrt(gamma)`` before bundling.
+with no extra $$\gamma$$ out front. If you have your own operators that do
+*not* include the rate, multiply them by $$sqrt(\gamma)$$ before bundling.
 
 ## Sparsity and thresholds
 
@@ -76,8 +76,8 @@ interchangeable, which is why they are separate arguments:
   this is the knob that actually speeds up the build (the construction
   iterates only the significant entries instead of all ``N**2`` pairs).
 
-* **Operator weight**, ``sqrt(gamma(omega)) * |<a|X|b>|`` -- equivalently
-  ``sqrt(gamma) * ||L||``, the norm of the resulting collapse operator.
+* **Operator weight**, $$sqrt(\gamma(\omega)) * |<a|X|b>|$$ -- equivalently
+  $$sqrt(\gamma) * ||L||$$, the norm of the resulting collapse operator.
   Controlled by ``threshold`` in both :func:`davies_operators` and
   :func:`build_collapse_ops`. This is the master keep gate: it accounts
   for both how strongly two levels couple *and* how fast the bath drives
@@ -101,9 +101,10 @@ changes the steady state. Always re-check against the unpruned result.
 ## Lamb shift
 
 The Lamb-shift Hamiltonian is built from the **bare** operators (without
-the ``sqrt(gamma)`` factor and without bundling), as
+the $$sqrt(\gamma)$$ factor and without bundling), as
 
-    H_LS = sum_alpha imag_gamma(omega_alpha) * L_alpha^dag L_alpha
+$$  H_{LS} = \sum_{\alpha} imag_\gamma(\omega_{\alpha}) * L_{\alpha}^{\dagger} L_{\alpha}$$
+
 
 It is a coherent term added to the system Hamiltonian once; it is not
 part of the dissipator and is never bundled. When ``imag_gamma`` is zero
