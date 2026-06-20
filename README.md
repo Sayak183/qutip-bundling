@@ -13,9 +13,10 @@ and use with the solvers you already know.
 
 ## What it does
 
-A Lindblad master equation with a large number $$N_{L}$$ of collapse operators is
-expensive: the dissipator costs one matrix product per operator, and $$N_{L}$$
-typically grows as the square of the Hilbert-space dimension.
+A Lindblad master equation with a large number $N_L$ of collapse operators
+$c_\alpha = \sqrt{\gamma_\alpha}\, L_\alpha$ is expensive: the dissipator costs
+one matrix product per operator, and $N_L$ typically grows as the square of the
+Hilbert-space dimension.
 
 The dissipator is *quadratic* in the operators, so it can be reproduced **in
 expectation** by a much smaller set of $$M$$ randomly *bundled* operators:
