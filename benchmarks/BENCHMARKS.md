@@ -253,9 +253,9 @@ statistical spread as $M^{-1/2}$, and the finite-`M` bias faster, as $$M^{-1}$$.
 
 ![oscillator convergence](benchmark_convergence_oscillator_bath.png)
 
-Fitting the measured slopes recovers the predicted finite-$$M$$ bias rate of
+Fitting the measured slopes recovers the predicted finite- `M` bias rate of
 $$M^{-1}$$ on both systems ($$M^{-0.99}$$ for the spin chain, $$M^{-0.97}$$ for the
-oscillator) — and since the finite-$$M$$ bias is what sets SLB's accuracy, this
+oscillator) — and since the finite-`M` bias is what sets SLB's accuracy, this
 is the central check. The statistical spread follows the Monte-Carlo
 $$M^{-1/2}$$ rate on the spin chain (fitted $$M^{-0.52}$$); on the oscillator it
 falls faster still, close to $$M^{-1}$$, so its run-to-run noise is suppressed
