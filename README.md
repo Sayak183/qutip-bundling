@@ -210,7 +210,7 @@ Bundling is a Monte Carlo trick for the **dissipator only**. The Davies
 Lamb-shift Hamiltonian $$H_{LS}$$ is a deterministic part of the renormalized
 Hamiltonian (eq. 4 of the paper) — it's built once from the bare $L_\alpha$,
 added to the system Hamiltonian, and never enters the bundling step. If
-`imag_gamma` is identically zero (the paper's test cases), `H_LS = 0` and
+$$\mathrm{Im}{\gamma}$$ is identically zero (the paper's test cases), $$H_{LS}=0$$ and
 the package reduces to the dissipator-only case.
 
 Because the API returns operators rather than wrapping a solver, the same
@@ -234,7 +234,7 @@ guarantees:
    decays as `1/sqrt(samples)`).
 2. The Lamb shift is deterministic, Hermitian, and unchanged by any bundling
    call.
-3. A bundled `mesolve` with `M = 8` plus `H_LS` reproduces the dynamics of
+3. A bundled `mesolve` with `M = 8` plus $$H_{LS}$$ reproduces the dynamics of
    the full operator set within the dynamic range of the observables.
 
 ## Acknowledgments
