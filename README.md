@@ -38,7 +38,7 @@ Hilbert-space dimension — per-step cost drops from $$O(N^{5})$$ to $$O(N^{3})$
 
 On a dissipative spin chain, full `mesolve` (paying for all $$N_{L}$$ Lindblad
 operators) becomes infeasible as the system grows, while bundling — using only
-`M` of them — keeps going at a fraction of the cost:
+$$M$$ of them — keeps going at a fraction of the cost:
 
 ![cost versus system size](benchmarks/benchmark_scaling_spin_chain.png)
 
@@ -46,11 +46,11 @@ Below the crossover the full solve is the better choice; above it, bundling is
 what lets the calculation finish. Against QuTiP's trajectory solver `mcsolve`,
 bundling reaches the same accuracy for less compute on both test systems. See
 [`benchmarks/BENCHMARKS.md`](benchmarks/BENCHMARKS.md) for the full study —
-both systems defined, accuracy-versus-`M` convergence, and the
+both systems defined, accuracy-versus-$$M$$ convergence, and the
 accuracy-versus-cost frontier — all reproducible with the scripts in that
 folder. The benchmark scripts also accept optional Davies-construction
 thresholds, e.g. `COUPLING_THRESHOLD=1e-6`, so you can separate build-time
-operator pruning from the bundling parameter `M`.
+operator pruning from the bundling parameter $$M$$.
 
 ## Install
 
@@ -83,7 +83,7 @@ operators, not solver results:
 |---|---|
 | `davies_operators(H, X, gamma)` | **recommended for Davies/Bohr setups** -- build collapse operators from `H` and coupling op `X`, correct sign baked in |
 | `build_collapse_ops(L_ops, omegas, gamma)` | bare $L_\alpha$ and the spectral function → standard collapse operators $\sqrt{\gamma}\,L_\alpha$ |
-| `bundle(c_ops, M, ...)` | **the method** -- any collapse-operator list → `M` randomly bundled operators |
+| `bundle(c_ops, M, ...)` | **the method** -- any collapse-operator list → $$M$$ randomly bundled operators |
 | `lamb_shift_hamiltonian(L_ops, omegas, imag_gamma)` | bare $L_\alpha$ and `Im Gamma` → Lamb-shift Hamiltonian $H_{LS} = \sum_\alpha \mathrm{Im}\gamma_\alpha\, L_\alpha^\dagger L_\alpha$ (built once) |
 
 Spectral inputs (`gamma`, `imag_gamma`) may be either a callable
@@ -93,7 +93,7 @@ Spectral inputs (`gamma`, `imag_gamma`) may be either a callable
 
 `bundle` is the actual method, and it takes **any** list of collapse
 operators — it does not care how they were built. The bundling is a purely
-algebraic operation: it replaces $$N_{L}$$ operators `{c_alpha}` with `M` random
+algebraic operation: it replaces $$N_{L}$$ operators `{c_alpha}` with $$M$$ random
 linear combinations
 
 $$
@@ -187,10 +187,10 @@ raw       = ens.samples      # shape (n_realizations, n_e_ops, n_times)
 
 ### Advanced: bias reduction with the jackknife
 
-A finite bundle size `M` introduces an `O(1/M)` *bias* (eq. 14 of the paper).
-You can usually control it just by increasing `M` or inspecting `ens.samples`
+A finite bundle size $$M$$ introduces an `O(1/M)` *bias* (eq. 14 of the paper).
+You can usually control it just by increasing $$M$$ or inspecting `ens.samples`
 directly. When you specifically want to cancel the leading bias term at fixed
-`M`, the package provides the jackknife-2 estimator (eqs. 15–16):
+$$M$$, the package provides the jackknife-2 estimator (eqs. 15–16):
 
 ```python
 from qutip_bundling import mesolve_jackknife
@@ -220,7 +220,7 @@ custom propagator.
 
 A step-by-step Jupyter notebook is in `examples/tutorial.ipynb`. It builds a
 system, bundles its operators, shows convergence to the deterministic answer
-as `M` grows, shows the standard deviation vs standard error, and uses the
+as $$M$$ grows, shows the standard deviation vs standard error, and uses the
 `native` backend. Every cell is executed and its output checked.
 
 ## Validation
