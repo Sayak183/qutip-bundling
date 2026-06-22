@@ -36,6 +36,34 @@ the sign.
 A quick sanity check for any setup: start in an excited state at low
 temperature and confirm the energy goes **down**.
 
+## Degenerate Bohr frequencies (pairwise vs. grouped operators)
+
+`davies_operators` builds **one collapse operator per ordered eigenstate
+pair** `(a, b)`. When the Bohr frequencies are non-degenerate this is
+exactly the Davies dissipator. When several transitions share the *same*
+Bohr frequency `omega`, the strict Davies/secular construction groups
+them into a single jump operator
+
+    A(omega) = sum_{E_b - E_a = omega}  <a|X|b> |a><b|
+
+and uses `D[A(omega)]`. Because the dissipator is quadratic,
+`D[A(omega)]` is **not** the same as the sum of `D[|a><b|]` over the
+individual transitions -- the grouped form keeps cross terms
+`|a><b| rho |a'><b'|^dag` between degenerate transitions that the
+pairwise form drops. Exact degeneracy also makes the eigenvector basis
+within a degenerate subspace arbitrary, so the individual pairwise
+operators are basis-dependent while `A(omega)` is not.
+
+In practice this matters only for systems with exact or near-exact
+degeneracy in their transition frequencies (high symmetry, or a nearly
+harmonic ladder where many transitions coincide). For a generic
+anharmonic spectrum the two constructions agree and the pairwise form
+used here is the right one. If you require the strict secular Davies
+result for a degenerate system, group your transitions by Bohr frequency
+before bundling (sum the bare `|a><b|` within each `omega` sector into a
+single operator, then pass those to `build_collapse_ops`/`bundle`).
+The bundling method itself is agnostic to which of the two you feed it.
+
 ## Detailed balance of gamma
 
 For the equilibrium state to be the Gibbs state at temperature ``T``, the

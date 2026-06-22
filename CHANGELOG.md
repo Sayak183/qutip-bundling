@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.6.1 — 2026-06-22
+- **Fixed** the Bohr-frequency sign in `examples/oscillator_demo.py`: it
+  used `E_n - E_m` for `L = |n><m|`, the opposite of the package
+  convention (`E_m - E_n`) documented in `CONVENTIONS.md` and enforced by
+  `davies_operators`. The demo's checks pass either way (they test
+  bundling fidelity, not relaxation direction), but the example now
+  matches the convention so it is safe to use as a template.
+- **Docs:** `CONVENTIONS.md` now documents the pairwise-vs-grouped
+  operator choice for degenerate Bohr-frequency sectors (the strict
+  secular Davies construction groups transitions by frequency; this
+  package builds one operator per eigenstate pair, which agrees for
+  non-degenerate spectra).
+- **Docs:** fixed README rendering — the API table no longer embeds
+  display math in cells (a malformed brace in the Lamb-shift entry is
+  gone), and a stray Sphinx `:func:` role was replaced with plain
+  Markdown so it renders on GitHub and PyPI.
+- **Packaging:** added `MANIFEST.in` so the source distribution now
+  includes `CITATION.cff`, `CHANGELOG.md`, `CONVENTIONS.md`,
+  `PUBLISHING.md`, `examples/`, and the benchmark scripts. No code or API
+  changes.
+
 ## 0.6.0 — 2026-06-15
 - `mesolve_ensemble` / `mesolve_jackknife` now raise `ValueError` when
   `options` is passed together with `backend="native"`, instead of silently

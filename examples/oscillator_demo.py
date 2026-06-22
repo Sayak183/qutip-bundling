@@ -67,7 +67,11 @@ def build_system(N=14, kT=1.5, gamma0=0.02):
             # Each bare L_alpha already carries the (real) coupling matrix
             # element x_{nm}; that is the "L_alpha" of the paper.
             L_ops.append(qutip.Qobj(amp * P))
-            omegas.append(evals[n] - evals[m])
+            # Convention (see CONVENTIONS.md): for L = |n><m| the Bohr
+            # frequency is omega = E_m - E_n, so an energy-releasing
+            # (downward) transition has omega > 0. This matches
+            # davies_operators; the previous E_n - E_m was the opposite sign.
+            omegas.append(evals[m] - evals[n])
     omegas = np.asarray(omegas)
 
     return qutip.Qobj(H_mat), L_ops, omegas, gamma, imag_gamma

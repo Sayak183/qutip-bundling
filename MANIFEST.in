@@ -1,0 +1,3 @@
+include CITATION.cff CHANGELOG.md CONVENTIONS.md PUBLISHING.md
+recursive-include examples *.py *.ipynb
+recursive-include benchmarks *.md *.py

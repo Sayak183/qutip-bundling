@@ -63,7 +63,7 @@ pip install -e ".[examples,test]"
 
 ## API: three operator transforms plus optional solver helpers
 
-The easiest entry point is :func:`davies_operators`, which builds the
+The easiest entry point is `davies_operators`, which builds the
 collapse operators directly from a Hamiltonian ``H`` and a system-bath
 coupling operator ``X``, with the correct sign convention baked in (see
 CONVENTIONS.md -- getting the sign wrong silently runs the dynamics
@@ -82,13 +82,13 @@ operators, not solver results:
 
 | Function | Purpose |
 |---|---|
-| `davies_operators(H, X, `$$\gamma$$`)` | **recommended for Davies/Bohr setups** -- build collapse operators from `H` and coupling op `X`, correct sign baked in |
-| `build_collapse_ops`($$L_{ops}, \omega_{s}, \gamma$$) | bare $L_\alpha$ and the spectral function → standard collapse operators $\sqrt{\gamma}\,L_\alpha$ |
-| `bundle`($$c_{ops}$$, M, ...) | **the method** -- any collapse-operator list → $$M$$ randomly bundled operators |
-| `lamb_shift_hamiltonian`($$L_{ops}, \omega_{s}, \mathrm{Im}{\gamma}$$) | bare $L_\alpha$ and $$\mathrm{Im}{\gamma}$$ → Lamb-shift Hamiltonian $H_{LS} = \sum_\alpha \mathrm{Im}{\gamma_\alpha\} L_\alpha^\dagger L_\alpha$ (built once) |
+| `davies_operators(H, X, gamma)` | **recommended for Davies/Bohr setups** -- build collapse operators from `H` and coupling op `X`, correct sign baked in |
+| `build_collapse_ops(L_ops, omegas, gamma)` | bare `L_alpha` and the spectral function -> standard collapse operators `sqrt(gamma) * L_alpha` |
+| `bundle(c_ops, M, ...)` | **the method** -- any collapse-operator list -> `M` randomly bundled operators |
+| `lamb_shift_hamiltonian(L_ops, omegas, imag_gamma)` | bare `L_alpha` and `Im gamma` -> Lamb-shift Hamiltonian `H_LS = sum_alpha Im(gamma(omega_alpha)) * L_alpha^dag L_alpha` (built once) |
 
-Spectral inputs ($$\gamma, \mathrm{Im}{\gamma}$$) may be either a callable
-f($$\omega$$) -> float or an array aligned with $$\omega$$.
+Spectral inputs (`gamma`, `imag_gamma`) may be either a callable
+`f(omega) -> float` or an array aligned with the Bohr frequencies.
 
 ### Bringing your own operators (bundling is not tied to Davies)
 
