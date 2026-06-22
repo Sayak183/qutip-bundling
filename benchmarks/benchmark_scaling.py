@@ -132,6 +132,36 @@ def add_settings_footer(fig, *segments, y=-0.01, fontsize=7):
 
 
 # ===========================================================================
+# ERROR METRIC (shared; imported by benchmark_vs_mcsolve.py)
+# ===========================================================================
+# Error is reported at fixed sample times -- early / mid / late relaxation --
+# rather than as a single max-over-time number. The mid point is the value
+# plotted; reporting at a fixed time (a) keeps the bias and the run-to-run
+# fluctuation separable (the mean displacement is the bias, the std bar is the
+# fluctuation) and (b) does not let one stiff early instant dominate the number.
+ERR_TIMES = (1.0, 2.5, 4.0)        # early / mid / late
+ERR_PLOT_TIME = 2.5                # the point plotted in error-vs-X figures
+
+
+def err_time_indices(tlist, times=ERR_TIMES):
+    tl = np.asarray(tlist)
+    return [int(np.argmin(np.abs(tl - t))) for t in times]
+
+
+def fixed_time_errors(mean_curve, reference, tlist):
+    """Absolute error |mean - reference| at each of ERR_TIMES."""
+    idx = err_time_indices(tlist)
+    mc = np.real(np.asarray(mean_curve))
+    rf = np.asarray(reference)
+    return [abs(float(mc[i]) - float(rf[i])) for i in idx]
+
+
+def plot_time_index(tlist):
+    """Index of ERR_PLOT_TIME in tlist (the value shown in error-vs-X plots)."""
+    return int(np.argmin(np.abs(np.asarray(tlist) - ERR_PLOT_TIME)))
+
+
+# ===========================================================================
 # SYSTEM BUILDERS
 # ===========================================================================
 def build_spin_chain(n_sites: int, J: float = 1.0, h: float = 0.6):
@@ -215,7 +245,14 @@ def _run_mcsolve(H, psi0, c_ops, ntraj):
         res = qutip.mcsolve(H, psi0, TLIST, c_ops=c_ops, e_ops=[H], ntraj=ntraj,
                             options={"progress_bar": False})
         tm = time.perf_counter() - t0
-    return tm, np.real(res.expect[0])
+    # Statistical error bar without repeats: std over trajectories / sqrt(ntraj)
+    # is the standard error of the trajectory-averaged mean (mcsolve is unbiased
+    # in ntraj, so this is its whole error -- see BENCHMARKS.md section 4).
+    try:
+        sem = np.asarray(res.std_expect[0], float) / math.sqrt(ntraj)
+    except (AttributeError, IndexError, TypeError):
+        sem = np.zeros_like(np.real(res.expect[0]))
+    return tm, np.real(res.expect[0]), sem
 
 
 def run_scaling(name, build, sizes):
@@ -229,11 +266,13 @@ def run_scaling(name, build, sizes):
     dims, ops, t_full = [], [], []
     t_bundled = {m: [] for m in M_SCALING}
     e_bundled = {m: [] for m in M_SCALING}
+    s_bundled = {m: [] for m in M_SCALING}   # std bar (over realizations) at plot time
     t_mc = {nt: [] for nt in NTRAJ_FIXED}
     e_mc = {nt: [] for nt in NTRAJ_FIXED}
+    s_mc = {nt: [] for nt in NTRAJ_FIXED}     # std bar (SEM over trajectories) at plot time
     full_feasible, wall_dim = True, None
 
-    print(f"\n[{name}]  cost (s) and max-error vs reference at fixed knobs")
+    print(f"\n[{name}]  cost (s) and error (at t={ERR_PLOT_TIME}) vs reference at fixed knobs")
     for s in sizes:
         H, X, psi0 = build(s)
         rho0 = qutip.ket2dm(psi0)
@@ -264,11 +303,14 @@ def run_scaling(name, build, sizes):
             t_full.append(np.nan)
             tf = float("nan")
 
+        pidx = plot_time_index(TLIST)   # index of the plotted sample time
+
         def err_vs_ref(curve):
-            return (float(np.max(np.abs(curve - ref)))
+            """Absolute error at the plotted sample time (mid-relaxation)."""
+            return (abs(float(np.real(curve)[pidx]) - float(ref[pidx]))
                     if ref is not None else np.nan)
 
-        # SLB at each M: cost + error.
+        # SLB at each M: cost + error (at plot time) + std bar (over realizations).
         for m in M_SCALING:
             m_timing = min(m, n_l)
             t0 = time.perf_counter()
@@ -278,21 +320,27 @@ def run_scaling(name, build, sizes):
                 substeps=SUBSTEPS,
             )
             t_bundled[m].append(time.perf_counter() - t0)
-            e_bundled[m].append(err_vs_ref(np.real(ens.expect[0])))
+            e_bundled[m].append(err_vs_ref(ens.expect[0]))
+            std_curve = (np.asarray(ens.std[0], float)
+                         if getattr(ens, "std", None) is not None
+                         else np.asarray(ens.sem[0], float) * math.sqrt(N_REALIZATIONS))
+            s_bundled[m].append(float(std_curve[pidx]) if ref is not None else np.nan)
 
-        # mcsolve at each fixed ntraj: cost + error. Only run where a reference
-        # exists -- past the wall there is nothing to measure error against, and
-        # mcsolve at large ntraj on big systems is prohibitively slow (e.g. a
-        # single ntraj=1000 run can take ~an hour at dim 64+), so running it
-        # there would buy an unusable (nan-error) point at enormous cost.
+        # mcsolve at each fixed ntraj: cost + error (at plot time) + std bar
+        # (SEM = per-trajectory std / sqrt(ntraj), from the single run). Only run
+        # where a reference exists -- past the wall there is nothing to measure
+        # error against, and mcsolve at large ntraj on big systems is
+        # prohibitively slow, so running it there would buy an unusable point.
         for nt in NTRAJ_FIXED:
             if ref is not None:
-                tm, curve = _run_mcsolve(H, psi0, c_ops, nt)
+                tm, curve, sem_curve = _run_mcsolve(H, psi0, c_ops, nt)
                 t_mc[nt].append(tm)
                 e_mc[nt].append(err_vs_ref(curve))
+                s_mc[nt].append(float(sem_curve[pidx]))
             else:
                 t_mc[nt].append(np.nan)
                 e_mc[nt].append(np.nan)
+                s_mc[nt].append(np.nan)
 
         fstr = f"{tf:8.2f}s" if np.isfinite(tf) else " (wall) "
         slb_str = " ".join(f"M{m}:{t_bundled[m][-1]:.2f}/{e_bundled[m][-1]:.1e}"
@@ -312,7 +360,9 @@ def run_scaling(name, build, sizes):
     return {
         "dims": np.array(dims), "ops": np.array(ops), "t_full": t_full,
         "t_bundled": arr(t_bundled), "e_bundled": arr(e_bundled),
-        "t_mc": arr(t_mc), "e_mc": arr(e_mc), "wall_dim": wall_dim,
+        "s_bundled": arr(s_bundled),
+        "t_mc": arr(t_mc), "e_mc": arr(e_mc), "s_mc": arr(s_mc),
+        "wall_dim": wall_dim,
     }
 
 
@@ -476,22 +526,25 @@ def main():
         secax.minorticks_off()
         secax.set_xlabel(r"number of Lindblad operators $N_L$ (full dissipator)")
 
-        # --- error panel ---
+        # --- error panel (error at the mid sample time, with std bars) ---
         for m, col in zip(M_SCALING, green_shades):
-            e = sc["e_bundled"][m]
+            e, sb = sc["e_bundled"][m], sc["s_bundled"][m]
             ef = np.isfinite(e)
-            axe.loglog(dims[ef], e[ef], "s-", color=col, lw=2, ms=6,
-                       label=fr"SLB, $M$={m}")
+            axe.errorbar(dims[ef], e[ef], yerr=sb[ef], fmt="s-", color=col,
+                         lw=2, ms=6, capsize=3, label=fr"SLB, $M$={m}")
         for nt, col in zip(NTRAJ_FIXED, purple_shades):
-            e = sc["e_mc"][nt]
+            e, sb = sc["e_mc"][nt], sc["s_mc"][nt]
             ef = np.isfinite(e)
-            axe.loglog(dims[ef], e[ef], "^-", color=col, lw=1.8, ms=6,
-                       label=fr"mcsolve, ntraj={nt}")
+            axe.errorbar(dims[ef], e[ef], yerr=sb[ef], fmt="^-", color=col,
+                         lw=1.8, ms=6, capsize=3, label=fr"mcsolve, ntraj={nt}")
+        axe.set_xscale("log")
+        axe.set_yscale("log")
         axe.set_xlabel("Hilbert-space dimension")
-        axe.set_ylabel(r"max error in $\langle H\rangle$ vs exact")
+        axe.set_ylabel(rf"error in $\langle H\rangle$ at $t={ERR_PLOT_TIME}$ vs exact")
         axe.grid(True, which="both", alpha=0.3)
         axe.text(0.99, 0.96,
-                 "error measured only where the exact\nreference is computable",
+                 "error at mid-relaxation; bars = std over\nrealizations (SLB) "
+                 "/ SEM over trajectories (mcsolve)",
                  transform=axe.transAxes, ha="right", va="top",
                  fontsize=7, color="dimgray")
 

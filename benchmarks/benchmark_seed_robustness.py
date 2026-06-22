@@ -12,7 +12,7 @@ points for *every* seed, the conclusion is not a seed artifact.
 For each seed it sweeps:
     * SLB:      bundle size M
     * mcsolve:  trajectory count ntraj
-and plots wall-clock time vs max-over-time error in <H> (lower-left is better),
+and plots wall-clock time vs error in <H> at t=2.5 (lower-left is better),
 drawing one faint frontier per seed plus the seed-averaged frontier in bold.
 
 Produces, per system:
@@ -29,7 +29,7 @@ import numpy as np
 import qutip
 
 from benchmark_vs_mcsolve import (
-    gamma, build_spin_chain, build_oscillator_bath, TLIST, max_err,
+    gamma, build_spin_chain, build_oscillator_bath, TLIST, err_at_plot_time,
     MC_OPTIONS,
 )
 from benchmark_scaling import (
@@ -61,7 +61,7 @@ def frontier_for_seed(H, rho0, psi0, c_ops, reference, seed):
                                n_realizations=N_REALIZATIONS, rng=seed,
                                backend="native", substeps=SUBSTEPS)
         slb_t.append(time.perf_counter() - t0)
-        slb_e.append(max_err(ens.expect[0], reference))
+        slb_e.append(err_at_plot_time(ens.expect[0], reference))
 
     mc_t, mc_e = [], []
     for nt in NTRAJ_VALUES:
@@ -73,7 +73,7 @@ def frontier_for_seed(H, rho0, psi0, c_ops, reference, seed):
             mc = qutip.mcsolve(H, psi0, TLIST, c_ops, e_ops=[H], ntraj=nt,
                                options=MC_OPTIONS)
         mc_t.append(time.perf_counter() - t0)
-        mc_e.append(max_err(mc.expect[0], reference))
+        mc_e.append(err_at_plot_time(mc.expect[0], reference))
     return (np.array(slb_t), np.array(slb_e), np.array(mc_t), np.array(mc_e))
 
 
@@ -119,7 +119,7 @@ def main():
 
         ax.set_xscale("log"); ax.set_yscale("log")
         ax.set_xlabel("wall-clock time (s)  (lower is better)")
-        ax.set_ylabel(r"max error in $\langle H\rangle$  (lower is better)")
+        ax.set_ylabel(r"error in $\langle H\rangle$ at $t=2.5$  (lower is better)")
         ax.set_title(f"{name} (dim {dim}, $N_L$={n_l}): frontier across {len(SEEDS)} seeds")
         ax.grid(True, which="both", alpha=0.3)
         ax.legend(frameon=False, fontsize=8)

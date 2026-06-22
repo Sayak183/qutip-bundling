@@ -12,7 +12,7 @@ Both methods are stochastic and have different accuracy knobs:
     * qutip.mcsolve:  number of quantum-jump trajectories ntraj
 
 The fair comparison is therefore an accuracy-vs-cost frontier: sweep each
-method's knob and plot max-over-time error against wall-clock time. Lower-left
+method's knob and plot error in <H> at t=2.5 against wall-clock time. Lower-left
 means lower error and lower cost.
 
 Updates in this version:
@@ -38,6 +38,7 @@ import qutip
 from qutip_bundling import davies_operators, mesolve_ensemble
 from benchmark_scaling import (
     format_slb_settings, format_mcsolve_settings, add_settings_footer,
+    plot_time_index, ERR_PLOT_TIME,
 )
 
 # ===========================================================================
@@ -117,8 +118,16 @@ SYSTEMS = [
 # ===========================================================================
 # HELPERS
 # ===========================================================================
-def max_err(curve, reference):
-    return float(np.max(np.abs(np.real(curve) - reference)))
+def err_at_plot_time(curve, reference):
+    """Absolute error in <H> at the mid-relaxation sample time (t=ERR_PLOT_TIME).
+
+    Reported instead of the max-over-time error so the number reflects a fixed,
+    representative instant rather than the single worst point; see
+    BENCHMARKS.md section 3.1. The repeat-to-repeat spread (SEM over N_REPEATS)
+    is the error bar, computed by the caller via mean_sem.
+    """
+    i = plot_time_index(TLIST)
+    return abs(float(np.real(curve)[i]) - float(reference[i]))
 
 
 def mean_sem(values):
@@ -165,7 +174,7 @@ def frontier(name, build, size):
                 substeps=SUBSTEPS,
             )
             times.append(time.perf_counter() - t0)
-            errors.append(max_err(ens.expect[0], reference))
+            errors.append(err_at_plot_time(ens.expect[0], reference))
 
         tm, ts = mean_sem(times)
         em, es = mean_sem(errors)
@@ -193,7 +202,7 @@ def frontier(name, build, size):
                     options={"progress_bar": False},
                 )
             times.append(time.perf_counter() - t0)
-            errors.append(max_err(mc.expect[0], reference))
+            errors.append(err_at_plot_time(mc.expect[0], reference))
 
         tm, ts = mean_sem(times)
         em, es = mean_sem(errors)
@@ -259,7 +268,7 @@ def main():
         ax.set_xscale("log")
         ax.set_yscale("log")
         ax.set_xlabel("wall-clock time (s)  (lower is better)")
-        ax.set_ylabel(r"max error in $\langle H\rangle$  (lower is better)")
+        ax.set_ylabel(r"error in $\langle H\rangle$ at $t=2.5$  (lower is better)")
         ax.set_title(
             rf"{name} (dim {out['dim']}, $N_L$={out['n_l']}): accuracy-vs-cost frontier"
         )
