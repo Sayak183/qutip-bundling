@@ -127,9 +127,13 @@ H_{\rm sys} = -J\sum_{i=1}^{n-1}\sigma^z_i\sigma^z_{i+1}\;-\;h\sum_{i=1}^{n}\sig
 $$
 
 The first term is nearest-neighbour Ising coupling; the second is a transverse
-field. The bath couples through the **coupling operator**
-$X = \sum_i \sigma^x_i$ (total transverse magnetization), and the chain starts
-fully polarized, $|\psi_0\rangle = |{\uparrow\uparrow\cdots\uparrow}\rangle$.
+field. The bath couples to the system through the **coupling operator**
+$X = \sum_i \sigma^x_i$ (total transverse magnetization): the reservoir acts on
+the chain *via* this observable, driving transitions that relax its magnetization
+toward thermal equilibrium. This is a single *collective* coupling — all $n$ spins
+share **one** common bath through this global operator, rather than each spin
+relaxing into its own independent reservoir. The chain starts fully polarized,
+$|\psi_0\rangle = |{\uparrow\uparrow\cdots\uparrow}\rangle$.
 
 Because there is no separate bath Hilbert space in the Lindblad description, the
 **total object being evolved** is the master equation
@@ -155,9 +159,15 @@ operator and $x=(a+a^\dagger)/\sqrt2$ the position. The four terms are: the bare
 oscillator, its anharmonicity, the spin's energy splitting, and a coherent
 oscillator–spin coupling.
 
-The bath couples through the **coupling operator** $X = x\otimes I$ (the
-oscillator position), and the system starts in the oscillator's top Fock state
-with the spin down. As above, the total evolved object is the Lindblad master
+The bath couples to the system through the **coupling operator** $X = x\otimes I$
+(the oscillator position): a phonon/photon-like reservoir acts *via* this observable,
+damping the oscillator's motion and draining its energy toward thermal equilibrium.
+It is a single shared bath — $X = x\otimes I$ acts only on the oscillator, so the
+oscillator and spin couple to **one** common reservoir (the spin has no separate
+bath of its own). Because $X$ touches only the oscillator, the bath never damps the
+spin directly; dissipation reaches the spin only indirectly, through the internal
+coherent coupling $g\,(x\otimes\sigma_x)$. The system starts in the oscillator's
+top Fock state with the spin down. As above, the total evolved object is the Lindblad master
 equation with dissipators built from $(H_{\rm sys}, X, \gamma)$. Note the two
 distinct "couplings": $g=0.3$ is an **internal coherent** coupling inside
 $H_{\rm sys}$, whereas $\alpha=0.3$ is the **system–bath** coupling carried by
@@ -234,9 +244,10 @@ This is a deliberate, disclosed asymmetry, not a hidden advantage:
 - All methods share the **same output time grid** and the **same exact
   reference**, so they are compared at identical points.
 - You *can* match the full `mesolve` reference to SLB by running the full
-  (unbundled) operators through the same fixed-step RK4 — and doing so confirms
-  the RK4 integration error is ~1000× below the bundling error, so it does not
-  contaminate the comparison.
+  (unbundled) operators through the same fixed-step RK4. Doing so isolates the
+  integration error, which falls far below the bundling error — orders of
+  magnitude below for these systems (the substep-convergence check in
+  **Result 4** makes this explicit) — so it does not contaminate the comparison.
 - You *cannot* match `mcsolve` this way: its accuracy knob is `ntraj`, not a step
   size, so a shared accurate reference is the only sensible common ground. SLB is
   therefore not winning by integrating more loosely — if anything `mcsolve`
@@ -401,6 +412,21 @@ leaves the conclusion unchanged: per-seed frontiers cluster tightly and SLB
 stays below `mcsolve` for every seed.
 
 ![spin chain seed robustness](benchmark_seed_robustness_spin_chain.png)
+
+**Integration robustness — SLB is bundling-limited, not integrator-limited.**
+This answers the doubt that SLB might only look fast because it integrates the
+master equation more crudely than the adaptive reference. Holding the bundling
+fixed (one seed, so the bundles are identical) and sweeping only the RK4 substep
+count separates the two error sources: the *pure* integration error — the full,
+unbundled operators run through the same RK4 — falls quickly and bottoms out at
+the reference tolerance (~$10^{-10}$), while the *total* SLB error stays flat,
+set by the bundling ($M$). At 4 substeps the integration error is orders of
+magnitude below the bundling error (~$10^{8}\times$ smaller for these systems),
+so the substep choice cannot be where SLB's accuracy — or its speed — comes
+from; one could integrate far more crudely without moving the SLB error.
+
+![spin chain substep convergence](benchmark_substep_convergence_spin_chain.png)
+![oscillator substep convergence](benchmark_substep_convergence_oscillator_bath.png)
 
 **`mcsolve` fairness.** In Result 3 `mcsolve` runs single-threaded (matching
 SLB's single-threaded loop) at stated tolerances; removing its multi-core
