@@ -39,8 +39,8 @@ $H_{\rm eff} = H - \tfrac{i}{2}\sum_a L_a^\dagger L_a$, interrupted by random
 $L_a$ fires (chosen with probability $\propto\langle\psi|L_a^\dagger
 L_a|\psi\rangle$) and the state resets to $L_a|\psi\rangle$. A single trajectory
 looks nothing like the smooth answer; you recover the density matrix by
-averaging over `ntraj` trajectories. Both the jump times and which operator fires are random, so no two trajectories are alike — they differ even in how many jumps occur. Raising ntraj does not change any single trajectory; it only adds more independent samples to the average, shrinking the Monte-Carlo error as ∼Ntraj−1/2\sim N_{\rm traj}^{-1/2}
-∼Ntraj−1/2​. **The randomness is in the state path, and
+averaging over `ntraj` trajectories. Both the jump times and which operator fires are random, so no two trajectories are alike — they differ even in how many jumps occur. Raising ntraj does not change any single trajectory; it only adds more independent samples to the average, shrinking the Monte-Carlo error as ∼Ntraj− $$1/2\sim N_{\rm traj}^{-1/2}
+∼Ntraj^−1/2$$​. **The randomness is in the state path, and
 all $N_L$ operators are kept exact.**
 
 **SLB randomizes the operators.** It keeps the full density matrix and runs an
