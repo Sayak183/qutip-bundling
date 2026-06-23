@@ -34,7 +34,7 @@ import qutip
 
 from benchmark_scaling import (
     gamma, build_spin_chain, build_oscillator_bath, TLIST,
-    format_slb_settings, add_settings_footer,
+    format_slb_settings, add_settings_footer, plot_time_index, ERR_PLOT_TIME,
 )
 from qutip_bundling import davies_operators, mesolve_ensemble
 from qutip_bundling.native_solver import rk4_mesolve
@@ -67,6 +67,7 @@ def run(name, build, size):
         qutip.mesolve(H, rho0, TLIST, c_ops=c_ops, e_ops=[H],
                       options={"atol": ATOL, "rtol": RTOL}).expect[0]
     )
+    idx = plot_time_index(TLIST)        # report error at the single mid-point t=2.5
 
     int_err, slb_err = [], []
     for s in SUBSTEPS:
@@ -74,14 +75,14 @@ def run(name, build, size):
         full = np.real(
             rk4_mesolve(H, rho0, TLIST, c_ops=c_ops, e_ops=[H], substeps=s).expect[0]
         )
-        int_err.append(float(np.max(np.abs(full - ref))))
+        int_err.append(float(abs(full[idx] - ref[idx])))
 
         # SLB total error: bundled, fixed M and fixed seed -> bundles identical
         # at every substep, so the only thing changing is the integration
         res = mesolve_ensemble(H, rho0, TLIST, c_ops, M=M, e_ops=[H],
                                n_realizations=N_REALIZATIONS, rng=SEED,
                                backend="native", substeps=s)
-        slb_err.append(float(np.max(np.abs(np.asarray(res.expect[0]) - ref))))
+        slb_err.append(float(abs(np.asarray(res.expect[0])[idx] - ref[idx])))
 
     print(f"[{name}] dim={dim}, N_L={n_l}")
     print(f"  substeps:        {SUBSTEPS}")
@@ -99,7 +100,7 @@ def figure(name, dim, n_l, int_err, slb_err):
     ax.loglog(SUBSTEPS, int_err, "o--", color="tab:blue", lw=2, ms=7,
               label="full operators via RK4 — pure integration error")
     ax.set_xlabel("RK4 substeps per output step")
-    ax.set_ylabel(r"max-over-time error in $\langle H\rangle$ vs adaptive reference")
+    ax.set_ylabel(r"error in $\langle H\rangle$ at $t=2.5$ vs adaptive reference")
     ax.set_title(f"{name} (dim {dim}, $N_L$={n_l}): "
                  "SLB error is set by bundling, not the integrator")
     ax.set_xticks(SUBSTEPS)

@@ -141,8 +141,8 @@ $\dot\rho = -i[H_{\rm sys},\rho] + \sum_a \mathcal{D}[c_a]\rho$, with the
 dissipators $c_a$ generated from $(H_{\rm sys}, X, \gamma)$ as in §2.1. The
 Hilbert dimension is $2^n$. The energy eigenbasis mixes all sites, so nearly
 every level pair contributes a Davies operator and $N_L$ climbs steeply with
-size — 4 operators at $n=2$, ~62 at $n=4$ (dim 16), ~213 at $n=5$ (dim 32),
-~2200 at $n=7$ (dim 128). This rapid operator growth is SLB's natural home.
+size — 4 operators at $n=2$, $\sim 62$ at $n=4$ (dim 16), $\sim 213$ at $n=5$ (dim 32),
+$\sim 2200$ at $n=7$ (dim 128). This rapid operator growth is SLB's natural home.
 
 ### 2.4 System B — anharmonic oscillator coupled to a spin
 
@@ -185,7 +185,10 @@ The quantity of interest is how well the bundled $\langle H(t)\rangle$ (and, in
 Result 4, a coherence) tracks the exact reference. Rather than a single
 worst-case number, the error is reported **at fixed time points** — early, mid,
 and late relaxation ($t=1.0,\,2.5,\,4.0$) — and **each point carries a $\pm1$
-standard-deviation bar over the stochastic realizations.** This matters for two
+standard-deviation bar over the stochastic realizations.** (The dynamics run to
+$t=5$ in natural units — $J=1$ for the chain, $\omega_0=1$ for the oscillator —
+over 40 output points; the error-vs-X figures of Results 1 and 3, and the
+integrator check in Result 4, report the mid-point $t=2.5$.) This matters for two
 reasons:
 
 - It separates the **two error components**: the mean displacement of the
@@ -199,7 +202,11 @@ reasons:
 (An earlier version of these scripts reported the max-over-time error. That
 metric tells the same qualitative story — see §5, Result 1 — but it picks the
 single worst instant and obscures the bias/fluctuation split, so the
-fixed-time-point-with-std reporting replaces it.)
+fixed-time-point-with-std reporting replaces it. The one deliberate exception is
+the **convergence-rate figure** (Result 4): it keeps the max-over-time error on
+purpose, because it measures how fast the whole error envelope shrinks with $M$,
+where the worst-case over the trajectory is the robust diagnostic — insensitive
+to where any single instant happens to sit on the curve.)
 
 ### 3.2 How much sampling each method does (read this — it is the confusing part)
 
@@ -419,11 +426,15 @@ master equation more crudely than the adaptive reference. Holding the bundling
 fixed (one seed, so the bundles are identical) and sweeping only the RK4 substep
 count separates the two error sources: the *pure* integration error — the full,
 unbundled operators run through the same RK4 — falls quickly and bottoms out at
-the reference tolerance (~$10^{-10}$), while the *total* SLB error stays flat,
+the reference tolerance ($\sim 10^{-10}$), while the *total* SLB error stays flat,
 set by the bundling ($M$). At 4 substeps the integration error is orders of
-magnitude below the bundling error (~$10^{8}\times$ smaller for these systems),
+magnitude below the bundling error ($\sim 10^{8}\times$ smaller for these systems),
 so the substep choice cannot be where SLB's accuracy — or its speed — comes
 from; one could integrate far more crudely without moving the SLB error.
+
+The plotted error is the absolute deviation from the adaptive reference at the
+fixed mid-point $t=2.5$, $|\langle H\rangle(2.5) - \langle H\rangle_{\rm ref}(2.5)|$
+— the same single-time-point metric as the scaling and frontier figures (§3.1).
 
 ![spin chain substep convergence](benchmark_substep_convergence_spin_chain.png)
 ![oscillator substep convergence](benchmark_substep_convergence_oscillator_bath.png)
