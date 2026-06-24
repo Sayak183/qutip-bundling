@@ -29,7 +29,18 @@ import numpy as np
 import qutip
 
 
-__all__ = ["rk4_mesolve", "NativeResult"]
+__all__ = ["rk4_mesolve", "NativeResult", "SolverInstabilityError"]
+
+
+class SolverInstabilityError(RuntimeError):
+    """Raised when the RK4 integration diverges to a non-finite state.
+
+    The fixed-step RK4 propagator is only conditionally stable: if the Lindblad
+    generator is too stiff for the chosen step size, the density matrix grows
+    without bound and overflows to inf/NaN. Rather than return a silently
+    corrupted result, ``rk4_mesolve`` raises this so the caller can increase
+    ``substeps`` (or refine ``tlist``).
+    """
 
 
 @dataclass
@@ -94,7 +105,9 @@ def rk4_mesolve(
     machine precision, and each substep re-Hermitizes ``rho``. Positivity is
     not explicitly projected -- it holds only to the integrator's order, which
     is why stiff systems need enough ``substeps`` (a single substep can
-    diverge). Validate against ``qutip.mesolve`` on a small system.
+    diverge). If the state diverges to non-finite values, a
+    ``SolverInstabilityError`` is raised instead of returning a silently
+    corrupted result. Validate against ``qutip.mesolve`` on a small system.
 
     Expectation values are recorded as real (observables assumed Hermitian).
 
@@ -149,6 +162,14 @@ def rk4_mesolve(
             k4 = _dissipator_rhs(rho + dt * k3,       H_arr, C_list, Cd_list, CdC_sum)
             rho = rho + (dt / 6.0) * (k1 + 2.0 * k2 + 2.0 * k3 + k4)
             rho = 0.5 * (rho + rho.conj().T)
+        if not np.isfinite(rho).all():
+            raise SolverInstabilityError(
+                f"rk4_mesolve diverged near t={tlist[i + 1]:.4g} with "
+                f"substeps={substeps}: the density matrix became non-finite. "
+                f"The Lindblad generator is too stiff for this step size -- "
+                f"increase 'substeps' (e.g. try {max(substeps, 1) * 2}) or use a "
+                f"finer tlist spacing."
+            )
         record(i + 1, rho)
 
     return NativeResult(times=tlist, expect=expect, states=states_out)
