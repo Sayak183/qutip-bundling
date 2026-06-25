@@ -17,7 +17,7 @@ Two layers:
   and jackknife helpers, for users who just want averaged dynamics.
 """
 
-from .native_solver import NativeResult, rk4_mesolve
+from .native_solver import NativeResult, rk4_mesolve, SolverInstabilityError
 from .operators import (
     BundledOps,
     build_collapse_ops,
@@ -47,6 +47,7 @@ __all__ = [
     "mesolve_ensemble",
     "mesolve_jackknife",
     "NativeResult",
+    "SolverInstabilityError",
     "BundledResult",
     "__version__",
 ]

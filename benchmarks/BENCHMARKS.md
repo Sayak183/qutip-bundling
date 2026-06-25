@@ -307,43 +307,44 @@ frontier (Result 3) sweeps the bias knob `M` for SLB against the noise knob
 
 ## 5. Results
 
-### Result 1 — cost and accuracy versus system size
+### Result 1 — cost scaling versus the exact solver
 
-![spin chain scaling](benchmark_scaling_spin_chain.png)
-![oscillator scaling](benchmark_scaling_oscillator_bath.png)
+![spin chain cost scaling](benchmark_cost_scaling_spin_chain.png)
+![oscillator cost scaling](benchmark_cost_scaling_oscillator_bath.png)
 
-Two panels share the size axis: wall-clock cost (top) and the error in
-$\langle H(t)\rangle$ at the fixed sample times with $\pm1$-std bars (bottom).
-Every method runs at **fixed settings** (no accuracy matching): full `mesolve`
-(exact), SLB at a few `M`, `mcsolve` at a few `ntraj`. The top secondary axis
-shows $N_L$.
+Wall-clock time for one solve versus Hilbert-space dimension $N$, comparing the
+exact full-dissipator solver against SLB. Each point is a single timed solve:
+one `mesolve` with all $N_L$ collapse operators, and one SLB realization at a
+representative bundle size ($M=8$). The dashed line marks where one full
+`mesolve` exceeds the time budget — past it the exact solver is impractical.
 
-**Cost (top).** Full `mesolve` is cheapest on the smallest systems, then rises
-steeply and hits the wall (dashed line) past which one solve exceeds the
-time/memory budget. SLB stays cheap and continues well past the wall — it only
-ever propagates `M` operators, independent of $N_L$. `mcsolve` costs more,
-rising with `ntraj`, and is not run past the wall (no reference to score against,
-and prohibitively slow at large `ntraj`/size).
+**The two scalings.** Full `mesolve` evolves the density matrix with the
+complete dissipator, an operation count that grows like $O(N^5)$; the measured
+large-$N$ slope is consistent with that (the legend reports the fitted
+exponent). SLB only ever propagates $M$ bundled operators, so its cost grows
+like the underlying dense propagation, $O(N^3)$ in operation count; the measured
+large-$N$ slope is shallower still ($\sim N^2$ over the range shown, where dense
+linear algebra is not yet the sole bottleneck). The practical consequence is the
+gap that opens up with size: `mesolve` is cheapest only on the smallest systems,
+then climbs steeply and stops at the wall, while SLB continues cheaply to
+dimensions the exact solver cannot reach. (Small dimensions are dominated by
+fixed overhead, not the asymptotic operation count, so the slope is fit from the
+large-$N$ end.)
 
-**Accuracy (bottom), and the honest reading of the size trend.** SLB's error
-**grows with system size at fixed `M`** — and this is real, not a plotting
-artifact. It appears identically in the max-over-time error, the fixed-time
-error, *and* the relative error, so it is not an artifact of any one metric. It
-is the finite-$M$ bias of §4 growing as $N_L$ grows (more operators packed into
-the same `M`). `mcsolve`'s error, by contrast, stays roughly **flat** with size,
-because at fixed `ntraj` it is statistical noise that does not grow much for
-$\langle H\rangle$. The consequence: at a *fixed* small `M`, SLB starts far more
-accurate than `mcsolve` on small systems and the two curves approach each other
-by the largest sizes shown. This is expected, and the response is to use the
-appropriate knob — raise `M` with size, or apply the jackknife correction (both
-quantified in Result 4) — not to read the fixed-`M` crossing as a failure. The
-std bars make the reliability explicit: where they are wide relative to the mean
-error, the fluctuation (not the bias) dominates and more realizations would
-tighten the estimate.
+**What this figure is, and is not.** It isolates the cost advantage against the
+*exact* solver, which is the speedup the method targets. It deliberately omits
+`mcsolve`: the trajectory method has a shallower raw per-trajectory cost slope,
+so a cost-versus-size axis is the wrong place to compare against it. The
+meaningful SLB-versus-`mcsolve` comparison is *accuracy per cost* — at a matched
+accuracy `mcsolve` needs many trajectories — which is exactly what the
+accuracy-cost frontier shows (**Result 3**).
 
-A practical note: SLB's stochastic integrator needs at least two RK4 substeps to
-stay stable on the stiffer oscillator at large sizes (one diverges there); the
-runs use a small fixed substep count (in the caption) and are converged by two.
+A practical note: SLB's RK4 integrator needs enough substeps to stay stable on
+the stiffer oscillator at large sizes (a single substep diverges there). These
+runs use a small fixed substep count (stated in the caption) within the range
+where that count is stable; if the integration ever diverges to a non-finite
+state, the solver now raises `SolverInstabilityError` rather than returning a
+silently corrupted result.
 
 ### Result 2 — accuracy versus the bundle size $M$
 

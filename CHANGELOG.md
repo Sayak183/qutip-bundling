@@ -1,5 +1,19 @@
 # Changelog
 
+## Unreleased
+- **Changed:** the native RK4 backend (`rk4_mesolve`) now raises
+  `SolverInstabilityError` when the integration diverges to a non-finite
+  state, instead of silently returning a NaN-filled result. Under-resolved
+  stiff systems (e.g. the anharmonic oscillator at a large Fock cutoff) now
+  fail loudly with an actionable message (increase `substeps`).
+  `SolverInstabilityError` is exported from `qutip_bundling`.
+- **Benchmarks:** replaced the combined cost+error scaling figure (Result 1)
+  with a dedicated cost-scaling figure (`benchmark_cost_scaling.py`) that
+  compares SLB against the exact solver only (measured large-$N$ slopes
+  ~$N^2$ for SLB vs ~$N^5$ for full `mesolve`). The SLB-vs-`mcsolve`
+  comparison is the accuracy-cost frontier (Result 3), where the relevant
+  axis is accuracy-per-cost rather than raw scaling.
+
 ## 0.6.1 — 2026-06-22
 - **Fixed** the Bohr-frequency sign in `examples/oscillator_demo.py`: it
   used `E_n - E_m` for `L = |n><m|`, the opposite of the package

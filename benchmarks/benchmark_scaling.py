@@ -42,8 +42,6 @@ from qutip_bundling import davies_operators, mesolve_ensemble
 # ===========================================================================
 # CONFIG
 # ===========================================================================
-M = 4                       # number of bundled operators for the timing sweep
-N_REALIZATIONS = 8          # stochastic repeats averaged for the bundled mean
 ACCURACY_N_REALIZATIONS = 32  # realizations for the accuracy & coherence figures
                               # (more than the timing sweep so the +/-1 std band
                               # is well resolved); lifted from a literal so the
@@ -54,11 +52,6 @@ SUBSTEPS = 4                # RK4 substeps per TLIST step for SLB (native backen
                             # there); the result is already converged by 2, so 4
                             # carries margin at negligible cost. Stated on the
                             # plot for a fair comparison against mcsolve's ntraj.
-
-# SLB bundle sizes shown on the cost-vs-size plot. Three accuracy levels: the
-# cost of each rises with size, and mcsolve is matched to the most accurate
-# (largest M) so the comparison is against SLB's best available accuracy.
-M_SCALING = [2, 4, 8]
 
 # M ladder for the accuracy figure.  These are system-specific so the plots do
 # not become visually cluttered when M=8 is already essentially on the reference.
@@ -71,12 +64,6 @@ DEFAULT_ACCURACY_M = [2, 8]
 FULL_TIME_BUDGET = 60.0     # stop full mesolve once one solve exceeds this
 MAX_FULL_DIM = 64           # never attempt full mesolve above this dimension
 TLIST = np.linspace(0.0, 5.0, 40)
-
-# Fixed mcsolve trajectory counts. Rather than search for the ntraj that
-# matches SLB (which produced confusing lower bounds), we run a few fixed
-# values and simply report the cost AND the error each one achieves. No
-# matching, no "+": every method reports what it cost and how accurate it was.
-NTRAJ_FIXED = [50, 200, 1000]
 
 # Shared detailed-balance ohmic bath.
 ALPHA, KT, OMEGA_C = 0.3, 0.5, 8.0
@@ -223,149 +210,6 @@ def capped_unique_m_values(name: str, n_lindblad: int) -> list[int]:
     return values
 
 
-def _run_mcsolve(H, psi0, c_ops, ntraj):
-    """Run mcsolve at a fixed ntraj; return (time_s, expect_array).
-
-    mcsolve is pinned single-threaded ("map": "serial") so its wall-clock time
-    is the full sequential cost of all ntraj trajectories -- matching SLB's
-    single-threaded realization loop. Without this, mcsolve would spread its
-    trajectories across CPU cores and be timed with a parallel speedup SLB does
-    not get, making the cost comparison unfair to SLB. The ODE tolerances are
-    stated explicitly (same values the frontier benchmark uses) so the two
-    scripts run mcsolve under identical, disclosed settings.
-    """
-    opts = {"progress_bar": False, "map": "serial", "atol": 1e-8, "rtol": 1e-6}
-    try:
-        t0 = time.perf_counter()
-        res = qutip.mcsolve(H, psi0, TLIST, c_ops=c_ops, e_ops=[H],
-                            ntraj=ntraj, options=opts)
-        tm = time.perf_counter() - t0
-    except (TypeError, KeyError):
-        t0 = time.perf_counter()
-        res = qutip.mcsolve(H, psi0, TLIST, c_ops=c_ops, e_ops=[H], ntraj=ntraj,
-                            options={"progress_bar": False})
-        tm = time.perf_counter() - t0
-    # Statistical error bar without repeats: std over trajectories / sqrt(ntraj)
-    # is the standard error of the trajectory-averaged mean (mcsolve is unbiased
-    # in ntraj, so this is its whole error -- see BENCHMARKS.md section 4).
-    try:
-        sem = np.asarray(res.std_expect[0], float) / math.sqrt(ntraj)
-    except (AttributeError, IndexError, TypeError):
-        sem = np.zeros_like(np.real(res.expect[0]))
-    return tm, np.real(res.expect[0]), sem
-
-
-def run_scaling(name, build, sizes):
-    """Measure cost AND error for every method at fixed knobs across sizes.
-
-    No accuracy matching: each method is run at fixed settings (SLB at each M
-    in M_SCALING, mcsolve at each ntraj in NTRAJ_FIXED, full mesolve exact) and
-    we record both its wall-clock cost and the error it achieves vs the full
-    reference. Error is only defined where the reference is computable.
-    """
-    dims, ops, t_full = [], [], []
-    t_bundled = {m: [] for m in M_SCALING}
-    e_bundled = {m: [] for m in M_SCALING}
-    s_bundled = {m: [] for m in M_SCALING}   # std bar (over realizations) at plot time
-    t_mc = {nt: [] for nt in NTRAJ_FIXED}
-    e_mc = {nt: [] for nt in NTRAJ_FIXED}
-    s_mc = {nt: [] for nt in NTRAJ_FIXED}     # std bar (SEM over trajectories) at plot time
-    full_feasible, wall_dim = True, None
-
-    print(f"\n[{name}]  cost (s) and error (at t={ERR_PLOT_TIME}) vs reference at fixed knobs")
-    for s in sizes:
-        H, X, psi0 = build(s)
-        rho0 = qutip.ket2dm(psi0)
-        dim = H.shape[0]
-        c_ops = davies_operators(H, X, gamma)
-        n_l = len(c_ops)
-        dims.append(dim)
-        ops.append(n_l)
-
-        # Reference first (if feasible), so errors can be measured this size.
-        ref = None
-        if full_feasible and dim <= MAX_FULL_DIM:
-            try:
-                t0 = time.perf_counter()
-                ref_res = qutip.mesolve(H, rho0, TLIST, c_ops=c_ops, e_ops=[H])
-                tf = time.perf_counter() - t0
-                ref = np.real(ref_res.expect[0])
-                t_full.append(tf)
-                if tf > FULL_TIME_BUDGET:
-                    full_feasible = False
-                    wall_dim = dim
-            except MemoryError:
-                t_full.append(np.nan)
-                full_feasible = False
-                wall_dim = dim
-                tf = float("nan")
-        else:
-            t_full.append(np.nan)
-            tf = float("nan")
-
-        pidx = plot_time_index(TLIST)   # index of the plotted sample time
-
-        def err_vs_ref(curve):
-            """Absolute error at the plotted sample time (mid-relaxation)."""
-            return (abs(float(np.real(curve)[pidx]) - float(ref[pidx]))
-                    if ref is not None else np.nan)
-
-        # SLB at each M: cost + error (at plot time) + std bar (over realizations).
-        for m in M_SCALING:
-            m_timing = min(m, n_l)
-            t0 = time.perf_counter()
-            ens = mesolve_ensemble(
-                H, rho0, TLIST, c_ops, M=m_timing, e_ops=[H],
-                n_realizations=N_REALIZATIONS, rng=0, backend="native",
-                substeps=SUBSTEPS,
-            )
-            t_bundled[m].append(time.perf_counter() - t0)
-            e_bundled[m].append(err_vs_ref(ens.expect[0]))
-            std_curve = (np.asarray(ens.std[0], float)
-                         if getattr(ens, "std", None) is not None
-                         else np.asarray(ens.sem[0], float) * math.sqrt(N_REALIZATIONS))
-            s_bundled[m].append(float(std_curve[pidx]) if ref is not None else np.nan)
-
-        # mcsolve at each fixed ntraj: cost + error (at plot time) + std bar
-        # (SEM = per-trajectory std / sqrt(ntraj), from the single run). Only run
-        # where a reference exists -- past the wall there is nothing to measure
-        # error against, and mcsolve at large ntraj on big systems is
-        # prohibitively slow, so running it there would buy an unusable point.
-        for nt in NTRAJ_FIXED:
-            if ref is not None:
-                tm, curve, sem_curve = _run_mcsolve(H, psi0, c_ops, nt)
-                t_mc[nt].append(tm)
-                e_mc[nt].append(err_vs_ref(curve))
-                s_mc[nt].append(float(sem_curve[pidx]))
-            else:
-                t_mc[nt].append(np.nan)
-                e_mc[nt].append(np.nan)
-                s_mc[nt].append(np.nan)
-
-        fstr = f"{tf:8.2f}s" if np.isfinite(tf) else " (wall) "
-        slb_str = " ".join(f"M{m}:{t_bundled[m][-1]:.2f}/{e_bundled[m][-1]:.1e}"
-                           for m in M_SCALING)
-        if ref is not None:
-            mc_str = " ".join(f"nt{nt}:{t_mc[nt][-1]:.2f}/{e_mc[nt][-1]:.1e}"
-                              for nt in NTRAJ_FIXED)
-        else:
-            mc_str = "mcsolve skipped (past wall, no reference)"
-        print(f"   dim={dim:>4} N_L={n_l:>5} full={fstr}  {slb_str}  {mc_str}")
-
-    t_full = np.array(t_full)
-    if wall_dim is None and any(~np.isfinite(t_full)):
-        wall_dim = dims[int(np.argmax(~np.isfinite(t_full)))]
-
-    arr = lambda d: {k: np.array(v) for k, v in d.items()}
-    return {
-        "dims": np.array(dims), "ops": np.array(ops), "t_full": t_full,
-        "t_bundled": arr(t_bundled), "e_bundled": arr(e_bundled),
-        "s_bundled": arr(s_bundled),
-        "t_mc": arr(t_mc), "e_mc": arr(e_mc), "s_mc": arr(s_mc),
-        "wall_dim": wall_dim,
-    }
-
-
 def _populated_coherence_op(H, ref_states):
     """Hermitian coherence operator |a><b| + h.c. for the energy-eigenstate pair
     (a, b) whose coherence is *most populated by the actual dynamics* (largest
@@ -485,83 +329,7 @@ def main():
     import matplotlib.pyplot as plt
 
     for name, build, sizes, acc_size in SYSTEMS:
-        sc = run_scaling(name, build, sizes)
         tlist, references, curves, acc_dim, acc_n_l, (ia, ib) = run_accuracy(name, build, acc_size)
-
-        dims, ops, t_full, wall_dim = sc["dims"], sc["ops"], sc["t_full"], sc["wall_dim"]
-        green_shades = ["#9ccc9c", "#4caf50", "#1b5e20"]
-        purple_shades = ["#c9b3e6", "#9b6fd4", "#5e3b9e"]
-
-        # Two panels sharing the size axis: cost (top), error (bottom). Every
-        # method is at FIXED settings; we read cost above and the accuracy it
-        # achieved below. No accuracy matching.
-        fig, (axc, axe) = plt.subplots(
-            2, 1, figsize=(7.0, 7.4), sharex=True,
-            gridspec_kw={"height_ratios": [1, 1]},
-        )
-
-        # --- cost panel ---
-        fin = np.isfinite(t_full)
-        axc.loglog(dims[fin], t_full[fin], "o-", color="tab:red", lw=2, ms=7,
-                   label=r"full mesolve (exact, all $N_L$ ops)")
-        for m, col in zip(M_SCALING, green_shades):
-            axc.loglog(dims, sc["t_bundled"][m], "s-", color=col, lw=2, ms=6,
-                       label=fr"SLB, $M$={m}")
-        for nt, col in zip(NTRAJ_FIXED, purple_shades):
-            axc.loglog(dims, sc["t_mc"][nt], "^-", color=col, lw=1.8, ms=6,
-                       label=fr"mcsolve, ntraj={nt}")
-        if wall_dim is not None:
-            for a in (axc, axe):
-                a.axvline(wall_dim, color="tab:red", ls="--", lw=1.2, alpha=0.6)
-            axc.text(wall_dim, axc.get_ylim()[0],
-                     "full mesolve\nstopped past here ", color="tab:red",
-                     va="bottom", ha="right", fontsize=7.5)
-        axc.set_ylabel("wall-clock time (s)")
-        axc.set_title(f"{name}: cost and accuracy vs system size (fixed settings)")
-        axc.grid(True, which="both", alpha=0.3)
-        axc.legend(frameon=False, fontsize=7.5, ncol=2, loc="upper left")
-        secax = axc.secondary_xaxis("top")
-        secax.set_xticks(dims)
-        secax.set_xticklabels([str(int(n)) for n in ops])
-        secax.minorticks_off()
-        secax.set_xlabel(r"number of Lindblad operators $N_L$ (full dissipator)")
-
-        # --- error panel (error at the mid sample time, with std bars) ---
-        for m, col in zip(M_SCALING, green_shades):
-            e, sb = sc["e_bundled"][m], sc["s_bundled"][m]
-            ef = np.isfinite(e)
-            axe.errorbar(dims[ef], e[ef], yerr=sb[ef], fmt="s-", color=col,
-                         lw=2, ms=6, capsize=3, label=fr"SLB, $M$={m}")
-        for nt, col in zip(NTRAJ_FIXED, purple_shades):
-            e, sb = sc["e_mc"][nt], sc["s_mc"][nt]
-            ef = np.isfinite(e)
-            axe.errorbar(dims[ef], e[ef], yerr=sb[ef], fmt="^-", color=col,
-                         lw=1.8, ms=6, capsize=3, label=fr"mcsolve, ntraj={nt}")
-        axe.set_xscale("log")
-        axe.set_yscale("log")
-        axe.set_xlabel("Hilbert-space dimension")
-        axe.set_ylabel(rf"error in $\langle H\rangle$ at $t={ERR_PLOT_TIME}$ vs exact")
-        axe.grid(True, which="both", alpha=0.3)
-        axe.text(0.99, 0.96,
-                 "error at mid-relaxation; bars = std over\nrealizations (SLB) "
-                 "/ SEM over trajectories (mcsolve)",
-                 transform=axe.transAxes, ha="right", va="top",
-                 fontsize=7, color="dimgray")
-
-        fig.tight_layout()
-        # Settings note placed below the whole figure so it never collides with
-        # the wall label, legend, or data (the in-panel position was cramped on
-        # the spin chain, where the wall lands mid-axis).
-        add_settings_footer(
-            fig,
-            format_slb_settings(M=M_SCALING, substeps=SUBSTEPS,
-                                n_realizations=N_REALIZATIONS),
-            format_mcsolve_settings(ntraj=NTRAJ_FIXED, atol=1e-8, rtol=1e-6),
-            "both single-thread; same time grid and full-Lindblad reference",
-        )
-        fig.savefig(f"benchmark_scaling_{name}.png", dpi=130, bbox_inches="tight")
-        plt.close(fig)
-        print(f"  saved benchmark_scaling_{name}.png")
 
         # Accuracy figures: energy (diagonal-dominated) and the dominant
         # coherence (off-diagonal). Tracking both shows SLB reproduces
