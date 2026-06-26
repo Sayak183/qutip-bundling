@@ -80,7 +80,7 @@ The bath is specified entirely by one spectral function — the rate at which th
 bath exchanges energy quantum $\omega$ with the system:
 
 $$
-\gamma(\omega) = \alpha\*\omega\*e^{-|\omega|/\omega_c}\;\big/\\big(1-e^{-\omega/k_BT}\big),
+\gamma(\omega) = \alpha\*\omega\*e^{-|\omega|/\omega_c}\\big/\\big(1-e^{-\omega/k_BT}\big),
 \qquad \alpha = 0.3,\; k_BT = 0.5,\; \omega_c = 8 .
 $$
 
