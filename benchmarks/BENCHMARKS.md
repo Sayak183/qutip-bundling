@@ -130,7 +130,17 @@ the chain *via* this observable, driving transitions that relax its magnetizatio
 toward thermal equilibrium. This is a single *collective* coupling — all $n$ spins
 share **one** common bath through this global operator, rather than each spin
 relaxing into its own independent reservoir. The chain starts fully polarized,
-$|\psi_0\rangle = |{\uparrow\uparrow\cdots\uparrow}\rangle$.
+$|\psi_0\rangle = |{\uparrow\uparrow\cdots\uparrow}\rangle$. Starting from this pure,
+fully ordered state, the open evolution relaxes the chain to the thermal Gibbs
+state $\rho_\infty \propto e^{-H_{\rm sys}/k_BT}$ at the bath temperature
+$k_BT = 0.5$: the net magnetization decays, the initial coherence is lost, and
+energy flows out into the bath.
+
+![System A schematic](system_a_schematic.png)
+
+*System A: a transverse-field Ising chain ($J = 1.0$, $h = 0.6$), fully
+polarized at $t = 0$, coupled through the global operator
+$X = \sum_i \sigma^x_i$ to a single collective ohmic bath.*
 
 Because there is no separate bath Hilbert space in the Lindblad description, the
 **total object being evolved** is the master equation
