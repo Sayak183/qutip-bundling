@@ -80,7 +80,7 @@ The bath is specified entirely by one spectral function — the rate at which th
 bath exchanges energy quantum $\omega$ with the system:
 
 $$
-\gamma(\omega) = \alpha\,\omega\,e^{-|\omega|/\omega_c}\;\big/\;\big(1-e^{-\omega/k_BT}\big),
+\gamma(\omega) = \alpha\*\omega\*e^{-|\omega|/\omega_c}\;\big/\;\big(1-e^{-\omega/k_BT}\big),
 \qquad \alpha = 0.3,\; k_BT = 0.5,\; \omega_c = 8 .
 $$
 
@@ -96,7 +96,7 @@ Reading the three factors:
   $k_BT=0.5$. It enforces **detailed balance** (the KMS condition
   $\gamma(-\omega)/\gamma(\omega)=e^{-\omega/k_BT}$), which is what guarantees
   relaxation toward the Gibbs state rather than runaway heating. At $\omega\to0$
-  this factor gives the finite limit $\gamma(0)=\alpha\,k_BT$.
+  this factor gives the finite limit $\gamma(0)=\alpha\*k_BT$.
 
 So in one line: **an ohmic bath with an exponential cutoff, at temperature
 $k_BT=0.5$, satisfying detailed balance.**
