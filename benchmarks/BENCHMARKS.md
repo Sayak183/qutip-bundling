@@ -138,9 +138,9 @@ energy flows out into the bath.
 
 ![System A schematic](system_a_schematic.png)
 
-*System A: a transverse-field Ising chain ($J = 1.0$, $h = 0.6$), fully
+System A: a transverse-field Ising chain ($J = 1.0$, $h = 0.6$), fully
 polarized at $t = 0$, coupled through the global operator
-$X = \sum_i \sigma^x_i$ to a single collective ohmic bath.*
+$X = \sum_i \sigma^x_i$ to a single collective ohmic bath.
 
 Because there is no separate bath Hilbert space in the Lindblad description, the
 **total object being evolved** is the master equation
