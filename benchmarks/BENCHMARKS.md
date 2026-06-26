@@ -138,9 +138,9 @@ energy flows out into the bath.
 
 ![System A schematic](system_a_schematic.png)
 
-System A: a transverse-field Ising chain ($J = 1.0$, $h = 0.6$), fully
+*System A: a transverse-field Ising chain ($J = 1.0$, $h = 0.6$), fully
 polarized at $t = 0$, coupled through the global operator
-$X = \sum_i \sigma^x_i$ to a single collective ohmic bath.
+$X = \sum_i \sigma^x_i$ to a single collective ohmic bath.*
 
 Because there is no separate bath Hilbert space in the Lindblad description, the
 **total object being evolved** is the master equation
@@ -165,6 +165,14 @@ internal oscillator–spin coupling $g=0.3$. Here $n=a^\dagger a$ is the number
 operator and $x=(a+a^\dagger)/\sqrt2$ the position. The four terms are: the bare
 oscillator, its anharmonicity, the spin's energy splitting, and a coherent
 oscillator–spin coupling.
+
+![System B schematic](system_b_schematic.png)
+
+*System B: an anharmonic oscillator whose energy gaps widen up the ladder,
+coupled to a two-level spin by an internal coherent coupling $g$. A single
+ohmic bath couples to the oscillator position $X = x\otimes I$ only, so the
+spin relaxes solely indirectly through $g$. The oscillator starts in its top
+Fock level.*
 
 The bath couples to the system through the **coupling operator** $X = x\otimes I$
 (the oscillator position): a phonon/photon-like reservoir acts *via* this observable,
