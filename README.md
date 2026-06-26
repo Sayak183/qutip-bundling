@@ -41,7 +41,7 @@ On a dissipative spin chain, full `mesolve` (paying for all $$N_{L}$$ Lindblad
 operators) becomes infeasible as the system grows, while bundling — using only
 $$M$$ of them — keeps going at a fraction of the cost:
 
-![cost versus system size](benchmarks/benchmark_scaling_spin_chain.png)
+![cost versus system size](benchmarks/benchmark_cost_scaling_spin_chain.png)
 
 Below the crossover the full solve is the better choice; above it, bundling is
 what lets the calculation finish. Against QuTiP's trajectory solver `mcsolve`,

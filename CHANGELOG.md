@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.6.2 — 2026-06-26
 - **Changed:** the native RK4 backend (`rk4_mesolve`) now raises
   `SolverInstabilityError` when the integration diverges to a non-finite
   state, instead of silently returning a NaN-filled result. Under-resolved
@@ -13,6 +13,9 @@
   ~$N^2$ for SLB vs ~$N^5$ for full `mesolve`). The SLB-vs-`mcsolve`
   comparison is the accuracy-cost frontier (Result 3), where the relevant
   axis is accuracy-per-cost rather than raw scaling.
+- **Docs:** fixed the cost-scaling figure link in the README (it pointed
+  at the pre-`bc74ccb` filename `benchmark_scaling_spin_chain.png`, now
+  `benchmark_cost_scaling_spin_chain.png`).
 
 ## 0.6.1 — 2026-06-22
 - **Fixed** the Bohr-frequency sign in `examples/oscillator_demo.py`: it
