@@ -119,7 +119,7 @@ $k_BT=0.5$, satisfying detailed balance.**
 The **system Hamiltonian** for $n$ spins is
 
 $$
-H_{\rm sys} = -J\sum_{i=1}^{n-1}\sigma^z_i\sigma^z_{i+1}\-\h\sum_{i=1}^{n}\sigma^x_i,
+H_{\rm sys} = -J\sum_{i=1}^{n-1}\sigma^z_i\sigma^z_{i+1}\-h\sum_{i=1}^{n}\sigma^x_i,
 \qquad J = 1.0,\; h = 0.6 .
 $$
 
