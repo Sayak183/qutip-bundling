@@ -45,7 +45,8 @@ $$M$$ of them — keeps going at a fraction of the cost:
 
 Below the crossover the full solve is the better choice; above it, bundling is
 what lets the calculation finish. Against QuTiP's trajectory solver `mcsolve`,
-bundling reaches the same accuracy for less compute on both test systems. See
+bundling matches or beats its accuracy per unit compute — competitive on the
+spin chain and decisively better on the stiffer oscillator system. See
 [`benchmarks/BENCHMARKS.md`](benchmarks/BENCHMARKS.md) for the full study —
 both systems defined, accuracy-versus-$$M$$ convergence, and the
 accuracy-versus-cost frontier — all reproducible with the scripts in that
@@ -60,6 +61,44 @@ pip install qutip-bundling
 # or, from a checkout:
 pip install -e ".[examples,test]"
 ```
+
+Requires Python ≥ 3.10; NumPy and QuTiP ≥ 5 are pulled in automatically.
+
+## Quickstart
+
+A complete, runnable example — build a small open system, bundle its operators,
+and watch the energy relax toward thermal:
+
+```python
+import numpy as np
+import qutip
+from qutip_bundling import davies_operators, bundle, rk4_mesolve
+
+# A small open system: a mildly anharmonic oscillator coupled to a thermal bath.
+N = 6
+a = qutip.destroy(N)
+H = a.dag() * a + 0.1 * (a.dag() * a) ** 2     # anharmonic ladder
+X = a + a.dag()                                # system-bath coupling operator
+
+kT = 1.0
+def gamma(w):                                  # ohmic bath obeying detailed balance
+    if abs(w) < 1e-12:
+        return 0.1 * kT
+    return 0.1 * w / (1.0 - np.exp(-w / kT))
+
+c_ops = davies_operators(H, X, gamma)          # Davies/Bohr collapse operators (sign baked in)
+R = bundle(c_ops, M=8, rng=0)                  # replace the N_L operators with M=8 random bundles
+
+rho0 = qutip.fock_dm(N, N - 1)                 # start in the top level
+tlist = np.linspace(0, 20, 100)
+res = rk4_mesolve(H, rho0, tlist, c_ops=R, e_ops=[H])
+
+print(res.expect[0][0], "->", res.expect[0][-1])   # energy falls toward thermal
+```
+
+For averaged dynamics with error bars, replace the final solve with
+`mesolve_ensemble` (see below); for a guided walkthrough see
+`examples/tutorial.ipynb`.
 
 ## API: three operator transforms plus optional solver helpers
 

@@ -84,16 +84,17 @@ Notes
 - The project name `qutip-bundling` must be unique on PyPI. If taken, pick
   another (e.g. `qutip-stochastic-bundling`) and update `name` in
   `pyproject.toml`.
-- Bump the `version` in `pyproject.toml` AND in
-  `src/qutip_bundling/__init__.py` for every release; PyPI refuses to
-  overwrite an existing version.
+- Bump the `version` in `src/qutip_bundling/__init__.py` for every release
+  (`pyproject.toml` reads it dynamically via `tool.setuptools.dynamic`, so
+  there is only one place to edit); PyPI refuses to overwrite an existing
+  version.
 
 --------------------------------------------------------------------------
 ## C. (Optional) Archive a citable version with Zenodo
 
 For a DOI on the software itself (nice alongside the paper):
 1. Link your GitHub repo to https://zenodo.org (GitHub settings -> Zenodo).
-2. Cut a GitHub Release (tag e.g. `v0.5.0`). Zenodo mints a DOI automatically.
+2. Cut a GitHub Release (tag e.g. `v0.6.2`). Zenodo mints a DOI automatically.
 3. Add that DOI to the README and CITATION.cff.
 
 --------------------------------------------------------------------------
@@ -155,8 +156,8 @@ The current, lightweight path:
 
 - [ ] Replace Sayak183 in pyproject.toml URLs
 - [ ] Confirm author names/emails in pyproject.toml and CITATION.cff
-- [ ] `pytest -q` passes locally (36 tests)
+- [ ] `pytest -q` passes locally (54 tests)
 - [ ] `python -m build` succeeds
 - [ ] README renders correctly on GitHub
-- [ ] Tag a release (v0.5.0) once pushed
+- [ ] Tag a release (e.g. v0.6.2) once pushed
 - [ ] (optional) TestPyPI dry run before real PyPI
