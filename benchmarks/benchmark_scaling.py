@@ -106,16 +106,31 @@ def format_mcsolve_settings(*, ntraj, atol=None, rtol=None,
     return s
 
 
-def add_settings_footer(fig, *segments, y=-0.02, fontsize=9):
+def add_settings_footer(fig, *segments, y=-0.02, fontsize=9, wrap_chars=170):
     """Place one uniform settings caption centred below the whole figure.
 
     Built from the run's own constants by the format_* helpers, so the caption
-    cannot disagree with the settings that produced the figure.
+    cannot disagree with the settings that produced the figure.  A long caption
+    (e.g. the frontier figure, which carries both the SLB and mcsolve settings)
+    is split across two centred lines so it does not overflow the figure width;
+    short captions stay on a single line.  Segments are never broken mid-text.
     """
-    text = "   |   ".join(seg for seg in segments if seg)
-    fig.text(0.5, y, text, ha="center", va="top", fontsize=fontsize,
+    sep = "   |   "
+    segs = [seg for seg in segments if seg]
+    text = sep.join(segs)
+    if len(text) <= wrap_chars or len(segs) < 2:
+        fig.text(0.5, y, text, ha="center", va="top", fontsize=fontsize,
+                 color="dimgray")
+        return text
+    # balance the segments across two lines (whole segments only)
+    split = min(range(1, len(segs)),
+                key=lambda i: abs(len(sep.join(segs[:i])) - len(sep.join(segs[i:]))))
+    line1, line2 = sep.join(segs[:split]), sep.join(segs[split:])
+    fig.text(0.5, y, line1, ha="center", va="top", fontsize=fontsize,
              color="dimgray")
-    return text
+    fig.text(0.5, y - 0.038, line2, ha="center", va="top", fontsize=fontsize,
+             color="dimgray")
+    return line1 + "\n" + line2
 
 
 # ===========================================================================
