@@ -156,7 +156,7 @@ $\sim 2200$ at $n=7$ (dim 128). This rapid operator growth is SLB's natural home
 The **system Hamiltonian** is
 
 $$
-H_{\rm sys} = \omega_0\!\left(n+\tfrac12\right) + \chi\,n^2
+H_{\rm sys} = \omega_0\\left(n+\tfrac12\right) + \chi\,n^2
             + \tfrac{\Delta}{2}\,\sigma_z + g\,(x\otimes\sigma_x),
 $$
 
