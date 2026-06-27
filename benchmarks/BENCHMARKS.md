@@ -156,8 +156,8 @@ $\sim 2200$ at $n=7$ (dim 128). This rapid operator growth is SLB's natural home
 The **system Hamiltonian** is
 
 $$
-H_{\rm sys} = \omega_0\\left(n+\tfrac12\right) + \chi\,n^2
-            + \tfrac{\Delta}{2}\,\sigma_z + g\,(x\otimes\sigma_x),
+H_{\rm sys} = \omega_0\\left(n+\tfrac12\right) + \chi\n^2
+            + \tfrac{\Delta}{2}\\sigma_z + g\(x\otimes\sigma_x)
 $$
 
 with $\omega_0=1.0$, anharmonicity $\chi=0.1$, spin gap $\Delta=1.0$, and an
@@ -181,7 +181,7 @@ It is a single shared bath — $X = x\otimes I$ acts only on the oscillator, so 
 oscillator and spin couple to **one** common reservoir (the spin has no separate
 bath of its own). Because $X$ touches only the oscillator, the bath never damps the
 spin directly; dissipation reaches the spin only indirectly, through the internal
-coherent coupling $g\,(x\otimes\sigma_x)$. The system starts in the oscillator's
+coherent coupling $g\(x\otimes\sigma_x)$. The system starts in the oscillator's
 top Fock state with the spin down. As above, the total evolved object is the Lindblad master
 equation with dissipators built from $(H_{\rm sys}, X, \gamma)$. Note the two
 distinct "couplings": $g=0.3$ is an **internal coherent** coupling inside
