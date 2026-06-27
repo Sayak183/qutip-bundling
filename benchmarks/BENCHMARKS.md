@@ -39,7 +39,7 @@ $H_{\rm eff} = H - \tfrac{i}{2}\sum_a L_a^\dagger L_a$, interrupted by random
 $L_a$ fires (chosen with probability $\propto\langle\psi|L_a^\dagger
 L_a|\psi\rangle$) and the state resets to $L_a|\psi\rangle$. A single trajectory
 looks nothing like the smooth answer; you recover the density matrix by
-averaging over `ntraj` trajectories. Both the jump times and which operator fires are random, so no two trajectories are alike — they differ even in how many jumps occur. Raising ntraj does not change any single trajectory; it only adds more independent samples to the average, shrinking the Monte-Carlo error as $$N_{traj}^{-1/2}$$.  **The randomness is in the state path, and
+averaging over `ntraj` trajectories. Both the jump times and which operator fires are random, so no two trajectories are alike — they differ even in how many jumps occur. Raising ntraj does not change any single trajectory; it only adds more independent samples to the average, shrinking the Monte-Carlo error as $N_{\rm traj}^{-1/2}$.  **The randomness is in the state path, and
 all $N_L$ operators are kept exact.**
 
 **SLB randomizes the operators.** It keeps the full density matrix and runs an
@@ -80,7 +80,7 @@ The bath is specified entirely by one spectral function — the rate at which th
 bath exchanges energy quantum $\omega$ with the system:
 
 $$
-\gamma(\omega) = \alpha\*\omega\*e^{-|\omega|/\omega_c}\\big/\\big(1-e^{-\omega/k_BT}\big),
+\gamma(\omega) = \alpha\,\omega\,e^{-|\omega|/\omega_c}\;\big/\;\big(1-e^{-\omega/k_BT}\big),
 \qquad \alpha = 0.3,\; k_BT = 0.5,\; \omega_c = 8 .
 $$
 
@@ -96,7 +96,7 @@ Reading the three factors:
   $k_BT=0.5$. It enforces **detailed balance** (the KMS condition
   $\gamma(-\omega)/\gamma(\omega)=e^{-\omega/k_BT}$), which is what guarantees
   relaxation toward the Gibbs state rather than runaway heating. At $\omega\to0$
-  this factor gives the finite limit $\gamma(0)=\alpha\*k_BT$.
+  this factor gives the finite limit $\gamma(0)=\alpha\,k_BT$.
 
 So in one line: **an ohmic bath with an exponential cutoff, at temperature
 $k_BT=0.5$, satisfying detailed balance.**
@@ -119,7 +119,7 @@ $k_BT=0.5$, satisfying detailed balance.**
 The **system Hamiltonian** for $n$ spins is
 
 $$
-H_{\rm sys} = -J\sum_{i=1}^{n-1}\sigma^z_i\sigma^z_{i+1}\-h\sum_{i=1}^{n}\sigma^x_i,
+H_{\rm sys} = -J\sum_{i=1}^{n-1}\sigma^z_i\sigma^z_{i+1}\;-\;h\sum_{i=1}^{n}\sigma^x_i,
 \qquad J = 1.0,\; h = 0.6 .
 $$
 
