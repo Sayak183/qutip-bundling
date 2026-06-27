@@ -106,7 +106,7 @@ def format_mcsolve_settings(*, ntraj, atol=None, rtol=None,
     return s
 
 
-def add_settings_footer(fig, *segments, y=-0.01, fontsize=7):
+def add_settings_footer(fig, *segments, y=-0.02, fontsize=9):
     """Place one uniform settings caption centred below the whole figure.
 
     Built from the run's own constants by the format_* helpers, so the caption
