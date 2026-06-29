@@ -235,34 +235,44 @@ molecular/vibronic problems the method was developed for.
 
 ## 3. What we measure, and how the error is reported
 
-### 3.1 Error: at fixed time points, with a standard-deviation bar
+### 3.1 Error: a time-resolved band, and the single numbers from it
 
 The quantity of interest is how well the bundled $\langle H(t)\rangle$ (and, in
-Result 4, a coherence) tracks the exact reference. Rather than a single
-worst-case number, the error is reported **at fixed time points** — early, mid,
-and late relaxation ($t=1.0,\,2.5,\,4.0$) — and **each point carries a $\pm1$
-standard-deviation bar over the stochastic realizations.** (The dynamics run to
-$t=5$ in natural units — $J=1$ for the chain, $\omega_0=1$ for the oscillator —
-over 40 output points; the error-vs-X figures of Results 1 and 3, and the
-integrator check in Result 4, report the mid-point $t=2.5$.) This matters for two
-reasons:
+Result 4, a coherence) tracks the exact reference. The accuracy and coherence
+figures show this **resolved over the whole trajectory**: for each $M$, the SLB
+mean curve is drawn with a shaded **$\pm1$ standard-deviation band** (the spread
+over the stochastic realizations) and, beneath it, a **residual panel**
+$\langle H\rangle_{\rm SLB}-\langle H\rangle_{\rm ref}$. Nothing is collapsed to a
+single instant — the error is visible at every time.
 
-- It separates the **two error components**: the mean displacement of the
-  bundled curve from the reference is the **bias**, while the std is the
-  run-to-run **fluctuation**. A single number hides which one dominates — and at
-  small `M` or small systems the fluctuation can be *larger* than the bias, so a
-  bare error value without its std would badly misrepresent reliability.
-- It is honest about a single realization. The std bar tells the reader how much
-  one bundled run would scatter around the plotted mean.
+This keeps the **two error components** separate:
 
-(An earlier version of these scripts reported the max-over-time error. That
-metric tells the same qualitative story — see §5, Result 1 — but it picks the
-single worst instant and obscures the bias/fluctuation split, so the
-fixed-time-point-with-std reporting replaces it. The one deliberate exception is
-the **convergence-rate figure** (Result 4): it keeps the max-over-time error on
-purpose, because it measures how fast the whole error envelope shrinks with $M$,
-where the worst-case over the trajectory is the robust diagnostic — insensitive
-to where any single instant happens to sit on the curve.)
+- the **bias** is how far the residual curve sits from zero — the systematic
+  offset of the bundled mean from the exact answer;
+- the **statistical fluctuation** is the width of the shaded band — how much a
+  single bundled run scatters around that mean.
+
+The distinction matters because one combined number hides which dominates, and
+at small $M$ or small systems the fluctuation can be *larger* than the bias.
+
+When the error must instead live on an axis — the **error-vs-X figures** — it is
+collapsed to one scalar per point, and the right scalar depends on the figure's
+job:
+
+- **Characterizing one method's own scaling** — convergence vs $M$ and the
+  jackknife vs dimension (both Result 4) — uses the **max-over-time** error, the
+  worst deviation over the trajectory. For "how fast does this method's error
+  shrink," the conservative worst case is the robust diagnostic and needs no
+  chosen time.
+- **Comparing two methods head-to-head** — the SLB-vs-`mcsolve` frontier
+  (Result 3) and the substep integrator check (Result 4) — uses the error at a
+  single **mid-relaxation time $t=2.5$**. Here a fixed representative time is
+  *fairer* than max-over-time: the maximum of noisy samples is biased upward, so
+  a worst-case metric would inflate the noisier method's apparent error.
+
+(The dynamics run to $t=5$ in natural units — $J=1$ for the chain, $\omega_0=1$
+for the oscillator — over 40 output points; $t=2.5$ is the mid-relaxation
+sample, where the energy has substantially decayed but not yet saturated.)
 
 ### 3.2 How much sampling each method does (read this — it is the confusing part)
 

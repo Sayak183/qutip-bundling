@@ -136,26 +136,13 @@ def add_settings_footer(fig, *segments, y=-0.02, fontsize=9, wrap_chars=170):
 # ===========================================================================
 # ERROR METRIC (shared; imported by benchmark_vs_mcsolve.py)
 # ===========================================================================
-# Error is reported at fixed sample times -- early / mid / late relaxation --
-# rather than as a single max-over-time number. The mid point is the value
-# plotted; reporting at a fixed time (a) keeps the bias and the run-to-run
-# fluctuation separable (the mean displacement is the bias, the std bar is the
-# fluctuation) and (b) does not let one stiff early instant dominate the number.
-ERR_TIMES = (1.0, 2.5, 4.0)        # early / mid / late
+# The mcsolve frontier (Result 3) and the substep integrator check report the
+# error at a single mid-relaxation time. A fixed representative time is used
+# there rather than max-over-time because, for a head-to-head comparison, the
+# maximum of noisy samples is biased upward and would inflate the noisier
+# method's apparent error. (The convergence and jackknife figures, which
+# characterize one method's own scaling, use max-over-time instead.)
 ERR_PLOT_TIME = 2.5                # the point plotted in error-vs-X figures
-
-
-def err_time_indices(tlist, times=ERR_TIMES):
-    tl = np.asarray(tlist)
-    return [int(np.argmin(np.abs(tl - t))) for t in times]
-
-
-def fixed_time_errors(mean_curve, reference, tlist):
-    """Absolute error |mean - reference| at each of ERR_TIMES."""
-    idx = err_time_indices(tlist)
-    mc = np.real(np.asarray(mean_curve))
-    rf = np.asarray(reference)
-    return [abs(float(mc[i]) - float(rf[i])) for i in idx]
 
 
 def plot_time_index(tlist):
