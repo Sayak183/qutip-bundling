@@ -101,6 +101,47 @@ Reading the three factors:
 So in one line: **an ohmic bath with an exponential cutoff, at temperature
 $k_BT=0.5$, satisfying detailed balance.**
 
+**Building the Lindblad operators.** Both systems turn $(H_{\rm sys}, X, \gamma)$
+into collapse operators by the same Davies (secular) recipe —
+`davies_operators(H, X, gamma)`. First diagonalize the system Hamiltonian,
+
+$$H_{\rm sys}\,|a\rangle = E_a\,|a\rangle .$$
+
+Then every **ordered** pair of eigenstates $(a,b)$ whose coupling element
+$\langle a|X|b\rangle$ is non-zero contributes one Lindblad operator, tagged with
+the Bohr frequency of that transition:
+
+$$\omega_{ab} = E_b - E_a , \qquad
+  c_{ab} = \sqrt{\gamma(\omega_{ab})}\;\langle a|X|b\rangle\;|a\rangle\langle b| .$$
+
+The number of such operators is $N_L$ — one per energy-conserving channel the
+coupling opens. The sign convention $\omega_{ab}=E_b-E_a$ is what makes the
+dynamics relax rather than heat up: a downward transition ($E_b>E_a$, so $b$ is
+the higher level) carries $\omega_{ab}>0$, where detailed balance makes
+$\gamma$ largest, so energy is preferentially emitted to the bath and the state
+flows toward $\rho_\infty\propto e^{-H_{\rm sys}/k_BT}$. (`davies_operators`
+bakes in this convention; building the operators by hand with the opposite sign
+runs the system uphill.)
+
+The two systems feed *different* $(H_{\rm sys}, X)$ into this one recipe:
+
+- **System A** (§2.3): $X = \sum_i \sigma^x_i$, the collective transverse
+  magnetization. Diagonalizing the 16-state chain and keeping every pair with
+  $\langle a|X|b\rangle\neq 0$ gives $N_L \approx 64$. (The exact count is mildly
+  sensitive to how the chain's symmetry degeneracies are resolved numerically —
+  62–64 depending on the linear-algebra backend — because within a degenerate
+  energy level the eigenbasis is not unique.)
+- **System B** (§2.4): $X = x\otimes I$, the oscillator position. The anharmonic
+  ladder is non-degenerate, so the count is exact and basis-independent:
+  $N_L = 128$.
+
+In code this is a single call per system:
+
+```python
+H, X, psi0 = build_spin_chain(4)        # System A  (build_oscillator_bath(8) for B)
+c_ops = davies_operators(H, X, gamma)   # the {c_ab} above, length N_L
+```
+
 ### 2.2 Is this weak coupling? Yes — in both senses.
 
 1. **By construction.** `davies_operators` builds a Davies/secular master
@@ -148,7 +189,7 @@ $\dot\rho = -i[H_{\rm sys},\rho] + \sum_a \mathcal{D}[c_a]\rho$, with the
 dissipators $c_a$ generated from $(H_{\rm sys}, X, \gamma)$ as in §2.1. The
 Hilbert dimension is $2^n$. The energy eigenbasis mixes all sites, so nearly
 every level pair contributes a Davies operator and $N_L$ climbs steeply with
-size — 4 operators at $n=2$, $\sim 62$ at $n=4$ (dim 16), $\sim 213$ at $n=5$ (dim 32),
+size — 4 operators at $n=2$, $\sim 64$ at $n=4$ (dim 16), $\sim 213$ at $n=5$ (dim 32),
 $\sim 2200$ at $n=7$ (dim 128). This rapid operator growth is SLB's natural home.
 
 ### 2.4 System B — anharmonic oscillator coupled to a spin
@@ -183,7 +224,7 @@ bath of its own). Because $X$ touches only the oscillator, the bath never damps 
 spin directly; dissipation reaches the spin only indirectly, through the internal
 coherent coupling $g\(x\otimes\sigma_x)$. The system starts in the oscillator's
 top Fock state with the spin down. As above, the total evolved object is the Lindblad master
-equation with dissipators built from $(H_{\rm sys}, X, \gamma)$. Note the two
+equation with dissipators built from $(H_{\rm sys}, X, \gamma)$ as in §2.1 ($N_L = 128$ at dim 16). Note the two
 distinct "couplings": $g=0.3$ is an **internal coherent** coupling inside
 $H_{\rm sys}$, whereas $\alpha=0.3$ is the **system–bath** coupling carried by
 $\gamma$ through $X$ — they are different physics that happen to share a value.
@@ -346,20 +387,18 @@ dimensions the exact solver cannot reach. (Small dimensions are dominated by
 fixed overhead, not the asymptotic operation count, so the slope is fit from the
 large-$N$ end.)
 
-**What this figure is, and is not.** It isolates the cost advantage against the
-*exact* solver, which is the speedup the method targets. It deliberately omits
-`mcsolve`: the trajectory method has a shallower raw per-trajectory cost slope,
-so a cost-versus-size axis is the wrong place to compare against it. The
-meaningful SLB-versus-`mcsolve` comparison is *accuracy per cost* — at a matched
-accuracy `mcsolve` needs many trajectories — which is exactly what the
-accuracy-cost frontier shows (**Result 3**).
+**What this figure does and doesn't show.** It shows SLB's speedup over the
+*exact* solver — the comparison the method is built to win. It leaves `mcsolve`
+out on purpose: a trajectory method's cost scales differently, so a
+cost-versus-size plot is the wrong way to judge it. The fair SLB-versus-`mcsolve`
+question is *accuracy per unit cost* — to match SLB's accuracy, `mcsolve` needs
+many trajectories — and that comparison is **Result 3**.
 
-A practical note: SLB's RK4 integrator needs enough substeps to stay stable on
-the stiffer oscillator at large sizes (a single substep diverges there). These
-runs use a small fixed substep count (stated in the caption) within the range
-where that count is stable; if the integration ever diverges to a non-finite
-state, the solver now raises `SolverInstabilityError` rather than returning a
-silently corrupted result.
+**A practical note.** On the stiffer oscillator at large sizes, SLB's RK4
+integrator needs a few substeps per step to stay stable — one substep diverges.
+These runs use a small fixed substep count (given in the caption) inside the
+stable range. If the integration ever blows up to a non-finite state, the solver
+raises `SolverInstabilityError` instead of silently returning a corrupted result.
 
 ### Result 2 — accuracy versus the bundle size $M$
 
