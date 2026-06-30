@@ -80,7 +80,7 @@ The bath is specified entirely by one spectral function — the rate at which th
 bath exchanges energy quantum $\omega$ with the system:
 
 $$
-\gamma(\omega) = \alpha\,\omega\,e^{-|\omega|/\omega_c}\;\big/\;\big(1-e^{-\omega/k_BT}\big),
+\gamma(\omega) = \alpha\\omega\e^{-|\omega|/\omega_c}\\big/\\big(1-e^{-\omega/k_BT}\big),
 \qquad \alpha = 0.3,\; k_BT = 0.5,\; \omega_c = 8 .
 $$
 
@@ -105,14 +105,14 @@ $k_BT=0.5$, satisfying detailed balance.**
 into collapse operators by the same Davies (secular) recipe —
 `davies_operators(H, X, gamma)`. First diagonalize the system Hamiltonian,
 
-$$H_{\rm sys}\,|a\rangle = E_a\,|a\rangle .$$
+$$H_{\rm sys}\,|a\rangle = E_a\|a\rangle .$$
 
 Then every **ordered** pair of eigenstates $(a,b)$ whose coupling element
 $\langle a|X|b\rangle$ is non-zero contributes one Lindblad operator, tagged with
 the Bohr frequency of that transition:
 
 $$\omega_{ab} = E_b - E_a , \qquad
-  c_{ab} = \sqrt{\gamma(\omega_{ab})}\;\langle a|X|b\rangle\;|a\rangle\langle b| .$$
+  c_{ab} = \sqrt{\gamma(\omega_{ab})}\\langle a|X|b\rangle\|a\rangle\langle b| .$$
 
 The number of such operators is $N_L$ — one per energy-conserving channel the
 coupling opens. The sign convention $\omega_{ab}=E_b-E_a$ is what makes the
@@ -160,7 +160,7 @@ c_ops = davies_operators(H, X, gamma)   # the {c_ab} above, length N_L
 The **system Hamiltonian** for $n$ spins is
 
 $$
-H_{\rm sys} = -J\sum_{i=1}^{n-1}\sigma^z_i\sigma^z_{i+1}\;-\;h\sum_{i=1}^{n}\sigma^x_i,
+H_{\rm sys} = -J\sum_{i=1}^{n-1}\sigma^z_i\sigma^z_{i+1}\-\h\sum_{i=1}^{n}\sigma^x_i,
 \qquad J = 1.0,\; h = 0.6 .
 $$
 
