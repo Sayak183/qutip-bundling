@@ -160,7 +160,7 @@ c_ops = davies_operators(H, X, gamma)   # the {c_ab} above, length N_L
 The **system Hamiltonian** for $n$ spins is
 
 $$
-H_{\rm sys} = -J\sum_{i=1}^{n-1}\sigma^z_i\sigma^z_{i+1}\-\h\sum_{i=1}^{n}\sigma^x_i,
+H_{\rm sys} = -J\sum_{i=1}^{n-1}\sigma^z_i\sigma^z_{i+1}\-h\sum_{i=1}^{n}\sigma^x_i,
 \qquad J = 1.0,\; h = 0.6 .
 $$
 
@@ -197,7 +197,7 @@ $\sim 2200$ at $n=7$ (dim 128). This rapid operator growth is SLB's natural home
 The **system Hamiltonian** is
 
 $$
-H_{\rm sys} = \omega_0\\left(n+\tfrac12\right) + \chi\n^2
+H_{\rm sys} = \omega_0\\left(n+\tfrac12\right) + \chi*n^2
             + \tfrac{\Delta}{2}\\sigma_z + g\(x\otimes\sigma_x)
 $$
 
