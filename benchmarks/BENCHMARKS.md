@@ -274,7 +274,7 @@ job:
 for the oscillator — over 40 output points; $t=2.5$ is the mid-relaxation
 sample, where the energy has substantially decayed but not yet saturated.)
 
-### 3.2 How much sampling each method does (read this — it is the confusing part)
+### 3.2 How much sampling each method does
 
 The two methods' "sample counts" are not the same kind of thing, so here they
 are explicitly.
