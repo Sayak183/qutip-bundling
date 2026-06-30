@@ -436,9 +436,12 @@ the method toward the **lower-left wins at matched accuracy**. Error bars are th
 spread over independent repeats. Both methods run at disclosed integration
 resolution (§3.3) and share the same grid and reference.
 
-On the spin chain SLB sits below `mcsolve` across most of the range (a few times
-cheaper at matched accuracy; at the very loosest accuracy a handful of
-trajectories is the single cheapest point). On the oscillator the gap is large:
+On the spin chain the comparison runs the other way: mcsolve sits below
+SLB across most of the range — a few times cheaper at matched accuracy at the
+loose end, narrowing to a near-tie as the accuracy tightens. That is the
+expected result, not a problem: this system is small and non-stiff, exactly
+where a trajectory method is already efficient, so it is not the regime SLB
+targets. On the oscillator the gap is large:
 SLB reaches errors around $10^{-3}$ in a few seconds, while `mcsolve` after a
 thousand trajectories is still near $10^{-1}$ — about two orders of magnitude
 less accurate at higher cost. This is the regime SLB is built for.
