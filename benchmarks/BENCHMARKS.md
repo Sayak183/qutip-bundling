@@ -386,24 +386,40 @@ frontier (Result 3) sweeps the bias knob `M` for SLB against the noise knob
 ![spin chain cost scaling](benchmark_cost_scaling_spin_chain.png)
 ![oscillator cost scaling](benchmark_cost_scaling_oscillator_bath.png)
 
-Wall-clock time for one solve versus Hilbert-space dimension $N$, comparing the
-exact full-dissipator solver against SLB. Each point is a single timed solve:
-one `mesolve` with all $N_L$ collapse operators, and one SLB realization at a
-representative bundle size ($M=8$). The dashed line marks where one full
-`mesolve` exceeds the time budget — past it the exact solver is impractical.
+The figure has two panels sharing the dimension axis. **Top:** wall-clock time
+for one solve versus Hilbert-space dimension $N$. **Bottom:** the accuracy of the
+SLB solve at each size, so the speed claim is qualified by the error it holds.
+The dashed vertical line marks where one full `mesolve` exceeds the time budget —
+past it the exact solver is impractical.
 
-**The two scalings.** Full `mesolve` evolves the density matrix with the
-complete dissipator, an operation count that grows like $O(N^5)$; the measured
-large-$N$ slope is consistent with that (the legend reports the fitted
-exponent). SLB only ever propagates $M$ bundled operators, so its cost grows
-like the underlying dense propagation, $O(N^3)$ in operation count; the measured
-large-$N$ slope is shallower still ($\sim N^2$ over the range shown, where dense
-linear algebra is not yet the sole bottleneck). The practical consequence is the
-gap that opens up with size: `mesolve` is cheapest only on the smallest systems,
-then climbs steeply and stops at the wall, while SLB continues cheaply to
-dimensions the exact solver cannot reach. (Small dimensions are dominated by
-fixed overhead, not the asymptotic operation count, so the slope is fit from the
-large-$N$ end.)
+**Three cost curves (top).** The exact full-dissipator `mesolve` evolves the
+density matrix with all $N_L$ collapse operators, an operation count that grows
+like $O(N^5)$ (the legend reports the fitted large-$N$ slope). SLB at a *fixed*
+bundle size ($M=8$) only ever propagates $M$ operators, so one solve is cheap and
+scales like the underlying dense propagation ($O(N^3)$ asymptotically, shallower
+still over the modest range shown, where fixed overhead dominates). The third
+curve is the honest one — read on.
+
+**Fixed $M$ is cheap, but its accuracy decays with size (bottom panel).** At a
+fixed bundle count the RMSE against the exact solve *grows* with $N$: $N_L$ grows
+with the system, so a fixed number of bundles resolves the dissipator less
+finely. The bottom panel shows this directly — the fixed-$M$ RMSE climbs and
+crosses the target line — so a pure fixed-$M$ speed plot compares at a *moving*
+accuracy, which invites the obvious objection: fast is meaningless if the error
+blows up with $N$.
+
+**Iso-accuracy — the cost to hold a *fixed* accuracy (third curve).** To answer
+"fast *at what accuracy*", the iso-accuracy curve chooses, at each $N$, the
+smallest bundle size $M^\ast$ that brings the RMSE to a fixed target (here
+$\text{RMSE}=0.02$, measured against the exact solve) and plots the cost of *that*
+solve. The required $M^\ast$ grows with $N$ (annotated in the bottom panel —
+roughly $M^\ast\propto N$ on the chain), so this curve is steeper than fixed-$M$:
+holding accuracy costs about one extra power of $N$. But it still sits far below
+the exact solver, so SLB's advantage survives the honest accounting. It is
+computable only up to the reference wall, since tuning $M^\ast$ needs the exact
+answer. (On the oscillator the target is met with $M^\ast=1$ at every size — a
+single bundle already suffices — so there the fixed-$M$ and iso-accuracy costs
+coincide.)
 
 **What this figure does and doesn't show.** It shows SLB's speedup over the
 *exact* solver — the comparison the method is built to win. It leaves `mcsolve`
