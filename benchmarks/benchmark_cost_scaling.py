@@ -2,25 +2,38 @@
 benchmark_cost_scaling.py
 =========================
 
-Cost scaling against the *exact* solver: how does the per-solve wall-clock grow
-with Hilbert-space dimension N for the full Lindblad solver versus SLB?
+Cost scaling against the *exact* solver, reported two ways so the speed claim is
+qualified by accuracy.
 
   * full mesolve -- evolves the full density matrix with all N_L collapse
-    operators. Cost grows steeply (~O(N^5) in operation count) and the solve
-    becomes intractable past a wall, so it is run only up to that point.
+    operators. Cost ~O(N^5); becomes intractable past a wall.
   * SLB          -- evolves the density matrix with M (<< N_L) bundled
-    operators. Cost grows like the underlying dense propagation (~O(N^3)), so
-    it continues cheaply well past the full-solver wall.
+    operators. Cost of one solve ~O(N^3).
 
-The figure plots one timed solve per method per size and reports the *measured*
-log-log slope for each (not an idealized guide line), annotated as being
-consistent with the O(N^3)/O(N^5) expectation. This isolates the cost-scaling
-advantage against the exact solver.
+Two cost curves for SLB:
 
-It deliberately does NOT include mcsolve: mcsolve's per-trajectory cost has a
-shallower raw slope, so a raw cost-vs-size axis is the wrong place to compare to
-it. The meaningful SLB-vs-mcsolve comparison is accuracy-per-cost -- see the
-accuracy-cost frontier (Result 3).
+  (1) fixed M = M_REP. One solve is cheap and scales ~O(N^3). BUT at fixed M the
+      accuracy degrades as N grows: N_L grows, so a fixed bundle count resolves
+      the dissipator less finely and the RMSE climbs with N. A pure fixed-M
+      speed plot therefore compares at a moving accuracy target.
+
+  (2) iso-accuracy. At each N we choose the smallest M that brings the
+      time-averaged RMSE of <H(t)> to TARGET_RMSE (measured against the exact
+      solve), and plot the cost of THAT estimate. This is the honest "cost to
+      reach a fixed accuracy" scaling. Because the required M grows with N, its
+      slope is steeper than the fixed-M O(N^3) -- but it still beats the exact
+      solver. It is only computable up to the reference wall (tuning M needs the
+      exact answer).
+
+The figure has two panels sharing the dimension axis:
+  (top)    wall-clock per solve vs N: full, SLB fixed-M, SLB iso-accuracy, each
+           with its measured log-log slope.
+  (bottom) the fixed-M accuracy vs N (RMSE climbing), the TARGET_RMSE line, and
+           the M actually needed to hit the target at each N (annotated) -- i.e.
+           the mechanism behind curve (2).
+
+mcsolve is not shown here (its raw per-trajectory slope makes a cost-vs-size axis
+the wrong comparison); see the accuracy-cost frontier (Result 3).
 
 Produces, per system:  benchmark_cost_scaling_<system>.png
 
@@ -39,32 +52,69 @@ from benchmark_scaling import (
 )
 from qutip_bundling import davies_operators, mesolve_ensemble
 
-M_REP = 8   # representative SLB bundle size (matches the other figures)
+M_REP = 8               # representative fixed bundle size (matches other figures)
+N_ACC = 16              # SLB runs averaged to measure accuracy at each size
+TARGET_RMSE = 0.02      # accuracy target for the iso-accuracy cost curve
+M_ISO_GRID = [1, 2, 4, 8, 16, 32, 64, 128]   # M values searched to hit the target
 
-# Extended sweeps: SLB is cheap, so push well past the full-solver wall.
 SYSTEMS = [
-    ("spin_chain",      build_spin_chain,      [2, 3, 4, 5, 6, 7, 8]),     # dims 4..256
-    ("oscillator_bath", build_oscillator_bath, [4, 8, 16, 32]),            # dims 8..64 (largest stable at 4 substeps)
+    ("spin_chain",      build_spin_chain,      [2, 3, 4, 5]),     # dims 4..256
+    ("oscillator_bath", build_oscillator_bath, [4, 8, 16, 32]),            # dims 8..64
 ]
 
 
+def tavg_rmse(samples, n_eff, reference):
+    mean = samples.mean(axis=0)
+    std = samples.std(axis=0, ddof=1)
+    bias = np.abs(mean - reference)
+    sem = std / np.sqrt(n_eff)
+    return float(np.mean(np.sqrt(bias ** 2 + sem ** 2)))
+
+
+def slb_estimate(H, rho0, c_ops, m, n_runs):
+    """(time-avg samples matrix, wall-clock for the n_runs estimate)."""
+    t0 = time.perf_counter()
+    ens = mesolve_ensemble(H, rho0, TLIST, c_ops, M=m, e_ops=[H],
+                           n_realizations=n_runs, rng=100, backend="native",
+                           substeps=SUBSTEPS)
+    return np.real(ens.samples[:, 0, :]), time.perf_counter() - t0
+
+
+def iso_accuracy_point(H, rho0, c_ops, reference, n_l):
+    """Smallest M (from M_ISO_GRID) whose N_ACC-run RMSE <= TARGET_RMSE, and the
+    cost of that estimate. Returns (m_star, iso_cost, reached)."""
+    last_m, last_cost = None, np.nan
+    for mc in M_ISO_GRID:
+        mc = min(mc, n_l)
+        samples, dt = slb_estimate(H, rho0, c_ops, mc, N_ACC)
+        r = tavg_rmse(samples, N_ACC, reference)
+        last_m, last_cost = mc, dt
+        if r <= TARGET_RMSE:
+            return mc, dt, True
+        if mc >= n_l:
+            break
+    return last_m, last_cost, False        # target not reached; report the best we tried
+
+
 def run(name, build, sizes):
-    dims, t_full, t_slb = [], [], []
+    dims, t_full, t_slb, rmse_fix, mstar, iso_cost = [], [], [], [], [], []
     full_feasible, wall_dim = True, None
-    print(f"[{name}]")
+    print(f"[{name}]  target RMSE = {TARGET_RMSE}")
     for s in sizes:
         H, X, psi0 = build(s)
         rho0 = qutip.ket2dm(psi0)
         dim = H.shape[0]
         c_ops = davies_operators(H, X, gamma)
+        n_l = len(c_ops)
         dims.append(dim)
 
-        # one exact mesolve, until the wall
+        reference = None
         if full_feasible and dim <= MAX_FULL_DIM:
             try:
                 t0 = time.perf_counter()
-                qutip.mesolve(H, rho0, TLIST, c_ops=c_ops, e_ops=[H])
+                res = qutip.mesolve(H, rho0, TLIST, c_ops=c_ops, e_ops=[H])
                 tf = time.perf_counter() - t0
+                reference = np.real(res.expect[0])
                 t_full.append(tf)
                 if tf > FULL_TIME_BUDGET:
                     full_feasible, wall_dim = False, dim
@@ -76,71 +126,107 @@ def run(name, build, sizes):
             if wall_dim is None:
                 wall_dim = dim
 
-        # one SLB realization at M=M_REP
-        m = min(M_REP, len(c_ops))
+        # fixed-M cost: one realization
+        m = min(M_REP, n_l)
         t0 = time.perf_counter()
         mesolve_ensemble(H, rho0, TLIST, c_ops, M=m, e_ops=[H],
                          n_realizations=1, rng=0, backend="native", substeps=SUBSTEPS)
         t_slb.append(time.perf_counter() - t0)
 
+        # accuracy + iso-accuracy, where a reference exists
+        if reference is not None:
+            samp, _ = slb_estimate(H, rho0, c_ops, m, N_ACC)
+            rmse_fix.append(tavg_rmse(samp, N_ACC, reference))
+            ms, ic, reached = iso_accuracy_point(H, rho0, c_ops, reference, n_l)
+            mstar.append(ms if reached else np.nan)
+            iso_cost.append(ic if reached else np.nan)
+            tag = f"M*={ms}" if reached else f"M*>{ms} (target missed)"
+        else:
+            rmse_fix.append(np.nan)
+            mstar.append(np.nan)
+            iso_cost.append(np.nan)
+            tag = "(no ref)"
+
         ff = t_full[-1]
-        print(f"  dim={dim:4d}  full={('%.3g s' % ff) if np.isfinite(ff) else '   (wall) '}"
-              f"   SLB(M={m})={t_slb[-1]:.3g} s")
-    return np.array(dims), np.array(t_full), np.array(t_slb), wall_dim
+        print(f"  dim={dim:4d}  full={('%.3g s' % ff) if np.isfinite(ff) else '  (wall)'}"
+              f"   SLB(M={m})={t_slb[-1]:.3g}s   RMSE_fix={('%.2e' % rmse_fix[-1]) if np.isfinite(rmse_fix[-1]) else ' -- '}"
+              f"   iso: {tag}")
+    return (np.array(dims), np.array(t_full), np.array(t_slb),
+            np.array(rmse_fix), np.array(mstar, dtype=float), np.array(iso_cost), wall_dim)
 
 
 def fit_slope(dims, times):
-    """Measured large-N log-log slope. Small dimensions are dominated by fixed
-    overhead (object setup, Python), not the asymptotic operation count, so the
-    slope is fit from the upper (large-N) part of the range when enough points
-    are available."""
     m = np.isfinite(times)
     d, t = dims[m], times[m]
     if len(d) < 2:
         return None
-    if len(d) >= 4:                       # use the asymptotic regime
+    if len(d) >= 4:
         sel = d >= d.max() / 8.0
         if sel.sum() >= 3:
             d, t = d[sel], t[sel]
     return float(np.polyfit(np.log(d), np.log(t), 1)[0])
 
 
-def figure(name, dims, t_full, t_slb, wall_dim):
+def _slope_label(base, dims, times):
+    e = fit_slope(dims, times)
+    return base + (rf"  — $\propto N^{{{e:.1f}}}$" if e else ""), e
+
+
+def figure(name, dims, t_full, t_slb, rmse_fix, mstar, iso_cost, wall_dim):
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
 
-    e_full = fit_slope(dims, t_full)
-    e_slb = fit_slope(dims, t_slb)
-    lab_full = "full mesolve (exact)" + (rf"  — large-$N$ slope $\propto N^{{{e_full:.1f}}}$" if e_full else "")
-    lab_slb = f"SLB, M={M_REP}" + (rf"  — large-$N$ slope $\propto N^{{{e_slb:.1f}}}$" if e_slb else "")
+    lab_full, _ = _slope_label("full mesolve (exact)", dims, t_full)
+    lab_fix, _ = _slope_label(f"SLB, fixed M={M_REP}", dims, t_slb)
+    lab_iso, _ = _slope_label(f"SLB, iso-accuracy (RMSE={TARGET_RMSE})", dims, iso_cost)
 
-    fig, ax = plt.subplots(figsize=(8, 5))
+    fig, (ax, axr) = plt.subplots(
+        2, 1, figsize=(8.5, 8.2), sharex=True, gridspec_kw={"height_ratios": [2, 1.25]}
+    )
+
+    # ---- top: cost ----
     ff = np.isfinite(t_full)
     ax.loglog(dims[ff], t_full[ff], "o-", color="tab:red", lw=2, ms=7, label=lab_full)
-    ax.loglog(dims, t_slb, "s-", color="tab:green", lw=2, ms=7, label=lab_slb)
-
+    ax.loglog(dims, t_slb, "s-", color="tab:green", lw=2, ms=7, label=lab_fix)
+    ii = np.isfinite(iso_cost)
+    ax.loglog(dims[ii], iso_cost[ii], "^--", color="tab:blue", lw=2, ms=8, label=lab_iso)
     if wall_dim is not None:
         ax.axvline(wall_dim, color="tab:red", ls="--", alpha=0.5)
         ax.text(wall_dim, ax.get_ylim()[0] * 1.6, "full mesolve\nimpractical past here",
                 color="tab:red", fontsize=8, ha="center", va="bottom")
-
-    ax.set_xlabel(r"Hilbert-space dimension $N$")
-    ax.set_ylabel("wall-clock time for one solve (s)")
-    ax.set_title(f"{name}: cost scaling — SLB stays cheap where full mesolve cannot")
-    ax.legend(loc="upper left")
+    ax.set_ylabel("wall-clock time for one estimate (s)")
+    ax.set_title(f"{name}: cost scaling — fixed-M is cheapest, iso-accuracy is the honest scaling")
+    ax.legend(loc="upper left", fontsize=9)
     ax.grid(True, which="both", alpha=0.3)
+
+    # ---- bottom: fixed-M accuracy + target + M* needed ----
+    rr = np.isfinite(rmse_fix)
+    axr.loglog(dims[rr], rmse_fix[rr], "s-", color="tab:green", lw=2, ms=7,
+               label=f"RMSE at fixed M={M_REP}")
+    axr.axhline(TARGET_RMSE, color="tab:blue", ls="--", alpha=0.7, label=f"target {TARGET_RMSE}")
+    for x, y, ms in zip(dims[rr], rmse_fix[rr], mstar[rr]):
+        if np.isfinite(ms):
+            axr.annotate(f"M*={int(ms)}", (x, y), textcoords="offset points",
+                         xytext=(6, 7), fontsize=8, color="tab:blue",
+                         bbox=dict(boxstyle="round,pad=0.15", fc="white", ec="none", alpha=0.7))
+    if wall_dim is not None:
+        axr.axvline(wall_dim, color="tab:red", ls="--", alpha=0.5)
+    axr.set_ylabel(f"time-avg RMSE\n(SLB, M={M_REP})")
+    axr.set_xlabel(r"Hilbert-space dimension $N$")
+    axr.legend(loc="lower right", fontsize=8)
+    axr.grid(True, which="both", alpha=0.3)
+    axr.margins(y=0.25)
 
     add_settings_footer(
         fig,
-        f"one exact mesolve vs one SLB realization (M={M_REP}, {SUBSTEPS} RK4 substep(s)/step)",
-        "operation-count expectation: O(N^3) for SLB vs O(N^5) for full mesolve",
-        "for the accuracy-per-cost comparison with mcsolve, see the frontier (Result 3)",
+        f"fixed-M: one SLB realization (M={M_REP}); iso-accuracy: smallest M with "
+        f"{N_ACC}-run RMSE<={TARGET_RMSE} vs exact",
+        f"{SUBSTEPS} RK4 substep(s)/step; iso-accuracy computable only up to the reference wall",
+        "operation-count expectation: O(N^3) per solve for SLB vs O(N^5) for full mesolve",
     )
-
     fig.savefig(f"benchmark_cost_scaling_{name}.png", dpi=110, bbox_inches="tight")
     plt.close(fig)
-    print(f"  measured slopes:  full N^{e_full},  SLB N^{e_slb}")
 
 
 def main():

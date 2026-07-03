@@ -265,10 +265,15 @@ job:
   shrink," the conservative worst case is the robust diagnostic and needs no
   chosen time.
 - **Comparing two methods head-to-head** — the SLB-vs-`mcsolve` frontier
-  (Result 3) and the substep integrator check (Result 4) — uses the error at a
-  single **mid-relaxation time $t=2.5$**. Here a fixed representative time is
-  *fairer* than max-over-time: the maximum of noisy samples is biased upward, so
-  a worst-case metric would inflate the noisier method's apparent error.
+  (Result 3) — uses the **time-averaged RMSE**: at each time it combines the
+  systematic bias $|\langle H\rangle_{\rm SLB}-\langle H\rangle_{\rm ref}|$
+  with the statistical error $S/\sqrt{N}$ as $\sqrt{\text{bias}^2+\text{SEM}^2}$,
+  then averages over the trajectory. This is the fair choice for a head-to-head:
+  it counts *both* error components — a bias-only or single-time number would
+  ignore `mcsolve`'s large trajectory variance — and time-averaging avoids both a
+  lucky single instant and the upward bias of a max-over-time number. The substep
+  integrator check (Result 4) still reports a single **mid-relaxation time
+  $t=2.5$**, where one representative instant suffices.
 
 (The dynamics run to $t=5$ in natural units — $J=1$ for the chain, $\omega_0=1$
 for the oscillator — over 40 output points; $t=2.5$ is the mid-relaxation
@@ -296,13 +301,16 @@ density-matrix solves of $M$ operators each — a total of $M\times$
 |---|---|---|---|
 | scaling (Result 1) | 2, 4, 8 | 8 | 1 |
 | accuracy / coherence (Result 2, 4) | system-dependent | 32 | 1 |
-| frontier (Result 3) | 1, 2, 4, 8, 16 | 16 | a few |
+| frontier (Result 3) | 1, 2, 4, 8, 16, 32 | 16 / 32 / 64 | — (error bar = $S/\sqrt{N}$) |
 
 **`mcsolve` has one level of sampling:** a single reported point is `ntraj`
-independent trajectories (swept over `[50, 200, 1000]` in scaling, and across a
-similar range in the frontier), run single-threaded so its wall-clock time is
-the full sequential cost of all trajectories — matching SLB's single-threaded
-realization loop.
+independent trajectories (swept over `[50, 200, 1000]` in scaling and
+`[10, 50, 200, 1000]` in the frontier), run single-threaded so its wall-clock
+time is the full sequential cost of all trajectories — matching SLB's
+single-threaded realization loop. Its frontier error bar is its own trajectory
+spread $S/\sqrt{\texttt{ntraj}}$ — the same quantity SLB's bar measures over its
+runs, so the two methods are treated identically, one estimate per point (no
+extra repeats of one method but not the other).
 
 ### 3.3 Integrators: matched where it is possible, disclosed where it is not
 
@@ -431,20 +439,24 @@ checking on your own system.
 ![oscillator frontier](benchmark_frontier_oscillator_bath.png)
 
 Each curve sweeps its own knob (`M` for SLB, `ntraj` for `mcsolve`); the axes
-are wall-clock time and error in $\langle H(t)\rangle$ (both lower-is-better), so
-the method toward the **lower-left wins at matched accuracy**. Error bars are the
-spread over independent repeats. Both methods run at disclosed integration
+are wall-clock time and the **time-averaged RMSE** in $\langle H(t)\rangle$
+(§3.1, both lower-is-better), so the method toward the **lower-left wins at
+matched accuracy**. Error bars are each method's own sample spread $S/\sqrt{N}$ —
+SLB over its independent runs, `mcsolve` over its trajectories. The three SLB
+curves are increasing run counts ($N=16, 32, 64$); more runs lower the
+statistical floor, but SLB is **bias-limited** here, so $N=16$ already sits
+essentially on the frontier. Both methods run at disclosed integration
 resolution (§3.3) and share the same grid and reference.
 
-On the spin chain the comparison runs the other way: mcsolve sits below
-SLB across most of the range — a few times cheaper at matched accuracy at the
-loose end, narrowing to a near-tie as the accuracy tightens. That is the
-expected result, not a problem: this system is small and non-stiff, exactly
-where a trajectory method is already efficient, so it is not the regime SLB
-targets. On the oscillator the gap is large:
-SLB reaches errors around $10^{-3}$ in a few seconds, while `mcsolve` after a
-thousand trajectories is still near $10^{-1}$ — about two orders of magnitude
-less accurate at higher cost. This is the regime SLB is built for.
+On the spin chain the two are competitive at the loosest, cheapest end, and
+**SLB pulls ahead as the accuracy tightens**: its RMSE keeps falling with `M`,
+while `mcsolve`'s is floored by trajectory variance — visible as its wide error
+bars, which the RMSE counts and SLB's low variance avoids. By the tight end SLB
+reaches a given accuracy at a fraction of `mcsolve`'s cost. On the oscillator the
+gap is large from the start: SLB reaches RMSE around $10^{-3}$–$10^{-4}$ in a few
+seconds, while `mcsolve` after a thousand trajectories is still near $10^{-1}$ —
+two to three orders of magnitude less accurate at higher cost. That stiff,
+operator-heavy regime is what SLB is built for.
 
 ### Result 4 — validation and robustness
 

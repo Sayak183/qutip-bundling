@@ -3,24 +3,40 @@ benchmark_vs_mcsolve.py
 ===============================
 
 Accuracy-vs-cost benchmark for `qutip-bundling` against QuTiP's Monte-Carlo
-trajectory solver (`qutip.mcsolve`), run over the same two systems as
+trajectory solver (`qutip.mcsolve`), over the same two systems as
 benchmark_scaling.py.
 
-Both methods are stochastic and have different accuracy knobs:
+Both methods are stochastic with different accuracy knobs:
 
     * bundling:       bundle size M
     * qutip.mcsolve:  number of quantum-jump trajectories ntraj
 
-The fair comparison is therefore an accuracy-vs-cost frontier: sweep each
-method's knob and plot error in <H> at t=2.5 against wall-clock time. Lower-left
-means lower error and lower cost.
+Error metric (see BENCHMARKS.md section 3.1)
+--------------------------------------------
+A stochastic estimate has two error parts, and one number that hides either is
+misleading. At every output time t we form, from the estimate's own samples,
 
-Updates in this version:
-    * Prints the original full number of Lindblad operators N_L explicitly.
-    * Caps requested M values by N_L.
-    * Adds error bars from independent repeats: mean +/- SEM in both time and
-      error.
-    * Avoids calling the full mesolve reference "exact" in labels.
+    BIAS(t)  = | mean(t) - reference(t) |          (systematic error)
+    SEM(t)   = std(t) / sqrt(N)                     (statistical error, S/sqrt(N))
+    RMSE(t)  = sqrt( BIAS(t)**2 + SEM(t)**2 )       (total error)
+
+and report the **time-averaged RMSE**, with the time-averaged SEM as the error
+bar. Both methods are treated identically: the estimate is the average of N
+samples, and the error bar is that estimate's own sample spread S/sqrt(N) --
+for SLB the N samples are independent bundled runs; for mcsolve they are the
+ntraj trajectories. There are no extra "repeats" of one method but not the
+other, and no bootstrap: a single estimate per point, so the comparison is
+symmetric and the big systems stay affordable (one estimate, not R x).
+
+The fair comparison is the accuracy-vs-cost frontier: lower-left is better.
+
+Substeps guard
+--------------
+SLB integrates with fixed RK4 (SUBSTEPS substeps per output interval). Before
+the frontier, the script verifies the SLB error floor is flat in substeps --
+i.e. it is the genuine O(1/M) bundling bias, not an unconverged timestep. If
+doubling the substeps changes the bias by more than SUBSTEPS_TOL, it prints a
+warning so you raise SUBSTEPS (important for larger / stiffer systems).
 
 Produces, per system:
     benchmark_frontier_<system>.png
@@ -36,31 +52,27 @@ import time
 import numpy as np
 import qutip
 from qutip_bundling import davies_operators, mesolve_ensemble
-from benchmark_scaling import (
-    format_slb_settings, format_mcsolve_settings, add_settings_footer,
-    plot_time_index, ERR_PLOT_TIME,
-)
+from benchmark_scaling import add_settings_footer
 
 # ===========================================================================
 # CONFIG
 # ===========================================================================
-M_VALUES = [1, 2, 4, 8, 16]            # bundling knob
+M_VALUES = [1, 2, 4, 8, 16, 32]        # bundling knob
 NTRAJ_VALUES = [10, 50, 200, 1000]     # mcsolve knob
-N_REALIZATIONS = 16                    # repeats averaged for bundled mean
-N_REPEATS = 4                          # independent repeats -> SEM bars
-SUBSTEPS = 4                           # RK4 substeps per TLIST interval for SLB;
-                                       # stated so the SLB integration resolution
-                                       # is explicit alongside mcsolve's ntraj
-# Fairness controls for mcsolve (see Result 3 discussion):
-#  - run single-threaded ("map": "serial") so wall-clock matches SLB's
-#    single-threaded realization loop, rather than mcsolve getting a free
-#    multi-core speedup SLB doesn't.
-#  - state the ODE tolerances explicitly so the integration accuracy of both
-#    methods is disclosed (mcsolve is adaptive; SLB is fixed at SUBSTEPS).
+N_RUNS_SWEEP = [16, 32, 64]            # independent SLB runs averaged per estimate
+N_RUNS_MAX = max(N_RUNS_SWEEP)         # draw this many once, subsample for the sweep
+SUBSTEPS = 4                           # RK4 substeps per TLIST interval for SLB
+SUBSTEPS_TOL = 0.05                    # warn if doubling substeps moves the bias > 5%
+SUBSTEPS_PROBE_M = 16                  # M used for the substeps convergence guard
+
+# Fairness controls for mcsolve:
+#  - single-threaded ("map": "serial") so wall-clock matches SLB's serial loop.
+#  - keep per-trajectory results so the trajectory spread (-> S/sqrt(ntraj)) is
+#    available for the SEM error bar, the same quantity SLB gets from its runs.
 MC_ATOL = 1e-8
 MC_RTOL = 1e-6
 MC_OPTIONS = {"progress_bar": False, "map": "serial",
-              "atol": MC_ATOL, "rtol": MC_RTOL}
+              "atol": MC_ATOL, "rtol": MC_RTOL, "keep_runs_results": True}
 TLIST = np.linspace(0.0, 5.0, 80)
 
 ALPHA, KT, OMEGA_C = 0.3, 0.5, 8.0
@@ -110,33 +122,26 @@ def build_oscillator_bath(n_fock: int, omega0=1.0, anh=0.1, spin_gap=1.0, coupli
 
 #   name              builder               fixed size, small enough for full mesolve reference
 SYSTEMS = [
-    ("spin_chain",      build_spin_chain,      4),   # dim 16, expected N_L=64
-    ("oscillator_bath", build_oscillator_bath, 8),   # dim 16, expected N_L=128
+    ("spin_chain",      build_spin_chain,      4),   # dim 16
+    ("oscillator_bath", build_oscillator_bath, 8),   # dim 16
 ]
 
 
 # ===========================================================================
-# HELPERS
+# ERROR METRIC: time-averaged BIAS / SEM / RMSE from an estimate's samples
 # ===========================================================================
-def err_at_plot_time(curve, reference):
-    """Absolute error in <H> at the mid-relaxation sample time (t=ERR_PLOT_TIME).
+def bias_sem_rmse(samples: np.ndarray, n_eff: int, reference: np.ndarray):
+    """Return (time-avg BIAS, time-avg SEM, time-avg RMSE).
 
-    Reported instead of the max-over-time error so the number reflects a fixed,
-    representative instant rather than the single worst point; see
-    BENCHMARKS.md section 3.1. The repeat-to-repeat spread (SEM over N_REPEATS)
-    is the error bar, computed by the caller via mean_sem.
+    samples: (n_samples, n_times). The estimate is the sample mean; SEM uses
+    n_eff = number of averaged samples (S / sqrt(n_eff)).
     """
-    i = plot_time_index(TLIST)
-    return abs(float(np.real(curve)[i]) - float(reference[i]))
-
-
-def mean_sem(values):
-    values = np.asarray(values, dtype=float)
-    mean = float(np.mean(values))
-    if values.size <= 1:
-        return mean, 0.0
-    sem = float(np.std(values, ddof=1) / math.sqrt(values.size))
-    return mean, sem
+    mean = samples.mean(axis=0)
+    std = samples.std(axis=0, ddof=1)
+    bias = np.abs(mean - reference)
+    sem = std / math.sqrt(n_eff)
+    rmse = np.sqrt(bias ** 2 + sem ** 2)
+    return float(np.mean(bias)), float(np.mean(sem)), float(np.mean(rmse))
 
 
 def capped_unique_m_values(n_lindblad: int) -> list[int]:
@@ -146,6 +151,43 @@ def capped_unique_m_values(n_lindblad: int) -> list[int]:
         if m_eff > 0 and m_eff not in values:
             values.append(m_eff)
     return values
+
+
+def slb_samples(H, rho0, c_ops, m_eff, n_runs, substeps):
+    """Return (samples (n_runs, n_times), per_run_seconds) for one M."""
+    t0 = time.perf_counter()
+    ens = mesolve_ensemble(H, rho0, TLIST, c_ops, M=m_eff, e_ops=[H],
+                           n_realizations=n_runs, rng=1000, backend="native",
+                           substeps=substeps)
+    per_run = (time.perf_counter() - t0) / n_runs
+    return np.real(ens.samples[:, 0, :]), per_run
+
+
+def substeps_guard(H, rho0, c_ops, reference, m_eff):
+    """Check the SLB bias is flat under doubling SUBSTEPS (integrator converged)."""
+    s_lo, s_hi = SUBSTEPS, 2 * SUBSTEPS
+    samp_lo, _ = slb_samples(H, rho0, c_ops, m_eff, N_RUNS_MAX, s_lo)
+    samp_hi, _ = slb_samples(H, rho0, c_ops, m_eff, N_RUNS_MAX, s_hi)
+    bias_lo = bias_sem_rmse(samp_lo, N_RUNS_MAX, reference)[0]
+    bias_hi = bias_sem_rmse(samp_hi, N_RUNS_MAX, reference)[0]
+    rel = abs(bias_hi - bias_lo) / max(bias_lo, 1e-12)
+    ok = rel <= SUBSTEPS_TOL
+    flag = "OK (floor is bundling bias, not timestep)" if ok else \
+        f"WARNING: bias moved {rel:.0%} -- RAISE SUBSTEPS"
+    print(f"  substeps guard (M={m_eff}): bias {bias_lo:.3e} -> {bias_hi:.3e} "
+          f"on {s_lo}->{s_hi} substeps  [{flag}]")
+    return ok
+
+
+def _mcsolve_samples(H, psi0, c_ops, ntraj):
+    """One mcsolve call; return per-trajectory <H> array (ntraj, n_times)."""
+    try:
+        res = qutip.mcsolve(H, psi0, TLIST, c_ops, e_ops=[H], ntraj=ntraj,
+                            options=MC_OPTIONS)
+    except (TypeError, KeyError):
+        res = qutip.mcsolve(H, psi0, TLIST, c_ops, e_ops=[H], ntraj=ntraj,
+                            options={"progress_bar": False, "keep_runs_results": True})
+    return np.real(np.array([res.runs_expect[0][k] for k in range(ntraj)]))
 
 
 # ===========================================================================
@@ -161,70 +203,41 @@ def frontier(name, build, size):
     reference = np.real(qutip.mesolve(H, rho0, TLIST, c_ops=c_ops, e_ops=[H]).expect[0])
 
     m_values = capped_unique_m_values(n_l)
+    substeps_guard(H, rho0, c_ops, reference, min(SUBSTEPS_PROBE_M, n_l))
 
-    b_time_mean, b_time_sem, b_err_mean, b_err_sem = [], [], [], []
+    # ---- SLB: draw N_RUNS_MAX runs per M, subsample for the N sweep ----
+    slb = {n: {"cost": [], "rmse": [], "sem": []} for n in N_RUNS_SWEEP}
+    per_run_times = []
     print("  bundling (sweep M):")
     for m_eff in m_values:
-        times, errors = [], []
-        for r in range(N_REPEATS):
-            t0 = time.perf_counter()
-            ens = mesolve_ensemble(
-                H, rho0, TLIST, c_ops, M=m_eff, e_ops=[H],
-                n_realizations=N_REALIZATIONS, rng=1000 + r, backend="native",
-                substeps=SUBSTEPS,
-            )
-            times.append(time.perf_counter() - t0)
-            errors.append(err_at_plot_time(ens.expect[0], reference))
+        samples, per_run = slb_samples(H, rho0, c_ops, m_eff, N_RUNS_MAX, SUBSTEPS)
+        per_run_times.append(per_run)
+        line = f"    M={m_eff:3d}  one-run={per_run*1000:6.1f}ms |"
+        for n in N_RUNS_SWEEP:
+            bias, sem, rmse = bias_sem_rmse(samples[:n], n, reference)
+            slb[n]["cost"].append(n * per_run)
+            slb[n]["rmse"].append(rmse)
+            slb[n]["sem"].append(sem)
+            line += f"  N={n}: rmse={rmse:.2e}"
+        print(line)
 
-        tm, ts = mean_sem(times)
-        em, es = mean_sem(errors)
-        b_time_mean.append(tm)
-        b_time_sem.append(ts)
-        b_err_mean.append(em)
-        b_err_sem.append(es)
-        print(f"    M={m_eff:3d}  time={tm:7.3f} +/- {ts:.3f}s  err={em:.3e} +/- {es:.1e}")
-
-    m_time_mean, m_time_sem, m_err_mean, m_err_sem = [], [], [], []
+    # ---- mcsolve: one call per ntraj; error bar = S/sqrt(ntraj) ----
+    mc = {"cost": [], "rmse": [], "sem": []}
     print("  mcsolve (sweep ntraj):")
     for nt in NTRAJ_VALUES:
-        times, errors = [], []
-        for _r in range(N_REPEATS):
-            t0 = time.perf_counter()
-            try:
-                mc = qutip.mcsolve(
-                    H, psi0, TLIST, c_ops, e_ops=[H], ntraj=nt,
-                    options=MC_OPTIONS,
-                )
-            except (TypeError, KeyError):
-                # older/newer qutip: fall back to whatever options it accepts
-                mc = qutip.mcsolve(
-                    H, psi0, TLIST, c_ops, e_ops=[H], ntraj=nt,
-                    options={"progress_bar": False},
-                )
-            times.append(time.perf_counter() - t0)
-            errors.append(err_at_plot_time(mc.expect[0], reference))
-
-        tm, ts = mean_sem(times)
-        em, es = mean_sem(errors)
-        m_time_mean.append(tm)
-        m_time_sem.append(ts)
-        m_err_mean.append(em)
-        m_err_sem.append(es)
-        print(f"    ntraj={nt:5d}  time={tm:7.3f} +/- {ts:.3f}s  err={em:.3e} +/- {es:.1e}")
+        t0 = time.perf_counter()
+        runs = _mcsolve_samples(H, psi0, c_ops, nt)
+        dt = time.perf_counter() - t0
+        bias, sem, rmse = bias_sem_rmse(runs, nt, reference)
+        mc["cost"].append(dt)
+        mc["rmse"].append(rmse)
+        mc["sem"].append(sem)
+        print(f"    ntraj={nt:5d}  time={dt:7.3f}s  rmse={rmse:.3e} (bias {bias:.2e}, sem {sem:.2e})")
 
     return {
-        "dim": H.shape[0],
-        "n_l": n_l,
-        "m_values": m_values,
-        "b_time_mean": np.asarray(b_time_mean),
-        "b_time_sem": np.asarray(b_time_sem),
-        "b_err_mean": np.asarray(b_err_mean),
-        "b_err_sem": np.asarray(b_err_sem),
-        "ntraj_values": list(NTRAJ_VALUES),
-        "m_time_mean": np.asarray(m_time_mean),
-        "m_time_sem": np.asarray(m_time_sem),
-        "m_err_mean": np.asarray(m_err_mean),
-        "m_err_sem": np.asarray(m_err_sem),
+        "dim": H.shape[0], "n_l": n_l, "m_values": m_values,
+        "per_run_times": per_run_times, "slb": slb,
+        "ntraj_values": list(NTRAJ_VALUES), "mc": mc,
     }
 
 
@@ -236,54 +249,55 @@ def main():
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
 
+    # blue gradient generated from N_RUNS_SWEEP, so any choice of run counts
+    # works (lighter = fewer runs, darker = more)
+    _blues = plt.cm.Blues(np.linspace(0.45, 0.9, len(N_RUNS_SWEEP)))
+    slb_blues = {n: _blues[i] for i, n in enumerate(sorted(N_RUNS_SWEEP))}
+
     for name, build, size in SYSTEMS:
         out = frontier(name, build, size)
 
-        fig, ax = plt.subplots(figsize=(6.8, 5.0))
+        fig, ax = plt.subplots(figsize=(7.2, 5.2))
 
-        ax.errorbar(
-            out["b_time_mean"], out["b_err_mean"],
-            xerr=out["b_time_sem"], yerr=out["b_err_sem"],
-            fmt="s-", color="tab:green", lw=2, ms=8, capsize=3,
-            label="Stochastic Lindblad bundling (SLB)",
-        )
-        for x, y, m_eff in zip(out["b_time_mean"], out["b_err_mean"], out["m_values"]):
-            ax.annotate(
-                f"M={m_eff}", (x, y), textcoords="offset points", xytext=(6, 4),
-                fontsize=8, color="tab:green",
-            )
+        for n in N_RUNS_SWEEP:
+            d = out["slb"][n]
+            ax.errorbar(d["cost"], d["rmse"], yerr=d["sem"],
+                        fmt="s-", color=slb_blues[n], lw=1.8, ms=6, capsize=3,
+                        label=f"SLB (N={n} runs)")
+        n_lo = min(N_RUNS_SWEEP)
+        d_lo = out["slb"][n_lo]
+        for x, y, m_eff in zip(d_lo["cost"], d_lo["rmse"], out["m_values"]):
+            ax.annotate(f"M={m_eff}", (x, y), textcoords="offset points",
+                        xytext=(5, 5), fontsize=7, color=slb_blues[n_lo])
 
-        ax.errorbar(
-            out["m_time_mean"], out["m_err_mean"],
-            xerr=out["m_time_sem"], yerr=out["m_err_sem"],
-            fmt="o-", color="tab:purple", lw=2, ms=8, capsize=3,
-            label="qutip.mcsolve",
-        )
-        for x, y, nt in zip(out["m_time_mean"], out["m_err_mean"], out["ntraj_values"]):
-            ax.annotate(
-                f"{nt}", (x, y), textcoords="offset points", xytext=(6, -10),
-                fontsize=8, color="tab:purple",
-            )
+        ax.errorbar(out["mc"]["cost"], out["mc"]["rmse"], yerr=out["mc"]["sem"],
+                    fmt="o--", color="tab:purple", lw=1.8, ms=7, capsize=3,
+                    label="qutip.mcsolve")
+        for x, y, nt in zip(out["mc"]["cost"], out["mc"]["rmse"], out["ntraj_values"]):
+            ax.annotate(f"{nt}", (x, y), textcoords="offset points",
+                        xytext=(5, -11), fontsize=7, color="tab:purple")
 
         ax.set_xscale("log")
         ax.set_yscale("log")
-        ax.set_xlabel("wall-clock time (s)  (lower is better)")
-        ax.set_ylabel(r"error in $\langle H\rangle$ at $t=2.5$  (lower is better)")
+        ax.set_xlabel("wall-clock cost (s)   (lower is better)")
+        ax.set_ylabel(r"time-averaged RMSE in $\langle H\rangle$   (lower is better)")
         ax.set_title(
-            rf"{name} (dim {out['dim']}, $N_L$={out['n_l']}): accuracy-vs-cost frontier"
+            rf"{name} (dim {out['dim']}, $N_L$={out['n_l']}): RMSE-vs-cost frontier"
         )
         ax.grid(True, which="both", alpha=0.3)
         ax.legend(frameon=False)
         fig.tight_layout()
+
+        tmin = min(out["per_run_times"]) * 1000
+        tmax = max(out["per_run_times"]) * 1000
+        slb_caption = (f"SLB: sweep M={out['m_values']}, {SUBSTEPS} RK4 substep(s)/step, "
+                       f"N in {N_RUNS_SWEEP} runs (one run {tmin:.0f}-{tmax:.0f} ms)")
+        mc_caption = (f"mcsolve: sweep ntraj={out['ntraj_values']}, single-thread, "
+                      f"atol={MC_ATOL:g}/rtol={MC_RTOL:g}")
         add_settings_footer(
-            fig,
-            format_slb_settings(M=M_VALUES, substeps=SUBSTEPS,
-                                n_realizations=N_REALIZATIONS,
-                                n_repeats=N_REPEATS, swept=True),
-            format_mcsolve_settings(ntraj=NTRAJ_VALUES, atol=MC_ATOL,
-                                    rtol=MC_RTOL, swept=True),
-            "error bars = SEM over repeats; same time grid and "
-            "full-Lindblad reference",
+            fig, slb_caption, mc_caption,
+            "metric = time-averaged RMSE; error bar = S/sqrt(N) (each method's "
+            "own sample spread); one estimate per point; full-Lindblad reference",
         )
         fig.savefig(f"benchmark_frontier_{name}.png", dpi=130, bbox_inches="tight")
         plt.close(fig)

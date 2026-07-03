@@ -365,6 +365,65 @@ def test_davies_operators_drives_to_ground_state():
     assert abs(E[-1] - Egs) < 0.2        # settled near the ground state
 
 
+def test_davies_operators_reach_finite_temperature_gibbs_state():
+    """The Davies dissipator must relax to the correct *thermal* (Gibbs) state at
+    finite temperature -- not merely toward the ground state (that lower-T limit
+    is test_davies_operators_drives_to_ground_state).
+
+    Uses a non-degenerate anharmonic ladder whose coupling a + a^dagger connects
+    neighbouring levels, so every population can equilibrate and the unique steady
+    state is the Gibbs state exp(-H/kT)/Z.
+    """
+    dim = 5
+    H = qutip.num(dim) + 0.1 * qutip.num(dim) ** 2          # non-degenerate ladder
+    X = qutip.destroy(dim) + qutip.create(dim)
+    kT = 1.0
+    c_ops = davies_operators(H, X, _thermal_gamma(kT))
+
+    steady = qutip.steadystate(H, c_ops)
+    gibbs = (-H / kT).expm()
+    gibbs = gibbs / gibbs.tr()
+
+    trace_dist = 0.5 * (steady - gibbs).norm()
+    assert trace_dist < 1e-6, f"steady state is {trace_dist:.2e} from the Gibbs state"
+
+
+def test_symmetric_coupling_leaves_degenerate_steady_state_manifold():
+    """Correct physics behind the benchmark spin chain not settling to a unique
+    Gibbs state: a system-bath coupling that commutes with a symmetry of H leaves
+    that symmetry's sectors decoupled, so the Lindbladian has a *degenerate*
+    steady-state manifold (more than one stationary state) instead of a unique
+    thermal state. Breaking the symmetry shrinks the manifold. This is a property
+    of the model and the chosen coupling, not a solver bug: the pairwise Davies
+    construction is correct either way -- there simply is no unique thermal state
+    to reach when the drive respects a conservation law of H.
+    """
+    n = 4
+    J, h, kT = 1.0, 0.6, 0.5
+    sx, sz, I = qutip.sigmax(), qutip.sigmaz(), qutip.qeye(2)
+
+    def op(o, i):
+        return qutip.tensor([o if k == i else I for k in range(n)])
+
+    H = sum(-J * op(sz, i) * op(sz, i + 1) for i in range(n - 1))
+    H = H + sum(-h * op(sx, i) for i in range(n))
+    Pi = qutip.tensor([sx] * n)                     # Z2 symmetry of the TFIM
+
+    X_sym = sum(op(sx, i) for i in range(n))        # commutes with Pi
+    X_break = sum(op(sz, i) for i in range(n))      # breaks Pi
+
+    assert (X_sym * Pi - Pi * X_sym).norm() < 1e-10       # really respects the symmetry
+    assert (X_break * Pi - Pi * X_break).norm() > 1.0     # really breaks it
+
+    def steady_manifold_dim(X):
+        L = qutip.liouvillian(H, davies_operators(H, X, _thermal_gamma(kT)))
+        return int(np.sum(np.abs(np.linalg.eigvals(L.full())) < 1e-9))
+
+    dim_sym = steady_manifold_dim(X_sym)
+    dim_break = steady_manifold_dim(X_break)
+    assert dim_sym > 1              # symmetric coupling: no unique steady (thermal) state
+    assert dim_break < dim_sym      # breaking the symmetry shrinks the steady manifold
+
 def test_davies_operators_matches_manual_build():
     """davies_operators should agree with a hand build using omega=E_b-E_a."""
     import math
