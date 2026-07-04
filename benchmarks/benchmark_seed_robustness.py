@@ -29,12 +29,29 @@ import numpy as np
 import qutip
 
 from benchmark_vs_mcsolve import (
-    gamma, build_spin_chain, build_oscillator_bath, TLIST, err_at_plot_time,
+    gamma, build_spin_chain, build_oscillator_bath, TLIST,
     MC_OPTIONS,
 )
 from benchmark_scaling import (
     format_slb_settings, format_mcsolve_settings, add_settings_footer,
+    plot_time_index,
 )
+
+
+def err_at_plot_time(values, reference):
+    """|value - reference| at the fixed plot time (ERR_PLOT_TIME, t=2.5).
+
+    This robustness check (Result 4) reports the error at one representative
+    mid-relaxation time; it read this way before the frontier (Result 3) was
+    reworked to a time-averaged RMSE, and the old helper moved with it.
+    """
+    idx = plot_time_index(TLIST)
+    return abs(float(np.real(values[idx])) - float(np.real(reference[idx])))
+
+
+# seed-robustness only needs each mcsolve run's *average* over trajectories, so
+# drop keep_runs_results (with it on, mc.expect[0] is the 2D per-trajectory array).
+MC_OPTIONS = {k: v for k, v in MC_OPTIONS.items() if k != "keep_runs_results"}
 from qutip_bundling import davies_operators, mesolve_ensemble
 
 # ===========================================================================

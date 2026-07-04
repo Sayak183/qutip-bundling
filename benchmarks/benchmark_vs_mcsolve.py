@@ -59,7 +59,7 @@ from benchmark_scaling import add_settings_footer
 # ===========================================================================
 M_VALUES = [1, 2, 4, 8, 16, 32]        # bundling knob
 NTRAJ_VALUES = [10, 50, 200, 1000]     # mcsolve knob
-N_RUNS_SWEEP = [16, 32, 64]            # independent SLB runs averaged per estimate
+N_RUNS_SWEEP = [8, 16, 32]             # independent SLB runs averaged per estimate (lesser sampling)
 N_RUNS_MAX = max(N_RUNS_SWEEP)         # draw this many once, subsample for the sweep
 SUBSTEPS = 4                           # RK4 substeps per TLIST interval for SLB
 SUBSTEPS_TOL = 0.05                    # warn if doubling substeps moves the bias > 5%
@@ -264,11 +264,11 @@ def main():
             ax.errorbar(d["cost"], d["rmse"], yerr=d["sem"],
                         fmt="s-", color=slb_blues[n], lw=1.8, ms=6, capsize=3,
                         label=f"SLB (N={n} runs)")
-        n_lo = min(N_RUNS_SWEEP)
-        d_lo = out["slb"][n_lo]
-        for x, y, m_eff in zip(d_lo["cost"], d_lo["rmse"], out["m_values"]):
+        n_hi = max(N_RUNS_SWEEP)                       # label the darkest curve
+        d_hi = out["slb"][n_hi]
+        for x, y, m_eff in zip(d_hi["cost"], d_hi["rmse"], out["m_values"]):
             ax.annotate(f"M={m_eff}", (x, y), textcoords="offset points",
-                        xytext=(5, 5), fontsize=7, color=slb_blues[n_lo])
+                        xytext=(6, 6), fontsize=9, color=slb_blues[n_hi])
 
         ax.errorbar(out["mc"]["cost"], out["mc"]["rmse"], yerr=out["mc"]["sem"],
                     fmt="o--", color="tab:purple", lw=1.8, ms=7, capsize=3,
@@ -298,6 +298,7 @@ def main():
             fig, slb_caption, mc_caption,
             "metric = time-averaged RMSE; error bar = S/sqrt(N) (each method's "
             "own sample spread); one estimate per point; full-Lindblad reference",
+            fontsize=11,
         )
         fig.savefig(f"benchmark_frontier_{name}.png", dpi=130, bbox_inches="tight")
         plt.close(fig)

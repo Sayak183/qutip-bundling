@@ -301,7 +301,7 @@ density-matrix solves of $M$ operators each — a total of $M\times$
 |---|---|---|---|
 | scaling (Result 1) | 2, 4, 8 | 8 | 1 |
 | accuracy / coherence (Result 2, 4) | system-dependent | 32 | 1 |
-| frontier (Result 3) | 1, 2, 4, 8, 16, 32 | 16 / 32 / 64 | — (error bar = $S/\sqrt{N}$) |
+| frontier (Result 3) | 1, 2, 4, 8, 16, 32 | 8 / 16 / 32 | — (error bar = $S/\sqrt{N}$) |
 
 **`mcsolve` has one level of sampling:** a single reported point is `ntraj`
 independent trajectories (swept over `[50, 200, 1000]` in scaling and
@@ -459,7 +459,7 @@ are wall-clock time and the **time-averaged RMSE** in $\langle H(t)\rangle$
 (§3.1, both lower-is-better), so the method toward the **lower-left wins at
 matched accuracy**. Error bars are each method's own sample spread $S/\sqrt{N}$ —
 SLB over its independent runs, `mcsolve` over its trajectories. The three SLB
-curves are increasing run counts ($N=16, 32, 64$); more runs lower the
+curves are increasing run counts ($N=8, 16, 32$); more runs lower the
 statistical floor, but SLB is **bias-limited** here, so $N=16$ already sits
 essentially on the frontier. Both methods run at disclosed integration
 resolution (§3.3) and share the same grid and reference.
