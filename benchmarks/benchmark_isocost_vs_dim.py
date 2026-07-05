@@ -262,12 +262,13 @@ def figure(name, out):
     axr.set_xscale("log")
     axr.set_ylabel("speedup\n(mcsolve / SLB)")
     axr.set_xlabel(r"Hilbert-space dimension $N$")
-    axr.legend(loc="lower right", fontsize=8, ncol=2,
-               title="filled = both reach target · open ▲ = mcsolve impractical")
+    axr.legend(loc="center left", bbox_to_anchor=(1.01, 0.5), fontsize=8,
+               title="◆ reach target   △ mcsolve impractical",
+               title_fontsize=8, frameon=False)
     axr.grid(True, which="both", alpha=0.3)
-    axr.text(0.02, 0.08,
-             "above 1 = SLB cheaper at matched accuracy; rising = advantage widens with $N$",
-             transform=axr.transAxes, fontsize=8, va="bottom")
+    axr.text(0.02, 0.94,
+             "above 1 = SLB cheaper; rising = advantage widens with $N$",
+             transform=axr.transAxes, fontsize=8, va="top")
 
     add_settings_footer(
         fig,

@@ -488,7 +488,11 @@ blows up with $N$.
 smallest bundle size $M^\ast$ — the first on a geometric grid $M = 1, 2, 4,
 \ldots$ whose 16-run time-averaged RMSE reaches a fixed target (here
 $\text{RMSE}=0.02$, measured against the exact solve) — and plots the cost of *that*
-solve. The required $M^\ast$ grows with $N$ (annotated in the bottom panel —
+solve. **The two panels line up vertically:** the $M^\ast$ annotated in the bottom
+panel at each dimension is exactly the bundle size whose wall-clock cost sits
+directly above it on the iso-accuracy curve — so a vertical read at any $N$ gives,
+for that system, both the accuracy floor and the price of holding it. The required
+$M^\ast$ grows with $N$ (annotated in the bottom panel —
 roughly $M^\ast\propto N$ on the chain), so this curve is steeper than fixed-$M$:
 holding accuracy costs about one extra power of $N$. But it still sits far below
 the exact solver, so SLB's advantage survives the honest accounting. It is
