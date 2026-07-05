@@ -305,6 +305,18 @@ job:
   integrator check (§6) still reports a single **mid-relaxation time
   $t=2.5$**, where one representative instant suffices.
 
+**Why time-averaged RMSE, plainly.** A stochastic estimate carries two errors —
+a systematic **bias** (its mean sits off the true answer) and a statistical
+**scatter** (a single run fluctuates about that mean). Any single number that
+hides one of them can be gamed: a method can look accurate by trading bias for
+variance or the reverse. The RMSE $\sqrt{\text{bias}^2+\text{SEM}^2}$ refuses that
+trade — it counts both at once — and the time-average reports the *typical* total
+error across the whole relaxation instead of one cherry-picked instant. That is
+why it is the metric wherever two methods are compared head-to-head (Results 3
+and 4); the per-$M$ and per-dimension self-scaling checks (§6), which only ask
+"how fast does *this* method's error shrink", use the simpler max-over-time or
+single-time numbers noted above.
+
 (The dynamics run to $t=5$ in natural units — $J=1$ for the chain, $\omega_0=1$
 for the oscillator — over 40 output points; $t=2.5$ is the mid-relaxation
 sample, where the energy has substantially decayed but not yet saturated.)
@@ -327,15 +339,17 @@ So a single reported SLB point is built from `n_realizations` full
 density-matrix solves of $M$ operators each — a total of $M\times$
 `n_realizations` random draws. The values used here:
 
-| figure | `M` | `n_realizations` | outer repeats (for error bars) |
+| figure | `M` | `n_realizations` | error bars |
 |---|---|---|---|
-| cost scaling (Result 2) | 2, 4, 8 | 8 | 1 |
-| accuracy (Result 1) | system-dependent | 32 | 1 |
-| frontier (Result 3) | 1, 2, 4, 8, 16, 32 | 8 / 16 / 32 | — (error bar = $S/\sqrt{N}$) |
+| accuracy (Result 1) | system-dependent | 32 | $\pm1$ std band |
+| cost scaling (Result 2) | 8 (iso-accuracy sweeps `M`) | 1 (cost) / 16 (RMSE) | — |
+| frontier (Result 3) | 1, 2, 4, 8, 16, 32 | 8 / 16 / 32 | $S/\sqrt{N}$ |
+| iso-cost vs dim (Result 4) | swept to target ($\le 128$) | 4 / 8 / 16 | mcsolve via $S/\sqrt{\texttt{ntraj}}$ fit |
 
 **`mcsolve` has one level of sampling:** a single reported point is `ntraj`
-independent trajectories (swept over `[50, 200, 1000]` in scaling and
-`[10, 50, 200, 1000]` in the frontier), run single-threaded so its wall-clock
+independent trajectories (swept over `[10, 50, 200, 1000]` in the frontier
+(Result 3), and sampled at `[100, 200, 400]` to fit the cost projection in
+Result 4), run single-threaded so its wall-clock
 time is the full sequential cost of all trajectories — matching SLB's
 single-threaded realization loop. Its frontier error bar is its own trajectory
 spread $S/\sqrt{\texttt{ntraj}}$ — the same quantity SLB's bar measures over its
@@ -471,8 +485,9 @@ blows up with $N$.
 
 **Iso-accuracy — the cost to hold a *fixed* accuracy (third curve).** To answer
 "fast *at what accuracy*", the iso-accuracy curve chooses, at each $N$, the
-smallest bundle size $M^\ast$ that brings the RMSE to a fixed target (here
-$\text{RMSE}=0.02$, measured against the exact solve) and plots the cost of *that*
+smallest bundle size $M^\ast$ — the first on a geometric grid $M = 1, 2, 4,
+\ldots$ whose 16-run time-averaged RMSE reaches a fixed target (here
+$\text{RMSE}=0.02$, measured against the exact solve) — and plots the cost of *that*
 solve. The required $M^\ast$ grows with $N$ (annotated in the bottom panel —
 roughly $M^\ast\propto N$ on the chain), so this curve is steeper than fixed-$M$:
 holding accuracy costs about one extra power of $N$. But it still sits far below
@@ -546,7 +561,8 @@ operator-heavy regime is exactly where a trajectory method's per-trajectory
 variance explodes and bundling does not.
 
 **SLB is shown at three averaging levels** ($N=4, 8, 16$ runs), each re-optimizing
-`M` for the target. A less obvious point falls out: *fewer* runs are often
+`M` for the target: for each level, $M^\ast$ is the smallest bundle size on the
+grid $1, 2, 4, \ldots, 128$ whose $N$-run time-averaged RMSE first reaches $0.02$. A less obvious point falls out: *fewer* runs are often
 *cheaper*, because with fewer runs you compensate with a larger `M`, and a few
 well-converged high-`M` runs beat many low-`M` ones for a fixed target. The
 speedup panel plots one line per level so nothing is hidden; the cheapest level
