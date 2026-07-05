@@ -46,11 +46,13 @@ $$M$$ of them — keeps going at a fraction of the cost:
 Below the crossover the full solve is the better choice; above it, bundling is
 what lets the calculation finish. Against QuTiP's trajectory solver `mcsolve`,
 bundling matches or beats its accuracy per unit compute — competitive on the
-spin chain and decisively better on the stiffer oscillator system. See
+spin chain and decisively better on the stiffer oscillator — and that advantage
+**widens with system size**. See
 [`benchmarks/BENCHMARKS.md`](benchmarks/BENCHMARKS.md) for the full study —
-both systems defined, accuracy-versus-$$M$$ convergence, and the
-accuracy-versus-cost frontier — all reproducible with the scripts in that
-folder. The benchmark scripts also accept optional Davies-construction
+both systems defined, accuracy versus $$M$$ (energy and coherence), cost scaling
+versus the exact solver, the accuracy-versus-cost frontier against `mcsolve`, and
+its iso-accuracy scaling with dimension — all reproducible with the scripts in
+that folder. The benchmark scripts also accept optional Davies-construction
 thresholds, e.g. `COUPLING_THRESHOLD=1e-6`, so you can separate build-time
 operator pruning from the bundling parameter $$M$$.
 

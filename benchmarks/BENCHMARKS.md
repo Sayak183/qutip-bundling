@@ -4,15 +4,45 @@ This page benchmarks `qutip-bundling` (stochastic Lindblad bundling, **SLB**)
 against the two standard QuTiP solvers it competes with: the exact Lindblad
 master equation `mesolve`, and the Monte-Carlo trajectory solver `mcsolve`.
 
-Everything below is produced by two self-contained scripts in this folder:
+Everything below is produced by self-contained scripts in this folder:
 
-- `benchmark_scaling.py` — cost and accuracy versus system size.
-- `benchmark_vs_mcsolve.py` — the accuracy-versus-cost frontier against `mcsolve`.
+- `benchmark_scaling.py` — accuracy versus bundle size (Result 1).
+- `benchmark_cost_scaling.py` — cost scaling versus the exact solver (Result 2).
+- `benchmark_vs_mcsolve.py` — accuracy-versus-cost frontier against `mcsolve` (Result 3).
+- `benchmark_isocost_vs_dim.py` — iso-accuracy cost versus dimension (Result 4).
 
 To regenerate every figure: `pip install qutip-bundling matplotlib`, then run each
 script. The supporting checks (`benchmark_convergence.py`,
-`benchmark_jackknife.py`, `benchmark_seed_robustness.py`) produce the Result 4
-figures.
+`benchmark_jackknife.py`, `benchmark_seed_robustness.py`,
+`benchmark_substep_convergence.py`) produce the validation figures (§6).
+
+---
+
+## Contents
+
+**Setup**
+- [1. The core idea, and the two methods being compared](#1-the-core-idea-and-the-two-methods-being-compared)
+- [2. The two test systems (fully specified)](#2-the-two-test-systems-fully-specified)
+  - [2.1 The bath (shared by both systems)](#21-the-bath-shared-by-both-systems)
+  - [2.2 Is this weak coupling? Yes — in both senses.](#22-is-this-weak-coupling-yes--in-both-senses)
+  - [2.3 System A — dissipative transverse-field Ising chain](#23-system-a--dissipative-transverse-field-ising-chain)
+  - [2.4 System B — anharmonic oscillator coupled to a spin](#24-system-b--anharmonic-oscillator-coupled-to-a-spin)
+- [3. What we measure, and how the error is reported](#3-what-we-measure-and-how-the-error-is-reported)
+  - [3.1 Error: a time-resolved band, and the single numbers from it](#31-error-a-time-resolved-band-and-the-single-numbers-from-it)
+  - [3.2 How much sampling each method does](#32-how-much-sampling-each-method-does)
+  - [3.3 Integrators: matched where it is possible, disclosed where it is not](#33-integrators-matched-where-it-is-possible-disclosed-where-it-is-not)
+- [4. How `mcsolve`'s error works, versus SLB's](#4-how-mcsolves-error-works-versus-slbs)
+
+**Results**
+- [5. Results](#5-results)
+  - [Result 1 — accuracy versus the bundle size $M$](#result-1--accuracy-versus-the-bundle-size-m)
+  - [Result 2 — cost scaling versus the exact solver](#result-2--cost-scaling-versus-the-exact-solver)
+  - [Result 3 — accuracy-versus-cost frontier against `mcsolve`](#result-3--accuracy-versus-cost-frontier-against-mcsolve)
+  - [Result 4 — iso-accuracy cost versus dimension](#result-4--iso-accuracy-cost-versus-dimension)
+
+**Reference**
+- [6. Validation and robustness](#6-validation-and-robustness)
+- [7. Reproducing and reading these numbers](#7-reproducing-and-reading-these-numbers)
 
 ---
 
@@ -238,7 +268,7 @@ molecular/vibronic problems the method was developed for.
 ### 3.1 Error: a time-resolved band, and the single numbers from it
 
 The quantity of interest is how well the bundled $\langle H(t)\rangle$ (and, in
-Result 4, a coherence) tracks the exact reference. The accuracy and coherence
+Result 1, a coherence) tracks the exact reference. The accuracy and coherence
 figures show this **resolved over the whole trajectory**: for each $M$, the SLB
 mean curve is drawn with a shaded **$\pm1$ standard-deviation band** (the spread
 over the stochastic realizations) and, beneath it, a **residual panel**
@@ -260,7 +290,7 @@ collapsed to one scalar per point, and the right scalar depends on the figure's
 job:
 
 - **Characterizing one method's own scaling** — convergence vs $M$ and the
-  jackknife vs dimension (both Result 4) — uses the **max-over-time** error, the
+  jackknife vs dimension (both §6) — uses the **max-over-time** error, the
   worst deviation over the trajectory. For "how fast does this method's error
   shrink," the conservative worst case is the robust diagnostic and needs no
   chosen time.
@@ -272,7 +302,7 @@ job:
   it counts *both* error components — a bias-only or single-time number would
   ignore `mcsolve`'s large trajectory variance — and time-averaging avoids both a
   lucky single instant and the upward bias of a max-over-time number. The substep
-  integrator check (Result 4) still reports a single **mid-relaxation time
+  integrator check (§6) still reports a single **mid-relaxation time
   $t=2.5$**, where one representative instant suffices.
 
 (The dynamics run to $t=5$ in natural units — $J=1$ for the chain, $\omega_0=1$
@@ -299,8 +329,8 @@ density-matrix solves of $M$ operators each — a total of $M\times$
 
 | figure | `M` | `n_realizations` | outer repeats (for error bars) |
 |---|---|---|---|
-| scaling (Result 1) | 2, 4, 8 | 8 | 1 |
-| accuracy / coherence (Result 2, 4) | system-dependent | 32 | 1 |
+| cost scaling (Result 2) | 2, 4, 8 | 8 | 1 |
+| accuracy (Result 1) | system-dependent | 32 | 1 |
 | frontier (Result 3) | 1, 2, 4, 8, 16, 32 | 8 / 16 / 32 | — (error bar = $S/\sqrt{N}$) |
 
 **`mcsolve` has one level of sampling:** a single reported point is `ntraj`
@@ -328,7 +358,7 @@ This is a deliberate, disclosed asymmetry, not a hidden advantage:
   (unbundled) operators through the same fixed-step RK4. Doing so isolates the
   integration error, which falls far below the bundling error — orders of
   magnitude below for these systems (the substep-convergence check in
-  **Result 4** makes this explicit) — so it does not contaminate the comparison.
+  **§6** makes this explicit) — so it does not contaminate the comparison.
 - You *cannot* match `mcsolve` this way: its accuracy knob is `ntraj`, not a step
   size, so a shared accurate reference is the only sensible common ground. SLB is
   therefore not winning by integrating more loosely — if anything `mcsolve`
@@ -368,7 +398,7 @@ realizations. So:
 
 - **Bias** $\sim M^{-1}$ — reduced by raising `M` (or removed to leading order by
   the built-in jackknife correction). This is what grows with system size at
-  fixed `M` (more operators compressed into the same bundles — see Result 1).
+  fixed `M` (more operators compressed into the same bundles — see Result 2).
 - **Fluctuation** — reduced by raising `n_realizations` (and also falls with
   `M`).
 
@@ -381,7 +411,38 @@ frontier (Result 3) sweeps the bias knob `M` for SLB against the noise knob
 
 ## 5. Results
 
-### Result 1 — cost scaling versus the exact solver
+> Read in order, the four results build one argument: SLB is **accurate**
+> (Result 1), **cheap and better-scaling than the exact solver** (Result 2),
+> **cheaper than `mcsolve` at matched accuracy** (Result 3), and that advantage
+> **widens with system size** (Result 4). Readers who only care about speed can
+> jump to Result 2. The supporting checks behind every claim are in §6.
+
+### Result 1 — accuracy versus the bundle size $M$
+
+![spin chain accuracy](benchmark_accuracy_spin_chain.png)
+![oscillator accuracy](benchmark_accuracy_oscillator_bath.png)
+
+These plot $\langle H(t)\rangle$ against the exact reference (black) as the
+system relaxes, with a $\pm1$-std band over realizations. As `M` grows the
+bundled mean tightens onto the reference and the band narrows — the
+approximation is a dial, not a fixed compromise. The two systems differ in how
+fast they converge in `M`: the oscillator already sits essentially on the
+reference at `M=2`, while the chain shows a visible bias and spread at `M=2`
+that shrink as `M` grows. Convergence speed is set by the spread of the
+individual operator contributions, not by dimension alone, so it is worth
+checking on your own system.
+
+**Beyond energy: a coherence.** Energy is nearly diagonal in the energy
+eigenbasis, so matching $\langle H\rangle$ says little about off-diagonal
+structure. SLB also tracks the most-populated energy-eigenstate coherence
+$|a\rangle\langle b|+\text{h.c.}$ with the same convergence in `M` — the bundled
+mean converges onto the exact off-diagonal dynamics as `M` grows, confirming SLB
+reproduces the full density matrix, not merely its diagonal.
+
+![spin chain coherence](benchmark_coherence_spin_chain.png)
+![oscillator coherence](benchmark_coherence_oscillator_bath.png)
+
+### Result 2 — cost scaling versus the exact solver
 
 ![spin chain cost scaling](benchmark_cost_scaling_spin_chain.png)
 ![oscillator cost scaling](benchmark_cost_scaling_oscillator_bath.png)
@@ -434,21 +495,6 @@ These runs use a small fixed substep count (given in the caption) inside the
 stable range. If the integration ever blows up to a non-finite state, the solver
 raises `SolverInstabilityError` instead of silently returning a corrupted result.
 
-### Result 2 — accuracy versus the bundle size $M$
-
-![spin chain accuracy](benchmark_accuracy_spin_chain.png)
-![oscillator accuracy](benchmark_accuracy_oscillator_bath.png)
-
-These plot $\langle H(t)\rangle$ against the exact reference (black) as the
-system relaxes, with a $\pm1$-std band over realizations. As `M` grows the
-bundled mean tightens onto the reference and the band narrows — the
-approximation is a dial, not a fixed compromise. The two systems differ in how
-fast they converge in `M`: the oscillator already sits essentially on the
-reference at `M=2`, while the chain shows a visible bias and spread at `M=2`
-that shrink as `M` grows. Convergence speed is set by the spread of the
-individual operator contributions, not by dimension alone, so it is worth
-checking on your own system.
-
 ### Result 3 — accuracy-versus-cost frontier against `mcsolve`
 
 ![spin chain frontier](benchmark_frontier_spin_chain.png)
@@ -474,17 +520,55 @@ seconds, while `mcsolve` after a thousand trajectories is still near $10^{-1}$ �
 two to three orders of magnitude less accurate at higher cost. That stiff,
 operator-heavy regime is what SLB is built for.
 
-### Result 4 — validation and robustness
+### Result 4 — iso-accuracy cost versus dimension
+
+![spin chain iso-cost](benchmark_isocost_vs_dim_spin_chain.png)
+![oscillator iso-cost](benchmark_isocost_vs_dim_oscillator_bath.png)
+
+Results 2 and 3 leave one question open. Result 2 scales cost with dimension but
+only against the *exact* solver; Result 3 races SLB against `mcsolve` but at a
+*fixed* size. This figure runs the SLB-versus-`mcsolve` comparison **as a
+function of dimension**: at each $N$ it asks each method for the cheapest setting
+that reaches a fixed target accuracy ($\text{RMSE}=0.02$ against the exact solve)
+and plots that cost. The bottom panel is the payoff — the speedup
+(`mcsolve` cost / SLB cost) versus $N$: if it rises, SLB's advantage *widens* with
+system size.
+
+**It widens, on both systems.** On the spin chain `mcsolve` needs steadily more
+trajectories to hold the target ($\sim\!300$ at dim 4, $\sim\!1400$ at dim 32),
+while SLB needs only a modest bump in `M` ($M^\ast$: $1\to8\to16\to32$); the
+speedup grows from a few-fold to $\sim\!25\times$ across the range. On the
+oscillator the effect is dramatic: `mcsolve` needs thousands of trajectories at
+dim 8 and tens of thousands by dim 16, crossing into "impractical"
+($\gtrsim\!20{,}000$) at dim 32, while SLB hits the target with a *single* bundle
+($M^\ast=1$) at every size — a speedup climbing into the thousands. That stiff,
+operator-heavy regime is exactly where a trajectory method's per-trajectory
+variance explodes and bundling does not.
+
+**SLB is shown at three averaging levels** ($N=4, 8, 16$ runs), each re-optimizing
+`M` for the target. A less obvious point falls out: *fewer* runs are often
+*cheaper*, because with fewer runs you compensate with a larger `M`, and a few
+well-converged high-`M` runs beat many low-`M` ones for a fixed target. The
+speedup panel plots one line per level so nothing is hidden; the cheapest level
+sets the strongest (topmost) speedup.
+
+**Two modelling choices, stated plainly.** (1) The `mcsolve` cost is a
+*projection*, not a brute-force run to the threshold: because its trajectory
+average is unbiased, its error is exactly $S/\sqrt{\texttt{ntraj}}$, so we sample
+a few small `ntraj`, estimate $S$, and solve $\texttt{ntraj}^\ast=(S/\text{target})^2$.
+This is more reliable than a single noisy threshold crossing and needs no
+huge-`ntraj` runs — but it does assume `mcsolve` is unbiased (true here, with
+exact per-trajectory integration). (2) SLB is tuned on `M` at a fixed set of run
+counts, not fully co-optimized over $(M, N)$; the three levels bracket the
+operating point. As with Result 2's iso-accuracy curve, the whole figure is
+computable only up to the exact-reference wall, since tuning either knob to a
+target needs the exact answer.
+
+---
+
+## 6. Validation and robustness
 
 The checks that answer the obvious doubts.
-
-**Beyond energy: a coherence.** Energy is nearly diagonal in the energy
-eigenbasis, so matching $\langle H\rangle$ says little about off-diagonal
-structure. SLB also tracks the most-populated energy-eigenstate coherence
-$|a\rangle\langle b|+\text{h.c.}$ with the same convergence in `M`.
-
-![spin chain coherence](benchmark_coherence_spin_chain.png)
-![oscillator coherence](benchmark_coherence_oscillator_bath.png)
 
 **Convergence at the predicted rates.** The bias should fall as $M^{-1}$ and the
 statistical spread as $M^{-1/2}$.
@@ -498,7 +582,7 @@ and faster on the oscillator. Matching the predicted *bias* exponent — the thi
 that sets SLB's accuracy — is the strongest single check that the estimator
 behaves as derived.
 
-**Bias versus size, with jackknife (this is the Result 1 size trend,
+**Bias versus size, with jackknife (this is the Result 2 size trend,
 quantified).** At fixed `M` the finite-$M$ bias grows with dimension; the
 built-in jackknife correction suppresses it.
 
@@ -506,7 +590,7 @@ built-in jackknife correction suppresses it.
 ![oscillator jackknife](benchmark_jackknife_oscillator_bath.png)
 
 The uncorrected bias rises steeply with dimension while the corrected bias stays
-comparatively flat — so the Result 1 growth is a known, correctable effect, not
+comparatively flat — so the Result 2 growth is a known, correctable effect, not
 a breakdown. On the oscillator the corrected residual sits at the noise floor
 (consistent with zero).
 
@@ -541,7 +625,7 @@ advantage does not change the conclusion.
 
 ---
 
-## 6. Reproducing and reading these numbers
+## 7. Reproducing and reading these numbers
 
 Absolute times depend on the machine, core count, and BLAS build — treat them as
 relative comparisons. A few notes:
