@@ -342,7 +342,7 @@ density-matrix solves of $M$ operators each — a total of $M\times$
 | figure | `M` | `n_realizations` | error bars |
 |---|---|---|---|
 | accuracy (Result 1) | system-dependent | 32 | $\pm1$ std band |
-| cost scaling (Result 2) | 8 (iso-accuracy sweeps `M`) | 1 (cost) / 16 (RMSE) | — |
+| cost scaling (Result 2) | 8 (iso-accuracy sweeps `M`) | 1 (cost) / 16 (RMSE) | bootstrap SE over 16 SLB runs |
 | frontier (Result 3) | 1, 2, 4, 8, 16, 32 | 8 / 16 / 32 | $S/\sqrt{N}$ |
 | iso-cost vs dim (Result 4) | swept to target ($\le 128$) | 4 / 8 / 16 | mcsolve via $S/\sqrt{\texttt{ntraj}}$ fit |
 
@@ -481,25 +481,29 @@ with the system, so a fixed number of bundles resolves the dissipator less
 finely. The bottom panel shows this directly — the fixed-$M$ RMSE climbs and
 crosses the target line — so a pure fixed-$M$ speed plot compares at a *moving*
 accuracy, which invites the obvious objection: fast is meaningless if the error
-blows up with $N$.
+blows up with $N$. Error bars in this panel are bootstrap standard errors of the
+same time-averaged RMSE estimator, resampling the 16 independent SLB runs used to
+measure accuracy.
 
 **Iso-accuracy — the cost to hold a *fixed* accuracy (third curve).** To answer
 "fast *at what accuracy*", the iso-accuracy curve chooses, at each $N$, the
 smallest bundle size $M^\ast$ — the first on a geometric grid $M = 1, 2, 4,
 \ldots$ whose 16-run time-averaged RMSE reaches a fixed target (here
 $\text{RMSE}=0.02$, measured against the exact solve) — and plots the cost of *that*
-solve. **The two panels line up vertically:** the $M^\ast$ annotated in the bottom
-panel at each dimension is exactly the bundle size whose wall-clock cost sits
-directly above it on the iso-accuracy curve — so a vertical read at any $N$ gives,
-for that system, both the accuracy floor and the price of holding it. The required
-$M^\ast$ grows with $N$ (annotated in the bottom panel —
-roughly $M^\ast\propto N$ on the chain), so this curve is steeper than fixed-$M$:
-holding accuracy costs about one extra power of $N$. But it still sits far below
-the exact solver, so SLB's advantage survives the honest accounting. It is
-computable only up to the reference wall, since tuning $M^\ast$ needs the exact
-answer. (On the oscillator the target is met with $M^\ast=1$ at every size — a
-single bundle already suffices — so there the fixed-$M$ and iso-accuracy costs
-coincide.)
+solve. **The two panels line up vertically:** the $M^\ast$ labels in the bottom
+panel sit on the RMSE actually achieved by those $M^\ast$ runs, not on the
+separate fixed-$M=8$ degradation curve. Because $M$ is searched on a discrete grid,
+the achieved points usually sit at or just below the target rather than exactly on
+it. The same $M^\ast$ is the bundle size whose wall-clock cost sits directly above
+it on the iso-accuracy curve — so a vertical read at any $N$ gives, for that
+system, both the achieved target-level accuracy and the price of holding it. The
+required $M^\ast$ grows with $N$ (annotated in the bottom panel — roughly
+$M^\ast\propto N$ on the chain), so this curve is steeper than fixed-$M$: holding
+accuracy costs about one extra power of $N$. But it still sits far below the exact
+solver, so SLB's advantage survives the honest accounting. It is computable only
+up to the reference wall, since tuning $M^\ast$ needs the exact answer. (On the
+oscillator the target is met with $M^\ast=1$ at every size — a single bundle
+already suffices — so there the fixed-$M$ and iso-accuracy costs coincide.)
 
 **What this figure does and doesn't show.** It shows SLB's speedup over the
 *exact* solver — the comparison the method is built to win. It leaves `mcsolve`
