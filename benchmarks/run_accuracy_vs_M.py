@@ -1,4 +1,4 @@
-"""
+﻿"""
 run_accuracy_vs_M.py
 ====================
 
@@ -45,17 +45,16 @@ from common import (
 )
 from qutip_bundling import davies_operators, mesolve_ensemble
 
-N_REALIZATIONS = 32     # realizations per M (fixed across the ladder: nothing
-                        # about the sampling is tuned, so any trend with M is
-                        # purely the effect of M)
 RNG = 0                 # seed (matches prior runs)
 ROUND = 8               # decimals kept for saved curves
 
-# M ladder per system: system-specific so the plots do not become visually
-# cluttered when M=8 already sits essentially on the reference.
+# ---------------------------------------------------------------------------
+# CONFIGURATION: Define the M sweeps and N realizations per system here.
+# Format: "system_name": (build_function, size, M_sweep_list, N_realizations)
+# ---------------------------------------------------------------------------
 SYSTEMS = {
-    "spin_chain":      (build_spin_chain,      4, [2, 8, 16, 32, 64]),  # dim 16
-    "oscillator_bath": (build_oscillator_bath, 8, [2, 8]),              # dim 16
+    "spin_chain":      (build_spin_chain,      4, [2, 4, 8, 16, 32, 64], 32), 
+    "oscillator_bath": (build_oscillator_bath, 8, [2, 4 ,8, 16, 32, 64], 32),             
 }
 
 
@@ -93,7 +92,7 @@ def populated_coherence_op(H, ref_states):
     return C, (a, b), best[2]
 
 
-def run(name, build, size, m_ladder):
+def run(name, build, size, m_ladder, n_realizations):
     H, X, psi0 = build(size)
     rho0 = qutip.ket2dm(psi0)
     dim = H.shape[0]
@@ -123,7 +122,7 @@ def run(name, build, size, m_ladder):
     for m_eff in m_values:
         t0 = time.perf_counter()
         ens = mesolve_ensemble(H, rho0, TLIST_FINE, c_ops, M=m_eff, e_ops=e_ops,
-                               n_realizations=N_REALIZATIONS, rng=RNG,
+                               n_realizations=n_realizations, rng=RNG,
                                backend="native", substeps=SUBSTEPS)
         dt = time.perf_counter() - t0
         sweep.append({
@@ -131,13 +130,13 @@ def run(name, build, size, m_ladder):
             "samples_energy": np.round(np.real(ens.samples[:, 0, :]), ROUND),
             "samples_coherence": np.round(np.real(ens.samples[:, 1, :]), ROUND),
         })
-        print(f"    M={m_eff:3d}  ensemble ({N_REALIZATIONS} realizations) "
+        print(f"    M={m_eff:3d}  ensemble ({n_realizations} realizations) "
               f"= {dt:.2f} s")
 
     meta = run_metadata(
         tlist=TLIST_FINE,
         system=name, size=size, M_LADDER=m_ladder,
-        N_REALIZATIONS=N_REALIZATIONS, rng=RNG,
+        N_REALIZATIONS=n_realizations, rng=RNG,
     )
     save_data(f"accuracy_vs_M_{name}.json", meta, compact=True,
               dim=dim, n_l=n_l,

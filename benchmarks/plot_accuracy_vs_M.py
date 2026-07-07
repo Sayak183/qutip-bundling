@@ -77,7 +77,12 @@ def accuracy_figure(plt, name, doc, tlist, reference, curves,
     # EDIT THIS LIST TO QUICKLY CHANGE WHICH M VALUES ARE SHOWN
     # Set to None if you want to plot all available M values.
     # ---------------------------------------------------------
-    M_TO_PLOT = [2, 64] 
+    M_TO_PLOT = {
+        "spin_chain": [2, 4, 8, 16],
+        "oscillator_bath": [2, 4]
+    }
+
+    system_m_list = M_TO_PLOT.get(name)
 
     fig, ax = plt.subplots(1, 1, figsize=(6.6, 4.5))
     
@@ -88,8 +93,8 @@ def accuracy_figure(plt, name, doc, tlist, reference, curves,
                "tab:red", "tab:brown", "tab:pink", "tab:olive"]
                
     for (m_eff, (mean, std)), col in zip(sorted(curves.items()), palette):
-        # Filter the plotted M values
-        if M_TO_PLOT is not None and m_eff not in M_TO_PLOT:
+        # Filter based on the specific system's list
+        if system_m_list is not None and m_eff not in system_m_list:
             continue
             
         ax.plot(tlist, mean, "-", color=col, lw=1.6, label=f"SLB, M={m_eff}",
