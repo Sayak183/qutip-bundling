@@ -14,13 +14,8 @@ system; runs in seconds.
                                  the time where the smallest-M estimate's
                                  RMSE(t) peaks; holding that same instant for
                                  every M, the figure plots the BIAS
-                                 |mean(t*) - ref(t*)| and the FLUCTUATION
-                                 (std over realizations at t*) versus M,
-                                 log-log with fitted slopes. The realization
-                                 count is FIXED across the ladder, so the
-                                 trends are purely the effect of M: the bias
-                                 should fall like 1/M and the fluctuation like
-                                 1/sqrt(M).
+                                 |mean(t*) - ref(t*)|, the SEM, and the total
+                                 RMSE vs M.
 
 All derived quantities (means, bands, t*, bias, fluctuation, slopes) come from
 the saved raw realizations -- nothing here re-runs any dynamics. Captions also
@@ -78,7 +73,7 @@ def accuracy_figure(plt, name, doc, tlist, reference, curves,
     # Set to None if you want to plot all available M values.
     # ---------------------------------------------------------
     M_TO_PLOT = {
-        "spin_chain": [4, 8, 16],
+        "spin_chain": [2, 4, 8, 16],
         "oscillator_bath": [2, 4]
     }
 
@@ -157,7 +152,7 @@ def _fit_label(base, m, y):
 
 
 def decomposition_figure(plt, name, doc, tlist):
-    """Bias and fluctuation vs M at the peak-RMSE instant, per observable."""
+    """Bias, SEM, and RMSE vs M at the peak-error instant, per observable."""
     meta = doc["meta"]["params"]
     n_real = meta["N_REALIZATIONS"]
     ia, ib = doc["coherence_pair"]
@@ -172,27 +167,38 @@ def decomposition_figure(plt, name, doc, tlist):
     for ax, (key, ref, obs_math, obs_name) in zip(axes, panels):
         t_star, m, bias, fluct = peak_error_anatomy(doc, key, ref)
         t_stars.append(tlist[t_star])
-        ax.loglog(m, bias, "o-", color="tab:red", lw=1.8, ms=6,
+        
+        # Calculate SEM and exact RMSE
+        sem = fluct / np.sqrt(n_real)
+        rmse = np.sqrt(bias**2 + sem**2)
+        
+        # Plot all three metrics
+        ax.loglog(m, rmse, "v-", color="black", lw=2.0, ms=6, zorder=3,
+                  label=_fit_label("total RMSE", m, rmse))
+        ax.loglog(m, bias, "o-", color="tab:red", lw=1.8, ms=6, zorder=2,
                   label=_fit_label("bias  $|{\\rm mean}-{\\rm ref}|$", m, bias))
-        ax.loglog(m, fluct, "s-", color="tab:blue", lw=1.8, ms=6,
-                  label=_fit_label("fluctuation  (std over runs)", m, fluct))
+        ax.loglog(m, sem, "s-", color="tab:blue", lw=1.8, ms=6, zorder=1,
+                  label=_fit_label("SEM  (fluctuation/$\\sqrt{N}$)", m, sem))
+                  
         ax.set_xlabel("bundle size $M$")
         ax.set_title(rf"${obs_math}$ at $t^*={tlist[t_star]:.2f}$"
                      rf"  ({obs_name} peak error)")
         ax.grid(True, which="both", alpha=0.3)
         ax.legend(fontsize=8, frameon=False)
+        
     axes[0].set_ylabel("error at $t^*$")
     fig.suptitle(rf"{name} ({_size_str(name, doc['dim'])}, $N_L$={doc['n_l']}): "
                  rf"error anatomy at the worst moment, fixed sampling")
     fig.tight_layout()
+    
     add_settings_footer(
         fig,
         f"t* = argmax of RMSE(t) of the smallest-M estimate, held for all M; "
-        f"{n_real} realizations at every M (sampling NOT tuned)",
-        f"expected: bias \u221d 1/M, fluctuation \u221d 1/\u221aM "
-        f"(SEM = fluctuation/\u221a{n_real}); {SUBSTEPS} RK4 substep(s)/step",
+        f"{n_real} realizations at every M",
+        f"RMSE\u00b2 = bias\u00b2 + SEM\u00b2; expected: bias \u221d 1/M, SEM \u221d 1/\u221aM; {SUBSTEPS} RK4 substep(s)/step",
         _timing_caption(doc),
     )
+    
     fig.savefig(f"benchmark_error_decomposition_{name}.png", dpi=130,
                 bbox_inches="tight")
     plt.close(fig)

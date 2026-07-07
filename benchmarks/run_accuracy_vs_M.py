@@ -53,8 +53,8 @@ ROUND = 8               # decimals kept for saved curves
 # Format: "system_name": (build_function, size, M_sweep_list, N_realizations)
 # ---------------------------------------------------------------------------
 SYSTEMS = {
-    "spin_chain":      (build_spin_chain,      4, [2, 4, 8, 16, 32, 64], 32), 
-    "oscillator_bath": (build_oscillator_bath, 8, [2, 4 ,8, 16, 32, 64], 32),             
+    "spin_chain":      (build_spin_chain,      4, [2, 4, 8, 16, 32, 64], 200), 
+    "oscillator_bath": (build_oscillator_bath, 8, [2, 4 ,8, 16, 32, 64], 200),             
 }
 
 
