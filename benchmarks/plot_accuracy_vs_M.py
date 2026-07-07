@@ -1,4 +1,4 @@
-"""
+﻿"""
 plot_accuracy_vs_M.py
 =====================
 
@@ -7,7 +7,7 @@ Reads the data written by run_accuracy_vs_M.py and draws three figures per
 system; runs in seconds.
 
   benchmark_accuracy_<s>.png     <H(t)> vs time: exact reference, SLB mean per
-                                 M with a +/-1 std band, and a residual panel.
+                                 M with a +/-1 std band.
   benchmark_coherence_<s>.png    the same for the dominant coherence <C(t)>.
   benchmark_error_decomposition_<s>.png   NEW -- the anatomy of the error at
                                  its worst moment. For each observable, t* is
@@ -70,38 +70,51 @@ def _curves(doc, key):
 
 def accuracy_figure(plt, name, doc, tlist, reference, curves,
                     obs_math, fname_suffix, subtitle):
-    """Two panels: observable vs time (top) and residual vs reference (bottom),
-    one SLB curve per M. Used for both <H> and the coherence observable."""
+    """Single panel: observable vs time, one SLB curve per M."""
     meta = doc["meta"]["params"]
-    fig, (ax, axr) = plt.subplots(
-        2, 1, figsize=(6.6, 6.2), sharex=True,
-        gridspec_kw={"height_ratios": [3, 1.4]},
-    )
+    
+    # ---------------------------------------------------------
+    # EDIT THIS LIST TO QUICKLY CHANGE WHICH M VALUES ARE SHOWN
+    # Set to None if you want to plot all available M values.
+    # ---------------------------------------------------------
+    M_TO_PLOT = [2, 64] 
+
+    fig, ax = plt.subplots(1, 1, figsize=(6.6, 4.5))
+    
     ax.plot(tlist, reference, "k-", lw=1.4, alpha=0.7,
             label="full Lindblad reference (mesolve)", zorder=1)
+    
     palette = ["tab:orange", "tab:blue", "tab:green", "tab:purple",
                "tab:red", "tab:brown", "tab:pink", "tab:olive"]
+               
     for (m_eff, (mean, std)), col in zip(sorted(curves.items()), palette):
+        # Filter the plotted M values
+        if M_TO_PLOT is not None and m_eff not in M_TO_PLOT:
+            continue
+            
         ax.plot(tlist, mean, "-", color=col, lw=1.6, label=f"SLB, M={m_eff}",
                 zorder=3)
         ax.fill_between(tlist, mean - std, mean + std, color=col, alpha=0.16)
-        axr.plot(tlist, mean - reference, "-", color=col, lw=1.4)
-    axr.axhline(0.0, color="k", lw=1.0, alpha=0.7)
-    axr.set_xlabel("time")
-    axr.set_ylabel(rf"${obs_math}_{{\rm SLB}}-{obs_math}_{{\rm ref}}$")
+        
+    ax.set_xlabel("time")
     ax.set_ylabel(rf"${obs_math}$")
     ax.set_title(rf"{name} ({_size_str(name, doc['dim'])}, "
                  rf"$N_L$={doc['n_l']}): {subtitle}")
     ax.legend(frameon=False)
     fig.tight_layout()
+    
+    # Update footer to accurately reflect only the M values currently plotted
+    plotted_m = sorted(curves) if M_TO_PLOT is None else sorted([m for m in curves if m in M_TO_PLOT])
+    
     add_settings_footer(
         fig,
-        format_slb_settings(M=sorted(curves), substeps=SUBSTEPS,
+        format_slb_settings(M=plotted_m, substeps=SUBSTEPS,
                             n_realizations=meta["N_REALIZATIONS"]),
         "shaded band = \u00b11 std over realizations; "
         "full-Lindblad reference (mesolve)",
         _timing_caption(doc),
     )
+    
     fig.savefig(f"benchmark_{fname_suffix}_{name}.png", dpi=130,
                 bbox_inches="tight")
     plt.close(fig)
