@@ -28,11 +28,9 @@ import time
 import numpy as np
 import qutip
 
-from benchmark_vs_mcsolve import (
-    gamma, build_spin_chain, build_oscillator_bath, TLIST,
-    MC_OPTIONS,
-)
-from benchmark_scaling import (
+from common import (
+    gamma, build_spin_chain, build_oscillator_bath, MC_OPTIONS,
+    TLIST_FINE as TLIST,   # this check runs on the fine accuracy grid
     format_slb_settings, format_mcsolve_settings, add_settings_footer,
     plot_time_index,
 )
@@ -41,7 +39,7 @@ from benchmark_scaling import (
 def err_at_plot_time(values, reference):
     """|value - reference| at the fixed plot time (ERR_PLOT_TIME, t=2.5).
 
-    This robustness check (Result 4) reports the error at one representative
+    This robustness check (§6) reports the error at one representative
     mid-relaxation time; it read this way before the frontier (Result 3) was
     reworked to a time-averaged RMSE, and the old helper moved with it.
     """

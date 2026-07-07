@@ -31,7 +31,7 @@ from __future__ import annotations
 import numpy as np
 import qutip
 
-from benchmark_scaling import (
+from common import (
     gamma, build_spin_chain, build_oscillator_bath, TLIST,
     format_slb_settings, add_settings_footer,
 )

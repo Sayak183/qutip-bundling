@@ -1,0 +1,16 @@
+system,dim,n_l,method,knob,value,per_run_or_per_traj_s,rmse_repeats
+oscillator_bath,8,32,SLB,M,1,0.0644156,
+oscillator_bath,8,32,SLB,M,2,0.0844708,
+oscillator_bath,8,32,mcsolve,ntraj,100,0.00705261,0.248447 0.126277 0.150095 0.179523
+oscillator_bath,8,32,mcsolve,ntraj,200,0.0075999,0.124728 0.0920075 0.105178 0.0913256
+oscillator_bath,8,32,mcsolve,ntraj,400,0.00838183,0.0692761 0.0892903 0.0576726 0.0659658
+oscillator_bath,16,128,SLB,M,1,0.0672982,
+oscillator_bath,16,128,SLB,M,2,0.0881374,
+oscillator_bath,16,128,mcsolve,ntraj,100,0.0528717,0.366736 0.26338 0.248109 0.440111
+oscillator_bath,16,128,mcsolve,ntraj,200,0.0541145,0.228409 0.208782 0.162409 0.182697
+oscillator_bath,16,128,mcsolve,ntraj,400,0.0560077,0.119401 0.129748 0.1285 0.143517
+oscillator_bath,32,478,SLB,M,1,0.832352,
+oscillator_bath,32,478,SLB,M,2,1.00531,
+oscillator_bath,32,478,mcsolve,ntraj,100,1.1842,0.469817 0.517289 0.451069 0.555234
+oscillator_bath,32,478,mcsolve,ntraj,200,0.889275,0.339127 0.434137 0.386385 0.446111
+oscillator_bath,32,478,mcsolve,ntraj,400,0.705461,0.232935 0.267958 0.243334 0.345015

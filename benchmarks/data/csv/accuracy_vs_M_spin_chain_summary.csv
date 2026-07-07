@@ -1,0 +1,6 @@
+system,dim,n_l,M,ensemble_cost_s,t_davies_s,t_reference_s
+spin_chain,16,64,2,3.44575,0.0234831,1.6482
+spin_chain,16,64,8,7.66548,0.0234831,1.6482
+spin_chain,16,64,16,12.7927,0.0234831,1.6482
+spin_chain,16,64,32,23.2508,0.0234831,1.6482
+spin_chain,16,64,64,18.6063,0.0234831,1.6482

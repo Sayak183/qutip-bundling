@@ -43,7 +43,7 @@ from qutip_bundling import davies_operators, mesolve_jackknife
 
 # Reuse the exact bath, builders, and time grid from the scaling benchmark so
 # the two scripts describe the same physics.
-from benchmark_scaling import (
+from common import (
     gamma,
     build_spin_chain,
     build_oscillator_bath,

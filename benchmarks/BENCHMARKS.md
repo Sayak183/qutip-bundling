@@ -6,10 +6,26 @@ master equation `mesolve`, and the Monte-Carlo trajectory solver `mcsolve`.
 
 Everything below is produced by self-contained scripts in this folder:
 
-- `benchmark_scaling.py` — accuracy versus bundle size (Result 1).
-- `benchmark_cost_scaling.py` — cost scaling versus the exact solver (Result 2).
-- `benchmark_vs_mcsolve.py` — accuracy-versus-cost frontier against `mcsolve` (Result 3).
-- `benchmark_isocost_vs_dim.py` — iso-accuracy cost versus dimension (Result 4).
+- `run_accuracy_vs_M.py` + `plot_accuracy_vs_M.py` — accuracy versus bundle size
+  (Result 1). The run script saves the raw per-realization dynamics of both
+  observables for every `M` into `data/accuracy_vs_M_<system>.json`, timing the
+  Davies-operator construction separately from the propagation; the plot script
+  derives the mean curves, the bands, and the peak-error decomposition from it.
+- `run_cost_scaling.py` + `plot_cost_scaling.py` — cost scaling versus the exact
+  solver (Result 2). The run script does the compute and writes
+  `data/cost_scaling_<system>.json` (stamped with package versions, seeds, and
+  the full bundle-size sweep); the plot script derives the figure from that
+  file in seconds.
+- `run_frontier.py` + `plot_frontier.py` — accuracy-versus-cost frontier against
+  `mcsolve` (Result 3), same split: raw SLB run samples and per-`ntraj` stats go
+  into `data/frontier_<system>.json` (with the substeps-guard verdict recorded),
+  and the plot script draws the frontier from it. `run_frontier.py --preset big`
+  is the heavy workstation variant (dim 64 / N_L ~ 866).
+- `run_isocost_vs_dim.py` + `plot_isocost_vs_dim.py` — iso-accuracy cost versus
+  dimension (Result 4), split the same way: the run script writes
+  `data/isocost_vs_dim_<system>.json` with the raw run samples and the mcsolve
+  $S^2$ fit; the plot script derives $M^\ast$, $\texttt{ntraj}^\ast$, and the
+  speedups from it.
 
 To regenerate every figure: `pip install qutip-bundling matplotlib`, then run each
 script. The supporting checks (`benchmark_convergence.py`,
@@ -342,7 +358,7 @@ density-matrix solves of $M$ operators each — a total of $M\times$
 | figure | `M` | `n_realizations` | error bars |
 |---|---|---|---|
 | accuracy (Result 1) | system-dependent | 32 | $\pm1$ std band |
-| cost scaling (Result 2) | 8 (iso-accuracy sweeps `M`) | 1 (cost) / 16 (RMSE) | bootstrap SE over 16 SLB runs |
+| cost scaling (Result 2) | 8 (iso-accuracy sweeps `M`) | 1 (cost) / 16 (RMSE) | — |
 | frontier (Result 3) | 1, 2, 4, 8, 16, 32 | 8 / 16 / 32 | $S/\sqrt{N}$ |
 | iso-cost vs dim (Result 4) | swept to target ($\le 128$) | 4 / 8 / 16 | mcsolve via $S/\sqrt{\texttt{ntraj}}$ fit |
 
@@ -456,6 +472,32 @@ reproduces the full density matrix, not merely its diagonal.
 ![spin chain coherence](benchmark_coherence_spin_chain.png)
 ![oscillator coherence](benchmark_coherence_oscillator_bath.png)
 
+**The anatomy of the error at its worst moment.** The time traces above show
+*that* the estimate converges; this figure shows *how*. For each observable,
+$t^\ast$ is the instant where the smallest-$M$ estimate's RMSE$(t)$ peaks — the
+hardest moment of the dynamics — and is then held fixed for every $M$. At that
+one instant the error splits into its two parts: the **bias**
+$|\text{mean}(t^\ast)-\text{ref}(t^\ast)|$ and the **fluctuation** (the std over
+realizations). The realization count is the same at every $M$ — nothing about
+the sampling is tuned — so the trends are purely the effect of $M$: the bias
+should fall like $1/M$ (the bundling systematic) and the fluctuation like
+$1/\sqrt{M}$ (the bundling noise). On the chain the energy shows exactly this
+($M^{-1.2}$ and $M^{-0.5}$ fitted). One honest caveat: once the true bias drops
+below the statistical floor of the run-mean (SEM $=$ fluctuation$/\sqrt{32}$),
+the *measured* bias flattens into that noise — visible for the coherence at
+large $M$, where the fitted bias slope is shallower for exactly this reason.
+
+![spin chain error decomposition](benchmark_error_decomposition_spin_chain.png)
+![oscillator error decomposition](benchmark_error_decomposition_oscillator_bath.png)
+
+**Construction is not dynamics.** The figure captions now report the two costs
+separately: building the $N_L$ Davies/Lindblad operators (an eigendecomposition
+plus $N_L$ operator assemblies — milliseconds at this size) versus propagating
+the dynamics (seconds). The distinction matters at scale: construction grows
+with its own exponent as the dimension increases, so the pipeline price should
+never be blurred into the solve time — Result 2 now tracks it as its own cost
+curve.
+
 ### Result 2 — cost scaling versus the exact solver
 
 ![spin chain cost scaling](benchmark_cost_scaling_spin_chain.png)
@@ -467,43 +509,55 @@ SLB solve at each size, so the speed claim is qualified by the error it holds.
 The dashed vertical line marks where one full `mesolve` exceeds the time budget —
 past it the exact solver is impractical.
 
-**Three cost curves (top).** The exact full-dissipator `mesolve` evolves the
+**Four cost curves (top).** The exact full-dissipator `mesolve` evolves the
 density matrix with all $N_L$ collapse operators, an operation count that grows
 like $O(N^5)$ (the legend reports the fitted large-$N$ slope). SLB at a *fixed*
-bundle size ($M=8$) only ever propagates $M$ operators, so one solve is cheap and
-scales like the underlying dense propagation ($O(N^3)$ asymptotically, shallower
-still over the modest range shown, where fixed overhead dominates). The third
+bundle size ($M=8$) only ever propagates $M$ operators, so one solve is cheap;
+the SLB and construction curves need no exact reference, so they extend well
+past the wall, far enough for the fitted slope to reach the true scaling regime
+(small sizes are overhead-dominated and read misleadingly flat). Two costs that
+must not be blurred are shown separately: the dotted curve is the one-time
+**Davies construction** of the $N_L$ operators (an eigendecomposition plus $N_L$
+operator assemblies) — cheap in absolute terms here, but scaling with its own
+exponent. Inside each SLB realization there is also a bundle-assembly step
+(combining all $N_L$ operators into $M$ bundles, cost $\sim M N_L N^2$, i.e.
+$\sim N^4$ once $N_L \sim N^2$): an implementation term, not part of the
+method's $O(N^3)$ propagation, and the natural target for a vectorized or
+sparse bundle build if the top-end slope needs flattening. The iso-accuracy
 curve is the honest one — read on.
 
 **Fixed $M$ is cheap, but its accuracy decays with size (bottom panel).** At a
 fixed bundle count the RMSE against the exact solve *grows* with $N$: $N_L$ grows
 with the system, so a fixed number of bundles resolves the dissipator less
 finely. The bottom panel shows this directly — the fixed-$M$ RMSE climbs and
-crosses the target line — so a pure fixed-$M$ speed plot compares at a *moving*
+crosses the target line (error bars: delete-one jackknife over the 16 runs) —
+so a pure fixed-$M$ speed plot compares at a *moving*
 accuracy, which invites the obvious objection: fast is meaningless if the error
-blows up with $N$. Error bars in this panel are bootstrap standard errors of the
-same time-averaged RMSE estimator, resampling the 16 independent SLB runs used to
-measure accuracy.
+blows up with $N$.
 
 **Iso-accuracy — the cost to hold a *fixed* accuracy (third curve).** To answer
 "fast *at what accuracy*", the iso-accuracy curve chooses, at each $N$, the
 smallest bundle size $M^\ast$ — the first on a geometric grid $M = 1, 2, 4,
 \ldots$ whose 16-run time-averaged RMSE reaches a fixed target (here
 $\text{RMSE}=0.02$, measured against the exact solve) — and plots the cost of *that*
-solve. **The two panels line up vertically:** the $M^\ast$ labels in the bottom
-panel sit on the RMSE actually achieved by those $M^\ast$ runs, not on the
-separate fixed-$M=8$ degradation curve. Because $M$ is searched on a discrete grid,
-the achieved points usually sit at or just below the target rather than exactly on
-it. The same $M^\ast$ is the bundle size whose wall-clock cost sits directly above
-it on the iso-accuracy curve — so a vertical read at any $N$ gives, for that
-system, both the achieved target-level accuracy and the price of holding it. The
-required $M^\ast$ grows with $N$ (annotated in the bottom panel — roughly
-$M^\ast\propto N$ on the chain), so this curve is steeper than fixed-$M$: holding
-accuracy costs about one extra power of $N$. But it still sits far below the exact
-solver, so SLB's advantage survives the honest accounting. It is computable only
-up to the reference wall, since tuning $M^\ast$ needs the exact answer. (On the
-oscillator the target is met with $M^\ast=1$ at every size — a single bundle
-already suffices — so there the fixed-$M$ and iso-accuracy costs coincide.)
+solve. The bottom panel's second curve shows the RMSE that $M^\ast$ *actually*
+achieves — it hugs the target from below in discrete steps, because $M$ is
+searched on a grid — and the $M^\ast$ labels sit on that curve, at the accuracy
+each $M^\ast$ delivers. **The two panels line up vertically:** the $M^\ast$
+annotated in the bottom panel at each dimension is exactly the bundle size whose
+wall-clock cost sits directly above it on the iso-accuracy curve — so a vertical
+read at any $N$ gives, for that system, both the accuracy floor and the price of
+holding it. (The run script records the whole sweep, so the target defining
+$M^\ast$ is applied at analysis time — it can be changed and the figure redrawn
+without re-running the benchmark.) The required
+$M^\ast$ grows with $N$ (annotated in the bottom panel —
+roughly $M^\ast\propto N$ on the chain), so this curve is steeper than fixed-$M$:
+holding accuracy costs about one extra power of $N$. But it still sits far below
+the exact solver, so SLB's advantage survives the honest accounting. It is
+computable only up to the reference wall, since tuning $M^\ast$ needs the exact
+answer. (On the oscillator the target is met with $M^\ast=1$ at every size — a
+single bundle already suffices — so there the fixed-$M$ and iso-accuracy costs
+coincide.)
 
 **What this figure does and doesn't show.** It shows SLB's speedup over the
 *exact* solver — the comparison the method is built to win. It leaves `mcsolve`
@@ -532,6 +586,21 @@ curves are increasing run counts ($N=8, 16, 32$); more runs lower the
 statistical floor, but SLB is **bias-limited** here, so $N=16$ already sits
 essentially on the frontier. Both methods run at disclosed integration
 resolution (§3.3) and share the same grid and reference.
+
+**What one error bar means — and why serial timing is fair.** Each plotted
+point is a *single* estimate: for SLB the average of its $N$ runs, for
+`mcsolve` the average of its `ntraj` trajectories. The error bar is that one
+estimate's own statistical uncertainty — $S/\sqrt{N}$ from its own sample
+spread — not the spread over many repeated experiments; a repeat of the whole
+estimate would land within about one bar of the point shown, and the
+seed-robustness check (§6) verifies exactly that. The cost axis is serial
+wall-clock, with `mcsolve` pinned single-threaded. This is not a handicap for
+either side: both methods parallelize trivially in the *same* variable — SLB
+across its independent runs, `mcsolve` across its trajectories — so $k$ cores
+divide both costs by $\sim\!k$ and shift both curves left by the same
+log-distance. The frontier's relative positions, and every conclusion drawn
+from them, are invariant; serial timing is simply the normalization that makes
+the axis machine-independent.
 
 On the spin chain the two are competitive at the loosest, cheapest end, and
 **SLB pulls ahead as the accuracy tightens**: its RMSE keeps falling with `M`,
@@ -586,7 +655,10 @@ exact per-trajectory integration). (2) SLB is tuned on `M` at a fixed set of run
 counts, not fully co-optimized over $(M, N)$; the three levels bracket the
 operating point. As with Result 2's iso-accuracy curve, the whole figure is
 computable only up to the exact-reference wall, since tuning either knob to a
-target needs the exact answer.
+target needs the exact answer. (The run script saves the raw run samples and
+the $S^2$ fit, so both the target and the averaging levels are applied at
+analysis time — the figure can be redrawn for a different target without
+re-running the benchmark.)
 
 ---
 
@@ -663,3 +735,10 @@ relative comparisons. A few notes:
 - The full `mesolve` reference is "exact" only for the Davies–Lindblad model
   defined here; the Davies/secular construction is itself a weak-coupling
   approximation to the underlying open-system dynamics.
+- Every figure is drawn from a `data/*.json` file written by the matching
+  `run_*.py` script (metadata inside: package versions, seeds, parameter
+  grids, timestamps), so any figure is traceable to the exact run that
+  produced it — and re-styling or re-targeting a figure never requires
+  re-running the benchmark. `python export_csv.py` flattens every data file
+  into Excel-friendly CSVs under `data/csv/`: the observable dynamics over
+  time with their std in tidy long format, plus the scalar summaries.
