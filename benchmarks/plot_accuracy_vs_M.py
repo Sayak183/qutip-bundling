@@ -78,7 +78,7 @@ def accuracy_figure(plt, name, doc, tlist, reference, curves,
     # Set to None if you want to plot all available M values.
     # ---------------------------------------------------------
     M_TO_PLOT = {
-        "spin_chain": [2, 4, 8, 16],
+        "spin_chain": [4, 8, 16],
         "oscillator_bath": [2, 4]
     }
 
