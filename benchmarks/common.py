@@ -35,7 +35,7 @@ import qutip
 # ===========================================================================
 # GLOBAL RUN SETTINGS
 # ===========================================================================
-SUBSTEPS = 4                # RK4 substeps per TLIST step for SLB (native backend).
+SUBSTEPS = 64                # RK4 substeps per TLIST step for SLB (native backend).
                             # >=2 is required for stability on the stiffer
                             # oscillator at larger sizes (substeps=1 diverges
                             # there); the result is already converged by 2, so 4
