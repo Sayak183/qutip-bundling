@@ -40,7 +40,8 @@ from common import (
 PLOT_RMSE = True
 PLOT_BIAS = True
 PLOT_SEM  = True
-PLOT_STD  = True
+PLOT_STD  = False
+USE_SINGLE_RUN_RMSE = False # If True: RMSE = sqrt(bias^2 + StdDev^2). If False: RMSE = sqrt(bias^2 + SEM^2)
 # ------------------------------------------------------
 
 def _timing_caption(doc):
@@ -133,8 +134,16 @@ def peak_error_anatomy(doc, key, ref):
     n = np.asarray(rows[0][key], dtype=float).shape[0]
     s0 = np.asarray(rows[0][key], dtype=float)
     bias0 = np.abs(s0.mean(axis=0) - ref)
-    sem0 = s0.std(axis=0, ddof=1) / np.sqrt(n)
-    t_star = int(np.argmax(np.sqrt(bias0 ** 2 + sem0 ** 2)))
+    fluct0 = s0.std(axis=0, ddof=1)
+    sem0 = fluct0 / np.sqrt(n)
+    
+    if USE_SINGLE_RUN_RMSE:
+        rmse0 = np.sqrt(bias0 ** 2 + fluct0 ** 2)
+    else:
+        rmse0 = np.sqrt(bias0 ** 2 + sem0 ** 2)
+        
+    t_star = int(np.argmax(rmse0))
+    
     m_values, bias, fluct = [], [], []
     for row in rows:
         s = np.asarray(row[key], dtype=float)
@@ -169,14 +178,22 @@ def decomposition_figure(plt, name, doc, tlist):
         t_star, m, bias, fluct = peak_error_anatomy(doc, key, ref)
         t_stars.append(tlist[t_star])
         
-        # Calculate SEM and exact RMSE
+        # Calculate SEM and requested RMSE
         sem = fluct / np.sqrt(n_real)
-        rmse = np.sqrt(bias**2 + sem**2)
+        
+        if USE_SINGLE_RUN_RMSE:
+            rmse = np.sqrt(bias**2 + fluct**2)
+            rmse_label_prefix = "single-run RMSE"
+            footer_math = "RMSE\u00b2 = bias\u00b2 + StdDev\u00b2; expected: bias \u221d 1/M, StdDev \u221d 1/\u221aM"
+        else:
+            rmse = np.sqrt(bias**2 + sem**2)
+            rmse_label_prefix = "total RMSE (ensemble)"
+            footer_math = "RMSE\u00b2 = bias\u00b2 + SEM\u00b2; expected: bias \u221d 1/M, SEM \u221d 1/\u221aM"
         
         # Conditionally plot based on toggles
         if PLOT_RMSE:
             ax.loglog(m, rmse, "v-", color="black", lw=2.0, ms=6, zorder=4,
-                      label=_fit_label("total RMSE", m, rmse))
+                      label=_fit_label(rmse_label_prefix, m, rmse))
         if PLOT_BIAS:
             ax.loglog(m, bias, "o-", color="tab:red", lw=1.8, ms=6, zorder=3,
                       label=_fit_label("bias  $|{\\rm mean}-{\\rm ref}|$", m, bias))
@@ -202,7 +219,7 @@ def decomposition_figure(plt, name, doc, tlist):
         fig,
         f"t* = argmax of RMSE(t) of the smallest-M estimate, held for all M; "
         f"{n_real} realizations at every M",
-        f"RMSE\u00b2 = bias\u00b2 + SEM\u00b2; expected: bias \u221d 1/M, SEM \u221d 1/\u221aM; {SUBSTEPS} RK4 substep(s)/step",
+        f"{footer_math}; {SUBSTEPS} RK4 substep(s)/step",
         _timing_caption(doc),
     )
     
