@@ -39,7 +39,7 @@ from common import (
 # --- CONFIGURATION (TOGGLES FOR DECOMPOSITION PLOT) ---
 PLOT_RMSE = True
 PLOT_BIAS = True
-PLOT_SEM  = False
+PLOT_SEM  = True
 PLOT_STD  = True
 # ------------------------------------------------------
 
