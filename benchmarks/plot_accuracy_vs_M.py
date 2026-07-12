@@ -14,8 +14,8 @@ system; runs in seconds.
                                  the time where the smallest-M estimate's
                                  RMSE(t) peaks; holding that same instant for
                                  every M, the figure plots the BIAS
-                                 |mean(t*) - ref(t*)|, the SEM, and the total
-                                 RMSE vs M.
+                                 |mean(t*) - ref(t*)|, the SEM, the total
+                                 RMSE, and the Std Dev vs M.
 
 All derived quantities (means, bands, t*, bias, fluctuation, slopes) come from
 the saved raw realizations -- nothing here re-runs any dynamics. Captions also
@@ -36,6 +36,12 @@ from common import (
     add_settings_footer, as_array, format_slb_settings, load_data, SUBSTEPS,
 )
 
+# --- CONFIGURATION (TOGGLES FOR DECOMPOSITION PLOT) ---
+PLOT_RMSE = True
+PLOT_BIAS = True
+PLOT_SEM  = False
+PLOT_STD  = True
+# ------------------------------------------------------
 
 def _timing_caption(doc):
     n_real = doc["meta"]["params"]["N_REALIZATIONS"]
@@ -122,12 +128,7 @@ def accuracy_figure(plt, name, doc, tlist, reference, curves,
 
 
 def peak_error_anatomy(doc, key, ref):
-    """(t_star_index, m_values, bias(t*) per M, fluctuation(t*) per M).
-
-    t* = argmax over time of the smallest-M estimate's RMSE(t)
-       = sqrt(bias(t)^2 + sem(t)^2) -- the worst moment of the dynamics --
-    then held fixed for every M so all points describe the same instant.
-    """
+    """(t_star_index, m_values, bias(t*) per M, fluctuation(t*) per M)."""
     rows = sorted(doc["slb_sweep"], key=lambda r: r["M"])
     n = np.asarray(rows[0][key], dtype=float).shape[0]
     s0 = np.asarray(rows[0][key], dtype=float)
@@ -152,7 +153,7 @@ def _fit_label(base, m, y):
 
 
 def decomposition_figure(plt, name, doc, tlist):
-    """Bias, SEM, and RMSE vs M at the peak-error instant, per observable."""
+    """Bias, SEM, RMSE, and Std Dev vs M at the peak-error instant, per observable."""
     meta = doc["meta"]["params"]
     n_real = meta["N_REALIZATIONS"]
     ia, ib = doc["coherence_pair"]
@@ -172,13 +173,19 @@ def decomposition_figure(plt, name, doc, tlist):
         sem = fluct / np.sqrt(n_real)
         rmse = np.sqrt(bias**2 + sem**2)
         
-        # Plot all three metrics
-        ax.loglog(m, rmse, "v-", color="black", lw=2.0, ms=6, zorder=3,
-                  label=_fit_label("total RMSE", m, rmse))
-        ax.loglog(m, bias, "o-", color="tab:red", lw=1.8, ms=6, zorder=2,
-                  label=_fit_label("bias  $|{\\rm mean}-{\\rm ref}|$", m, bias))
-        ax.loglog(m, sem, "s-", color="tab:blue", lw=1.8, ms=6, zorder=1,
-                  label=_fit_label("SEM  (fluctuation/$\\sqrt{N}$)", m, sem))
+        # Conditionally plot based on toggles
+        if PLOT_RMSE:
+            ax.loglog(m, rmse, "v-", color="black", lw=2.0, ms=6, zorder=4,
+                      label=_fit_label("total RMSE", m, rmse))
+        if PLOT_BIAS:
+            ax.loglog(m, bias, "o-", color="tab:red", lw=1.8, ms=6, zorder=3,
+                      label=_fit_label("bias  $|{\\rm mean}-{\\rm ref}|$", m, bias))
+        if PLOT_SEM:
+            ax.loglog(m, sem, "s-", color="tab:blue", lw=1.8, ms=6, zorder=2,
+                      label=_fit_label("SEM  (fluctuation/$\\sqrt{N}$)", m, sem))
+        if PLOT_STD:
+            ax.loglog(m, fluct, "d-", color="tab:green", lw=1.8, ms=6, zorder=1,
+                      label=_fit_label("Std Dev (fluctuation)", m, fluct))
                   
         ax.set_xlabel("bundle size $M$")
         ax.set_title(rf"${obs_math}$ at $t^*={tlist[t_star]:.2f}$"

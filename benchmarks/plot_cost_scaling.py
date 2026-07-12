@@ -2,11 +2,8 @@
 plot_cost_scaling.py
 ====================
 
-ANALYSIS/FIGURE HALF of the cost-scaling benchmark (Result 2). 
-Draws the two-panel cost scaling figure with annotations for M* and 
-error decomposition (RMSE, Bias, SEM) at the bottom.
-
-Run:  python plot_cost_scaling.py [--system ...] [--target 0.02]
+UPDATED: Cost scaling benchmark with Davies construction time included
+and an easily accessible TARGET_RMSE switch.
 """
 
 from __future__ import annotations
@@ -18,7 +15,11 @@ from common import (
     add_settings_footer, as_array, load_data, SUBSTEPS,
 )
 
-TARGET_RMSE = 0.02
+# --- CONFIGURATION (TARGET ACCURACY SWITCH) ---
+# Change this value to loosen or tighten the iso-accuracy requirement.
+# Default was 0.02. We are setting it to 0.05 to observe the curve flattening.
+TARGET_RMSE = 0.05
+# ----------------------------------------------
 
 def derive_iso(points, target):
     """(m_star, iso_cost, achieved_rmse, achieved_bias, achieved_sem)."""
@@ -27,7 +28,7 @@ def derive_iso(points, target):
         row = (np.nan, np.nan, np.nan, np.nan, np.nan)
         for e in p["m_sweep"] or []:
             if e["rmse"] is not None and e["rmse"] <= target:
-                n_acc = 16 # derived from metadata in real usage
+                n_acc = 16 
                 fluct = e["rmse_std"] * np.sqrt(n_acc)
                 sem = fluct / np.sqrt(n_acc)
                 bias = np.sqrt(max(0, e["rmse"]**2 - sem**2))
@@ -74,7 +75,6 @@ def figure(name, doc, target):
     t_full = as_array([p["t_full"] for p in points])
     t_slb = as_array([p["t_slb_fixed"] for p in points])
     t_dav = as_array([p.get("t_davies") for p in points])
-    wall_dim = doc["wall_dim"]
     
     mstar, iso_cost, iso_rmse, iso_bias, iso_sem = derive_iso(points, target)
     fix_rmse, fix_bias, fix_sem = fixed_m_stats(points, m_rep)
@@ -89,6 +89,10 @@ def figure(name, doc, target):
     ii = np.isfinite(iso_cost)
     ax.loglog(dims[ii], iso_cost[ii], "^--", color="tab:blue", lw=2, label=_slope_label(f"iso-accuracy (target {target})", dims, iso_cost))
     
+    # Plot the Davies Construction Time
+    dd = np.isfinite(t_dav)
+    ax.loglog(dims[dd], t_dav[dd], "x:", color="gray", lw=1.5, alpha=0.8, label=_slope_label("Davies construction", dims, t_dav))
+
     # Annotate M*
     for x, y, ms in zip(dims[ii], iso_cost[ii], mstar[ii]):
         ax.annotate(f"M*={int(ms)}", (x, y), xytext=(0, 8), textcoords="offset points", ha='center', fontsize=8)
@@ -116,6 +120,7 @@ def figure(name, doc, target):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--system", default="all")
+    # Command line argument overrides the hardcoded config if provided
     ap.add_argument("--target", type=float, default=TARGET_RMSE)
     args = ap.parse_args()
     names = ["spin_chain", "oscillator_bath"] if args.system == "all" else [args.system]

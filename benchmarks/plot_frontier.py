@@ -1,7 +1,7 @@
 """
 plot_frontier.py
 ================
-UPDATED: Frontier benchmark with M-labels restored and toggle for Bias/SEM.
+UPDATED: Frontier benchmark with individual toggles and an error bar switch.
 """
 
 from __future__ import annotations
@@ -14,16 +14,24 @@ from common import (
     MC_ATOL, MC_RTOL, SUBSTEPS,
 )
 
-# --- CONFIGURATION ---
-N_RUNS_SWEEP = [2, 4] 
-PLOT_DECOMPOSITION = True  # Toggle for Bias/SEM
+# --- CONFIGURATION (TOGGLES FOR FRONTIER PLOT) ---
+N_RUNS_SWEEP = [16, 32] 
+PLOT_RMSE = True
+PLOT_BIAS = False
+PLOT_SEM  = False
+PLOT_STD  = False
+
+# Choose what the error bars on the RMSE curves represent:
+# Set to "SEM" for Standard Error of the Mean, or "STD" for Standard Deviation
+ERROR_BAR_TYPE = "SEM" 
+
 DEFAULT_SYSTEMS = ["spin_chain", "oscillator_bath"]
-# ---------------------
+# -------------------------------------------------
 
 def derive_slb_stats(doc, n_runs):
     reference = as_array(doc["reference"])
     m_values = [row["M"] for row in doc["slb_sweep"]]
-    stats = {"cost": [], "rmse": [], "sem": [], "bias": []}
+    stats = {"cost": [], "rmse": [], "sem": [], "bias": [], "std": []}
     for row in doc["slb_sweep"]:
         samples = np.asarray(row["samples"], dtype=float)
         bias, sem, rmse = tavg_bias_sem_rmse(samples[:n_runs], reference)
@@ -31,6 +39,8 @@ def derive_slb_stats(doc, n_runs):
         stats["rmse"].append(rmse)
         stats["sem"].append(sem)
         stats["bias"].append(bias)
+        # Calculate standard deviation from SEM
+        stats["std"].append(sem * np.sqrt(n_runs))
     return m_values, stats
 
 def figure(name, doc):
@@ -45,23 +55,44 @@ def figure(name, doc):
 
     for i, n in enumerate(N_RUNS_SWEEP):
         m_values, stats = derive_slb_stats(doc, n)
-        ax.errorbar(stats["cost"], stats["rmse"], yerr=stats["sem"],
-                    fmt="s-", color=colors[i], lw=2, label=f"SLB (N={n}) - RMSE")
         
-        if PLOT_DECOMPOSITION:
-            ax.plot(stats["cost"], stats["bias"], "v:", color=colors[i], alpha=0.5, label=f"Bias (N={n})")
-            ax.plot(stats["cost"], stats["sem"], ".:", color=colors[i], alpha=0.5, label=f"SEM (N={n})")
+        if PLOT_RMSE:
+            # Apply the selected error bar type
+            err_vals = stats["std"] if ERROR_BAR_TYPE == "STD" else stats["sem"]
+            ax.errorbar(stats["cost"], stats["rmse"], yerr=err_vals,
+                        fmt="s-", color=colors[i], lw=2, label=f"SLB (N={n}) - RMSE")
+            
+        if PLOT_BIAS:
+            ax.plot(stats["cost"], stats["bias"], "o:", color=colors[i], alpha=0.5, label=f"Bias (N={n})")
+        if PLOT_SEM:
+            ax.plot(stats["cost"], stats["sem"], "v:", color=colors[i], alpha=0.5, label=f"SEM (N={n})")
+        if PLOT_STD:
+            ax.plot(stats["cost"], stats["std"], "d:", color=colors[i], alpha=0.5, label=f"Std Dev (N={n})")
 
-    # RESTORED: Label M values on the darkest (highest N) curve
-    for x, y, m_eff in zip(stats_hi["cost"], stats_hi["rmse"], m_vals_hi):
+    # Label M values on the darkest (highest N) curve
+    # Attach labels to RMSE by default, fallback to other active metrics if RMSE is hidden
+    y_label_vals = stats_hi["rmse"]
+    if not PLOT_RMSE:
+        if PLOT_BIAS: y_label_vals = stats_hi["bias"]
+        elif PLOT_SEM: y_label_vals = stats_hi["sem"]
+        elif PLOT_STD: y_label_vals = stats_hi["std"]
+
+    for x, y, m_eff in zip(stats_hi["cost"], y_label_vals, m_vals_hi):
         ax.annotate(f"M={m_eff}", (x, y), textcoords="offset points", 
                     xytext=(6, 6), fontsize=9, color=colors[-1], fontweight='bold')
 
     mc = doc["mc"]
-    ax.errorbar([r["cost"] for r in mc], [r["rmse"] for r in mc],
-                yerr=[r["sem"] for r in mc], fmt="o--", color="tab:purple", lw=1.8, ms=7, capsize=3, label="qutip.mcsolve")
-    for r in mc:
-        ax.annotate(f"{r['ntraj']}", (r["cost"], r["rmse"]), textcoords="offset points", xytext=(5, -11), fontsize=7, color="tab:purple")
+    if PLOT_RMSE:
+        # Apply the selected error bar type for mcsolve
+        if ERROR_BAR_TYPE == "STD":
+            mc_err = [r["sem"] * np.sqrt(r["ntraj"]) for r in mc]
+        else:
+            mc_err = [r["sem"] for r in mc]
+            
+        ax.errorbar([r["cost"] for r in mc], [r["rmse"] for r in mc],
+                    yerr=mc_err, fmt="o--", color="tab:purple", lw=1.8, ms=7, capsize=3, label="qutip.mcsolve")
+        for r in mc:
+            ax.annotate(f"{r['ntraj']}", (r["cost"], r["rmse"]), textcoords="offset points", xytext=(5, -11), fontsize=7, color="tab:purple")
 
     ax.set_xscale("log")
     ax.set_yscale("log")
