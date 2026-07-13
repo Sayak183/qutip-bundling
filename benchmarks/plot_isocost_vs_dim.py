@@ -13,10 +13,10 @@ import argparse
 import numpy as np
 import matplotlib.pyplot as plt
 
-from common import add_settings_footer, as_array, load_data, tavg_rmse, SUBSTEPS
+from common import add_settings_footer, as_array, load_data, tavg_rmse
 
 # --- CONFIGURATION ---
-TARGET_RMSE = 0.002              # Accuracy target
+TARGET_RMSE = 0.02   # accuracy target; must stay >= the sweep floor recorded in the data (0.01), else M* is unreachable -- use --target for exploration
 N_RUNS_LIST = [4, 8, 16]        # Averaging levels shown
 NTRAJ_EXTRAP_MAX = 20000        # Beyond this, mcsolve is considered impractical
 # ---------------------
@@ -63,7 +63,7 @@ def derive(doc, target):
     out["mc_ok"] = np.array(out["mc_ok"])
     return out
 
-def figure(name, out, target):
+def figure(name, out, target, substeps):
     plt.switch_backend("Agg")
     d = out["dims"]
     if len(d) == 0: return
@@ -103,7 +103,7 @@ def figure(name, out, target):
     add_settings_footer(
         fig,
         f"iso-accuracy: smallest M at each N={N_RUNS_LIST} runs reaching RMSE={target}; "
-        f"{SUBSTEPS} RK4 substep(s)/step",
+        f"{substeps} RK4 substep(s)/step",
         "computable only to the exact-reference wall; '≳' = mcsolve needs impractical trajectory count",
         fontsize=9,
     )
@@ -121,7 +121,8 @@ def main():
     names = ["spin_chain", "oscillator_bath"] if args.system == "all" else [args.system]
     for name in names:
         doc = load_data(f"isocost_vs_dim_{name}.json")
-        figure(name, derive(doc, args.target), args.target)
+        figure(name, derive(doc, args.target), args.target,
+               doc["meta"]["substeps"])
 
 if __name__ == "__main__":
     main()

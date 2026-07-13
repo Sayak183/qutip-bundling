@@ -113,8 +113,15 @@ def figure(name, doc, target):
     axr.legend(fontsize=7, ncol=2); axr.grid(True, which="both", alpha=0.3)
 
     fig.tight_layout()
+    add_settings_footer(
+        fig,
+        f"fixed-M: one SLB realization (M={m_rep}); iso-accuracy: smallest swept M "
+        f"with {n_acc}-run RMSE<={target} vs exact (target applied at analysis time)",
+        f"{meta['substeps']} RK4 substep(s)/step (from the run's own metadata); "
+        f"Davies construction timed separately and included in no solve time",
+    )
     out = f"benchmark_cost_scaling_{name}.png"
-    fig.savefig(out, dpi=110); plt.close(fig)
+    fig.savefig(out, dpi=110, bbox_inches="tight"); plt.close(fig)
     print(f"  saved {out}")
 
 def main():

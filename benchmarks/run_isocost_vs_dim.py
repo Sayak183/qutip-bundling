@@ -6,8 +6,31 @@ DATA-GENERATION HALF of the iso-accuracy cost-vs-dimension benchmark (Result 4:
 SLB vs mcsolve as the system grows). All the compute, none of the plotting; the
 figure is drawn from the saved data by plot_isocost_vs_dim.py.
 
-UPDATED: Now includes higher dimensions and processes ensemble runs in memory-safe
-batches to prevent RAM exhaustion at dimension >= 32.
+At each Hilbert dimension (up to the exact-reference wall) it records:
+
+  * the exact reference <H(t)> and its wall-clock cost;
+  * SLB: an ascending bundle-size sweep. For each M, N_RUNS_MAX independent
+    runs are drawn ONCE and their raw per-run <H(t)> samples are saved, along
+    with the per-run wall-clock. Saving the raw samples (not derived RMSEs) is
+    what makes the split powerful here: the plot script subsamples the runs, so
+    BOTH the accuracy target AND the averaging levels N are analysis-time
+    choices -- neither requires re-running this (slow) script.
+  * mcsolve: the raw S^2 fit. mcsolve's trajectory average is unbiased, so its
+    RMSE is exactly S/sqrt(ntraj); we sample a few small ntraj (with repeats to
+    smooth run-to-run noise) and save each repeat's RMSE and the per-trajectory
+    time. The plot script solves ntraj* = (S/target)^2 for any target.
+
+The sweep stops early only once the RMSE evaluated at the FEWEST anticipated
+runs (SWEEP_MIN_RUNS, the harshest level, largest statistical floor) falls
+below SWEEP_STOP_RMSE; both are recorded in the metadata, and the plot script
+warns if asked for a level or target the sweep cannot support.
+
+Uses the fine 80-point time grid (TLIST_FINE), matching the published Result 4
+and the other accuracy-style comparisons (Results 1 and 3).
+
+Writes, per system:  data/isocost_vs_dim_<system>.json
+Run:                 python run_isocost_vs_dim.py [--system ...] [--sizes ...]
+                     (this is the slow benchmark)
 """
 
 from __future__ import annotations
@@ -36,52 +59,37 @@ MC_REPEATS = 4                                  # repeats per point -> smooth no
 RNG_SWEEP = 100         # seed for the SLB estimates (matches prior runs)
 ROUND = 8               # decimals kept for saved curves (keeps the JSON compact)
 
-# Expanded dimensions to test larger system sizes
 SYSTEMS = {
-    "spin_chain":      (build_spin_chain,      [2, 3, 4, 5, 6, 7]),  # dims 4..128
-    "oscillator_bath": (build_oscillator_bath, [4, 8, 16, 32, 64]),  # dims 8..64
+    "spin_chain":      (build_spin_chain,      [2, 3, 4, 5]),   # dims 4..32
+    "oscillator_bath": (build_oscillator_bath, [4, 8, 16]),     # dims 8..32
 }
 
 
 def slb_sweep(H, rho0, c_ops, reference, n_l):
     """Ascending M sweep at N_RUNS_MAX runs each; raw samples saved per M.
 
-    Uses batching to prevent memory exhaustion during generation.
     [{M, per_run_cost, samples: (N_RUNS_MAX, n_times)}, ...]. Stops once the
-    SWEEP_MIN_RUNS-level RMSE reaches SWEEP_STOP_RMSE or M reaches n_l.
+    SWEEP_MIN_RUNS-level RMSE reaches SWEEP_STOP_RMSE or M reaches n_l (grid
+    values are capped at n_l and deduplicated).
     """
     rows, seen = [], set()
-    batch_size = 4  # Process in small batches to save RAM
-    
     for m in M_GRID:
         m_eff = min(m, n_l)
         if m_eff in seen:
             continue
         seen.add(m_eff)
-        
         t0 = time.perf_counter()
-        all_samples = []
-        
-        # Run realizations in memory-safe batches
-        for b in range(N_RUNS_MAX // batch_size):
-            ens = mesolve_ensemble(H, rho0, TLIST_FINE, c_ops, M=m_eff, e_ops=[H],
-                                   n_realizations=batch_size, rng=RNG_SWEEP + b,
-                                   backend="native", substeps=SUBSTEPS)
-            all_samples.append(np.real(ens.samples[:, 0, :]))
-            
+        ens = mesolve_ensemble(H, rho0, TLIST_FINE, c_ops, M=m_eff, e_ops=[H],
+                               n_realizations=N_RUNS_MAX, rng=RNG_SWEEP,
+                               backend="native", substeps=SUBSTEPS)
         per_run = (time.perf_counter() - t0) / N_RUNS_MAX
-        samples = np.vstack(all_samples)
-        
+        samples = np.real(ens.samples[:, 0, :])
         rmse_min = tavg_rmse(samples[:SWEEP_MIN_RUNS], reference)
         rmse_max = tavg_rmse(samples, reference)
-        
-        # Convert samples to standard Python lists for JSON serialization
         rows.append({"M": m_eff, "per_run_cost": per_run,
-                     "samples": np.round(samples, ROUND).tolist()})
-                     
+                     "samples": np.round(samples, ROUND)})
         print(f"      M={m_eff:4d}  RMSE(n={SWEEP_MIN_RUNS})={rmse_min:.3e}  "
               f"RMSE(n={N_RUNS_MAX})={rmse_max:.3e}  per-run={per_run:.3g}s")
-              
         if rmse_min <= SWEEP_STOP_RMSE or m_eff >= n_l:
             break
     return rows
@@ -146,7 +154,7 @@ def run(name, build, sizes):
         print(f"  dim={dim:4d}  N_L={n_l:4d}  full={t_full:7.2f}s")
         points.append({
             "size": s, "dim": dim, "n_l": n_l, "t_full": t_full,
-            "reference": np.round(reference, ROUND).tolist(),
+            "reference": np.round(reference, ROUND),
             "slb_sweep": slb_sweep(H, rho0, c_ops, reference, n_l),
             "mc_fit": mc_fit(H, psi0, c_ops, reference),
         })

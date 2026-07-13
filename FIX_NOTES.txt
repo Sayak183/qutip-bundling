@@ -1,0 +1,39 @@
+FIX KIT v8 (final) - keeps your plot toggles
+=============================================
+What changed vs your working copy:
+ - common.py: SUBSTEPS 64 -> 4 (validated; equal accuracy, ~15x cheaper)
+ - your four plot scripts KEPT (PLOT_* toggles, USE_SINGLE_RUN_RMSE with its
+   labeling), patched so captions read substeps from each data file's own
+   metadata (a caption can no longer lie about how the data was made), with
+   the settings footers restored on the cost and frontier figures and dead
+   imports removed
+ - plot targets restored to defaults: cost TARGET_RMSE 0.05 -> 0.02 and
+   isocost 0.002 -> 0.02 (0.002 is BELOW the recorded sweep floor 0.01, so
+   M* is unreachable at that target). Your experiments stay one flag away:
+   --target 0.05 etc.
+ - run_isocost_vs_dim.py: clean single-call version (seeds match the good
+   committed data)
+ - run_accuracy_vs_M.py / run_cost_scaling.py: your setting upgrades kept
+   (200 realizations, extended M ladder, spin chain to dim 256)
+
+Steps (PowerShell, in the clone):
+  cd C:\Users\sayak\Downloads\repo-split\qutip-bundling
+  Expand-Archive $env:USERPROFILE\Downloads\restructure-v8-final.zip -DestinationPath . -Force
+  Select-String -Path benchmarks\common.py -Pattern "SUBSTEPS = "     # must say 4
+  cd benchmarks
+  git checkout -- data\isocost_vs_dim_spin_chain.json data\isocost_vs_dim_oscillator_bath.json
+      # ^ restores the GOOD committed substeps-4 isocost data over today's
+      #   substeps-64 re-runs (which had ~15x inflated costs - discard them)
+  $env:PYTHONPATH = "..\src"
+  python run_cost_scaling.py        # the ONLY re-run needed (now ~15x faster)
+  python plot_cost_scaling.py
+  python plot_frontier.py
+  python plot_isocost_vs_dim.py
+  python plot_accuracy_vs_M.py
+  python export_csv.py
+  git add -A
+  git commit -m "fix: substeps=4 restored; captions read run metadata; keep plot toggles; regenerate cost scaling"
+  git push
+
+Do NOT re-run run_accuracy_vs_M / run_frontier / run_isocost_vs_dim:
+their committed data is already correct.

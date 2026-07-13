@@ -11,7 +11,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from common import (
     add_settings_footer, as_array, load_data, tavg_bias_sem_rmse,
-    MC_ATOL, MC_RTOL, SUBSTEPS,
+    MC_ATOL, MC_RTOL,
 )
 
 # --- CONFIGURATION (TOGGLES FOR FRONTIER PLOT) ---
@@ -102,6 +102,15 @@ def figure(name, doc):
     ax.grid(True, which="both", alpha=0.3)
     ax.legend(frameon=False)
     fig.tight_layout()
+    add_settings_footer(
+        fig,
+        f"SLB: sweep M={m_vals_hi}, {doc['meta']['substeps']} RK4 substep(s)/step "
+        f"(from the run's own metadata), N in {N_RUNS_SWEEP} runs",
+        f"mcsolve: sweep ntraj={[r['ntraj'] for r in doc['mc']]}, single-thread, "
+        f"atol={MC_ATOL:g}/rtol={MC_RTOL:g}",
+        "error bar = S/sqrt(N), the uncertainty of the single estimate shown; "
+        "both methods parallelize across runs/trajectories alike",
+    )
     fig.savefig(f"benchmark_frontier_{name}.png", dpi=130, bbox_inches="tight")
     plt.close(fig)
 

@@ -33,15 +33,15 @@ import math
 import numpy as np
 
 from common import (
-    add_settings_footer, as_array, format_slb_settings, load_data, SUBSTEPS,
+    add_settings_footer, as_array, format_slb_settings, load_data,
 )
 
 # --- CONFIGURATION (TOGGLES FOR DECOMPOSITION PLOT) ---
 PLOT_RMSE = True
 PLOT_BIAS = True
-PLOT_SEM  = True
-PLOT_STD  = False
-USE_SINGLE_RUN_RMSE = False # If True: RMSE = sqrt(bias^2 + StdDev^2). If False: RMSE = sqrt(bias^2 + SEM^2)
+PLOT_SEM  = False
+PLOT_STD  = True
+USE_SINGLE_RUN_RMSE = True # If True: RMSE = sqrt(bias^2 + StdDev^2). If False: RMSE = sqrt(bias^2 + SEM^2)
 # ------------------------------------------------------
 
 def _timing_caption(doc):
@@ -115,7 +115,7 @@ def accuracy_figure(plt, name, doc, tlist, reference, curves,
     
     add_settings_footer(
         fig,
-        format_slb_settings(M=plotted_m, substeps=SUBSTEPS,
+        format_slb_settings(M=plotted_m, substeps=doc["meta"]["substeps"],
                             n_realizations=meta["N_REALIZATIONS"]),
         "shaded band = \u00b11 std over realizations; "
         "full-Lindblad reference (mesolve)",
@@ -219,7 +219,7 @@ def decomposition_figure(plt, name, doc, tlist):
         fig,
         f"t* = argmax of RMSE(t) of the smallest-M estimate, held for all M; "
         f"{n_real} realizations at every M",
-        f"{footer_math}; {SUBSTEPS} RK4 substep(s)/step",
+        f"{footer_math}; {doc['meta']['substeps']} RK4 substep(s)/step",
         _timing_caption(doc),
     )
     

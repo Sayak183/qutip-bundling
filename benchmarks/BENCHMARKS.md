@@ -443,9 +443,11 @@ frontier (Result 3) sweeps the bias knob `M` for SLB against the noise knob
 
 > Read in order, the four results build one argument: SLB is **accurate**
 > (Result 1), **cheap and better-scaling than the exact solver** (Result 2),
-> **cheaper than `mcsolve` at matched accuracy** (Result 3), and that advantage
-> **widens with system size** (Result 4). Readers who only care about speed can
-> jump to Result 2. The supporting checks behind every claim are in §6.
+> **cheaper than `mcsolve` at matched accuracy** (Result 3) — never slower on
+> either system — and in the operator-heavy oscillator regime that advantage
+> **widens with system size into the thousands** (Result 4). Readers who only
+> care about speed can jump to Result 2. The supporting checks behind every
+> claim are in §6.
 
 ### Result 1 — accuracy versus the bundle size $M$
 
@@ -515,7 +517,13 @@ like $O(N^5)$ (the legend reports the fitted large-$N$ slope). SLB at a *fixed*
 bundle size ($M=8$) only ever propagates $M$ operators, so one solve is cheap;
 the SLB and construction curves need no exact reference, so they extend well
 past the wall, far enough for the fitted slope to reach the true scaling regime
-(small sizes are overhead-dominated and read misleadingly flat). Two costs that
+(small sizes are overhead-dominated and read misleadingly flat). The
+oscillator's curve ends earlier than the chain's for a physical reason: its
+anharmonic ladder's frequencies grow like $n^2$, and past dim 64 the
+fixed-step RK4 at the disclosed substep count is no longer stable. The
+benchmark ends the curve there and records it (`stiff_dim` in the data)
+rather than silently raising substeps at the last point — a fixed-step cost
+curve is only slope-comparable at uniform substeps. Two costs that
 must not be blurred are shown separately: the dotted curve is the one-time
 **Davies construction** of the $N_L$ operators (an eigendecomposition plus $N_L$
 operator assemblies) — cheap in absolute terms here, but scaling with its own
@@ -626,16 +634,24 @@ and plots that cost. The bottom panel is the payoff — the speedup
 (`mcsolve` cost / SLB cost) versus $N$: if it rises, SLB's advantage *widens* with
 system size.
 
-**It widens, on both systems.** On the spin chain `mcsolve` needs steadily more
-trajectories to hold the target ($\sim\!300$ at dim 4, $\sim\!1400$ at dim 32),
-while SLB needs only a modest bump in `M` ($M^\ast$: $1\to8\to16\to32$); the
-speedup grows from a few-fold to $\sim\!25\times$ across the range. On the
-oscillator the effect is dramatic: `mcsolve` needs thousands of trajectories at
-dim 8 and tens of thousands by dim 16, crossing into "impractical"
-($\gtrsim\!20{,}000$) at dim 32, while SLB hits the target with a *single* bundle
-($M^\ast=1$) at every size — a speedup climbing into the thousands. That stiff,
-operator-heavy regime is exactly where a trajectory method's per-trajectory
-variance explodes and bundling does not.
+**Two regimes, honestly different.** On the spin chain SLB is *never slower*
+at matched accuracy, but the advantage is modest and non-monotone: between
+$\sim\!2\times$ and $\sim\!17\times$ across dimensions and averaging levels
+(`mcsolve` needs $\sim\!500$ trajectories at dim 4 and $\sim\!1{,}300$ at dim
+32, but SLB's own $M^\ast$ climbs $1\to8\to16\to32$ as the fixed-$M$ bias
+grows, eating part of the win). The fair headline is best-against-best:
+`mcsolve` is already shown at its optimal `ntraj`, and SLB at *its* optimal
+operating point — the cheapest adequate level, $N=4$ — beats it by
+$3\text{--}17\times$ on the chain; the slower levels are shown to prove the
+win is configuration-robust, not tuned. On the oscillator the effect is
+dramatic and
+*does* widen: `mcsolve` needs thousands of trajectories already at dim 8 and
+crosses "impractical" ($\gtrsim\!20{,}000$) by dim 16, while SLB hits the
+target with one or two bundles at every size — a speedup of three to four
+orders of magnitude, and a *lower bound* wherever `mcsolve` is capped. That
+stiff, operator-heavy regime — dense Davies spectra, exploding per-trajectory
+variance — is exactly the problem class bundling was built for; the chain
+shows the method costs nothing where that structure is absent.
 
 **SLB is shown at three averaging levels** ($N=4, 8, 16$ runs), each re-optimizing
 `M` for the target: for each level, $M^\ast$ is the smallest bundle size on the

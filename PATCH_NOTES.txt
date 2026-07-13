@@ -1,0 +1,13 @@
+PROSE CORRECTION v10.1 (replaces v10 - delete v10 from Downloads)
+====================================================================
+Same as v10 plus one addition to the Result 4 paragraph: the fair
+best-vs-best comparison stated explicitly (SLB at its cheapest adequate
+level N=4 vs mcsolve at optimal ntraj: 3-17x on the chain), with the
+slower levels framed as the configuration-robustness evidence.
+
+Steps:
+  cd C:\Users\sayak\Downloads\repo-split\qutip-bundling
+  Expand-Archive $env:USERPROFILE\Downloads\r4-prose-correction-v10-1.zip -DestinationPath . -Force
+  git add -A
+  git commit -m "fix: substeps=4; stale isocost figures replaced; R4 narrative matches corrected data"
+  git push
