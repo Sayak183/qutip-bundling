@@ -71,6 +71,7 @@ def figure(name, doc, target):
     m_rep, n_acc = meta["params"]["M_REP"], meta["params"]["N_ACC"]
     points = doc["points"]
     dims = as_array([p["dim"] for p in points])
+    n_ls = as_array([p["n_l"] for p in points])
     t_full = as_array([p["t_full"] for p in points])
     t_slb = as_array([p["t_slb_fixed"] for p in points])
     t_dav = as_array([p.get("t_davies") for p in points])
@@ -106,7 +107,14 @@ def figure(name, doc, target):
         ax.annotate(f"M*={int(ms)}", (x, y), xytext=(0, 8), textcoords="offset points", ha='center', fontsize=8)
 
     ax.set_ylabel("wall-clock time (s)")
-    ax.set_xlabel("Hilbert dimension N")
+    # ticks at the measured points, each labelled with BOTH sizes: the Hilbert
+    # dimension and the Lindblad operator count it implies -- N_L is what
+    # actually drives the full solver's cost and the bundling payoff.
+    ax.set_xticks(dims)
+    ax.set_xticklabels([f"{int(d)}\n" + rf"$N_L$={int(l)}"
+                        for d, l in zip(dims, n_ls)], fontsize=8)
+    ax.tick_params(axis="x", which="minor", labelbottom=False)
+    ax.set_xlabel("Hilbert dimension N  (with Lindblad operator count $N_L$)")
     ax.set_title(f"{name}: cost scaling with M* annotations")
     ax.legend(fontsize=8); ax.grid(True, which="both", alpha=0.3)
 
