@@ -1,13 +1,20 @@
-PROSE CORRECTION v10.1 (replaces v10 - delete v10 from Downloads)
-====================================================================
-Same as v10 plus one addition to the Result 4 paragraph: the fair
-best-vs-best comparison stated explicitly (SLB at its cheapest adequate
-level N=4 vs mcsolve at optimal ntraj: 3-17x on the chain), with the
-slower levels framed as the configuration-robustness evidence.
+RESULT 2 FIGURE REVISION (v11)
+================================
+ - plot_cost_scaling.py: bottom panel removed (single-panel figure);
+   TARGET_RMSE default properly restored to 0.02 (a v8 patch half-failed
+   and left the 0.05 experiment - my miss); dead import removed;
+   NEW dashed extrapolation guide continues full mesolve past the wall at
+   its fitted slope, so the real Result 2 comparison is visible
+   (chain dim 256: extrapolated ~3 weeks vs SLB's measured ~1 minute).
+ - BENCHMARKS.md: every passage referencing the removed bottom panel is
+   rewritten; the extrapolation claim is stated in the prose.
 
-Steps:
+Steps (data unchanged - only re-plot):
   cd C:\Users\sayak\Downloads\repo-split\qutip-bundling
-  Expand-Archive $env:USERPROFILE\Downloads\r4-prose-correction-v10-1.zip -DestinationPath . -Force
+  Expand-Archive $env:USERPROFILE\Downloads\r2-figure-revision-v11.zip -DestinationPath . -Force
+  cd benchmarks
+  $env:PYTHONPATH = "..\src"
+  python plot_cost_scaling.py
   git add -A
-  git commit -m "fix: substeps=4; stale isocost figures replaced; R4 narrative matches corrected data"
+  git commit -m "R2 figure: single panel + extrapolation guide; target 0.02; prose updated"
   git push

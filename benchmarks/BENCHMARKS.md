@@ -534,12 +534,12 @@ method's $O(N^3)$ propagation, and the natural target for a vectorized or
 sparse bundle build if the top-end slope needs flattening. The iso-accuracy
 curve is the honest one — read on.
 
-**Fixed $M$ is cheap, but its accuracy decays with size (bottom panel).** At a
+**Fixed $M$ is cheap, but its accuracy decays with size.** At a
 fixed bundle count the RMSE against the exact solve *grows* with $N$: $N_L$ grows
 with the system, so a fixed number of bundles resolves the dissipator less
-finely. The bottom panel shows this directly — the fixed-$M$ RMSE climbs and
-crosses the target line (error bars: delete-one jackknife over the 16 runs) —
-so a pure fixed-$M$ speed plot compares at a *moving*
+finely (the recorded sweep shows the fixed-$M$ RMSE climbing through the
+target as $N$ grows — the $M^\ast$ annotations on the iso-accuracy curve are
+that mechanism made visible) — so a pure fixed-$M$ speed plot compares at a *moving*
 accuracy, which invites the obvious objection: fast is meaningless if the error
 blows up with $N$.
 
@@ -548,17 +548,17 @@ blows up with $N$.
 smallest bundle size $M^\ast$ — the first on a geometric grid $M = 1, 2, 4,
 \ldots$ whose 16-run time-averaged RMSE reaches a fixed target (here
 $\text{RMSE}=0.02$, measured against the exact solve) — and plots the cost of *that*
-solve. The bottom panel's second curve shows the RMSE that $M^\ast$ *actually*
-achieves — it hugs the target from below in discrete steps, because $M$ is
-searched on a grid — and the $M^\ast$ labels sit on that curve, at the accuracy
-each $M^\ast$ delivers. **The two panels line up vertically:** the $M^\ast$
-annotated in the bottom panel at each dimension is exactly the bundle size whose
-wall-clock cost sits directly above it on the iso-accuracy curve — so a vertical
-read at any $N$ gives, for that system, both the accuracy floor and the price of
-holding it. (The run script records the whole sweep, so the target defining
-$M^\ast$ is applied at analysis time — it can be changed and the figure redrawn
-without re-running the benchmark.) The required
-$M^\ast$ grows with $N$ (annotated in the bottom panel —
+solve; each $M^\ast$ label on the iso-accuracy curve names the bundle size
+paying that point's cost, and its achieved RMSE hugs the target from below in
+discrete steps because $M$ is searched on a grid. (The run script records the
+whole sweep, so the target defining $M^\ast$ is applied at analysis time — it
+can be changed and the figure redrawn without re-running the benchmark.) The
+dashed red guide continues the exact solver past its feasibility wall at its
+own fitted slope: measured against it, SLB's fixed-$M$ point at the largest
+dimension shown is cheaper by four to five orders of magnitude (chain, dim
+256: an extrapolated $\sim\!3$ weeks versus a measured minute) — this, not
+the sub-wall region where both methods are cheap, is the figure's claim. The required
+$M^\ast$ grows with $N$ (the annotations on the iso-accuracy curve —
 roughly $M^\ast\propto N$ on the chain), so this curve is steeper than fixed-$M$:
 holding accuracy costs about one extra power of $N$. But it still sits far below
 the exact solver, so SLB's advantage survives the honest accounting. It is

@@ -12,13 +12,12 @@ import argparse
 import numpy as np
 
 from common import (
-    add_settings_footer, as_array, load_data, SUBSTEPS,
+    add_settings_footer, as_array, load_data,
 )
 
 # --- CONFIGURATION (TARGET ACCURACY SWITCH) ---
-# Change this value to loosen or tighten the iso-accuracy requirement.
-# Default was 0.02. We are setting it to 0.05 to observe the curve flattening.
-TARGET_RMSE = 0.05
+# Published default 0.02; override per-figure with --target for exploration.
+TARGET_RMSE = 0.02
 # ----------------------------------------------
 
 def derive_iso(points, target):
@@ -79,12 +78,21 @@ def figure(name, doc, target):
     mstar, iso_cost, iso_rmse, iso_bias, iso_sem = derive_iso(points, target)
     fix_rmse, fix_bias, fix_sem = fixed_m_stats(points, m_rep)
 
-    fig, (ax, axr) = plt.subplots(2, 1, figsize=(8.5, 9.0), sharex=True, 
-                                  gridspec_kw={"height_ratios": [2, 1.5]})
+    fig, ax = plt.subplots(figsize=(8.5, 5.6))
 
-    # ---- Top: Cost Scaling ----
+    # ---- Cost Scaling (single panel) ----
     ff = np.isfinite(t_full)
     ax.loglog(dims[ff], t_full[ff], "o-", color="tab:red", lw=2, label=_slope_label("full mesolve", dims, t_full))
+    # extrapolation guide: continue the exact solver past its feasibility wall
+    # at its fitted slope, so the divergence from SLB is visible, not implied.
+    s_full = fit_slope(dims, t_full)
+    if s_full and ff.any() and dims[~ff & np.isfinite(dims)].size:
+        d0, y0 = dims[ff][-1], t_full[ff][-1]
+        d_ext = np.array(sorted(set(dims[dims >= d0])))
+        if len(d_ext) > 1:
+            ax.loglog(d_ext, y0 * (d_ext / d0) ** s_full, "--", color="tab:red",
+                      lw=1.4, alpha=0.45,
+                      label=rf"full mesolve, extrapolated $\propto N^{{{s_full:.1f}}}$")
     ax.loglog(dims, t_slb, "s-", color="tab:green", lw=2, label=_slope_label(f"fixed M={m_rep}", dims, t_slb))
     ii = np.isfinite(iso_cost)
     ax.loglog(dims[ii], iso_cost[ii], "^--", color="tab:blue", lw=2, label=_slope_label(f"iso-accuracy (target {target})", dims, iso_cost))
@@ -98,19 +106,9 @@ def figure(name, doc, target):
         ax.annotate(f"M*={int(ms)}", (x, y), xytext=(0, 8), textcoords="offset points", ha='center', fontsize=8)
 
     ax.set_ylabel("wall-clock time (s)")
+    ax.set_xlabel("Hilbert dimension N")
     ax.set_title(f"{name}: cost scaling with M* annotations")
     ax.legend(fontsize=8); ax.grid(True, which="both", alpha=0.3)
-
-    # ---- Bottom: Error Decomposition ----
-    axr.loglog(dims, fix_rmse, "s-", color="tab:green", label="RMSE (fixed M)")
-    axr.loglog(dims[ii], iso_rmse[ii], "^--", color="tab:blue", label="RMSE (iso-accuracy M*)")
-    axr.loglog(dims[ii], iso_bias[ii], "v:", color="tab:blue", alpha=0.5, label="Bias (iso-accuracy)")
-    axr.loglog(dims[ii], iso_sem[ii], ".:", color="tab:blue", alpha=0.5, label="SEM (iso-accuracy)")
-    
-    axr.axhline(target, color="black", ls="--", alpha=0.3, label="target")
-    axr.set_ylabel("Error components")
-    axr.set_xlabel("Hilbert dimension N")
-    axr.legend(fontsize=7, ncol=2); axr.grid(True, which="both", alpha=0.3)
 
     fig.tight_layout()
     add_settings_footer(
