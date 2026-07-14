@@ -99,7 +99,17 @@ def sweep_m(H, rho0, c_ops, reference, n_l):
 
     Stops once RMSE <= SWEEP_STOP_RMSE or M reaches n_l (bundles cannot exceed
     the number of physical operators; grid values are capped and deduplicated).
+
+    SOFT-DIVERGENCE GUARD: bundling concentrates the dissipative weight of all
+    N_L operators into M bundles, so the realized SLB generator is stiffer
+    than the physical one -- increasingly so at small M. Near the RK4
+    stability edge this produces samples that grow exponentially WITHOUT ever
+    becoming non-finite (so the solver's own instability check cannot fire).
+    Such runs are numerically meaningless; the guard detects them by magnitude
+    against the reference scale, records the fact instead of the garbage
+    numbers, and ends the sweep for this dimension.
     """
+    guard = 100.0 * (1.0 + float(np.max(np.abs(reference))))
     rows, seen = [], set()
     for m in M_SWEEP_GRID:
         m_eff = min(m, n_l)
@@ -107,6 +117,14 @@ def sweep_m(H, rho0, c_ops, reference, n_l):
             continue
         seen.add(m_eff)
         samples, dt = slb_estimate(H, rho0, c_ops, m_eff, N_ACC)
+        if (not np.isfinite(samples).all()
+                or float(np.max(np.abs(samples))) > guard):
+            print(f"      M={m_eff:4d}  SOFT DIVERGENCE: samples reach "
+                  f"{float(np.nanmax(np.abs(samples))):.1e} (bundled generator "
+                  f"stiffer than the physical one at small M) -- sweep ends, "
+                  f"no accuracy data at this dimension")
+            rows.append({"M": m_eff, "diverged": True, "cost": dt})
+            break
         rmse, rmse_std = tavg_rmse_jackknife(samples, reference)
         # MSE budget of this estimate (same decomposition as Result 4's error
         # budget): observed MSE of the plotted mean, and the statistical part

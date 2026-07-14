@@ -1,23 +1,9 @@
-R2 ERROR BUDGET + PROBE (v12)
-==============================
-1. run_cost_scaling.py now records the MSE budget (observed MSE, SEM^2)
-   for every swept M, and gains --full-budget SECONDS to push the exact-
-   solver wall out one size when you want it.
-2. plot_cost_scaling.py gains the SHOW_ERROR_BUDGET panel: stacked
-   bias^2 / SEM^2 bars at each M* point, mirroring your Result 4 budget.
-   Old data files plot without the panel (with a printed note).
-3. BENCHMARKS.md: one added passage interpreting the bars.
+EXPORTER FIX (v14.1) - one file
+Fixes the KeyError on diverged sweep rows; summary CSVs also gain the
+mse / sem_sq / diverged columns. Your run and plots succeeded fully -
+only re-run export_csv.py, then commit everything.
 
-Steps (this DOES need a Result 2 re-run to record the budget, ~20-25 min):
-  cd C:\Users\sayak\Downloads\repo-split\qutip-bundling
-  Expand-Archive $env:USERPROFILE\Downloads\r2-error-budget-v12.zip -DestinationPath . -Force
+  Expand-Archive $env:USERPROFILE\Downloads\export-fix-v14-1.zip -DestinationPath . -Force   (from repo ROOT)
   cd benchmarks
-  $env:PYTHONPATH = "..\src"
-  python run_cost_scaling.py
-  python plot_cost_scaling.py
   python export_csv.py
-  git add -A ; git commit -m "R2: MSE-budget panel at M*; --full-budget probe" ; git push
-
-OPTIONAL (answers 'what is the iso curve's true slope' with one more
-measured point - the spin dim-64 exact solve, ~35 extra minutes):
-  python run_cost_scaling.py --system spin_chain --full-budget 2400
+  git add -A ; git commit -m "R2: guarded oscillator data; exporter handles diverged rows" ; git push

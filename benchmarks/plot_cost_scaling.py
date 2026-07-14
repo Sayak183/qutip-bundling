@@ -33,7 +33,7 @@ def derive_iso(points, target):
     for p in points:
         row = (np.nan, np.nan, np.nan, np.nan, np.nan)
         for e in p["m_sweep"] or []:
-            if e["rmse"] is not None and e["rmse"] <= target:
+            if e.get("rmse") is not None and e["rmse"] <= target:
                 mse, sem_sq = e.get("mse"), e.get("sem_sq")
                 if mse is None or sem_sq is None:
                     b2 = s2 = np.nan
@@ -51,7 +51,7 @@ def fixed_m_stats(points, m_rep):
     for p in points:
         hit = next((e for e in p["m_sweep"] or []
                     if e["M"] == min(m_rep, p["n_l"])), None)
-        if hit is None or hit["rmse"] is None:
+        if hit is None or hit.get("rmse") is None:
             rmse.append(np.nan); bias.append(np.nan); sem.append(np.nan)
         else:
             fluct = hit["rmse_std"] * np.sqrt(n_acc)

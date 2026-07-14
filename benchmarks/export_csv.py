@@ -154,7 +154,11 @@ def export_cost_scaling(doc, stem):
 
     fh, w = _writer(CSV_DIR / f"{stem}_summary.csv",
                     ["system", "dim", "n_l", "t_davies_s", "t_full_s",
-                     "t_slb_fixed_s", "M", "rmse", "rmse_std", "sweep_cost_s"])
+                     "t_slb_fixed_s", "M", "rmse", "rmse_std", "sweep_cost_s",
+                     "mse", "sem_sq", "diverged"])
+    def _g(row, key):
+        v = row.get(key)
+        return "" if v is None else f"{v:.6g}"
     for p in doc["points"]:
         base = [system, p["dim"], p["n_l"],
                 "" if p.get("t_davies") is None else f"{p['t_davies']:.6g}",
@@ -162,12 +166,12 @@ def export_cost_scaling(doc, stem):
                 f"{p['t_slb_fixed']:.6g}"]
         if p["m_sweep"]:
             for row in p["m_sweep"]:
-                w.writerow(base + [row["M"], f"{row['rmse']:.6g}",
-                                   "" if row["rmse_std"] is None
-                                   else f"{row['rmse_std']:.6g}",
-                                   f"{row['cost']:.6g}"])
+                w.writerow(base + [row["M"], _g(row, "rmse"),
+                                   _g(row, "rmse_std"), _g(row, "cost"),
+                                   _g(row, "mse"), _g(row, "sem_sq"),
+                                   "yes" if row.get("diverged") else ""])
         else:
-            w.writerow(base + ["", "", "", ""])
+            w.writerow(base + [""] * 7)
     fh.close()
     return 2
 
