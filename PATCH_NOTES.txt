@@ -1,9 +1,36 @@
-EXPORTER FIX (v14.1) - one file
-Fixes the KeyError on diverged sweep rows; summary CSVs also gain the
-mse / sem_sq / diverged columns. Your run and plots succeeded fully -
-only re-run export_csv.py, then commit everything.
+TOGGLE MERGE: ALL PLOT SCRIPTS (v18)
+=======================================
+Three plot files. NO re-run needed -- all replot from your existing data
+in seconds. (The v17 run_cost_scaling.py from the previous zip is still
+what you want for the big session; it is unchanged here.)
 
-  Expand-Archive $env:USERPROFILE\Downloads\export-fix-v14-1.zip -DestinationPath . -Force   (from repo ROOT)
+plot_cost_scaling.py (R2)
+  - iso curve's legend now names its estimate size, like the fixed-M curve
+    ("[N=16 runs]" or "[1 run]"), so nobody compares a 16-run cost against
+    a 1-run cost by accident
+
+plot_frontier.py (R3)  -- FAIRNESS BUG FIXED
+  - it ALWAYS plotted mcsolve as an ensemble. Under PLOT_SINGLE_RMSE that
+    raced SLB's harsh single-run error against mcsolve's favourable
+    averaged error -- rigged AGAINST your own method. Now mcsolve follows
+    the same definition: single-run = one trajectory (Std = SEM*sqrt(ntraj),
+    cost = run/ntraj), labelled "mcsolve (1 trajectory)".
+
+plot_isocost_vs_dim.py (R4)  -- OPTION A
+  - default ESTIMATE_TYPE is now "ensemble" (the like-for-like headline).
+  - Under "single" the switch still works, but the figure PRINTS the
+    asymmetry: mcsolve cannot be measured single-run (one trajectory's
+    error is fixed at S), so it stays at its averaged optimum and the
+    speedups UNDERSTATE SLB. Stated on the figure, so a stray screenshot
+    cannot mislead.
+
+YOUR TEST PASS (each writes a separate suffixed file, defaults are safe):
+  cd C:\Users\sayak\Downloads\repo-split\qutip-bundling
+  Expand-Archive $env:USERPROFILE\Downloads\toggle-merge-v18.zip -DestinationPath . -Force
   cd benchmarks
-  python export_csv.py
-  git add -A ; git commit -m "R2: guarded oscillator data; exporter handles diverged rows" ; git push
+  $env:PYTHONPATH = "..\src"
+  python plot_cost_scaling.py ; python plot_frontier.py ; python plot_isocost_vs_dim.py ; python plot_accuracy_vs_M.py
+  # then flip the switches (ESTIMATE_TYPE / PLOT_SINGLE_RMSE / USE_SINGLE_RUN_RMSE)
+  # and run the same four again -> the "_single" files appear alongside
+
+Big compute session (v17 run script) whenever you are ready.

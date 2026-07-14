@@ -40,8 +40,8 @@ from common import (
 PLOT_RMSE = True
 PLOT_BIAS = True
 PLOT_SEM  = True
-PLOT_STD  = False
-USE_SINGLE_RUN_RMSE = False # If True: RMSE = sqrt(bias^2 + StdDev^2). If False: RMSE = sqrt(bias^2 + SEM^2)
+PLOT_STD  = True
+USE_SINGLE_RUN_RMSE = True # If True: RMSE = sqrt(bias^2 + StdDev^2). If False: RMSE = sqrt(bias^2 + SEM^2)
 # ------------------------------------------------------
 
 def _timing_caption(doc):

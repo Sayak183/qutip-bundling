@@ -69,8 +69,16 @@ def native_full_reference(H, rho0, c_ops):
 M_REP = 8               # representative fixed bundle size (matches other figures)
 N_ACC = 16              # SLB runs averaged to measure accuracy at each size
 M_SWEEP_GRID = [1, 2, 4, 8, 16, 32, 64, 128]  # ascending M grid for the sweep
-SWEEP_STOP_RMSE = 0.01  # stop the sweep once RMSE falls below this floor
-                        # (recorded in meta; must stay <= any plot-side target)
+SWEEP_STOP_RMSE = 0.0025  # stop the sweep once the ENSEMBLE RMSE falls below
+                        # this floor (recorded in meta). It must stay below any
+                        # target the PLOT side may apply -- under EITHER error
+                        # definition. The single-run criterion is the harsher
+                        # one: Std = SEM * sqrt(N_ACC) = 4x SEM at N_ACC=16, so
+                        # a single-run target of 0.02 needs the sweep to reach
+                        # roughly 0.02/4 = 0.005 in ensemble terms. The floor is
+                        # set below that with margin, so one sweep serves both
+                        # definitions and no dimension silently lacks the M
+                        # values a stricter criterion would need.
 RNG_SWEEP = 100         # seed for the N_ACC-run estimates (matches prior runs)
 RNG_TIMING = 0          # seed for the single-realization timing solve
 
@@ -145,8 +153,7 @@ def run(name, build, sizes, full_budget=FULL_TIME_BUDGET,
         native_ref_max=NATIVE_REF_MAX_DIM):
     points, full_feasible, wall_dim = [], True, None
     stiff_dim = None
-    last_mesolve = None        # (dim, H, rho0, c_ops, reference) for validation
-    native_validation = None   # recorded once, when the fallback first fires
+    val_dims, val_devs = [], []   # per-dim native-vs-mesolve validation series
     print(f"[{name}]  sweep floor RMSE = {SWEEP_STOP_RMSE}")
     for s in sizes:
         H, X, psi0 = build(s)
@@ -162,6 +169,7 @@ def run(name, build, sizes, full_budget=FULL_TIME_BUDGET,
 
         # exact reference + its cost (until the feasibility wall)
         reference, t_full, ref_method, t_native = None, np.nan, None, None
+        selfcheck = None
         if full_feasible and dim <= MAX_FULL_DIM:
             try:
                 t0 = time.perf_counter()
@@ -169,7 +177,6 @@ def run(name, build, sizes, full_budget=FULL_TIME_BUDGET,
                 t_full = time.perf_counter() - t0
                 reference = np.real(res.expect[0])
                 ref_method = "mesolve"
-                last_mesolve = (dim, H, rho0, c_ops, reference)
                 if t_full > full_budget:
                     full_feasible, wall_dim = False, dim
             except MemoryError as err:
@@ -180,24 +187,47 @@ def run(name, build, sizes, full_budget=FULL_TIME_BUDGET,
         elif wall_dim is None:
             wall_dim = dim
 
-        # past the mesolve wall: full-dissipator reference via the native RK4
-        # (reference only -- never plotted as the exact method's cost)
-        if reference is None and dim <= native_ref_max:
-            if native_validation is None and last_mesolve is not None:
-                vd, vH, vrho, vc, vref = last_mesolve
-                dev = float(np.max(np.abs(
-                    native_full_reference(vH, vrho, vc) - vref)))
-                native_validation = {"dim": vd, "max_abs_dev": dev,
-                                     "substeps": NATIVE_REF_SUBSTEPS}
-                print(f"      native full-dissipator reference validated vs "
-                      f"mesolve at dim {vd}: max dev {dev:.2e}")
-            t0 = time.perf_counter()
-            reference = native_full_reference(H, rho0, c_ops)
-            t_native = time.perf_counter() - t0
-            ref_method = f"native_rk4_substeps{NATIVE_REF_SUBSTEPS}"
-            print(f"  dim={dim:4d}  reference via native full dissipator "
-                  f"({n_l} operators, {NATIVE_REF_SUBSTEPS} substeps): "
-                  f"{t_native:.3g}s")
+        # native full-dissipator exact solve, timed at EVERY dimension up to
+        # native_ref_max. One solve, three roles: (a) its own cost curve --
+        # the leanest exact route, same equation, no superoperators; (b)
+        # wherever mesolve also ran, the two exact routes are compared (a
+        # per-dimension validation series); (c) past the mesolve wall it IS
+        # the accuracy reference (with a substep-halving self-check there,
+        # since mesolve is no longer available to compare against).
+        if dim <= native_ref_max:
+            try:
+                t0 = time.perf_counter()
+                nat = native_full_reference(H, rho0, c_ops)
+                t_native = time.perf_counter() - t0
+                if reference is not None:
+                    dev = float(np.max(np.abs(nat - reference)))
+                    val_dims.append(dim); val_devs.append(dev)
+                    print(f"  dim={dim:4d}  native full solve "
+                          f"({NATIVE_REF_SUBSTEPS} substeps): {t_native:.3g}s"
+                          f"  -- agrees with mesolve to {dev:.2e}")
+                else:
+                    reference = nat
+                    ref_method = f"native_rk4_substeps{NATIVE_REF_SUBSTEPS}"
+                    print(f"  dim={dim:4d}  reference via native full "
+                          f"dissipator ({n_l} operators, "
+                          f"{NATIVE_REF_SUBSTEPS} substeps): {t_native:.3g}s")
+                    res_lo = rk4_mesolve(H, rho0, TLIST, c_ops=c_ops,
+                                         e_ops=[H],
+                                         substeps=NATIVE_REF_SUBSTEPS // 2)
+                    dev = float(np.max(np.abs(np.real(res_lo.expect[0])
+                                              - reference)))
+                    selfcheck = {"substeps_pair": [NATIVE_REF_SUBSTEPS // 2,
+                                                   NATIVE_REF_SUBSTEPS],
+                                 "max_abs_dev": dev}
+                    print(f"      reference self-check "
+                          f"({NATIVE_REF_SUBSTEPS//2} vs "
+                          f"{NATIVE_REF_SUBSTEPS} substeps): max dev "
+                          f"{dev:.2e}")
+            except SolverInstabilityError as err:
+                print(f"  dim={dim:4d}  native full dissipator UNSTABLE at "
+                      f"{NATIVE_REF_SUBSTEPS} substeps -- no native point "
+                      f"here. {err}")
+                t_native = None
 
         # fixed-M per-solve cost: one realization. A fixed-step RK4 curve is
         # only meaningful at UNIFORM substeps: if the generator becomes too
@@ -233,19 +263,21 @@ def run(name, build, sizes, full_budget=FULL_TIME_BUDGET,
             "size": s, "dim": dim, "n_l": n_l, "t_davies": t_davies,
             "t_full": t_full, "t_slb_fixed": t_slb_fixed,
             "reference": reference, "reference_method": ref_method,
-            "t_native_ref": t_native,
+            "t_native_ref": t_native, "native_ref_selfcheck": selfcheck,
             "m_sweep": m_sweep,
         })
 
     meta = run_metadata(
         system=name, sizes=sizes, M_REP=M_REP, N_ACC=N_ACC,
-        full_budget_used=full_budget,
+        full_budget_used=full_budget, NATIVE_REF_SUBSTEPS=NATIVE_REF_SUBSTEPS,
         M_SWEEP_GRID=M_SWEEP_GRID, SWEEP_STOP_RMSE=SWEEP_STOP_RMSE,
         rng_sweep=RNG_SWEEP, rng_timing=RNG_TIMING,
     )
+    validation = ({"dims": val_dims, "max_devs": val_devs,
+                   "substeps": NATIVE_REF_SUBSTEPS} if val_dims else None)
     save_data(f"cost_scaling_{name}.json", meta,
               wall_dim=wall_dim, stiff_dim=stiff_dim,
-              native_ref_validation=native_validation, points=points)
+              native_vs_mesolve=validation, points=points)
 
 
 def main():
