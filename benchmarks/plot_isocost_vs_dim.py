@@ -150,9 +150,9 @@ def figure(name, out, target, substeps, n_runs_list, est_type):
     for n in n_runs_list:
         c = greens.get(n, "tab:green")
         if est_type == "single":
-            lbl = f"SLB 1-run (stats from N={n})"
+            lbl = f"SLB 1-run (stats from $N_r$={n})"
         else:
-            lbl = f"SLB Ensemble (N={n} runs)"
+            lbl = f"SLB Ensemble ($N_r$={n} runs)"
             
         ax_main.loglog(d, out["slb"][n]["cost"], "s-", color=c, lw=2, ms=7, label=lbl)
 

@@ -1,38 +1,36 @@
-SELF-CHECK ENFORCEMENT + M* LADDER (v19)
-==========================================
-Two files. Your dim-128 run was a success -- keep its data. This patch
-fixes what that run EXPOSED:
+PROSE PASS + N-RENAME (v20)
+=============================
+Four files. NO re-run needed -- the three plot scripts only changed legend
+LABELS, so just re-plot.
 
-1. run_cost_scaling.py: a failing reference self-check now REJECTS the
-   reference. At oscillator dim 64 your log shows "self-check: max dev
-   1.85e+92" -- the half-substep reference diverged, proving the step size
-   is marginal there, so the 8-substep reference cannot be certified. It
-   was kept and used anyway (my omission). Now: rejected, that dimension
-   gets no accuracy data, run continues. (Nothing downstream was corrupted:
-   no M reached the target at oscillator dim 64 anyway.)
+BENCHMARKS.md (built from the copy you uploaded, so your edits are kept):
+ 1. Result 2's cost-curve paragraph rewritten: real fitted slopes, and the
+    native full-dissipator curve introduced explicitly AS A CONTROL -- its
+    purpose is to supply the accuracy reference past the mesolve wall, with
+    the agreement and the self-check rejection stated. Its better scaling is
+    noted but explicitly NOT claimed as a contribution; mesolve stays the
+    neutral standard.
+ 2. Result 1 gains a paragraph explaining why the oscillator's traces look
+    featureless: even M=2 tracks a trajectory spanning <H> = 13 -> 4 to ~1e-2,
+    so there is nothing visible to plot. That IS the result, and it is the
+    same fact Results 2 and 4 quantify (M*=1; 10^3-10^4x speedups). Without
+    this, a reader thinks the figure is broken.
+ 3. Result 3 gains the structural-asymmetry paragraph: raising M makes a
+    SINGLE SLB run more accurate; raising ntraj does nothing for any one
+    trajectory, it only averages. mcsolve's single-trajectory error is a fixed
+    number. Hence both figures compare ensembles -- but the asymmetry is a
+    property of SLB worth stating.
+ 4. N-OVERLOAD FIXED: the run count is now N_r everywhere (doc + all three
+    plot legends + the S/sqrt(N_r) formulas). N is reserved for the Hilbert
+    dimension -- previously the R4 x-axis said "dimension N" while its legend
+    said "N=16 runs".
 
-2. BENCHMARKS.md: your dim-128 result corrected the story. M* does NOT
-   saturate -- the measured ladder is 1->8->16->32->32->64, i.e. roughly
-   M* ~ sqrt(N). Still sublinear, still the reason the iso slope stays
-   ~N^2.6 instead of N^4. The doc now states the measured ladder and the
-   reference-rejection rule.
-
-ALSO: your plot_cost_scaling.py is still on ESTIMATE_TYPE="single" from the
-test pass, so your DEFAULT (ensemble) R2 figures are stale. Flip it back to
-"ensemble" and re-plot before committing.
-
-Steps (no re-run of the big job needed):
+Steps:
   cd C:\Users\sayak\Downloads\repo-split\qutip-bundling
-  Expand-Archive $env:USERPROFILE\Downloads\selfcheck-enforce-v19.zip -DestinationPath . -Force
+  Expand-Archive $env:USERPROFILE\Downloads\prose-and-rename-v20.zip -DestinationPath . -Force
   cd benchmarks
-  # set ESTIMATE_TYPE = "ensemble" in plot_cost_scaling.py
   $env:PYTHONPATH = "..\src"
-  python plot_cost_scaling.py
-  python export_csv.py
+  python plot_cost_scaling.py ; python plot_frontier.py ; python plot_isocost_vs_dim.py
   git add -A
-  git commit -m "R2: dim-128 spin data; reference self-check now rejects uncertifiable refs; M* ladder documented"
+  git commit -m "docs: native curve as control; oscillator-too-easy note; R3 asymmetry; N_r rename"
   git push
-
-OPTIONAL, when convenient (~25 min): re-run ONLY the oscillator so its data
-file carries the rejection rather than the uncertifiable reference:
-  python run_cost_scaling.py --system oscillator_bath

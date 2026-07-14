@@ -313,7 +313,7 @@ job:
 - **Comparing two methods head-to-head** — the SLB-vs-`mcsolve` frontier
   (Result 3) — uses the **time-averaged RMSE**: at each time it combines the
   systematic bias $|\langle H\rangle_{\rm SLB}-\langle H\rangle_{\rm ref}|$
-  with the statistical error $S/\sqrt{N}$ as $\sqrt{\text{bias}^2+\text{SEM}^2}$,
+  with the statistical error $S/\sqrt{N_r}$ as $\sqrt{\text{bias}^2+\text{SEM}^2}$,
   then averages over the trajectory. This is the fair choice for a head-to-head:
   it counts *both* error components — a bias-only or single-time number would
   ignore `mcsolve`'s large trajectory variance — and time-averaging avoids both a
@@ -359,7 +359,7 @@ density-matrix solves of $M$ operators each — a total of $M\times$
 |---|---|---|---|
 | accuracy (Result 1) | system-dependent | 32 | $\pm1$ std band |
 | cost scaling (Result 2) | 8 (iso-accuracy sweeps `M`) | 1 (cost) / 16 (RMSE) | — |
-| frontier (Result 3) | 1, 2, 4, 8, 16, 32 | 8 / 16 / 32 | $S/\sqrt{N}$ |
+| frontier (Result 3) | 1, 2, 4, 8, 16, 32 | 8 / 16 / 32 | $S/\sqrt{N_r}$ |
 | iso-cost vs dim (Result 4) | swept to target ($\le 128$) | 4 / 8 / 16 | mcsolve via $S/\sqrt{\texttt{ntraj}}$ fit |
 
 **`mcsolve` has one level of sampling:** a single reported point is `ntraj`
@@ -474,6 +474,16 @@ reproduces the full density matrix, not merely its diagonal.
 ![spin chain coherence](benchmark_coherence_spin_chain.png)
 ![oscillator coherence](benchmark_coherence_oscillator_bath.png)
 
+**Why the oscillator's traces look featureless.** On the oscillator the SLB
+curves sit on top of the reference at every $M$, with bands too narrow to see —
+the figure appears to show nothing. That *is* the result: even $M=2$ tracks a
+trajectory spanning $\langle H\rangle\approx13\to4$ to within $\sim\!10^{-2}$,
+so there is no visible discrepancy to plot. It is the same fact that Results 2
+and 4 report quantitatively ($M^\ast=1$ suffices at every size; the speedup over
+`mcsolve` reaches three to four orders of magnitude): this system's dense,
+stiff dissipator is exactly the structure bundling exploits. The error
+decomposition below is where the oscillator's behaviour becomes legible.
+
 **The anatomy of the error at its worst moment.** The time traces above show
 *that* the estimate converges; this figure shows *how*. For each observable,
 $t^\ast$ is the instant where the smallest-$M$ estimate's RMSE$(t)$ peaks — the
@@ -511,13 +521,28 @@ SLB solve at each size, so the speed claim is qualified by the error it holds.
 The dashed vertical line marks where one full `mesolve` exceeds the time budget —
 past it the exact solver is impractical.
 
-**Four cost curves (top).** The exact full-dissipator `mesolve` evolves the
-density matrix with all $N_L$ collapse operators, an operation count that grows
-like $O(N^5)$ (the legend reports the fitted large-$N$ slope). SLB at a *fixed*
-bundle size ($M=8$) only ever propagates $M$ operators, so one solve is cheap;
+**The cost curves (top).** The exact full-dissipator `mesolve` evolves the
+density matrix with all $N_L$ collapse operators; its fitted slope is the
+steepest on the plot ($N^{4.9}$ on the chain, $N^{6.4}$ on the oscillator), and
+past dim 32 it cannot run here at all — its superoperator construction exhausts
+even 32 GB. SLB at a *fixed* bundle size ($M=8$) only ever propagates $M$
+operators, so one solve is cheap ($N^{2.0}$);
 the SLB and construction curves need no exact reference, so they extend well
 past the wall, far enough for the fitted slope to reach the true scaling regime
-(small sizes are overhead-dominated and read misleadingly flat). The
+(small sizes are overhead-dominated and read misleadingly flat).
+
+**A second exact route, as a control.** The dash-dot curve is the same Lindblad
+equation propagated by the package's own fixed-step RK4 with *all* $N_L$
+operators — no bundling, no stochastic sampling, and no superoperators, so
+memory stays proportional to the operator list rather than exploding. It is here
+for one methodological purpose: **to supply the accuracy reference past the
+point where `mesolve` can no longer provide one.** Wherever both routes run they
+agree to $10^{-10}$–$10^{-8}$ (stated in the figure footer, recorded per
+dimension in the data), and where the native route is used alone it is re-run at
+half its substeps and rejected if halving moves the answer appreciably. That it
+also scales better than `mesolve` ($N^{3.3}$ / $N^{3.8}$) is worth noting but is
+not a claim of this work: `mesolve` remains the neutral, widely-used standard
+against which the cost argument is made. The
 oscillator's curve ends earlier than the chain's for a physical reason: its
 anharmonic ladder's frequencies grow like $n^2$, and past dim 64 the
 fixed-step RK4 at the disclosed substep count is no longer stable. The
@@ -616,17 +641,28 @@ raises `SolverInstabilityError` instead of silently returning a corrupted result
 Each curve sweeps its own knob (`M` for SLB, `ntraj` for `mcsolve`); the axes
 are wall-clock time and the **time-averaged RMSE** in $\langle H(t)\rangle$
 (§3.1, both lower-is-better), so the method toward the **lower-left wins at
-matched accuracy**. Error bars are each method's own sample spread $S/\sqrt{N}$ —
+matched accuracy**. Error bars are each method's own sample spread $S/\sqrt{N_r}$ —
 SLB over its independent runs, `mcsolve` over its trajectories. The three SLB
-curves are increasing run counts ($N=8, 16, 32$); more runs lower the
-statistical floor, but SLB is **bias-limited** here, so $N=16$ already sits
+curves are increasing run counts ($N_r=8, 16, 32$; $N_r$ is reserved for the
+number of runs throughout, since $N$ denotes the Hilbert-space dimension);
+more runs lower the
+statistical floor, but SLB is **bias-limited** here, so $N_r=16$ already sits
 essentially on the frontier. Both methods run at disclosed integration
 resolution (§3.3) and share the same grid and reference.
 
+**A structural asymmetry between the two knobs.** SLB's knob and `mcsolve`'s are
+not the same kind of thing. Increasing $M$ makes a *single* SLB run more
+accurate — it resolves more of the dissipator — whereas increasing `ntraj` does
+nothing for any one trajectory; it only averages more of them. `mcsolve`'s
+single-trajectory error is a fixed number, independent of the knob. Both figures
+here therefore compare the methods as *ensembles*, which is the only common
+ground; but the asymmetry is itself a property worth stating, since it means SLB
+alone can be run once, cheaply, and still be tuned toward the answer.
+
 **What one error bar means — and why serial timing is fair.** Each plotted
-point is a *single* estimate: for SLB the average of its $N$ runs, for
+point is a *single* estimate: for SLB the average of its $N_r$ runs, for
 `mcsolve` the average of its `ntraj` trajectories. The error bar is that one
-estimate's own statistical uncertainty — $S/\sqrt{N}$ from its own sample
+estimate's own statistical uncertainty — $S/\sqrt{N_r}$ from its own sample
 spread — not the spread over many repeated experiments; a repeat of the whole
 estimate would land within about one bar of the point shown, and the
 seed-robustness check (§6) verifies exactly that. The cost axis is serial
@@ -669,7 +705,7 @@ $\sim\!2\times$ and $\sim\!17\times$ across dimensions and averaging levels
 32, but SLB's own $M^\ast$ climbs $1\to8\to16\to32$ as the fixed-$M$ bias
 grows, eating part of the win). The fair headline is best-against-best:
 `mcsolve` is already shown at its optimal `ntraj`, and SLB at *its* optimal
-operating point — the cheapest adequate level, $N=4$ — beats it by
+operating point — the cheapest adequate level, $N_r=4$ — beats it by
 $3\text{--}17\times$ on the chain; the slower levels are shown to prove the
 win is configuration-robust, not tuned. On the oscillator the effect is
 dramatic and
@@ -681,7 +717,7 @@ stiff, operator-heavy regime — dense Davies spectra, exploding per-trajectory
 variance — is exactly the problem class bundling was built for; the chain
 shows the method costs nothing where that structure is absent.
 
-**SLB is shown at three averaging levels** ($N=4, 8, 16$ runs), each re-optimizing
+**SLB is shown at three averaging levels** ($N_r=4, 8, 16$ runs), each re-optimizing
 `M` for the target: for each level, $M^\ast$ is the smallest bundle size on the
 grid $1, 2, 4, \ldots, 128$ whose $N$-run time-averaged RMSE first reaches $0.02$. A less obvious point falls out: *fewer* runs are often
 *cheaper*, because with fewer runs you compensate with a larger `M`, and a few

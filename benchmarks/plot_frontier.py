@@ -93,21 +93,21 @@ def figure(name, doc):
             
         if PLOT_ENSEMBLE_RMSE:
             ax.errorbar(stats["cost_ens"], stats["rmse_ens"], yerr=err_vals,
-                        fmt="s-", color=colors[i], lw=2, label=f"SLB Ens (N={n})")
+                        fmt="s-", color=colors[i], lw=2, label=f"SLB Ens ($N_r$={n})")
         
         if PLOT_SINGLE_RMSE:
             ax.errorbar(stats["cost_single"], stats["rmse_single"], yerr=err_vals,
-                        fmt="X-", color=colors[i], lw=2, label=f"SLB 1-run (stats from N={n})")
+                        fmt="X-", color=colors[i], lw=2, label=f"SLB 1-run (stats from $N_r$={n})")
             
         if PLOT_BIAS:
             x_vals = stats["cost_ens"] if PLOT_ENSEMBLE_RMSE else stats["cost_single"]
-            ax.plot(x_vals, stats["bias"], "o:", color=colors[i], alpha=0.5, label=f"Bias (N={n})")
+            ax.plot(x_vals, stats["bias"], "o:", color=colors[i], alpha=0.5, label=f"Bias ($N_r$={n})")
         if PLOT_SEM:
             x_vals = stats["cost_ens"] if PLOT_ENSEMBLE_RMSE else stats["cost_single"]
-            ax.plot(x_vals, stats["sem"], "v:", color=colors[i], alpha=0.5, label=f"SEM (N={n})")
+            ax.plot(x_vals, stats["sem"], "v:", color=colors[i], alpha=0.5, label=f"SEM ($N_r$={n})")
         if PLOT_STD:
             x_vals = stats["cost_ens"] if PLOT_ENSEMBLE_RMSE else stats["cost_single"]
-            ax.plot(x_vals, stats["std"], "d:", color=colors[i], alpha=0.5, label=f"Std Dev (N={n})")
+            ax.plot(x_vals, stats["std"], "d:", color=colors[i], alpha=0.5, label=f"Std Dev ($N_r$={n})")
 
     # Label M values on the darkest (highest N) curve
     y_label_vals = None

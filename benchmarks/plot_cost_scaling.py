@@ -172,7 +172,7 @@ def figure(name, doc, target, est_type, err_type):
                            lw=1.4, alpha=0.45,
                            label=rf"full mesolve, extrapolated $\propto N^{{{s_full:.1f}}}$")
                       
-    slb_lbl = "1 run" if est_type == "single" else f"N={n_acc} runs"
+    slb_lbl = "1 run" if est_type == "single" else f"$N_r$={n_acc} runs"
     if SHOW_NATIVE_CURVE:
         # Second EXACT route: the same Lindblad equation propagated by the
         # package's native fixed-step RK4 with ALL N_L operators (no
