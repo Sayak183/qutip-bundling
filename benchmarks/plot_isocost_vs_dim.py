@@ -34,7 +34,7 @@ TARGET_RMSE = 0.02       # accuracy target
 #                competitor and the resulting speedups UNDERSTATE it. The figure
 #                says so on its face. Useful for exploring, conservative to
 #                quote.
-ESTIMATE_TYPE = "single" # Options: "ensemble" or "single"
+ESTIMATE_TYPE = "ensemble" # Options: "ensemble" or "single"
 NTRAJ_EXTRAP_MAX = 20000 # Beyond this, mcsolve is considered impractical
 
 # Define specific sampling levels to plot for each system

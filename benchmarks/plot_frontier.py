@@ -25,8 +25,8 @@ N_RUNS_SWEEP = {
     "oscillator_bath": [16, 32]   
 }
 
-PLOT_ENSEMBLE_RMSE = False
-PLOT_SINGLE_RMSE   = True
+PLOT_ENSEMBLE_RMSE = True
+PLOT_SINGLE_RMSE   = False
 PLOT_BIAS = False
 PLOT_SEM  = False
 PLOT_STD  = False

@@ -41,7 +41,7 @@ PLOT_RMSE = True
 PLOT_BIAS = True
 PLOT_SEM  = True
 PLOT_STD  = True
-USE_SINGLE_RUN_RMSE = True # If True: RMSE = sqrt(bias^2 + StdDev^2). If False: RMSE = sqrt(bias^2 + SEM^2)
+USE_SINGLE_RUN_RMSE = False # If True: RMSE = sqrt(bias^2 + StdDev^2). If False: RMSE = sqrt(bias^2 + SEM^2)
 # ------------------------------------------------------
 
 def _timing_caption(doc):
@@ -81,9 +81,8 @@ def accuracy_figure(plt, name, doc, tlist, reference, curves,
     # ---------------------------------------------------------
     M_TO_PLOT = {
         "spin_chain": [2, 4, 8, 16],
-        "oscillator_bath": [2, 4]
+        "oscillator_bath": [2, 8, 32, 64]
     }
-
     system_m_list = M_TO_PLOT.get(name)
 
     fig, ax = plt.subplots(1, 1, figsize=(6.6, 4.5))
@@ -111,7 +110,7 @@ def accuracy_figure(plt, name, doc, tlist, reference, curves,
     fig.tight_layout()
     
     # Update footer to accurately reflect only the M values currently plotted
-    plotted_m = sorted(curves) if M_TO_PLOT is None else sorted([m for m in curves if m in M_TO_PLOT])
+    plotted_m = sorted(curves) if not system_m_list else sorted(m for m in curves if m in system_m_list)
     
     add_settings_footer(
         fig,
