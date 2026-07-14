@@ -532,7 +532,13 @@ cliff this produces samples that grow exponentially without ever becoming
 non-finite — numerically meaningless yet invisible to a finiteness check.
 The sweep detects this soft divergence by magnitude against the reference
 scale, records it (`diverged` rows in the data), and ends the accuracy curve
-honestly at the last stable size. Two costs that
+honestly at the last stable size. The *reference* is held to the same
+standard: at every dimension where it is produced by the native route, it is
+recomputed at half the substeps, and if halving changes the answer at all
+appreciably (tolerance $10^{-4}$) the step size is marginal there — the
+reference is then **rejected** and that dimension carries no accuracy data,
+rather than a number nobody can certify. On the oscillator at dim 64 this
+check fires, which is precisely why its accuracy curve stops where it does. Two costs that
 must not be blurred are shown separately: the dotted curve is the one-time
 **Davies construction** of the $N_L$ operators (an eigendecomposition plus $N_L$
 operator assemblies) — cheap in absolute terms here, but scaling with its own
@@ -577,9 +583,11 @@ slope: measured against it, SLB's fixed-$M$ point at the largest
 dimension shown is cheaper by four to five orders of magnitude (chain, dim
 256: an extrapolated $\sim\!3$ weeks versus a measured minute) — this, not
 the sub-wall region where both methods are cheap, is the figure's claim. The required
-$M^\ast$ grows with $N$ but *sublinearly*, and appears to saturate: the
-chain's ladder runs $1\to8\to16\to32\to32$, with the dim-64 point (reached
-via the native reference) needing no more bundles than dim 32, so this curve is steeper than fixed-$M$:
+$M^\ast$ grows with $N$ but *sublinearly*: measured on the chain across six
+dimensions (4 to 128, the last two reached via the native reference), the
+ladder runs $1\to8\to16\to32\to32\to64$ — close to $M^\ast\sim\sqrt{N}$, and
+far short of the $M^\ast\propto N$ that would cost SLB a full power of $N$.
+This is what keeps the iso-accuracy slope near $N^{2.6}$ rather than $N^4$, so this curve is steeper than fixed-$M$:
 holding accuracy costs about one extra power of $N$. But it still sits far below
 the exact solver, so SLB's advantage survives the honest accounting. It is
 computable only up to the reference wall, since tuning $M^\ast$ needs the exact

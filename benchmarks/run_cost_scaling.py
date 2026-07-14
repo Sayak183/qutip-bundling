@@ -58,6 +58,17 @@ NATIVE_REF_MAX_DIM = 64   # past the mesolve wall, obtain the exact reference
                           # honest qutip-mesolve. Cross-validated against
                           # mesolve at the last size where both exist.
 NATIVE_REF_SUBSTEPS = 2 * SUBSTEPS   # reference-grade integration margin
+NATIVE_REF_SELFCHECK_TOL = 1e-4      # a reference is only usable if HALVING its
+                                     # substeps barely changes it. Where the
+                                     # generator is near the RK4 stability edge
+                                     # (the oscillator at large n_fock), the
+                                     # half-resolution run diverges outright and
+                                     # the deviation explodes -- proof that the
+                                     # step size is marginal there and the
+                                     # reference itself cannot be certified. Such
+                                     # a reference is REJECTED (that dimension
+                                     # gets no accuracy data) rather than
+                                     # silently trusted.
 
 
 def native_full_reference(H, rho0, c_ops):
@@ -216,18 +227,31 @@ def run(name, build, sizes, full_budget=FULL_TIME_BUDGET,
                                          substeps=NATIVE_REF_SUBSTEPS // 2)
                     dev = float(np.max(np.abs(np.real(res_lo.expect[0])
                                               - reference)))
+                    ok = np.isfinite(dev) and dev <= NATIVE_REF_SELFCHECK_TOL
                     selfcheck = {"substeps_pair": [NATIVE_REF_SUBSTEPS // 2,
                                                    NATIVE_REF_SUBSTEPS],
-                                 "max_abs_dev": dev}
+                                 "max_abs_dev": dev,
+                                 "tol": NATIVE_REF_SELFCHECK_TOL,
+                                 "passed": bool(ok)}
                     print(f"      reference self-check "
                           f"({NATIVE_REF_SUBSTEPS//2} vs "
                           f"{NATIVE_REF_SUBSTEPS} substeps): max dev "
-                          f"{dev:.2e}")
+                          f"{dev:.2e}  [{'OK' if ok else 'FAILED'}]")
+                    if not ok:
+                        print(f"      REFERENCE REJECTED at dim {dim}: halving "
+                              f"the substeps changes the answer by {dev:.1e} "
+                              f"(tol {NATIVE_REF_SELFCHECK_TOL:g}) -- the step "
+                              f"size is marginal here, so this reference cannot "
+                              f"be certified. No accuracy data at this "
+                              f"dimension.")
+                        reference, ref_method = None, None
             except SolverInstabilityError as err:
                 print(f"  dim={dim:4d}  native full dissipator UNSTABLE at "
                       f"{NATIVE_REF_SUBSTEPS} substeps -- no native point "
                       f"here. {err}")
                 t_native = None
+                if ref_method is None:
+                    reference = None
 
         # fixed-M per-solve cost: one realization. A fixed-step RK4 curve is
         # only meaningful at UNIFORM substeps: if the generator becomes too

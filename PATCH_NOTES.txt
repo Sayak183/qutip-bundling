@@ -1,36 +1,38 @@
-TOGGLE MERGE: ALL PLOT SCRIPTS (v18)
-=======================================
-Three plot files. NO re-run needed -- all replot from your existing data
-in seconds. (The v17 run_cost_scaling.py from the previous zip is still
-what you want for the big session; it is unchanged here.)
+SELF-CHECK ENFORCEMENT + M* LADDER (v19)
+==========================================
+Two files. Your dim-128 run was a success -- keep its data. This patch
+fixes what that run EXPOSED:
 
-plot_cost_scaling.py (R2)
-  - iso curve's legend now names its estimate size, like the fixed-M curve
-    ("[N=16 runs]" or "[1 run]"), so nobody compares a 16-run cost against
-    a 1-run cost by accident
+1. run_cost_scaling.py: a failing reference self-check now REJECTS the
+   reference. At oscillator dim 64 your log shows "self-check: max dev
+   1.85e+92" -- the half-substep reference diverged, proving the step size
+   is marginal there, so the 8-substep reference cannot be certified. It
+   was kept and used anyway (my omission). Now: rejected, that dimension
+   gets no accuracy data, run continues. (Nothing downstream was corrupted:
+   no M reached the target at oscillator dim 64 anyway.)
 
-plot_frontier.py (R3)  -- FAIRNESS BUG FIXED
-  - it ALWAYS plotted mcsolve as an ensemble. Under PLOT_SINGLE_RMSE that
-    raced SLB's harsh single-run error against mcsolve's favourable
-    averaged error -- rigged AGAINST your own method. Now mcsolve follows
-    the same definition: single-run = one trajectory (Std = SEM*sqrt(ntraj),
-    cost = run/ntraj), labelled "mcsolve (1 trajectory)".
+2. BENCHMARKS.md: your dim-128 result corrected the story. M* does NOT
+   saturate -- the measured ladder is 1->8->16->32->32->64, i.e. roughly
+   M* ~ sqrt(N). Still sublinear, still the reason the iso slope stays
+   ~N^2.6 instead of N^4. The doc now states the measured ladder and the
+   reference-rejection rule.
 
-plot_isocost_vs_dim.py (R4)  -- OPTION A
-  - default ESTIMATE_TYPE is now "ensemble" (the like-for-like headline).
-  - Under "single" the switch still works, but the figure PRINTS the
-    asymmetry: mcsolve cannot be measured single-run (one trajectory's
-    error is fixed at S), so it stays at its averaged optimum and the
-    speedups UNDERSTATE SLB. Stated on the figure, so a stray screenshot
-    cannot mislead.
+ALSO: your plot_cost_scaling.py is still on ESTIMATE_TYPE="single" from the
+test pass, so your DEFAULT (ensemble) R2 figures are stale. Flip it back to
+"ensemble" and re-plot before committing.
 
-YOUR TEST PASS (each writes a separate suffixed file, defaults are safe):
+Steps (no re-run of the big job needed):
   cd C:\Users\sayak\Downloads\repo-split\qutip-bundling
-  Expand-Archive $env:USERPROFILE\Downloads\toggle-merge-v18.zip -DestinationPath . -Force
+  Expand-Archive $env:USERPROFILE\Downloads\selfcheck-enforce-v19.zip -DestinationPath . -Force
   cd benchmarks
+  # set ESTIMATE_TYPE = "ensemble" in plot_cost_scaling.py
   $env:PYTHONPATH = "..\src"
-  python plot_cost_scaling.py ; python plot_frontier.py ; python plot_isocost_vs_dim.py ; python plot_accuracy_vs_M.py
-  # then flip the switches (ESTIMATE_TYPE / PLOT_SINGLE_RMSE / USE_SINGLE_RUN_RMSE)
-  # and run the same four again -> the "_single" files appear alongside
+  python plot_cost_scaling.py
+  python export_csv.py
+  git add -A
+  git commit -m "R2: dim-128 spin data; reference self-check now rejects uncertifiable refs; M* ladder documented"
+  git push
 
-Big compute session (v17 run script) whenever you are ready.
+OPTIONAL, when convenient (~25 min): re-run ONLY the oscillator so its data
+file carries the rejection rather than the uncertifiable reference:
+  python run_cost_scaling.py --system oscillator_bath
