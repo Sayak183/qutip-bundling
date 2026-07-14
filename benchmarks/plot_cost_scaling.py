@@ -18,20 +18,28 @@ from common import (
 # --- CONFIGURATION (TARGET ACCURACY SWITCH) ---
 # Published default 0.02; override per-figure with --target for exploration.
 TARGET_RMSE = 0.02
+SHOW_ERROR_BUDGET = True   # stacked bias^2/SEM^2 bars under the cost panel,
+                           # for the M* points (mirrors Result 4's budget);
+                           # answers "is the iso slope physics or noise?"
 # ----------------------------------------------
 
 def derive_iso(points, target):
-    """(m_star, iso_cost, achieved_rmse, achieved_bias, achieved_sem)."""
+    """(m_star, iso_cost, achieved_rmse, bias_sq, sem_sq).
+
+    bias^2/SEM^2 come from the run's stored MSE budget (same decomposition as
+    Result 4: implied bias^2 = observed MSE - SEM^2); NaN for data files from
+    before the budget was recorded."""
     out = []
     for p in points:
         row = (np.nan, np.nan, np.nan, np.nan, np.nan)
         for e in p["m_sweep"] or []:
             if e["rmse"] is not None and e["rmse"] <= target:
-                n_acc = 16 
-                fluct = e["rmse_std"] * np.sqrt(n_acc)
-                sem = fluct / np.sqrt(n_acc)
-                bias = np.sqrt(max(0, e["rmse"]**2 - sem**2))
-                row = (e["M"], e["cost"], e["rmse"], bias, sem)
+                mse, sem_sq = e.get("mse"), e.get("sem_sq")
+                if mse is None or sem_sq is None:
+                    b2 = s2 = np.nan
+                else:
+                    b2, s2 = max(0.0, mse - sem_sq), sem_sq
+                row = (e["M"], e["cost"], e["rmse"], b2, s2)
                 break
         out.append(row)
     return [np.array(v, dtype=float) for v in zip(*out)]
@@ -76,10 +84,16 @@ def figure(name, doc, target):
     t_slb = as_array([p["t_slb_fixed"] for p in points])
     t_dav = as_array([p.get("t_davies") for p in points])
     
-    mstar, iso_cost, iso_rmse, iso_bias, iso_sem = derive_iso(points, target)
-    fix_rmse, fix_bias, fix_sem = fixed_m_stats(points, m_rep)
-
-    fig, ax = plt.subplots(figsize=(8.5, 5.6))
+    mstar, iso_cost, iso_rmse, iso_b2, iso_s2 = derive_iso(points, target)
+    budget_ok = SHOW_ERROR_BUDGET and np.isfinite(iso_b2).any()
+    if SHOW_ERROR_BUDGET and not budget_ok:
+        print("  note: no MSE budget in this data file (older run) - "
+              "re-run run_cost_scaling.py to enable the budget panel")
+    if budget_ok:
+        fig, (ax, ax_bar) = plt.subplots(
+            2, 1, figsize=(8.5, 7.4), gridspec_kw={"height_ratios": [3, 1]})
+    else:
+        fig, ax = plt.subplots(figsize=(8.5, 5.6))
 
     # ---- Cost Scaling (single panel) ----
     ff = np.isfinite(t_full)
@@ -118,14 +132,45 @@ def figure(name, doc, target):
     ax.set_title(f"{name}: cost scaling with M* annotations")
     ax.legend(fontsize=8); ax.grid(True, which="both", alpha=0.3)
 
+    if budget_ok:
+        # MSE budget at each M* point, mirroring Result 4's error budget:
+        # bias-dominated bars mean the iso slope is the bundling physics
+        # (M* must grow to cut bias); noise-dominated bars would mean more
+        # sampling could lower it. Fractions of the observed MSE.
+        jj = np.isfinite(iso_b2)
+        tot = iso_b2[jj] + iso_s2[jj]
+        xpos = np.arange(jj.sum())
+        ax_bar.bar(xpos, iso_b2[jj] / tot, 0.55, color="tab:blue",
+                   edgecolor="black", label=r"systematic bias$^2$")
+        ax_bar.bar(xpos, iso_s2[jj] / tot, 0.55, bottom=iso_b2[jj] / tot,
+                   color="lightsteelblue", edgecolor="black",
+                   label=r"statistical noise (SEM$^2$)")
+        ax_bar.set_xticks(xpos)
+        ax_bar.set_xticklabels([f"{int(d)}\n" + rf"$M^*$={int(m)}"
+                                for d, m in zip(dims[jj], mstar[jj])],
+                               fontsize=8)
+        ax_bar.set_ylim(0, 1.12)
+        ax_bar.set_ylabel("MSE share")
+        ax_bar.set_title(r"MSE budget at $M^*$ (bias vs. statistical noise)",
+                         fontsize=10)
+        ax_bar.legend(fontsize=7, ncol=2, loc="upper right")
+
     fig.tight_layout()
-    add_settings_footer(
-        fig,
+    segs = [
         f"fixed-M: one SLB realization (M={m_rep}); iso-accuracy: smallest swept M "
         f"with {n_acc}-run RMSE<={target} vs exact (target applied at analysis time)",
         f"{meta['substeps']} RK4 substep(s)/step (from the run's own metadata); "
         f"Davies construction timed separately and included in no solve time",
-    )
+    ]
+    val = doc.get("native_ref_validation")
+    if any(str(p.get("reference_method", "")).startswith("native")
+           for p in points):
+        v = (f", validated vs mesolve at dim {val['dim']} "
+             f"(max dev {val['max_abs_dev']:.0e})") if val else ""
+        segs.append("iso-accuracy beyond the wall uses a full-dissipator "
+                    f"native-RK4 reference{v}; the exact-cost curve remains "
+                    "qutip mesolve")
+    add_settings_footer(fig, *segs)
     out = f"benchmark_cost_scaling_{name}.png"
     fig.savefig(out, dpi=110, bbox_inches="tight"); plt.close(fig)
     print(f"  saved {out}")

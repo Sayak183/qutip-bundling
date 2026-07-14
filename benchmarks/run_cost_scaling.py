@@ -48,6 +48,23 @@ try:
     from qutip_bundling import SolverInstabilityError
 except ImportError:
     from qutip_bundling.native_solver import SolverInstabilityError
+from qutip_bundling.native_solver import rk4_mesolve
+
+NATIVE_REF_MAX_DIM = 64   # past the mesolve wall, obtain the exact reference
+                          # via the native full-dissipator RK4 instead (all N_L
+                          # operators, no superoperators: memory ~ the operator
+                          # list instead of qutip's kron blow-up). Used ONLY as
+                          # the accuracy reference -- the red cost curve stays
+                          # honest qutip-mesolve. Cross-validated against
+                          # mesolve at the last size where both exist.
+NATIVE_REF_SUBSTEPS = 2 * SUBSTEPS   # reference-grade integration margin
+
+
+def native_full_reference(H, rho0, c_ops):
+    """<H(t)> from the native RK4 propagating the FULL dissipator."""
+    res = rk4_mesolve(H, rho0, TLIST, c_ops=c_ops, e_ops=[H],
+                      substeps=NATIVE_REF_SUBSTEPS)
+    return np.real(res.expect[0])
 
 M_REP = 8               # representative fixed bundle size (matches other figures)
 N_ACC = 16              # SLB runs averaged to measure accuracy at each size
@@ -91,7 +108,14 @@ def sweep_m(H, rho0, c_ops, reference, n_l):
         seen.add(m_eff)
         samples, dt = slb_estimate(H, rho0, c_ops, m_eff, N_ACC)
         rmse, rmse_std = tavg_rmse_jackknife(samples, reference)
-        rows.append({"M": m_eff, "rmse": rmse, "rmse_std": rmse_std, "cost": dt})
+        # MSE budget of this estimate (same decomposition as Result 4's error
+        # budget): observed MSE of the plotted mean, and the statistical part
+        # SEM^2; implied bias^2 = MSE - SEM^2 is derived at plot time.
+        mean = samples.mean(axis=0)
+        mse = float(np.mean((mean - np.asarray(reference)) ** 2))
+        sem_sq = float(np.mean(samples.var(axis=0, ddof=1) / samples.shape[0]))
+        rows.append({"M": m_eff, "rmse": rmse, "rmse_std": rmse_std,
+                     "cost": dt, "mse": mse, "sem_sq": sem_sq})
         print(f"      M={m_eff:4d}  RMSE={rmse:.3e} (+/-{rmse_std:.1e})  "
               f"cost={dt:.3g}s")
         if rmse <= SWEEP_STOP_RMSE or m_eff >= n_l:
@@ -99,9 +123,12 @@ def sweep_m(H, rho0, c_ops, reference, n_l):
     return rows
 
 
-def run(name, build, sizes):
+def run(name, build, sizes, full_budget=FULL_TIME_BUDGET,
+        native_ref_max=NATIVE_REF_MAX_DIM):
     points, full_feasible, wall_dim = [], True, None
     stiff_dim = None
+    last_mesolve = None        # (dim, H, rho0, c_ops, reference) for validation
+    native_validation = None   # recorded once, when the fallback first fires
     print(f"[{name}]  sweep floor RMSE = {SWEEP_STOP_RMSE}")
     for s in sizes:
         H, X, psi0 = build(s)
@@ -116,20 +143,43 @@ def run(name, build, sizes):
         n_l = len(c_ops)
 
         # exact reference + its cost (until the feasibility wall)
-        reference, t_full = None, np.nan
+        reference, t_full, ref_method, t_native = None, np.nan, None, None
         if full_feasible and dim <= MAX_FULL_DIM:
             try:
                 t0 = time.perf_counter()
                 res = qutip.mesolve(H, rho0, TLIST, c_ops=c_ops, e_ops=[H])
                 t_full = time.perf_counter() - t0
                 reference = np.real(res.expect[0])
-                if t_full > FULL_TIME_BUDGET:
+                ref_method = "mesolve"
+                last_mesolve = (dim, H, rho0, c_ops, reference)
+                if t_full > full_budget:
                     full_feasible, wall_dim = False, dim
-            except MemoryError:
+            except MemoryError as err:
+                print(f"  dim={dim:4d}  exact mesolve raised MemoryError "
+                      f"(superoperator construction from {n_l} operators): {err}")
                 t_full = np.nan
                 full_feasible, wall_dim = False, dim
         elif wall_dim is None:
             wall_dim = dim
+
+        # past the mesolve wall: full-dissipator reference via the native RK4
+        # (reference only -- never plotted as the exact method's cost)
+        if reference is None and dim <= native_ref_max:
+            if native_validation is None and last_mesolve is not None:
+                vd, vH, vrho, vc, vref = last_mesolve
+                dev = float(np.max(np.abs(
+                    native_full_reference(vH, vrho, vc) - vref)))
+                native_validation = {"dim": vd, "max_abs_dev": dev,
+                                     "substeps": NATIVE_REF_SUBSTEPS}
+                print(f"      native full-dissipator reference validated vs "
+                      f"mesolve at dim {vd}: max dev {dev:.2e}")
+            t0 = time.perf_counter()
+            reference = native_full_reference(H, rho0, c_ops)
+            t_native = time.perf_counter() - t0
+            ref_method = f"native_rk4_substeps{NATIVE_REF_SUBSTEPS}"
+            print(f"  dim={dim:4d}  reference via native full dissipator "
+                  f"({n_l} operators, {NATIVE_REF_SUBSTEPS} substeps): "
+                  f"{t_native:.3g}s")
 
         # fixed-M per-solve cost: one realization. A fixed-step RK4 curve is
         # only meaningful at UNIFORM substeps: if the generator becomes too
@@ -164,17 +214,20 @@ def run(name, build, sizes):
         points.append({
             "size": s, "dim": dim, "n_l": n_l, "t_davies": t_davies,
             "t_full": t_full, "t_slb_fixed": t_slb_fixed,
-            "reference": reference,
+            "reference": reference, "reference_method": ref_method,
+            "t_native_ref": t_native,
             "m_sweep": m_sweep,
         })
 
     meta = run_metadata(
         system=name, sizes=sizes, M_REP=M_REP, N_ACC=N_ACC,
+        full_budget_used=full_budget,
         M_SWEEP_GRID=M_SWEEP_GRID, SWEEP_STOP_RMSE=SWEEP_STOP_RMSE,
         rng_sweep=RNG_SWEEP, rng_timing=RNG_TIMING,
     )
     save_data(f"cost_scaling_{name}.json", meta,
-              wall_dim=wall_dim, stiff_dim=stiff_dim, points=points)
+              wall_dim=wall_dim, stiff_dim=stiff_dim,
+              native_ref_validation=native_validation, points=points)
 
 
 def main():
@@ -185,11 +238,21 @@ def main():
     ap.add_argument("--sizes", type=int, nargs="+", default=None,
                     help="override the size list (smoke tests); the override "
                          "is recorded in the data file's metadata")
+    ap.add_argument("--native-ref-max", type=int, default=NATIVE_REF_MAX_DIM,
+                    help="largest dimension for the native full-dissipator "
+                         "reference past the mesolve wall (reference only; "
+                         "128 costs ~an hour on the spin chain)")
+    ap.add_argument("--full-budget", type=float, default=FULL_TIME_BUDGET,
+                    help="raise the exact-solver time budget (seconds) to push "
+                         "the reference wall out one size, e.g. 2400 buys the "
+                         "spin dim-64 point (~35 min solve) and with it one "
+                         "more iso-accuracy measurement")
     args = ap.parse_args()
     names = list(SYSTEMS) if args.system == "all" else [args.system]
     for name in names:
         build, sizes = SYSTEMS[name]
-        run(name, build, args.sizes if args.sizes else sizes)
+        run(name, build, args.sizes if args.sizes else sizes,
+            full_budget=args.full_budget, native_ref_max=args.native_ref_max)
 
 
 if __name__ == "__main__":

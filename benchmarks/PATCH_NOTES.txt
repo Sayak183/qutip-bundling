@@ -1,0 +1,27 @@
+NATIVE REFERENCE PAST THE WALL (v13)
+======================================
+FIRST: commit last night's results if you haven't (they're good):
+  git add -A ; git commit -m "R2: MSE-budget data both systems" ; git push
+
+Diagnosis of the overnight long shot: both dim-64 exact solves died in a
+SILENT MemoryError inside qutip's superoperator construction (hundreds of
+dense 4096x4096 kron terms beat even 32 GB). Now: (a) the error prints
+loudly, (b) past the wall the run obtains the exact reference by
+propagating the FULL dissipator with your package's native RK4 at doubled
+substeps -- ~57 MB instead of a blow-up, ~5-8 min per system -- validated
+against mesolve at the last mutual size (sandbox: agreement 3e-10). The
+red cost curve stays genuine qutip mesolve. This extends the iso-accuracy
+curve to dim 64 on BOTH systems with the DEFAULT budget (no --full-budget
+needed; the flag remains for pushing the mesolve wall itself).
+
+Steps (one re-run, ~45 min total both systems):
+  Expand-Archive $env:USERPROFILE\Downloads\native-reference-v13.zip -DestinationPath . -Force
+  cd benchmarks
+  $env:PYTHONPATH = "..\src"
+  python run_cost_scaling.py
+  python plot_cost_scaling.py
+  python export_csv.py
+  git add -A ; git commit -m "R2: iso-accuracy extended past the wall via validated native full-dissipator reference" ; git push
+
+Then paste the console output: the spin iso slope over FIVE points is the
+answer to your question about the iso curve's true slope.

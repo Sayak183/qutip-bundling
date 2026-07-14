@@ -539,7 +539,11 @@ fixed bundle count the RMSE against the exact solve *grows* with $N$: $N_L$ grow
 with the system, so a fixed number of bundles resolves the dissipator less
 finely (the recorded sweep shows the fixed-$M$ RMSE climbing through the
 target as $N$ grows — the $M^\ast$ annotations on the iso-accuracy curve are
-that mechanism made visible) — so a pure fixed-$M$ speed plot compares at a *moving*
+that mechanism made visible). The MSE-budget bars under the cost panel show
+*why* the iso curve has the slope it does: at every $M^\ast$ the error is
+bias-dominated (statistical noise is a single-digit share by dim 16), so the
+slope is the bundling physics — $M^\ast$ must grow to cut bias — and more
+sampling cannot flatten it. A pure fixed-$M$ speed plot compares at a *moving*
 accuracy, which invites the obvious objection: fast is meaningless if the error
 blows up with $N$.
 
@@ -552,9 +556,15 @@ solve; each $M^\ast$ label on the iso-accuracy curve names the bundle size
 paying that point's cost, and its achieved RMSE hugs the target from below in
 discrete steps because $M$ is searched on a grid. (The run script records the
 whole sweep, so the target defining $M^\ast$ is applied at analysis time — it
-can be changed and the figure redrawn without re-running the benchmark.) The
-dashed red guide continues the exact solver past its feasibility wall at its
-own fitted slope: measured against it, SLB's fixed-$M$ point at the largest
+can be changed and the figure redrawn without re-running the benchmark.)
+Past the wall the iso-accuracy curve keeps going: the accuracy reference there
+is obtained by propagating the *full* dissipator with the package's native
+fixed-step RK4 at doubled substeps (no superoperators, so no memory blow-up),
+cross-validated against `mesolve` at the last size where both exist (agreement
+at the $10^{-10}$ level; recorded in the data). Only the *reference* uses this
+route — the red cost curve remains genuine `qutip.mesolve`. The dashed red
+guide continues the exact solver past its feasibility wall at its own fitted
+slope: measured against it, SLB's fixed-$M$ point at the largest
 dimension shown is cheaper by four to five orders of magnitude (chain, dim
 256: an extrapolated $\sim\!3$ weeks versus a measured minute) — this, not
 the sub-wall region where both methods are cheap, is the figure's claim. The required
