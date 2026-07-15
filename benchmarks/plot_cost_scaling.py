@@ -27,7 +27,7 @@ TARGET_VAL = 0.02
 #   "single"   : error of ONE run -> sqrt(bias^2 + Std^2). Harsher: no
 #                averaging, so noise stays full size and M* comes out larger.
 # Either is defensible; the footer always states which one produced the figure.
-ESTIMATE_TYPE = "ensemble"
+ESTIMATE_TYPE = "single"
 ERROR_TYPE = "rmse"       # Options: "rmse", "bias", "sem", "std"
 
 SHOW_NATIVE_CURVE = True  # cost of the native full-dissipator exact solve
