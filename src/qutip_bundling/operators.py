@@ -359,16 +359,21 @@ def bundle_from_phases(
     M = phases.shape[0]
     inv_sqrt_m = 1.0 / math.sqrt(M)
 
-    bundled: list[qutip.Qobj] = []
-    for m in range(M):
-        row = phases[m]
-        acc = complex(row[0]) * c_ops[0]
-        for alpha in range(1, len(c_ops)):
-            coeff = complex(row[alpha])
-            if coeff != 0.0:
-                acc = acc + coeff * c_ops[alpha]
-        bundled.append(inv_sqrt_m * acc)
-    return bundled
+    # Vectorized assembly. The previous implementation summed the N_L operators
+    # into each bundle with a Python loop of Qobj additions -- M*N_L dense
+    # allocations, cost ~ M*N_L*N^2 ~ N^4 once N_L ~ N^2, which dominated large-N
+    # SLB solves. Here the operators are stacked once into a single (N_L, N*N)
+    # array and every bundle is formed by one matrix product:
+    #     bundles[m] = inv_sqrt_m * sum_alpha phases[m, alpha] * c_ops[alpha]
+    # i.e. (M, N_L) @ (N_L, N*N) -> (M, N*N), a single BLAS gemm. Numerically
+    # identical to the loop (same terms, same order up to floating-point
+    # summation), but the inner work moves from the Python interpreter into BLAS.
+    ref0 = c_ops[0]
+    dims, shape = ref0.dims, ref0.shape
+    stack = np.stack([np.asarray(op.full(), dtype=complex).ravel()
+                      for op in c_ops])          # (N_L, N*N)
+    combined = (inv_sqrt_m * phases.astype(complex)) @ stack   # (M, N*N)
+    return [qutip.Qobj(combined[m].reshape(shape), dims=dims) for m in range(M)]
 
 
 def bundle(

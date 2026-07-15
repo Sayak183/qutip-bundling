@@ -1,36 +1,43 @@
-PROSE PASS + N-RENAME (v20)
-=============================
-Four files. NO re-run needed -- the three plot scripts only changed legend
-LABELS, so just re-plot.
+BUNDLE VECTORIZATION (src branch)
+===================================
+ONE source file changed + ONE new test. This is a src/ change, so it belongs
+on the bundle-vectorization branch you created, NOT on result2-split.
 
-BENCHMARKS.md (built from the copy you uploaded, so your edits are kept):
- 1. Result 2's cost-curve paragraph rewritten: real fitted slopes, and the
-    native full-dissipator curve introduced explicitly AS A CONTROL -- its
-    purpose is to supply the accuracy reference past the mesolve wall, with
-    the agreement and the self-check rejection stated. Its better scaling is
-    noted but explicitly NOT claimed as a contribution; mesolve stays the
-    neutral standard.
- 2. Result 1 gains a paragraph explaining why the oscillator's traces look
-    featureless: even M=2 tracks a trajectory spanning <H> = 13 -> 4 to ~1e-2,
-    so there is nothing visible to plot. That IS the result, and it is the
-    same fact Results 2 and 4 quantify (M*=1; 10^3-10^4x speedups). Without
-    this, a reader thinks the figure is broken.
- 3. Result 3 gains the structural-asymmetry paragraph: raising M makes a
-    SINGLE SLB run more accurate; raising ntraj does nothing for any one
-    trajectory, it only averages. mcsolve's single-trajectory error is a fixed
-    number. Hence both figures compare ensembles -- but the asymmetry is a
-    property of SLB worth stating.
- 4. N-OVERLOAD FIXED: the run count is now N_r everywhere (doc + all three
-    plot legends + the S/sqrt(N_r) formulas). N is reserved for the Hilbert
-    dimension -- previously the R4 x-axis said "dimension N" while its legend
-    said "N=16 runs".
+WHAT: bundle_from_phases in src/qutip_bundling/operators.py rebuilt its M
+bundles with a Python loop of Qobj additions (M*N_L dense allocations, cost
+~ M*N_L*N^2 ~ N^4). Now the N_L operators are stacked once into an (N_L, N*N)
+array and every bundle is one BLAS matrix product (M,N_L)@(N_L,N*N). The inner
+work moves from the Python interpreter into BLAS.
+
+PROVEN IDENTICAL: max deviation old-vs-new = 8e-16 (machine epsilon) across
+dims/M. All 56 existing tests pass; 17 new regression tests pin the vectorized
+path against the explicit reference summation.
+
+MEASURED (bundle_from_phases, M=8, spin chain):
+  dim 16:  3.5 -> 0.9 ms  (3.9x)
+  dim 32: 14.7 -> 5.9 ms  (2.5x)
+  dim 64: 126 -> 85 ms    (1.5x)
+Note the win shrinks at large dim: there the cost is genuine arithmetic
+(2201 ops x 128^2 at dim 128), which is real FLOPs BLAS cannot skip. The loop
+OVERHEAD was the easy win; a further gain would need reducing the operator
+count itself (e.g. coupling_threshold pruning), a separate idea.
+
+The Davies operators are 100% dense (energy-eigenbasis), so dense stacking is
+correct; no sparse path is needed for these systems.
 
 Steps:
   cd C:\Users\sayak\Downloads\repo-split\qutip-bundling
-  Expand-Archive $env:USERPROFILE\Downloads\prose-and-rename-v20.zip -DestinationPath . -Force
-  cd benchmarks
-  $env:PYTHONPATH = "..\src"
-  python plot_cost_scaling.py ; python plot_frontier.py ; python plot_isocost_vs_dim.py
+  git switch bundle-vectorization   (create it if you haven't: git switch -c bundle-vectorization)
+  Expand-Archive $env:USERPROFILE\Downloads\bundle-vectorization.zip -DestinationPath . -Force
+  python -m pytest tests/ -q          (expect 73 passed)
   git add -A
-  git commit -m "docs: native curve as control; oscillator-too-easy note; R3 asymmetry; N_r rename"
-  git push
+  git commit -m "perf: vectorize bundle_from_phases (BLAS gemm); identical output, +regression tests"
+  git push -u origin bundle-vectorization
+
+BEFORE/AFTER FIGURE (optional, the nice thing to show Roi): with this branch
+checked out, re-run one Result 2 slice --
+  cd benchmarks ; $env:PYTHONPATH = "..\src"
+  python run_cost_scaling.py --system spin_chain
+  python plot_cost_scaling.py --system spin_chain
+The fixed-M curve's small-dim overhead flattens; the large-dim tail is
+unchanged (real FLOPs). Keep both figures to show the improvement.
