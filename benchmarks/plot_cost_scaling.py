@@ -186,12 +186,24 @@ def figure(name, doc, target, est_type, err_type):
         # answer you cannot trust is not a result. (Hence the curve stops at
         # dim 32 on the oscillator: dim 64's self-check failed.)
         def _certified(p):
+            # A native solve is certified if mesolve also ran here (they
+            # matched) or the substep-halving self-check is good. Newer runs
+            # record an explicit boolean "passed"; older runs recorded only the
+            # numeric "max_abs_dev", so fall back to comparing that against the
+            # tolerance directly -- otherwise good references (dev ~1e-9) from
+            # an older run get dropped merely for lacking the newer field.
             if p.get("t_native_ref") is None:
                 return False
             if str(p.get("reference_method", "")) == "mesolve":
                 return True
             sc = p.get("native_ref_selfcheck")
-            return bool(sc and sc.get("passed"))
+            if not sc:
+                return False
+            if sc.get("passed") is not None:
+                return bool(sc["passed"])
+            dev = sc.get("max_abs_dev")
+            tol = sc.get("tol", 1e-4)
+            return dev is not None and dev <= tol
         t_nat = as_array([p.get("t_native_ref") if _certified(p) else None
                           for p in points])
         nn = np.isfinite(t_nat)

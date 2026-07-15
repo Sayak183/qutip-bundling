@@ -1,35 +1,29 @@
-NATIVE CURVE: CERTIFIED POINTS ONLY (v21)
-===========================================
-One file: plot_cost_scaling.py.
+NATIVE CURVE v21.1 -- FIX: keep certified spin points
+=======================================================
+You were right. v21 wrongly dropped the spin chain's native points at dim
+64 and 128. They are NOT garbage -- their self-check deviations are 7.4e-9
+and 8.0e-9, far under the 1e-4 tolerance -- excellent, fully certified.
 
-You were right: showing a wall-clock time for a solve whose ANSWER cannot be
-trusted is misleading. The native full-dissipator curve now plots ONLY at
-dimensions where its accuracy is certified -- either mesolve also ran there
-(the two exact routes matched), or the substep-halving self-check passed.
-Where the self-check failed (oscillator dim 64), the point is WITHHELD, not
-shown with a caveat.
+The cause: those spin points came from an older run that recorded the
+numeric deviation but not the explicit "passed": true field. v21's filter
+required that field, so it read None (missing) as "not certified" and
+dropped good data. The oscillator you regenerated yesterday has the field;
+the spin dim-128 run (days earlier) predates it.
 
-Effect on your figures:
- - Oscillator: native curve now stops at dim 32 (dim 64's dark-red diamond
-   disappears -- that was the uncertifiable 290 s solve).
- - Spin chain: unchanged (every native point there is certified; the curve
-   still reaches dim 128).
- - mesolve, SLB, iso, Davies curves: all unchanged.
+FIX: the filter now falls back to comparing max_abs_dev against the
+tolerance when "passed" is absent. Result:
+  spin_chain      native curve -> dims 4,8,16,32,64,128   (RESTORED)
+  oscillator_bath native curve -> dims 8,16,32            (dim 64 still
+                                   correctly dropped: its dev is 1.9e+92)
 
-No re-run needed -- pure plotting change. But re-run export_csv too so the
-CSVs match.
-
+One plot file. No re-run.
   cd C:\Users\sayak\Downloads\repo-split\qutip-bundling
-  git switch result2-split          (this is benchmark work, not the src branch)
-  Expand-Archive $env:USERPROFILE\Downloads\native-certified-v21.zip -DestinationPath . -Force
+  git switch result2-split
+  Expand-Archive $env:USERPROFILE\Downloads\native-certified-v21-1.zip -DestinationPath . -Force
   cd benchmarks
   $env:PYTHONPATH = "..\src"
   python plot_cost_scaling.py
   python export_csv.py
   git add -A
-  git commit -m "R2: plot native exact curve only at self-check-certified dimensions"
+  git commit -m "R2: native curve plotted at certified dims; fix dropped certified spin points (dev-fallback)"
   git push
-
-(This commit should include the fresh oscillator data you just regenerated
-under v19 enforcement, if you haven't committed that yet -- git add -A picks
-it up.)
