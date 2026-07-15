@@ -1,36 +1,35 @@
-PROSE PASS + N-RENAME (v20)
-=============================
-Four files. NO re-run needed -- the three plot scripts only changed legend
-LABELS, so just re-plot.
+NATIVE CURVE: CERTIFIED POINTS ONLY (v21)
+===========================================
+One file: plot_cost_scaling.py.
 
-BENCHMARKS.md (built from the copy you uploaded, so your edits are kept):
- 1. Result 2's cost-curve paragraph rewritten: real fitted slopes, and the
-    native full-dissipator curve introduced explicitly AS A CONTROL -- its
-    purpose is to supply the accuracy reference past the mesolve wall, with
-    the agreement and the self-check rejection stated. Its better scaling is
-    noted but explicitly NOT claimed as a contribution; mesolve stays the
-    neutral standard.
- 2. Result 1 gains a paragraph explaining why the oscillator's traces look
-    featureless: even M=2 tracks a trajectory spanning <H> = 13 -> 4 to ~1e-2,
-    so there is nothing visible to plot. That IS the result, and it is the
-    same fact Results 2 and 4 quantify (M*=1; 10^3-10^4x speedups). Without
-    this, a reader thinks the figure is broken.
- 3. Result 3 gains the structural-asymmetry paragraph: raising M makes a
-    SINGLE SLB run more accurate; raising ntraj does nothing for any one
-    trajectory, it only averages. mcsolve's single-trajectory error is a fixed
-    number. Hence both figures compare ensembles -- but the asymmetry is a
-    property of SLB worth stating.
- 4. N-OVERLOAD FIXED: the run count is now N_r everywhere (doc + all three
-    plot legends + the S/sqrt(N_r) formulas). N is reserved for the Hilbert
-    dimension -- previously the R4 x-axis said "dimension N" while its legend
-    said "N=16 runs".
+You were right: showing a wall-clock time for a solve whose ANSWER cannot be
+trusted is misleading. The native full-dissipator curve now plots ONLY at
+dimensions where its accuracy is certified -- either mesolve also ran there
+(the two exact routes matched), or the substep-halving self-check passed.
+Where the self-check failed (oscillator dim 64), the point is WITHHELD, not
+shown with a caveat.
 
-Steps:
+Effect on your figures:
+ - Oscillator: native curve now stops at dim 32 (dim 64's dark-red diamond
+   disappears -- that was the uncertifiable 290 s solve).
+ - Spin chain: unchanged (every native point there is certified; the curve
+   still reaches dim 128).
+ - mesolve, SLB, iso, Davies curves: all unchanged.
+
+No re-run needed -- pure plotting change. But re-run export_csv too so the
+CSVs match.
+
   cd C:\Users\sayak\Downloads\repo-split\qutip-bundling
-  Expand-Archive $env:USERPROFILE\Downloads\prose-and-rename-v20.zip -DestinationPath . -Force
+  git switch result2-split          (this is benchmark work, not the src branch)
+  Expand-Archive $env:USERPROFILE\Downloads\native-certified-v21.zip -DestinationPath . -Force
   cd benchmarks
   $env:PYTHONPATH = "..\src"
-  python plot_cost_scaling.py ; python plot_frontier.py ; python plot_isocost_vs_dim.py
+  python plot_cost_scaling.py
+  python export_csv.py
   git add -A
-  git commit -m "docs: native curve as control; oscillator-too-easy note; R3 asymmetry; N_r rename"
+  git commit -m "R2: plot native exact curve only at self-check-certified dimensions"
   git push
+
+(This commit should include the fresh oscillator data you just regenerated
+under v19 enforcement, if you haven't committed that yet -- git add -A picks
+it up.)

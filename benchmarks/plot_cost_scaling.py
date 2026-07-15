@@ -180,7 +180,20 @@ def figure(name, doc, target, est_type, err_type):
         # better prefactor; it survives past the mesolve wall and is the
         # accuracy reference there. Its agreement with mesolve, wherever both
         # ran, is stated in the footer.
-        t_nat = as_array([p.get("t_native_ref") for p in points])
+        # Plot the native curve ONLY where its accuracy is CERTIFIED: mesolve
+        # ran here too (native matched it), or the substep-halving self-check
+        # passed. An uncertifiable solve is withheld -- a wall-clock time whose
+        # answer you cannot trust is not a result. (Hence the curve stops at
+        # dim 32 on the oscillator: dim 64's self-check failed.)
+        def _certified(p):
+            if p.get("t_native_ref") is None:
+                return False
+            if str(p.get("reference_method", "")) == "mesolve":
+                return True
+            sc = p.get("native_ref_selfcheck")
+            return bool(sc and sc.get("passed"))
+        t_nat = as_array([p.get("t_native_ref") if _certified(p) else None
+                          for p in points])
         nn = np.isfinite(t_nat)
         if nn.any():
             ax_main.loglog(dims[nn], t_nat[nn], "d-.", color="darkred", lw=1.8,
