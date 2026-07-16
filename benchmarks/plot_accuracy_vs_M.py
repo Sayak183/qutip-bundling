@@ -81,7 +81,7 @@ def accuracy_figure(plt, name, doc, tlist, reference, curves,
     # ---------------------------------------------------------
     M_TO_PLOT = {
         "spin_chain": [2, 4, 8, 16],
-        "oscillator_bath": [2, 8, 32, 64]
+        "oscillator_bath": [2, 8]
     }
     system_m_list = M_TO_PLOT.get(name)
 

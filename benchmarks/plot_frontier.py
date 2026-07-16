@@ -22,7 +22,7 @@ from common import (
 # Define different N sweeps for each system here:
 N_RUNS_SWEEP = {
     "spin_chain": [2, 4, 8],   
-    "oscillator_bath": [16, 32]   
+    "oscillator_bath": [4,8]   
 }
 
 PLOT_ENSEMBLE_RMSE = True
