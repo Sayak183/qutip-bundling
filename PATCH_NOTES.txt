@@ -1,29 +1,44 @@
-NATIVE CURVE v21.1 -- FIX: keep certified spin points
-=======================================================
-You were right. v21 wrongly dropped the spin chain's native points at dim
-64 and 128. They are NOT garbage -- their self-check deviations are 7.4e-9
-and 8.0e-9, far under the 1e-4 tolerance -- excellent, fully certified.
+CONVERGENCE + JACKKNIFE, HIGH-SAMPLING (benchmark_convergence.py) -- v3
+========================================================================
+Purpose: push the oscillator's SEM noise floor DOWN so the jackknife's steep
+bias rate is resolved over more M values (you saw it clear the floor by M=8 at
+256 realizations, leaving only 2 clean points and a noisy zig-zag past that).
 
-The cause: those spin points came from an older run that recorded the
-numeric deviation but not the explicit "passed": true field. v21's filter
-required that field, so it read None (missing) as "not certified" and
-dropped good data. The oscillator you regenerated yesterday has the field;
-the spin dim-128 run (days earlier) predates it.
+CHANGES:
+ - Per-system realization counts: spin_chain stays 256 (already clean); the
+   oscillator jumps to 4000 (its bias is ~10x smaller, so it needs ~16x more
+   samples to expose the same clean range). Each system's SEM floor now uses
+   ITS OWN count.
+ - INCREMENTAL SAVE: after every M it writes convergence_progress_<system>.json,
+   so a multi-hour run is never lost to a crash or a morning Ctrl-C.
+ - CLI: --scale N multiplies both counts (e.g. --scale 2 -> spin 512, osc 8000)
+   if 4000 still isn't enough; --only oscillator_bath runs just one system.
+ - Fixed the title/annotation overlap you spotted.
 
-FIX: the filter now falls back to comparing max_abs_dev against the
-tolerance when "passed" is absent. Result:
-  spin_chain      native curve -> dims 4,8,16,32,64,128   (RESTORED)
-  oscillator_bath native curve -> dims 8,16,32            (dim 64 still
-                                   correctly dropped: its dev is 1.9e+92)
+EXPECTED COST: the oscillator at 4000 realizations x 6 M-values x jackknife is
+HEAVY -- likely 1.5-3 hours. That's what the night is for. The spin chain at
+256 finishes in a few minutes first, so you'll see it complete early, then the
+oscillator grinds.
 
-One plot file. No re-run.
+RUN (leave it overnight; lid open, plugged in):
   cd C:\Users\sayak\Downloads\repo-split\qutip-bundling
   git switch result2-split
-  Expand-Archive $env:USERPROFILE\Downloads\native-certified-v21-1.zip -DestinationPath . -Force
+  Expand-Archive $env:USERPROFILE\Downloads\convergence-jackknife-v3.zip -DestinationPath . -Force
   cd benchmarks
   $env:PYTHONPATH = "..\src"
-  python plot_cost_scaling.py
-  python export_csv.py
+  Start-Transcript convergence_night.txt
+  python benchmark_convergence.py
+  Stop-Transcript
+
+In the morning, read the two VERDICT lines. Goal: the oscillator now shows
+>=3 points above its floor and a slope clearly steeper than -1 (toward -2). If
+it's still MARGINAL, re-run just the oscillator harder:
+  python benchmark_convergence.py --only oscillator_bath --scale 2
+
+Then commit:
   git add -A
-  git commit -m "R2: native curve plotted at certified dims; fix dropped certified spin points (dev-fallback)"
+  git commit -m "section 6: high-sampling oscillator convergence; jackknife bias rate resolved"
   git push
+
+(Delete convergence_progress_*.json before committing if you don't want the
+scratch files tracked -- or add them to .gitignore.)
