@@ -41,6 +41,11 @@ PLOT_RMSE = True
 PLOT_BIAS = True
 PLOT_SEM  = True
 PLOT_STD  = True
+
+# WHICH SYSTEM SIZE TO PLOT. run_accuracy_vs_M.py saves one file per dim
+# (accuracy_vs_M_<system>_dim<D>.json); PLOT_DIM picks which to draw.
+# None = auto-pick the largest dim available on disk.
+PLOT_DIM = None
 USE_SINGLE_RUN_RMSE = True # If True: RMSE = sqrt(bias^2 + StdDev^2). If False: RMSE = sqrt(bias^2 + SEM^2)
 # ------------------------------------------------------
 
@@ -241,8 +246,20 @@ def main():
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
 
+    import glob, os, re
+    def _resolve(name):
+        if PLOT_DIM is not None:
+            return f"accuracy_vs_M_{name}_dim{PLOT_DIM}.json"
+        paths = glob.glob(f"data/accuracy_vs_M_{name}_dim*.json")
+        if not paths:
+            return f"accuracy_vs_M_{name}.json"
+        best = max(paths, key=lambda p: int(re.search(r"_dim(\d+)", p).group(1)))
+        return os.path.basename(best)
+
     for name in names:
-        doc = load_data(f"accuracy_vs_M_{name}.json")
+        fname = _resolve(name)
+        doc = load_data(fname)
+        print(f"[{name}] plotting {fname} (dim {doc.get('dim','?')})")
         t = doc["meta"]["tlist"]
         tlist = np.linspace(t["t0"], t["t1"], t["n"])
         ia, ib = doc["coherence_pair"]

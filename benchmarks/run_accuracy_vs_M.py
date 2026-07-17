@@ -44,6 +44,7 @@ from common import (
     run_metadata, save_data,
 )
 from qutip_bundling import davies_operators, mesolve_ensemble
+from qutip_bundling.native_solver import rk4_mesolve, SolverInstabilityError
 
 N_REALIZATIONS = 200    # realizations per M (fixed across the ladder: nothing
                         # about the sampling is tuned, so any trend with M is
@@ -53,9 +54,24 @@ ROUND = 8               # decimals kept for saved curves
 
 # M ladder per system: system-specific so the plots do not become visually
 # cluttered when M=8 already sits essentially on the reference.
+# Each system sweeps a LIST of size-points (size, m_ladder, substeps). run_*
+# computes every point ONCE, saving one file per dim; plot_* picks a dim to
+# draw. substeps>4 flags a disclosed higher-resolution run (the oscillator's
+# stiff dim-64 needs 16).
+NATIVE_REF_SUBSTEPS_FACTOR = 2
+MAX_FULL_DIM_FALLBACK = 64
+
 SYSTEMS = {
-    "spin_chain":      (build_spin_chain,      4, [2, 4, 8, 16, 32, 64]),  # dim 16
-    "oscillator_bath": (build_oscillator_bath, 8, [2, 4, 8, 16, 32, 64]),  # dim 16
+    "spin_chain": (build_spin_chain, [
+        (4, [2, 4, 8, 16, 32, 64], 4),
+        (5, [2, 4, 8, 16, 32, 64], 4),
+        (6, [2, 4, 8, 16, 32, 64], 4),
+    ]),
+    "oscillator_bath": (build_oscillator_bath, [
+        (8,  [2, 4, 8, 16, 32, 64], 4),
+        (16, [2, 4, 8, 16, 32, 64], 4),
+        (32, [2, 4, 8, 16, 32, 64], 16),
+    ]),
 }
 
 
@@ -93,7 +109,7 @@ def populated_coherence_op(H, ref_states):
     return C, (a, b), best[2]
 
 
-def run(name, build, size, m_ladder):
+def run(name, build, size, m_ladder, substeps):
     H, X, psi0 = build(size)
     rho0 = qutip.ket2dm(psi0)
     dim = H.shape[0]
@@ -104,31 +120,62 @@ def run(name, build, size, m_ladder):
     t_davies = time.perf_counter() - t0
     n_l = len(c_ops)
 
-    # --- exact reference (states kept: they choose the coherence pair) ---
-    t0 = time.perf_counter()
-    ref_states = qutip.mesolve(H, rho0, TLIST_FINE, c_ops=c_ops, e_ops=[]).states
-    t_reference = time.perf_counter() - t0
+    # --- exact reference: mesolve while feasible, else certified native RK4 ---
+    ref_substeps = NATIVE_REF_SUBSTEPS_FACTOR * substeps
+    ref_method, ref_selfcheck, ref_states = None, None, None
+    if dim <= MAX_FULL_DIM_FALLBACK:
+        try:
+            t0 = time.perf_counter()
+            ref_states = qutip.mesolve(H, rho0, TLIST_FINE, c_ops=c_ops,
+                                       e_ops=[]).states
+            t_reference = time.perf_counter() - t0
+            ref_method = "mesolve"
+        except MemoryError:
+            ref_states = None
+    if ref_states is None:
+        t0 = time.perf_counter()
+        res = rk4_mesolve(H, rho0, TLIST_FINE, c_ops=c_ops, e_ops=[],
+                          substeps=ref_substeps, store_states=True)
+        t_reference = time.perf_counter() - t0
+        ref_states = res.states
+        lo = rk4_mesolve(H, rho0, TLIST_FINE, c_ops=c_ops, e_ops=[H],
+                         substeps=ref_substeps // 2)
+        hi = rk4_mesolve(H, rho0, TLIST_FINE, c_ops=c_ops, e_ops=[H],
+                         substeps=ref_substeps)
+        dev = float(np.max(np.abs(np.real(hi.expect[0]) - np.real(lo.expect[0]))))
+        ref_selfcheck = {"substeps": ref_substeps, "max_abs_dev": dev,
+                         "passed": bool(np.isfinite(dev) and dev <= 1e-4)}
+        ref_method = f"native_rk4_substeps{ref_substeps}"
+        if not ref_selfcheck["passed"]:
+            print(f"[{name}] dim={dim}: native reference self-check FAILED "
+                  f"(dev {dev:.1e}) -- skipping (uncertifiable).")
+            return
     C, (ia, ib), peak = populated_coherence_op(H, ref_states)
     e_ops = [H, C]
     ref_energy = np.real(qutip.expect(H, ref_states))
     ref_coherence = np.real(qutip.expect(C, ref_states))
 
-    print(f"[{name}] dim={dim}, N_L={n_l}; Davies construction {t_davies*1e3:.1f} ms, "
-          f"reference solve {t_reference:.2f} s")
+    print(f"[{name}] dim={dim}, N_L={n_l}; Davies {t_davies*1e3:.1f} ms, "
+          f"reference ({ref_method}) {t_reference:.2f} s, {substeps} substeps")
     print(f"  coherence on eigenstate pair ({ia},{ib}), peak |rho_ab|={peak:.2e}")
 
     # --- SLB ensemble per M: raw realizations of both observables ---
     m_values = capped_unique_m_values(m_ladder, n_l)
+    guard = 100.0 * (1.0 + float(np.max(np.abs(ref_energy))))
     sweep = []
     for m_eff in m_values:
         t0 = time.perf_counter()
         ens = mesolve_ensemble(H, rho0, TLIST_FINE, c_ops, M=m_eff, e_ops=e_ops,
                                n_realizations=N_REALIZATIONS, rng=RNG,
-                               backend="native", substeps=SUBSTEPS)
+                               backend="native", substeps=substeps)
         dt = time.perf_counter() - t0
+        se = np.real(ens.samples[:, 0, :])
+        if not np.isfinite(se).all() or float(np.max(np.abs(se))) > guard:
+            print(f"    M={m_eff:3d}  SOFT DIVERGENCE at {substeps} substeps -- skipped")
+            continue
         sweep.append({
             "M": m_eff, "cost": dt,
-            "samples_energy": np.round(np.real(ens.samples[:, 0, :]), ROUND),
+            "samples_energy": np.round(se, ROUND),
             "samples_coherence": np.round(np.real(ens.samples[:, 1, :]), ROUND),
         })
         print(f"    M={m_eff:3d}  ensemble ({N_REALIZATIONS} realizations) "
@@ -136,16 +183,18 @@ def run(name, build, size, m_ladder):
 
     meta = run_metadata(
         tlist=TLIST_FINE,
-        system=name, size=size, M_LADDER=m_ladder,
+        system=name, size=size, M_LADDER=m_ladder, substeps=substeps,
         N_REALIZATIONS=N_REALIZATIONS, rng=RNG,
     )
-    save_data(f"accuracy_vs_M_{name}.json", meta, compact=True,
-              dim=dim, n_l=n_l,
+    save_data(f"accuracy_vs_M_{name}_dim{dim}.json", meta, compact=True,
+              dim=dim, n_l=n_l, substeps=substeps,
+              reference_method=ref_method, reference_selfcheck=ref_selfcheck,
               t_davies=t_davies, t_reference=t_reference,
               coherence_pair=[ia, ib], coherence_peak=peak,
               reference_energy=np.round(ref_energy, ROUND),
               reference_coherence=np.round(ref_coherence, ROUND),
               slb_sweep=sweep)
+    print(f"  -> wrote accuracy_vs_M_{name}_dim{dim}.json")
 
 
 def main():
@@ -153,10 +202,18 @@ def main():
     ap.add_argument("--system", default="all",
                     choices=[*SYSTEMS, "all"],
                     help="which system to run (default: all)")
+    ap.add_argument("--dims", type=int, nargs="+", default=None,
+                    help="only these Hilbert dims (default: all configured "
+                         "sizes; each saved to its own file).")
     args = ap.parse_args()
     names = list(SYSTEMS) if args.system == "all" else [args.system]
     for name in names:
-        run(name, *SYSTEMS[name])
+        build, points = SYSTEMS[name]
+        for size, m_ladder, substeps in points:
+            probe_dim = build(size)[0].shape[0]
+            if args.dims and probe_dim not in args.dims:
+                continue
+            run(name, build, size, m_ladder, substeps)
 
 
 if __name__ == "__main__":

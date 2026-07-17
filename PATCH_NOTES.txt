@@ -1,44 +1,40 @@
-CONVERGENCE + JACKKNIFE, HIGH-SAMPLING (benchmark_convergence.py) -- v3
-========================================================================
-Purpose: push the oscillator's SEM noise floor DOWN so the jackknife's steep
-bias rate is resolved over more M values (you saw it clear the floor by M=8 at
-256 realizations, leaving only 2 clean points and a noisy zig-zag past that).
+R1 ALL-SIZES SWEEP -- STEP 1 OF 4 (accuracy_vs_M pair)
+=======================================================
+This is the FIRST of the four (R1/R3/R4/jackknife). Try it, confirm the
+workflow feels right, and I'll replicate the exact pattern across the others.
 
-CHANGES:
- - Per-system realization counts: spin_chain stays 256 (already clean); the
-   oscillator jumps to 4000 (its bias is ~10x smaller, so it needs ~16x more
-   samples to expose the same clean range). Each system's SEM floor now uses
-   ITS OWN count.
- - INCREMENTAL SAVE: after every M it writes convergence_progress_<system>.json,
-   so a multi-hour run is never lost to a crash or a morning Ctrl-C.
- - CLI: --scale N multiplies both counts (e.g. --scale 2 -> spin 512, osc 8000)
-   if 4000 still isn't enough; --only oscillator_bath runs just one system.
- - Fixed the title/annotation overlap you spotted.
+THE PATTERN:
+ - run_accuracy_vs_M.py now sweeps a LIST of sizes per system (dims 16/32/64;
+   the oscillator's dim-64 uses 16 substeps, disclosed). It computes each size
+   ONCE and saves one file per dim: accuracy_vs_M_<system>_dim<D>.json.
+   Nothing overwrites; your existing dim-16 file stays.
+ - Past the mesolve memory wall it falls back to the certified native RK4
+   reference (same as Result 2), with a self-check that SKIPS any size whose
+   reference can't be certified. Soft-divergence in the SLB sweep is guarded
+   and that M is skipped.
+ - plot_accuracy_vs_M.py has a new switch: PLOT_DIM. Set it to 16 / 32 / 64 to
+   draw that size (fast); None auto-picks the largest dim on disk.
 
-EXPECTED COST: the oscillator at 4000 realizations x 6 M-values x jackknife is
-HEAVY -- likely 1.5-3 hours. That's what the night is for. The spin chain at
-256 finishes in a few minutes first, so you'll see it complete early, then the
-oscillator grinds.
+WORKFLOW (what you asked for -- heavy run once, fast plotting after):
+  # HEAVY, once: compute every size (can be hours at dim 64 / 200 realizations)
+  python run_accuracy_vs_M.py
+  # or a subset:  python run_accuracy_vs_M.py --system spin_chain --dims 16 32
 
-RUN (leave it overnight; lid open, plugged in):
+  # FAST, anytime: pick a size and plot
+  #   edit PLOT_DIM = 32 (or 16, 64, or None for largest) in plot_accuracy_vs_M.py
+  python plot_accuracy_vs_M.py
+
+TIMING BALLPARK (your machine, both systems, all three sizes): R1 is the
+lightest -- roughly under an hour total, the dim-64 sizes dominating. The
+oscillator dim-64 at 16 substeps adds ~10 min.
+
+NOTE your existing committed dim-16 figures/data are untouched; this only ADDS
+the machinery and larger sizes. When you plot with PLOT_DIM=16 you reproduce
+the current figure from the new per-dim file (re-run that size once first).
+
+Install (result2-split):
   cd C:\Users\sayak\Downloads\repo-split\qutip-bundling
-  git switch result2-split
-  Expand-Archive $env:USERPROFILE\Downloads\convergence-jackknife-v3.zip -DestinationPath . -Force
-  cd benchmarks
-  $env:PYTHONPATH = "..\src"
-  Start-Transcript convergence_night.txt
-  python benchmark_convergence.py
-  Stop-Transcript
+  Expand-Archive $env:USERPROFILE\Downloads\r1-all-sizes-step1.zip -DestinationPath . -Force
 
-In the morning, read the two VERDICT lines. Goal: the oscillator now shows
->=3 points above its floor and a slope clearly steeper than -1 (toward -2). If
-it's still MARGINAL, re-run just the oscillator harder:
-  python benchmark_convergence.py --only oscillator_bath --scale 2
-
-Then commit:
-  git add -A
-  git commit -m "section 6: high-sampling oscillator convergence; jackknife bias rate resolved"
-  git push
-
-(Delete convergence_progress_*.json before committing if you don't want the
-scratch files tracked -- or add them to .gitignore.)
+Run it, tell me if the PLOT_DIM workflow is what you pictured, and I'll do
+R3, R4, and the jackknife the same way.
