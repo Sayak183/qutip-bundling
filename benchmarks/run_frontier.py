@@ -56,6 +56,7 @@ from common import (
     MC_OPTIONS, tavg_bias_sem_rmse, run_metadata, save_data,
 )
 from qutip_bundling import davies_operators, mesolve_ensemble
+from qutip_bundling.native_solver import rk4_mesolve
 
 SUBSTEPS_TOL = 0.05      # warn if doubling substeps moves the bias > 5%
 SUBSTEPS_PROBE_M = 16    # M used for the substeps convergence guard
@@ -63,19 +64,30 @@ RNG_SWEEP = 1000         # seed for the SLB estimates (matches prior runs)
 ROUND = 8                # decimals kept for saved curves
 
 #           name -> (builder, size, M grid, ntraj grid, runs drawn per M)
-PRESETS = {
-    "default": {
-        "spin_chain":      (build_spin_chain, 4,
-                            [1, 2, 4, 8, 16, 32], [10, 50, 200, 1000], 32),
-        "oscillator_bath": (build_oscillator_bath, 8,
-                            [1, 2, 4, 8, 16, 32], [10, 50, 200, 1000], 32),
-    },
-    "big": {
-        "spin_chain_6spin":      (build_spin_chain, 6,
-                                  [2, 4, 8, 16, 32, 64], [10, 50, 200], 16),
-        "oscillator_bath_dim32": (build_oscillator_bath, 16,
-                                  [2, 4, 8, 16, 32, 64], [10, 50, 200], 16),
-    },
+# Each system sweeps a LIST of size-points:
+#   (size, m_grid, ntraj_grid, n_runs_max, substeps)
+# run_frontier computes every point ONCE, saving one file per dim
+# (frontier_<system>_dim<D>.json); plot_frontier picks a dim via PLOT_DIM.
+NATIVE_REF_SUBSTEPS_FACTOR = 2
+MAX_FULL_DIM_FALLBACK = 64
+
+# mcsolve cap: at large dim a single ntraj value can take hours. After the
+# first ntraj we measure the per-trajectory cost and SKIP any larger ntraj whose
+# projected wall-clock exceeds this budget, recording it as skipped rather than
+# grinding for days. Capped points are honest omissions, not silent failures.
+MC_TIME_BUDGET_S = 3600.0
+
+SYSTEMS = {
+    "spin_chain": (build_spin_chain, [
+        (4, [1, 2, 4, 8, 16, 32], [10, 50, 200, 1000], 32, 4),   # dim 16
+        (5, [1, 2, 4, 8, 16, 32], [10, 50, 200, 1000], 32, 4),   # dim 32
+        (6, [2, 4, 8, 16, 32, 64], [10, 50, 200],      16, 4),   # dim 64
+    ]),
+    "oscillator_bath": (build_oscillator_bath, [
+        (8,  [1, 2, 4, 8, 16, 32], [10, 50, 200, 1000], 32, 4),  # dim 16
+        (16, [1, 2, 4, 8, 16, 32], [10, 50, 200, 1000], 32, 4),  # dim 32
+        (32, [2, 4, 8, 16, 32, 64], [10, 50, 200],      16, 16), # dim 64 (stiff)
+    ]),
 }
 
 
@@ -129,7 +141,7 @@ def _mcsolve_samples(H, psi0, c_ops, ntraj):
     return np.real(np.array([res.runs_expect[0][k] for k in range(ntraj)]))
 
 
-def run(name, build, size, m_grid, ntraj_grid, n_runs_max):
+def run(name, build, size, m_grid, ntraj_grid, n_runs_max, substeps):
     H, X, psi0 = build(size)
     rho0 = qutip.ket2dm(psi0)
     c_ops = davies_operators(H, X, gamma)
@@ -137,8 +149,31 @@ def run(name, build, size, m_grid, ntraj_grid, n_runs_max):
     dim = H.shape[0]
 
     print(f"\n[{name}] dim={dim}, original Lindblad operators N_L={n_l}")
-    reference = np.real(qutip.mesolve(H, rho0, TLIST_FINE, c_ops=c_ops,
-                                      e_ops=[H]).expect[0])
+    # reference: mesolve while feasible, else certified native full-dissipator
+    ref_substeps = NATIVE_REF_SUBSTEPS_FACTOR * substeps
+    ref_method, ref_selfcheck, reference = None, None, None
+    if dim <= MAX_FULL_DIM_FALLBACK:
+        try:
+            reference = np.real(qutip.mesolve(H, rho0, TLIST_FINE, c_ops=c_ops,
+                                              e_ops=[H]).expect[0])
+            ref_method = "mesolve"
+        except MemoryError:
+            reference = None
+    if reference is None:
+        hi = rk4_mesolve(H, rho0, TLIST_FINE, c_ops=c_ops, e_ops=[H],
+                         substeps=ref_substeps)
+        lo = rk4_mesolve(H, rho0, TLIST_FINE, c_ops=c_ops, e_ops=[H],
+                         substeps=ref_substeps // 2)
+        reference = np.real(hi.expect[0])
+        dev = float(np.max(np.abs(reference - np.real(lo.expect[0]))))
+        ref_selfcheck = {"substeps": ref_substeps, "max_abs_dev": dev,
+                         "passed": bool(np.isfinite(dev) and dev <= 1e-4)}
+        ref_method = f"native_rk4_substeps{ref_substeps}"
+        print(f"  reference via {ref_method}; self-check dev {dev:.2e} "
+              f"[{'OK' if ref_selfcheck['passed'] else 'FAILED'}]")
+        if not ref_selfcheck["passed"]:
+            print(f"  dim={dim}: reference uncertifiable -- skipping this size.")
+            return
 
     m_values = capped_unique_m_values(m_grid, n_l)
     guard = substeps_guard(H, rho0, c_ops, reference,
@@ -149,7 +184,7 @@ def run(name, build, size, m_grid, ntraj_grid, n_runs_max):
     print("  bundling (sweep M):")
     for m_eff in m_values:
         samples, per_run = slb_samples(H, rho0, c_ops, m_eff, n_runs_max,
-                                       SUBSTEPS)
+                                       substeps)
         _, _, rmse = tavg_bias_sem_rmse(samples, reference)
         slb_sweep.append({"M": m_eff, "per_run_cost": per_run,
                           "samples": np.round(samples, ROUND)})
@@ -158,11 +193,23 @@ def run(name, build, size, m_grid, ntraj_grid, n_runs_max):
 
     # ---- mcsolve: one call per ntraj; derived stats saved ----
     mc = []
+    mc_skipped = []
+    per_traj_est = None
     print("  mcsolve (sweep ntraj):")
     for nt in ntraj_grid:
+        # cap: once we know the per-trajectory cost, refuse ntraj values whose
+        # projected time blows the budget (recorded, not silently dropped)
+        if per_traj_est is not None:
+            projected = per_traj_est * nt
+            if projected > MC_TIME_BUDGET_S:
+                print(f"    ntraj={nt:5d}  SKIPPED (projected {projected/60:.0f} "
+                      f"min > {MC_TIME_BUDGET_S/60:.0f} min budget)")
+                mc_skipped.append({"ntraj": nt, "projected_s": projected})
+                continue
         t0 = time.perf_counter()
         runs = _mcsolve_samples(H, psi0, c_ops, nt)
         dt = time.perf_counter() - t0
+        per_traj_est = dt / nt
         bias, sem, rmse = tavg_bias_sem_rmse(runs, reference)
         mc.append({"ntraj": nt, "cost": dt,
                    "bias": bias, "sem": sem, "rmse": rmse})
@@ -175,33 +222,32 @@ def run(name, build, size, m_grid, ntraj_grid, n_runs_max):
         N_RUNS_MAX=n_runs_max, SUBSTEPS_TOL=SUBSTEPS_TOL,
         SUBSTEPS_PROBE_M=SUBSTEPS_PROBE_M, rng_sweep=RNG_SWEEP,
     )
-    save_data(f"frontier_{name}.json", meta, compact=True,
-              dim=dim, n_l=n_l,
+    save_data(f"frontier_{name}_dim{dim}.json", meta, compact=True,
+              dim=dim, n_l=n_l, substeps=substeps,
+              reference_method=ref_method, reference_selfcheck=ref_selfcheck,
               reference=np.round(reference, ROUND),
-              guard=guard, slb_sweep=slb_sweep, mc=mc)
+              guard=guard, slb_sweep=slb_sweep, mc=mc,
+              mc_skipped=mc_skipped)
+    print(f"  -> wrote frontier_{name}_dim{dim}.json")
 
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[1])
-    ap.add_argument("--preset", default="default", choices=list(PRESETS),
-                    help="default: published dim-16 frontier; big: heavy "
-                         "workstation variant (>= 16 GB RAM recommended)")
     ap.add_argument("--system", default="all",
-                    help="one system name from the preset, or 'all' (default)")
+                    choices=[*SYSTEMS, "all"],
+                    help="which system to run (default: all)")
+    ap.add_argument("--dims", type=int, nargs="+", default=None,
+                    help="only these Hilbert dims (default: every configured "
+                         "size; each saved to its own file)")
     args = ap.parse_args()
-    preset = PRESETS[args.preset]
-    if args.preset == "big":
-        print("=" * 72)
-        print("BIG-SYSTEM FRONTIER  (workstation job -- not the sandbox / CI)")
-        print("  the full-mesolve reference and mcsolve baseline are the heavy")
-        print("  parts (RAM + minutes to tens of minutes each); SLB stays cheap")
-        print("=" * 72)
-    names = list(preset) if args.system == "all" else [args.system]
+    names = list(SYSTEMS) if args.system == "all" else [args.system]
     for name in names:
-        if name not in preset:
-            raise SystemExit(f"unknown system {name!r} for preset "
-                             f"{args.preset!r}; choose from {list(preset)}")
-        run(name, *preset[name])
+        build, points = SYSTEMS[name]
+        for size, m_grid, ntraj_grid, n_runs_max, substeps in points:
+            probe_dim = build(size)[0].shape[0]
+            if args.dims and probe_dim not in args.dims:
+                continue
+            run(name, build, size, m_grid, ntraj_grid, n_runs_max, substeps)
 
 
 if __name__ == "__main__":

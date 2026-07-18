@@ -86,7 +86,7 @@ def accuracy_figure(plt, name, doc, tlist, reference, curves,
     # ---------------------------------------------------------
     M_TO_PLOT = {
         "spin_chain": [2, 4, 8, 16],
-        "oscillator_bath": [2, 8]
+        "oscillator_bath": [2, 8, 32, 64]
     }
     system_m_list = M_TO_PLOT.get(name)
 
@@ -157,7 +157,23 @@ def peak_error_anatomy(doc, key, ref):
     return t_star, np.array(m_values), np.array(bias), np.array(fluct)
 
 
-def _fit_label(base, m, y):
+def _fit_label(base, m, y, floor=None):
+    """Fitted power-law label. If `floor` (the SEM) is given, points at or below
+    it are sampling noise, not signal: fitting them would advertise a bogus
+    convergence rate, so we report an upper bound instead of a slope."""
+    if floor is not None:
+        # "Resolved" means clearly ABOVE the sampling floor, not marginally so:
+        # a point that pokes over the SEM by a hair is still mostly noise, and
+        # fitting two such points advertises a rate that is pure wobble. Require
+        # a factor-2 margin and at least three points before quoting a slope.
+        clear = np.asarray(y) > 2.0 * np.asarray(floor)
+        if int(clear.sum()) < 3:
+            return base + r"  — below noise floor (upper bound)"
+        m, y = np.asarray(m)[clear], np.asarray(y)[clear]
+    return _fit_label_raw(base, m, y)
+
+
+def _fit_label_raw(base, m, y):
     ok = np.isfinite(y) & (y > 0)
     if ok.sum() < 2:
         return base
@@ -200,7 +216,8 @@ def decomposition_figure(plt, name, doc, tlist):
                       label=_fit_label(rmse_label_prefix, m, rmse))
         if PLOT_BIAS:
             ax.loglog(m, bias, "o-", color="tab:red", lw=1.8, ms=6, zorder=3,
-                      label=_fit_label("bias  $|{\\rm mean}-{\\rm ref}|$", m, bias))
+                      label=_fit_label("bias  $|{\\rm mean}-{\\rm ref}|$", m, bias,
+                                       floor=sem))
         if PLOT_SEM:
             ax.loglog(m, sem, "s-", color="tab:blue", lw=1.8, ms=6, zorder=2,
                       label=_fit_label("SEM  (fluctuation/$\\sqrt{N}$)", m, sem))

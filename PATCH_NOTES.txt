@@ -1,40 +1,24 @@
-R1 ALL-SIZES SWEEP -- STEP 1 OF 4 (accuracy_vs_M pair)
-=======================================================
-This is the FIRST of the four (R1/R3/R4/jackknife). Try it, confirm the
-workflow feels right, and I'll replicate the exact pattern across the others.
+NOISE-FLOOR GUARD FIX (plot_accuracy_vs_M.py)
+==============================================
+One file. Your dim-64 figures showed the guard was too lenient: it required
+only 2 points above the SEM, and in the oscillator's noisy wobble exactly two
+points poked over by a hair -- so it still printed slopes (M^-0.54, M^-0.33)
+that are pure sampling noise.
 
-THE PATTERN:
- - run_accuracy_vs_M.py now sweeps a LIST of sizes per system (dims 16/32/64;
-   the oscillator's dim-64 uses 16 substeps, disclosed). It computes each size
-   ONCE and saves one file per dim: accuracy_vs_M_<system>_dim<D>.json.
-   Nothing overwrites; your existing dim-16 file stays.
- - Past the mesolve memory wall it falls back to the certified native RK4
-   reference (same as Result 2), with a self-check that SKIPS any size whose
-   reference can't be certified. Soft-divergence in the SLB sweep is guarded
-   and that M is skipped.
- - plot_accuracy_vs_M.py has a new switch: PLOT_DIM. Set it to 16 / 32 / 64 to
-   draw that size (fast); None auto-picks the largest dim on disk.
+FIXED RULE: a bias point counts as resolved only if it exceeds 2x the SEM, and
+at least THREE such points are required before any slope is quoted; otherwise
+the legend reads "below noise floor (upper bound)".
 
-WORKFLOW (what you asked for -- heavy run once, fast plotting after):
-  # HEAVY, once: compute every size (can be hours at dim 64 / 200 realizations)
-  python run_accuracy_vs_M.py
-  # or a subset:  python run_accuracy_vs_M.py --system spin_chain --dims 16 32
+Verified against your actual dim-64 numbers:
+  spin energy      6 resolved  -> quotes M^-0.95   (your real convergence law)
+  spin coherence   2 resolved  -> upper bound, no slope
+  osc energy       1 resolved  -> upper bound, no slope
+  osc coherence    2 resolved  -> upper bound, no slope
 
-  # FAST, anytime: pick a size and plot
-  #   edit PLOT_DIM = 32 (or 16, 64, or None for largest) in plot_accuracy_vs_M.py
+So the one defensible rate is kept and the three floor-limited ones stop
+advertising fake exponents.
+
+  Expand-Archive $env:USERPROFILE\Downloads\noise-floor-fix.zip -DestinationPath . -Force
+  cd benchmarks ; $env:PYTHONPATH = "..\src"
+  # set PLOT_DIM per size, then:
   python plot_accuracy_vs_M.py
-
-TIMING BALLPARK (your machine, both systems, all three sizes): R1 is the
-lightest -- roughly under an hour total, the dim-64 sizes dominating. The
-oscillator dim-64 at 16 substeps adds ~10 min.
-
-NOTE your existing committed dim-16 figures/data are untouched; this only ADDS
-the machinery and larger sizes. When you plot with PLOT_DIM=16 you reproduce
-the current figure from the new per-dim file (re-run that size once first).
-
-Install (result2-split):
-  cd C:\Users\sayak\Downloads\repo-split\qutip-bundling
-  Expand-Archive $env:USERPROFILE\Downloads\r1-all-sizes-step1.zip -DestinationPath . -Force
-
-Run it, tell me if the PLOT_DIM workflow is what you pictured, and I'll do
-R3, R4, and the jackknife the same way.

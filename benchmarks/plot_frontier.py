@@ -34,6 +34,19 @@ PLOT_STD  = False
 # Choose what the error bars on the RMSE curves represent ("SEM" or "STD")
 ERROR_BAR_TYPE = "SEM" 
 
+# WHICH SYSTEM SIZE TO PLOT: run_frontier.py saves one file per dim
+# (frontier_<system>_dim<D>.json). None = auto-pick the largest on disk.
+PLOT_DIM = None
+
+# PER-UNIT-WORK VIEW. False (default): costs are what each method actually
+# spends -- SLB's N_r-run ensemble, mcsolve's full ntraj run. True: divide each
+# method's cost by its own number of atomic units, so the x-axis becomes
+# "wall-clock per ONE SLB run / per ONE trajectory" while the errors still come
+# from the full statistics. mcsolve then collapses to a near-vertical stack
+# (same per-trajectory cost, different achieved error), which is exactly the
+# "same CPU per unit of work" comparison.
+NORMALIZE_PER_UNIT_WORK = True
+
 DEFAULT_SYSTEMS = ["spin_chain", "oscillator_bath"]
 # -------------------------------------------------
 
@@ -91,9 +104,14 @@ def figure(name, doc):
         # Determine error bars
         err_vals = stats["std"] if ERROR_BAR_TYPE == "STD" else stats["sem"]
             
+        slb_x_ens = ([c / n for c in stats["cost_ens"]]
+                     if NORMALIZE_PER_UNIT_WORK else stats["cost_ens"])
         if PLOT_ENSEMBLE_RMSE:
-            ax.errorbar(stats["cost_ens"], stats["rmse_ens"], yerr=err_vals,
-                        fmt="s-", color=colors[i], lw=2, label=f"SLB Ens ($N_r$={n})")
+            ax.errorbar(slb_x_ens, stats["rmse_ens"], yerr=err_vals,
+                        fmt="s-", color=colors[i], lw=2,
+                        label=(f"SLB, 1 run ($N_r$={n} stats)"
+                               if NORMALIZE_PER_UNIT_WORK
+                               else f"SLB Ens ($N_r$={n})"))
         
         if PLOT_SINGLE_RMSE:
             ax.errorbar(stats["cost_single"], stats["rmse_single"], yerr=err_vals,
@@ -139,7 +157,12 @@ def figure(name, doc):
     mc_bias = [r["bias"] for r in mc]
     mc_sem = [r["sem"] for r in mc]
     mc_std = [r["sem"] * np.sqrt(r["ntraj"]) for r in mc]
-    if PLOT_SINGLE_RMSE and not PLOT_ENSEMBLE_RMSE:
+    if NORMALIZE_PER_UNIT_WORK:
+        # one trajectory's worth of compute; error still from the full ntraj run
+        mc_cost_ens = [r["cost"] / r["ntraj"] for r in mc]
+        mc_rmse_ens = [r["rmse"] for r in mc]
+        mc_label = "mcsolve, per trajectory (error from full ntraj)"
+    elif PLOT_SINGLE_RMSE and not PLOT_ENSEMBLE_RMSE:
         mc_cost_ens = [r["cost"] / r["ntraj"] for r in mc]
         mc_rmse_ens = [float(np.sqrt(b ** 2 + s ** 2))
                        for b, s in zip(mc_bias, mc_std)]
@@ -158,7 +181,9 @@ def figure(name, doc):
 
     ax.set_xscale("log")
     ax.set_yscale("log")
-    ax.set_xlabel("wall-clock cost (s)   (lower is better)")
+    ax.set_xlabel("wall-clock per single run / trajectory (s)   (lower is better)"
+                  if NORMALIZE_PER_UNIT_WORK
+                  else "wall-clock cost (s)   (lower is better)")
     ax.set_ylabel(r"time-averaged error in $\langle H\rangle$   (lower is better)")
     ax.set_title(rf"{name} (dim {doc['dim']}, $N_L$={doc['n_l']})")
     ax.grid(True, which="both", alpha=0.3)
@@ -181,6 +206,7 @@ def figure(name, doc):
     )
     
     suffix = ""
+    if NORMALIZE_PER_UNIT_WORK: suffix += "_perUnit"
     if not PLOT_ENSEMBLE_RMSE: suffix += "_noEns"
     if PLOT_SINGLE_RMSE: suffix += "_Single"
     if PLOT_BIAS: suffix += "_Bias"
@@ -196,9 +222,21 @@ def main():
     ap.add_argument("--system", default="all")
     args = ap.parse_args()
     names = DEFAULT_SYSTEMS if args.system == "all" else [args.system]
+    import glob, os, re as _re
+    def _resolve(nm):
+        if PLOT_DIM is not None:
+            return f"frontier_{nm}_dim{PLOT_DIM}.json"
+        paths = glob.glob(f"data/frontier_{nm}_dim*.json")
+        if not paths:
+            return f"frontier_{nm}.json"
+        best = max(paths, key=lambda p: int(_re.search(r"_dim(\d+)", p).group(1)))
+        return os.path.basename(best)
+
     for name in names:
-        print(f"[{name}]")
-        figure(name, load_data(f"frontier_{name}.json"))
+        fname = _resolve(name)
+        doc = load_data(fname)
+        print(f"[{name}] plotting {fname} (dim {doc.get('dim','?')})")
+        figure(name, doc)
         print(f"  saved plot")
 
 if __name__ == "__main__":
