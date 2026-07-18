@@ -1,24 +1,44 @@
-NOISE-FLOOR GUARD FIX (plot_accuracy_vs_M.py)
-==============================================
-One file. Your dim-64 figures showed the guard was too lenient: it required
-only 2 points above the SEM, and in the oscillator's noisy wobble exactly two
-points poked over by a hair -- so it still printed slopes (M^-0.54, M^-0.33)
-that are pure sampling noise.
+R4 EXTENDED TO DIM 64 -- STEP 3 OF 4 (run_isocost_vs_dim.py)
+=============================================================
+ONE file. NOTE R4 IS STRUCTURALLY DIFFERENT from R1/R3: its x-axis IS
+dimension, so every size lives in ONE file and ONE figure -- there is no
+PLOT_DIM switch here and none is wanted. "Sweep everything" for R4 means
+extending the size list and REMOVING THE WALL that stopped it.
 
-FIXED RULE: a bias point counts as resolved only if it exceeds 2x the SEM, and
-at least THREE such points are required before any slope is quoted; otherwise
-the legend reads "below noise floor (upper bound)".
+WHAT CHANGED
+ 1. Sizes extended: spin dims 4..64 (was 4..32); oscillator dims 8..64
+    (was 8..32), the dim-64 point at 16 disclosed substeps.
+ 2. THE WALL IS GONE. Previously the loop hit `break` the moment mesolve
+    became infeasible -- that is exactly why your R4 spin curve stopped at
+    dim 32. It now falls back to the certified native full-dissipator
+    reference (substep-halving self-check; an uncertifiable size is SKIPPED,
+    not trusted), so the curve continues past the mesolve wall.
+ 3. Per-size substeps threaded through the SLB sweep and recorded in the data
+    (substeps_by_size in meta), so the disclosed oscillator dim-64 point is
+    self-documenting.
+ 4. SOFT-DIVERGENCE GUARD in the sweep (finite-but-garbage samples end that
+    dimension's sweep instead of poisoning it).
+ 5. MCSOLVE WALL-CLOCK CAP: a per-dimension budget (MC_TIME_BUDGET_S = 1 h)
+    stops the ntraj ladder before it can run for hours. Skipped ntraj values
+    are RECORDED (mc_skipped); S^2 is a property of the system, so using fewer
+    sampled ntraj costs precision, not validity.
 
-Verified against your actual dim-64 numbers:
-  spin energy      6 resolved  -> quotes M^-0.95   (your real convergence law)
-  spin coherence   2 resolved  -> upper bound, no slope
-  osc energy       1 resolved  -> upper bound, no slope
-  osc coherence    2 resolved  -> upper bound, no slope
-
-So the one defensible rate is kept and the three floor-limited ones stop
-advertising fake exponents.
-
-  Expand-Archive $env:USERPROFILE\Downloads\noise-floor-fix.zip -DestinationPath . -Force
+RUN (this is the heavy one -- overnight):
+  cd C:\Users\sayak\Downloads\repo-split\qutip-bundling
+  Expand-Archive $env:USERPROFILE\Downloads\r4-extended-step3.zip -DestinationPath . -Force
   cd benchmarks ; $env:PYTHONPATH = "..\src"
-  # set PLOT_DIM per size, then:
-  python plot_accuracy_vs_M.py
+  Start-Transcript r4_night.txt
+  python run_isocost_vs_dim.py
+  Stop-Transcript
+  python plot_isocost_vs_dim.py
+
+WORST CASE: the mcsolve cap bounds each dimension's trajectory fitting at ~1 h,
+and there are 9 size-points total, so mcsolve cannot exceed ~9 h even if it is
+far slower than projected. The SLB sweeps and native references add a few hours
+on top at the dim-64 points. Budget a full night; it cannot run away.
+
+TIP: run this OR the R3 --dims 64 job tonight, not both -- they compete for the
+same cores and each would slow the other down.
+
+Tested in-sandbox at spin sizes 2,3 (reference, sweep, mcsolve fit, save all
+verified). The dim-64 points are your machine's job.

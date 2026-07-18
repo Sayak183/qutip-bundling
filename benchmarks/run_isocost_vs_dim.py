@@ -47,6 +47,7 @@ from common import (
     save_data,
 )
 from qutip_bundling import davies_operators, mesolve_ensemble
+from qutip_bundling.native_solver import rk4_mesolve
 
 N_RUNS_MAX = 16         # independent SLB runs drawn per M (levels subsample these)
 SWEEP_MIN_RUNS = 4      # harshest averaging level the sweep must support
@@ -59,13 +60,22 @@ MC_REPEATS = 4                                  # repeats per point -> smooth no
 RNG_SWEEP = 100         # seed for the SLB estimates (matches prior runs)
 ROUND = 8               # decimals kept for saved curves (keeps the JSON compact)
 
+# Size-points: (size, substeps). R4's x-axis IS dimension, so every size lives
+# in ONE file/figure -- there is no per-dim split here. "Sweep everything" means
+# extending the list and continuing PAST the mesolve wall via the certified
+# native reference instead of stopping there.
+NATIVE_REF_SUBSTEPS_FACTOR = 2
+MC_TIME_BUDGET_S = 3600.0   # per-dimension mcsolve budget (see mc_fit)
+
 SYSTEMS = {
-    "spin_chain":      (build_spin_chain,      [2, 3, 4, 5]),   # dims 4..32
-    "oscillator_bath": (build_oscillator_bath, [4, 8, 16]),     # dims 8..32
+    "spin_chain":      (build_spin_chain,      [(2, 4), (3, 4), (4, 4),
+                                                (5, 4), (6, 4)]),   # dims 4..64
+    "oscillator_bath": (build_oscillator_bath, [(4, 4), (8, 4), (16, 4),
+                                                (32, 16)]),         # dims 8..64
 }
 
 
-def slb_sweep(H, rho0, c_ops, reference, n_l):
+def slb_sweep(H, rho0, c_ops, reference, n_l, substeps=SUBSTEPS):
     """Ascending M sweep at N_RUNS_MAX runs each; raw samples saved per M.
 
     [{M, per_run_cost, samples: (N_RUNS_MAX, n_times)}, ...]. Stops once the
@@ -81,11 +91,19 @@ def slb_sweep(H, rho0, c_ops, reference, n_l):
         t0 = time.perf_counter()
         ens = mesolve_ensemble(H, rho0, TLIST_FINE, c_ops, M=m_eff, e_ops=[H],
                                n_realizations=N_RUNS_MAX, rng=RNG_SWEEP,
-                               backend="native", substeps=SUBSTEPS)
+                               backend="native", substeps=substeps)
         per_run = (time.perf_counter() - t0) / N_RUNS_MAX
         samples = np.real(ens.samples[:, 0, :])
         rmse_min = tavg_rmse(samples[:SWEEP_MIN_RUNS], reference)
         rmse_max = tavg_rmse(samples, reference)
+        if (not np.isfinite(samples).all()
+                or float(np.max(np.abs(samples)))
+                > 100.0 * (1.0 + float(np.max(np.abs(reference))))):
+            print(f"      M={m_eff:4d}  SOFT DIVERGENCE at {substeps} substeps "
+                  f"-- sweep ends for this dimension")
+            rows.append({"M": m_eff, "diverged": True,
+                         "per_run_cost": per_run})
+            break
         rows.append({"M": m_eff, "per_run_cost": per_run,
                      "samples": np.round(samples, ROUND)})
         print(f"      M={m_eff:4d}  RMSE(n={SWEEP_MIN_RUNS})={rmse_min:.3e}  "
@@ -110,58 +128,104 @@ def mc_fit(H, psi0, c_ops, reference):
     """Raw material for the S^2 fit: per sampled ntraj, each repeat's
     time-averaged RMSE and the per-trajectory wall-clock. mcsolve is unbiased,
     so rmse^2 * ntraj estimates S^2 at any ntraj; the plot script averages
-    these and solves ntraj* = (S/target)^2 for its target."""
-    rows = []
+    these and solves ntraj* = (S/target)^2 for its target.
+
+    A per-dimension wall-clock budget (MC_TIME_BUDGET_S) stops the ntraj ladder
+    before it can run for hours at large dim. Skipped values are RECORDED, and
+    the S^2 fit simply uses the points that did run -- S^2 is a property of the
+    system, so fewer sampled ntraj costs precision, not validity."""
+    rows, skipped, per_traj_est = [], [], None
+    spent = 0.0
     for nt in MC_FIT_GRID:
+        if per_traj_est is not None:
+            projected = per_traj_est * nt * MC_REPEATS
+            if spent + projected > MC_TIME_BUDGET_S:
+                print(f"      mcsolve ntraj={nt:4d}  SKIPPED (projected "
+                      f"{projected/60:.0f} min would exceed the "
+                      f"{MC_TIME_BUDGET_S/60:.0f} min budget)")
+                skipped.append({"ntraj": nt, "projected_s": projected})
+                continue
         rs = []
         t0 = time.perf_counter()
         for _ in range(MC_REPEATS):
             rs.append(tavg_rmse(_mcsolve_runs(H, psi0, c_ops, nt), reference))
         dt = time.perf_counter() - t0
+        spent += dt
+        per_traj_est = dt / (MC_REPEATS * nt)
         rows.append({"ntraj": nt, "rmse_repeats": rs,
-                     "per_traj_time": dt / (MC_REPEATS * nt)})
+                     "per_traj_time": per_traj_est})
         print(f"      mcsolve ntraj={nt:4d}  RMSE~{np.mean(rs):.3e}  "
-              f"per-traj={rows[-1]['per_traj_time']*1e3:.3g}ms")
-    return rows
+              f"per-traj={per_traj_est*1e3:.3g}ms")
+    if skipped:
+        rows.append({"_skipped": skipped})
+    return [r for r in rows if "_skipped" not in r], skipped
 
 
-def run(name, build, sizes):
+def run(name, build, size_points):
     points = []
     print(f"[{name}]  sweep floor RMSE = {SWEEP_STOP_RMSE} at n={SWEEP_MIN_RUNS} runs")
     full_feasible = True
-    for s in sizes:
+    for s, substeps in size_points:
         H, X, psi0 = build(s)
         rho0 = qutip.ket2dm(psi0)
         dim = H.shape[0]
         c_ops = davies_operators(H, X, gamma)
         n_l = len(c_ops)
 
-        if not (full_feasible and dim <= MAX_FULL_DIM):
-            print(f"  dim={dim:4d}  reference beyond wall — stopping "
-                  f"(iso-accuracy needs the exact solve)")
-            break
-        try:
+        # Reference: qutip mesolve while feasible, else the certified native
+        # full-dissipator RK4. Previously the sweep simply STOPPED at the wall,
+        # which is why this curve ended at dim 32; the fallback lets it
+        # continue, with a substep-halving self-check so an uncertifiable
+        # reference is skipped rather than trusted.
+        ref_substeps = NATIVE_REF_SUBSTEPS_FACTOR * substeps
+        reference, t_full, ref_method, ref_selfcheck = None, np.nan, None, None
+        if full_feasible and dim <= MAX_FULL_DIM:
+            try:
+                t0 = time.perf_counter()
+                reference = np.real(qutip.mesolve(H, rho0, TLIST_FINE,
+                                                  c_ops=c_ops, e_ops=[H]).expect[0])
+                t_full = time.perf_counter() - t0
+                ref_method = "mesolve"
+                if t_full > FULL_TIME_BUDGET:
+                    full_feasible = False
+            except MemoryError:
+                reference, full_feasible = None, False
+        if reference is None:
             t0 = time.perf_counter()
-            reference = np.real(qutip.mesolve(H, rho0, TLIST_FINE, c_ops=c_ops,
-                                              e_ops=[H]).expect[0])
-            t_full = time.perf_counter() - t0
-        except MemoryError:
-            print(f"  dim={dim:4d}  reference OOM — stopping")
-            break
-        if t_full > FULL_TIME_BUDGET:
-            full_feasible = False
+            hi = rk4_mesolve(H, rho0, TLIST_FINE, c_ops=c_ops, e_ops=[H],
+                             substeps=ref_substeps)
+            t_native = time.perf_counter() - t0
+            lo = rk4_mesolve(H, rho0, TLIST_FINE, c_ops=c_ops, e_ops=[H],
+                             substeps=ref_substeps // 2)
+            reference = np.real(hi.expect[0])
+            dev = float(np.max(np.abs(reference - np.real(lo.expect[0]))))
+            ok = bool(np.isfinite(dev) and dev <= 1e-4)
+            ref_selfcheck = {"substeps": ref_substeps, "max_abs_dev": dev,
+                             "passed": ok}
+            ref_method = f"native_rk4_substeps{ref_substeps}"
+            print(f"  dim={dim:4d}  reference via {ref_method} in {t_native:.0f}s; "
+                  f"self-check dev {dev:.2e} [{'OK' if ok else 'FAILED'}]")
+            if not ok:
+                print(f"  dim={dim:4d}  reference uncertifiable -- skipping size.")
+                continue
 
-        print(f"  dim={dim:4d}  N_L={n_l:4d}  full={t_full:7.2f}s")
+        print(f"  dim={dim:4d}  N_L={n_l:4d}  reference={ref_method}  "
+              f"{substeps} substeps")
+        mc_rows, mc_skipped = mc_fit(H, psi0, c_ops, reference)
         points.append({
             "size": s, "dim": dim, "n_l": n_l, "t_full": t_full,
+            "substeps": substeps, "reference_method": ref_method,
+            "reference_selfcheck": ref_selfcheck,
             "reference": np.round(reference, ROUND),
-            "slb_sweep": slb_sweep(H, rho0, c_ops, reference, n_l),
-            "mc_fit": mc_fit(H, psi0, c_ops, reference),
+            "slb_sweep": slb_sweep(H, rho0, c_ops, reference, n_l, substeps),
+            "mc_fit": mc_rows, "mc_skipped": mc_skipped,
         })
 
     meta = run_metadata(
         tlist=TLIST_FINE,
-        system=name, sizes=sizes, N_RUNS_MAX=N_RUNS_MAX,
+        system=name, sizes=[s for s, _ in size_points],
+        substeps_by_size={str(s): ss for s, ss in size_points},
+        N_RUNS_MAX=N_RUNS_MAX,
         SWEEP_MIN_RUNS=SWEEP_MIN_RUNS, SWEEP_STOP_RMSE=SWEEP_STOP_RMSE,
         M_GRID=M_GRID, MC_FIT_GRID=MC_FIT_GRID, MC_REPEATS=MC_REPEATS,
         rng_sweep=RNG_SWEEP,
@@ -180,8 +244,11 @@ def main():
     args = ap.parse_args()
     names = list(SYSTEMS) if args.system == "all" else [args.system]
     for name in names:
-        build, sizes = SYSTEMS[name]
-        run(name, build, args.sizes if args.sizes else sizes)
+        build, size_points = SYSTEMS[name]
+        if args.sizes:
+            keep = set(args.sizes)
+            size_points = [(s, ss) for s, ss in size_points if s in keep]
+        run(name, build, size_points)
 
 
 if __name__ == "__main__":
