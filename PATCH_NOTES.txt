@@ -1,44 +1,43 @@
-R4 EXTENDED TO DIM 64 -- STEP 3 OF 4 (run_isocost_vs_dim.py)
-=============================================================
-ONE file. NOTE R4 IS STRUCTURALLY DIFFERENT from R1/R3: its x-axis IS
-dimension, so every size lives in ONE file and ONE figure -- there is no
-PLOT_DIM switch here and none is wanted. "Sweep everything" for R4 means
-extending the size list and REMOVING THE WALL that stopped it.
+PROSE UPDATE FOR THE DIM-64 RESULTS (BENCHMARKS.md)
+=====================================================
+ONE file. No compute. This rewrites the passages your new data made outdated
+and adds the new results.
 
 WHAT CHANGED
- 1. Sizes extended: spin dims 4..64 (was 4..32); oscillator dims 8..64
-    (was 8..32), the dim-64 point at 16 disclosed substeps.
- 2. THE WALL IS GONE. Previously the loop hit `break` the moment mesolve
-    became infeasible -- that is exactly why your R4 spin curve stopped at
-    dim 32. It now falls back to the certified native full-dissipator
-    reference (substep-halving self-check; an uncertifiable size is SKIPPED,
-    not trusted), so the curve continues past the mesolve wall.
- 3. Per-size substeps threaded through the SLB sweep and recorded in the data
-    (substeps_by_size in meta), so the disclosed oscillator dim-64 point is
-    self-documenting.
- 4. SOFT-DIVERGENCE GUARD in the sweep (finite-but-garbage samples end that
-    dimension's sweep instead of poisoning it).
- 5. MCSOLVE WALL-CLOCK CAP: a per-dimension budget (MC_TIME_BUDGET_S = 1 h)
-    stops the ntraj ladder before it can run for hours. Skipped ntraj values
-    are RECORDED (mc_skipped); S^2 is a property of the system, so using fewer
-    sampled ntraj costs precision, not validity.
+ 1. PULL-QUOTE: the old split story ("widens only in the oscillator regime")
+    is gone. Both systems now widen with size: ~46x on the chain by dim 64,
+    into the thousands on the oscillator.
+ 2. RESULT 4 -- the big one. The old paragraph said the chain was "modest and
+    non-monotone, 2-17x". Your dim-64 run shows the curves separating sharply
+    from dim 32 to 64 (mcsolve ~2,250 trajectories / ~2 h vs a 16-run SLB
+    estimate under three minutes = ~46x, against ~11x at dim 32). The
+    oscillator arithmetic is now stated plainly: ~2.8e5 trajectories at ~20 s
+    each, about 67 DAYS, versus 47 seconds -- order 1e5, reported as a lower
+    bound where capped. A footnote records that at dim 64 the trajectory
+    budget admits a single sampled ntraj, so S^2 rests on one measurement.
+ 3. RESULT 3 -- new paragraph for the dim-64 frontier: chain cheaper at every
+    matched accuracy and increasingly so as the target tightens
+    (1.8x -> 5x -> 11x); oscillator simultaneously ~20x cheaper AND ~250x more
+    accurate. Notes the substeps guard confirming the floor is bundling bias.
+ 4. RESULT 1 -- new "Sizes" paragraph: all sizes available per-dim, native
+    reference past the wall, oscillator dim-64 at 16 disclosed substeps, and
+    the key point that the convergence laws SURVIVE the jump (M^-0.95 bias at
+    N_L=869, unchanged from dim 16).
+ 5. SECTION 6 -- the jackknife now leads with the rate result: on the chain at
+    dim 32 the exponent moves from M^-0.97 to M^-1.75 with the corrected bias
+    falling monotonically (16.5x reduction) -- the signature of leading-order
+    cancellation -- and explains that elsewhere the corrected bias hits the
+    sampling floor, so a rate is quoted only where >=3 points clear it by 2x.
 
-RUN (this is the heavy one -- overnight):
+Install and read it through before committing:
   cd C:\Users\sayak\Downloads\repo-split\qutip-bundling
-  Expand-Archive $env:USERPROFILE\Downloads\r4-extended-step3.zip -DestinationPath . -Force
-  cd benchmarks ; $env:PYTHONPATH = "..\src"
-  Start-Transcript r4_night.txt
-  python run_isocost_vs_dim.py
-  Stop-Transcript
-  python plot_isocost_vs_dim.py
+  Expand-Archive $env:USERPROFILE\Downloads\prose-dim64-update.zip -DestinationPath . -Force
+  git add -A
+  git commit -m "docs: dim-64 results; chain speedup now grows with size; jackknife rate steepening"
+  git push
 
-WORST CASE: the mcsolve cap bounds each dimension's trajectory fitting at ~1 h,
-and there are 9 size-points total, so mcsolve cannot exceed ~9 h even if it is
-far slower than projected. The SLB sweeps and native references add a few hours
-on top at the dim-64 points. Budget a full night; it cannot run away.
-
-TIP: run this OR the R3 --dims 64 job tonight, not both -- they compete for the
-same cores and each would slow the other down.
-
-Tested in-sandbox at spin sizes 2,3 (reference, sweep, mcsolve fit, save all
-verified). The dim-64 points are your machine's job.
+STILL PENDING (your call, not blockers):
+ - oscillator dim-64 jackknife run (~3-5 h, likely MARGINAL -- banked for tonight)
+ - the figures referenced in the text should be regenerated at the size you
+   want displayed (PLOT_DIM) before you push, so text and figures agree
+ - pre-escalation polish: README math rendering, CPTP/positivity test, CI matrix

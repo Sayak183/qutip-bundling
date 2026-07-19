@@ -36,6 +36,7 @@ from common import (
     format_slb_settings, add_settings_footer,
 )
 from qutip_bundling import davies_operators, mesolve_ensemble, mesolve_jackknife
+from qutip_bundling.native_solver import rk4_mesolve
 
 # ===========================================================================
 # CONFIG
@@ -55,18 +56,47 @@ SEED = 0
 M_VALUES = [2, 4, 8, 16, 32, 64]
 
 # One representative size per system (kept modest so the exact reference is cheap).
+# Size-points per system: (size, substeps, realizations). Each is computed
+# ONCE and saved to its own figure/file keyed by dim, so nothing overwrites and
+# you can pick any size later. Realizations are per-size because the SEM floor
+# must sit below the corrected bias -- and larger systems are far more
+# expensive, so the counts are tuned rather than uniform.
 SYSTEMS = [
-    ("spin_chain",      build_spin_chain,      4),    # dim 16
-    ("oscillator_bath", build_oscillator_bath, 8),    # dim 16
+    ("spin_chain",      build_spin_chain,  [(4, 4, 256), (5, 4, 128), (6, 4, 64)]),
+    ("oscillator_bath", build_oscillator_bath, [(8, 4, 256), (16, 4, 128),
+                                                (32, 16, 64)]),
 ]
+NATIVE_REF_SUBSTEPS_FACTOR = 2
+MAX_FULL_DIM_FALLBACK = 64
 
 
-def run(name, build, size, n_real=N_REALIZATIONS):
+def run(name, build, size, n_real=N_REALIZATIONS, substeps=SUBSTEPS):
     H, X, psi0 = build(size)
     rho0 = qutip.ket2dm(psi0)
     c_ops = davies_operators(H, X, gamma)
     dim = H.shape[0]
-    ref = np.real(qutip.mesolve(H, rho0, TLIST, c_ops=c_ops, e_ops=[H]).expect[0])
+    # reference: mesolve while feasible, else certified native full dissipator
+    ref, ref_method = None, None
+    if dim <= MAX_FULL_DIM_FALLBACK:
+        try:
+            ref = np.real(qutip.mesolve(H, rho0, TLIST, c_ops=c_ops,
+                                        e_ops=[H]).expect[0])
+            ref_method = "mesolve"
+        except MemoryError:
+            ref = None
+    if ref is None:
+        rs = NATIVE_REF_SUBSTEPS_FACTOR * substeps
+        hi = rk4_mesolve(H, rho0, TLIST, c_ops=c_ops, e_ops=[H], substeps=rs)
+        lo = rk4_mesolve(H, rho0, TLIST, c_ops=c_ops, e_ops=[H], substeps=rs // 2)
+        ref = np.real(hi.expect[0])
+        dev = float(np.max(np.abs(ref - np.real(lo.expect[0]))))
+        ok = bool(np.isfinite(dev) and dev <= 1e-4)
+        ref_method = f"native_rk4_substeps{rs}"
+        print(f"  reference via {ref_method}; self-check dev {dev:.2e} "
+              f"[{'OK' if ok else 'FAILED'}]")
+        if not ok:
+            print(f"  dim={dim}: reference uncertifiable -- skipping size.")
+            return None
 
     Ms, stat, bias, bias_jk = [], [], [], []
     print(f"\n[{name}] dim={dim}, N_L={len(c_ops)}")
@@ -78,10 +108,10 @@ def run(name, build, size, n_real=N_REALIZATIONS):
         # the jackknife correction rather than sampling luck.
         ens = mesolve_ensemble(H, rho0, TLIST, c_ops, M=M, e_ops=[H],
                                n_realizations=n_real, rng=SEED,
-                               backend="native", substeps=SUBSTEPS)
+                               backend="native", substeps=substeps)
         jk = mesolve_jackknife(H, rho0, TLIST, c_ops, M=M, e_ops=[H],
                                n_realizations=n_real, rng=SEED,
-                               backend="native", substeps=SUBSTEPS)
+                               backend="native", substeps=substeps)
         mean = np.real(ens.expect[0])
         mean_jk = np.real(jk.expect[0])
         std = np.asarray(ens.std[0], float)
@@ -95,7 +125,7 @@ def run(name, build, size, n_real=N_REALIZATIONS):
         import json
         json.dump({"system":name,"dim":dim,"n_l":len(c_ops),"n_real":n_real,
                    "M":Ms,"stat":stat,"bias":bias,"bias_jk":bias_jk},
-                  open(f"convergence_progress_{name}.json","w"))
+                  open(f"convergence_progress_{name}_dim{dim}.json","w"))
     return (np.array(Ms), np.array(stat), np.array(bias),
             np.array(bias_jk), dim, len(c_ops))
 
@@ -106,6 +136,8 @@ def main():
     ap.add_argument("--scale", type=float, default=1.0,
                     help="multiply every system's realization count (e.g. 2 "
                          "doubles both) to push the noise floor lower")
+    ap.add_argument("--dims", type=int, nargs="+", default=None,
+                    help="only these Hilbert dims (default: every configured size)")
     ap.add_argument("--only", default=None,
                     help="run just one system (spin_chain or oscillator_bath)")
     args = ap.parse_args()
@@ -120,10 +152,17 @@ def main():
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
 
-    for name, build, size in SYSTEMS:
-        n_real = N_REALIZATIONS_BY_SYSTEM.get(name, N_REALIZATIONS)
-        print(f"\n### {name}: {n_real} realizations ###")
-        Ms, stat, bias, bias_jk, dim, n_l = run(name, build, size, n_real)
+    for name, build, points in SYSTEMS:
+      for size, substeps, n_real in points:
+        probe_dim = build(size)[0].shape[0]
+        if args.dims and probe_dim not in args.dims:
+            continue
+        print(f"\n### {name} dim {probe_dim}: {n_real} realizations, "
+              f"{substeps} substeps ###")
+        out = run(name, build, size, n_real, substeps)
+        if out is None:
+            continue
+        Ms, stat, bias, bias_jk, dim, n_l = out
 
         s_slope = np.polyfit(np.log(Ms), np.log(stat), 1)[0]
         b_slope = np.polyfit(np.log(Ms), np.log(bias), 1)[0]
@@ -189,14 +228,15 @@ def main():
             "full-Lindblad reference. The jackknife cancels the leading O(1/M) "
             "bias term, so its slope should steepen from ~-1 toward ~-2.",
         )
-        fig.savefig(f"benchmark_convergence_{name}.png", dpi=130, bbox_inches="tight")
+        fig.savefig(f"benchmark_convergence_{name}_dim{dim}.png", dpi=130,
+                    bbox_inches="tight")
         plt.close(fig)
         # ---- self-diagnosing verdict, so a run on any machine reports whether
         # ---- this figure actually "worked" without needing a second pair of eyes
         n_clear = int(np.sum(bias_jk > sem))  # uses this system's own floor
         red_vs_green = (bias / np.where(bias_jk > 0, bias_jk, np.nan))
         best_gain = float(np.nanmax(red_vs_green))
-        print(f"  saved benchmark_convergence_{name}.png")
+        print(f"  saved benchmark_convergence_{name}_dim{dim}.png")
         print(f"  --- JACKKNIFE FIGURE SELF-CHECK [{name}] ---")
         print(f"    points where corrected bias clears the noise floor: "
               f"{n_clear} of {len(Ms)}")

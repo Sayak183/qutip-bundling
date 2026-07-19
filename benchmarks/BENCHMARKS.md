@@ -444,8 +444,9 @@ frontier (Result 3) sweeps the bias knob `M` for SLB against the noise knob
 > Read in order, the four results build one argument: SLB is **accurate**
 > (Result 1), **cheap and better-scaling than the exact solver** (Result 2),
 > **cheaper than `mcsolve` at matched accuracy** (Result 3) — never slower on
-> either system — and in the operator-heavy oscillator regime that advantage
-> **widens with system size into the thousands** (Result 4). Readers who only
+> either system — and that advantage **widens with system size on both**
+> (Result 4): to $\sim\!46\times$ on the chain by dim 64, and into the
+> thousands on the operator-heavy oscillator. Readers who only
 > care about speed can jump to Result 2. The supporting checks behind every
 > claim are in §6.
 
@@ -473,6 +474,18 @@ reproduces the full density matrix, not merely its diagonal.
 
 ![spin chain coherence](benchmark_coherence_spin_chain.png)
 ![oscillator coherence](benchmark_coherence_oscillator_bath.png)
+
+**Sizes.** Every result in this section is available at Hilbert dimensions 16,
+32 and 64 on both systems, computed once per size and stored separately
+(`accuracy_vs_M_<system>_dim<D>.json`); the plot script's `PLOT_DIM` selects
+which to draw. Past dim 32 `mesolve` can no longer build its superoperator
+here, so the reference at dim 64 is the certified native full-dissipator route
+(§2), and the oscillator's dim-64 point runs at 16 RK4 substeps — disclosed,
+because its stiffness demands it. The convergence laws survive the jump: on the
+chain at dim 64 ($N_L=869$) the energy bias still falls as $M^{-0.95}$ and the
+statistical spread as $M^{-0.80}$, essentially unchanged from dim 16. On the
+oscillator the bias at large size sits below the sampling floor at every $M$,
+so it is reported as an upper bound rather than a fitted rate.
 
 **Why the oscillator's traces look featureless.** On the oscillator the SLB
 curves sit on top of the reference at every $M$, with bands too narrow to see —
@@ -650,6 +663,19 @@ statistical floor, but SLB is **bias-limited** here, so $N_r=16$ already sits
 essentially on the frontier. Both methods run at disclosed integration
 resolution (§3.3) and share the same grid and reference.
 
+**The frontier at dim 64.** Run at the largest size the reference can certify
+($N_L=869$ on the chain, $1{,}172$ on the oscillator, the reference supplied by
+the native full-dissipator route), the gap is unambiguous. On the chain SLB is
+cheaper at every matched accuracy, and *increasingly so the tighter the target*:
+$\sim\!1.8\times$ at RMSE $2.6\times10^{-1}$, $\sim\!5\times$ at
+$1.1\times10^{-1}$, $\sim\!11\times$ at $7\times10^{-2}$ — the same widening
+that Result 4 shows across dimension, here shown across accuracy. On the
+oscillator it is not a race: a 16-run SLB estimate at $M=2$ costs 82 s and
+reaches RMSE $5.4\times10^{-3}$, while 50 `mcsolve` trajectories cost 1{,}649 s
+and reach only $1.4$ — simultaneously $\sim\!20\times$ cheaper and
+$\sim\!250\times$ more accurate. A substeps guard confirms at both sizes that
+the error floor is the bundling bias, not the timestep.
+
 **A structural asymmetry between the two knobs.** SLB's knob and `mcsolve`'s are
 not the same kind of thing. Increasing $M$ makes a *single* SLB run more
 accurate — it resolves more of the dissipator — whereas increasing `ntraj` does
@@ -698,24 +724,33 @@ and plots that cost. The bottom panel is the payoff — the speedup
 (`mcsolve` cost / SLB cost) versus $N$: if it rises, SLB's advantage *widens* with
 system size.
 
-**Two regimes, honestly different.** On the spin chain SLB is *never slower*
-at matched accuracy, but the advantage is modest and non-monotone: between
-$\sim\!2\times$ and $\sim\!17\times$ across dimensions and averaging levels
-(`mcsolve` needs $\sim\!500$ trajectories at dim 4 and $\sim\!1{,}300$ at dim
-32, but SLB's own $M^\ast$ climbs $1\to8\to16\to32$ as the fixed-$M$ bias
-grows, eating part of the win). The fair headline is best-against-best:
-`mcsolve` is already shown at its optimal `ntraj`, and SLB at *its* optimal
-operating point — the cheapest adequate level, $N_r=4$ — beats it by
-$3\text{--}17\times$ on the chain; the slower levels are shown to prove the
-win is configuration-robust, not tuned. On the oscillator the effect is
-dramatic and
-*does* widen: `mcsolve` needs thousands of trajectories already at dim 8 and
-crosses "impractical" ($\gtrsim\!20{,}000$) by dim 16, while SLB hits the
-target with one or two bundles at every size — a speedup of three to four
-orders of magnitude, and a *lower bound* wherever `mcsolve` is capped. That
-stiff, operator-heavy regime — dense Davies spectra, exploding per-trajectory
-variance — is exactly the problem class bundling was built for; the chain
-shows the method costs nothing where that structure is absent.
+**Two regimes, both widening.** On the spin chain SLB is *never slower* at
+matched accuracy, and — now that the curve reaches dim 64 — the advantage
+clearly **grows with system size** rather than plateauing. Up to dim 32 it is
+modest and somewhat irregular ($\sim\!2\text{--}17\times$, since SLB's own
+$M^\ast$ climbs $1\to8\to16\to32$ and eats part of the win); but from dim 32
+to 64 the curves separate sharply, because `mcsolve`'s per-trajectory cost
+rises steeply ($\sim\!3.5$ s each at dim 64) while $M^\ast$ saturates at 32.
+At dim 64 `mcsolve` needs $\sim\!2{,}250$ trajectories ($\sim\!2$ hours) where
+a 16-run SLB estimate costs under three minutes — a **$\sim\!46\times$**
+speedup, versus $\sim\!11\times$ at dim 32.
+
+On the oscillator the effect is dramatic at every size: `mcsolve` needs
+thousands of trajectories already at dim 8 and crosses "impractical"
+($\gtrsim\!20{,}000$) by dim 16, while SLB hits the target with a *single*
+bundle ($M^\ast=1$) at every size. At dim 64 the honest arithmetic is stark —
+`mcsolve` would need $\sim\!2.8\times10^5$ trajectories at $\sim\!20$ s each,
+about **67 days**, against 47 seconds for SLB: a speedup of order $10^5$,
+reported as a lower bound ($\gtrsim\!8{,}700\times$) wherever the trajectory
+count is capped. That stiff, operator-heavy regime — dense Davies spectra,
+exploding per-trajectory variance — is exactly the problem class bundling was
+built for; the chain shows the method also wins, by a growing margin, where
+that structure is milder.
+
+*(At dim 64 the `mcsolve` trajectory budget admits a single sampled `ntraj`,
+so $S^2$ there rests on one measurement rather than a three-point fit —
+valid, since $S^2$ is a property of the system, but noisier. Capped points are
+lower bounds and therefore conservative.)*
 
 **SLB is shown at three averaging levels** ($N_r=4, 8, 16$ runs), each re-optimizing
 `M` for the target: for each level, $M^\ast$ is the smallest bundle size on the
@@ -757,6 +792,21 @@ $M^{-0.97}$ oscillator); the spread follows $M^{-1/2}$ on the chain ($M^{-0.52}$
 and faster on the oscillator. Matching the predicted *bias* exponent — the thing
 that sets SLB's accuracy — is the strongest single check that the estimator
 behaves as derived.
+
+**Bias rate under the jackknife.** Sweeping $M$ at fixed size and comparing the
+uncorrected estimator against the jackknife-2 one (same seeds at every $M$)
+shows the correction doing exactly what eq. (16) predicts: it does not merely
+lower the bias, it **steepens its rate**. On the chain at dim 32 the measured
+exponent moves from $M^{-0.97}$ to $M^{-1.75}$, with the corrected bias falling
+monotonically and up to $16.5\times$ below the uncorrected one — the signature
+of leading-order cancellation. The same reduction is visible at dim 16 and dim
+64 ($9\text{--}16\times$) and on the oscillator ($10\text{--}12\times$), but
+there the corrected bias reaches the **sampling floor** (the SEM of the
+run-mean) after only a few $M$, and below that floor one is measuring
+Monte-Carlo noise rather than bias. The figures therefore mark the floor
+explicitly and quote a fitted rate only where at least three points stand
+clear of it by a factor of two; elsewhere the bias is reported as an upper
+bound. Dim 32 on the chain is where the rate is best resolved.
 
 **Bias versus size, with jackknife (this is the Result 2 size trend,
 quantified).** At fixed `M` the finite-$M$ bias grows with dimension; the
