@@ -1,0 +1,42 @@
+﻿**********************
+Windows PowerShell transcript start
+Start time: 20260720233004
+Username: ADHIKARI\sayak
+RunAs User: ADHIKARI\sayak
+Configuration Name: 
+Machine: ADHIKARI (Microsoft Windows NT 10.0.26200.0)
+Host Application: C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe
+Process ID: 25200
+PSVersion: 5.1.26100.8894
+PSEdition: Desktop
+PSCompatibleVersions: 1.0, 2.0, 3.0, 4.0, 5.0, 5.1.26100.8894
+BuildVersion: 10.0.26100.8894
+CLRVersion: 4.0.30319.42000
+WSManStackVersion: 3.0
+PSRemotingProtocolVersion: 2.3
+SerializationVersion: 1.1.0.1
+**********************
+Transcript started, output file is convergence_spin32_scale4.txt
+PS C:\Users\sayak\Downloads\repo-split\qutip-bundling\benchmarks> python benchmark_convergence.py --only spin_chain --dims 32 --scale 4
+
+### spin_chain dim 32: 128 realizations, 4 substeps ###
+
+[spin_chain] dim=32, N_L=218
+    M   stat spread          bias  bias (jackknife)
+    2     6.658e-02     2.160e-01         7.059e-02
+    4     5.375e-02     1.159e-01         2.502e-02
+    8     4.501e-02     5.851e-02         6.259e-03
+   16     2.906e-02     2.999e-02         2.550e-03
+   32     2.053e-02     1.556e-02         9.426e-04
+   64     1.529e-02     7.614e-03         7.726e-04
+  saved benchmark_convergence_spin_chain_dim32.png
+  --- JACKKNIFE FIGURE SELF-CHECK [spin_chain] ---
+    points where corrected bias clears 2x the SEM floor: 2 of 6
+    VERDICT: MARGINAL -- corrected bias clears 2x SEM at only 2 of 6 M values (max reduction 4.6x there). The reduction
+is real but the SLOPE is not quotable under the 2x-SEM/3-point rule.
+    -> raise N_REALIZATIONS (try 512) and re-run before trusting the jackknife slope.
+PS C:\Users\sayak\Downloads\repo-split\qutip-bundling\benchmarks> Stop-Transcript
+**********************
+Windows PowerShell transcript end
+End time: 20260721004312
+**********************

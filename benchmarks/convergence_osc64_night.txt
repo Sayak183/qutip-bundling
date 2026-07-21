@@ -1,0 +1,32 @@
+﻿**********************
+Windows PowerShell transcript start
+Start time: 20260720025944
+Username: ADHIKARI\sayak
+RunAs User: ADHIKARI\sayak
+Configuration Name: 
+Machine: ADHIKARI (Microsoft Windows NT 10.0.26200.0)
+Host Application: C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe
+Process ID: 5628
+PSVersion: 5.1.26100.8894
+PSEdition: Desktop
+PSCompatibleVersions: 1.0, 2.0, 3.0, 4.0, 5.0, 5.1.26100.8894
+BuildVersion: 10.0.26100.8894
+CLRVersion: 4.0.30319.42000
+WSManStackVersion: 3.0
+PSRemotingProtocolVersion: 2.3
+SerializationVersion: 1.1.0.1
+**********************
+Transcript started, output file is convergence_osc64_night.txt
+PS C:\Users\sayak\Downloads\repo-split\qutip-bundling\benchmarks> python benchmark_convergence.py --only oscillator_bath --dims 64
+   64     9.294e-04     2.589e-04         1.422e-04
+  saved benchmark_convergence_oscillator_bath_dim64.png
+  --- JACKKNIFE FIGURE SELF-CHECK [oscillator_bath] ---
+    points where corrected bias clears the noise floor: 6 of 6
+    VERDICT: OK -- bias rate STEEPENS under the jackknife: uncorrected -0.97  ->  jackknife -0.88 (toward the M^-2 the l
+eading-order cancellation predicts)
+    measurable over 6 points above the SEM floor; max bias reduction 3.3x. Safe to commit.
+PS C:\Users\sayak\Downloads\repo-split\qutip-bundling\benchmarks> Stop-Transcript
+**********************
+Windows PowerShell transcript end
+End time: 20260720084558
+**********************

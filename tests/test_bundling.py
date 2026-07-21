@@ -333,6 +333,30 @@ def test_bundled_mesolve_preserves_trace():
         assert abs(state.tr() - 1.0) < 1e-6
 
 
+def test_bundled_mesolve_preserves_positivity():
+    """CPTP is trace preservation AND complete positivity. The bundled
+    operators keep Lindblad form, so the evolution must keep every eigenvalue
+    of rho non-negative (up to integrator tolerance) -- a state whose
+    "probabilities" go negative is unphysical even if its trace is exactly 1.
+    Checked for the bundled qutip.mesolve path and the native RK4 solver."""
+    dim = 4
+    H = qutip.num(dim)
+    c_ops = random_collapse_ops(20, dim, seed=2)
+    rho0 = qutip.ket2dm(qutip.basis(dim, 1))
+    R = bundle(c_ops, M=6, rng=1)
+    tlist = np.linspace(0, 5, 20)
+
+    res = qutip.mesolve(H, rho0, tlist, c_ops=R)
+    for state in res.states:
+        assert min(np.real(state.eigenenergies())) > -1e-6
+
+    res_native = rk4_mesolve(H, rho0, tlist, R, substeps=8,
+                             store_states=True)
+    for state in res_native.states:
+        assert min(np.real(state.eigenenergies())) > -1e-6
+        assert abs(state.tr() - 1.0) < 1e-6
+
+
 # --------------------------------------------------------------------------
 # davies_operators -- correct construction & sign convention
 # --------------------------------------------------------------------------

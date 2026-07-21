@@ -795,18 +795,31 @@ behaves as derived.
 
 **Bias rate under the jackknife.** Sweeping $M$ at fixed size and comparing the
 uncorrected estimator against the jackknife-2 one (same seeds at every $M$)
-shows the correction doing exactly what eq. (16) predicts: it does not merely
-lower the bias, it **steepens its rate**. On the chain at dim 32 the measured
-exponent moves from $M^{-0.97}$ to $M^{-1.75}$, with the corrected bias falling
-monotonically and up to $16.5\times$ below the uncorrected one — the signature
-of leading-order cancellation. The same reduction is visible at dim 16 and dim
-64 ($9\text{--}16\times$) and on the oscillator ($10\text{--}12\times$), but
-there the corrected bias reaches the **sampling floor** (the SEM of the
-run-mean) after only a few $M$, and below that floor one is measuring
-Monte-Carlo noise rather than bias. The figures therefore mark the floor
-explicitly and quote a fitted rate only where at least three points stand
-clear of it by a factor of two; elsewhere the bias is reported as an upper
-bound. Dim 32 on the chain is where the rate is best resolved.
+separates the correction's two effects: it lowers the bias *level* everywhere,
+and — where the sampling floor is pushed low enough to see it — it **steepens
+its rate**, the signature of the leading-order cancellation eq. (16) predicts.
+
+![spin chain jackknife rate](benchmark_convergence_spin_chain_dim32.png)
+![oscillator jackknife rate](benchmark_convergence_oscillator_bath_dim64.png)
+
+On the chain at dim 32 (512 realizations) the measured exponent moves from
+$M^{-0.96}$ to $M^{-1.78}$, with the corrected bias falling monotonically and
+sitting up to $9.7\times$ below the uncorrected one at floor-cleared points;
+dim 16 shows the same steepening ($M^{-0.96} \to M^{-1.45}$). At the largest
+sizes the realization budgets leave a higher floor, and there the correction
+acts as a level reduction without a resolved change of law: chain dim 64 fits
+$M^{-1.04}$ with $2.8$–$4.1\times$ reductions, oscillator dim 16 fits
+$M^{-0.87}$ with $5.6$–$8.9\times$, and oscillator dims 32 and 64 leave too
+few points clear of the floor to quote a corrected rate at all ($1.4$–$3\times$
+reductions where measured; the corrected bias is otherwise an upper bound). So
+the steepening is resolved exactly where the sampling floor is low enough to
+expose it, and over this $M \le 64$ window at the largest sizes the correction
+manifests as a uniform level shift. Reductions are quoted only at points
+clearing **twice** the SEM — below that the corrected "bias" is Monte-Carlo
+noise and the ratio inflates — and a fitted rate is quoted only where at least
+three points clear that threshold; the self-check in
+`benchmark_convergence.py` enforces the same rule and withholds the exponent
+otherwise.
 
 **Bias versus size, with jackknife (this is the Result 2 size trend,
 quantified).** At fixed `M` the finite-$M$ bias grows with dimension; the

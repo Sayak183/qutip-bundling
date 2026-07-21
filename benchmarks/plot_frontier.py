@@ -45,7 +45,7 @@ PLOT_DIM = None
 # from the full statistics. mcsolve then collapses to a near-vertical stack
 # (same per-trajectory cost, different achieved error), which is exactly the
 # "same CPU per unit of work" comparison.
-NORMALIZE_PER_UNIT_WORK = True
+NORMALIZE_PER_UNIT_WORK = False
 
 DEFAULT_SYSTEMS = ["spin_chain", "oscillator_bath"]
 # -------------------------------------------------

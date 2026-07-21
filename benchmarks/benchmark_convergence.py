@@ -41,16 +41,11 @@ from qutip_bundling.native_solver import rk4_mesolve
 # ===========================================================================
 # CONFIG
 # ===========================================================================
-# Per-system realization counts. The SEM noise floor drops as 1/sqrt(N_r), so a
-# system with SMALLER bias needs MORE realizations to keep the corrected bias
-# above the floor long enough to measure its rate. The oscillator's bias is
-# ~10x smaller than the chain's, so it needs ~16x more samples to expose the
-# same number of clean points. (Overridable with --realizations to scale both.)
-N_REALIZATIONS_BY_SYSTEM = {
-    "spin_chain":      256,    # bias is large; 256 already resolves M=2,4,8
-    "oscillator_bath": 4000,   # bias is small; needs a much lower floor
-}
-N_REALIZATIONS = 256         # fallback / default if a system isn't listed
+# Realization counts live in the per-size SYSTEMS tuples below. The SEM noise
+# floor drops as 1/sqrt(N_r), so a system with SMALLER bias needs MORE
+# realizations to keep the corrected bias above the floor long enough to
+# measure its rate. --scale multiplies every size's count (floor / sqrt(scale)).
+N_REALIZATIONS = 256         # fallback / default if a size doesn't set one
 SUBSTEPS = 4                 # matches the other benchmarks (>=2 for stability)
 SEED = 0
 M_VALUES = [2, 4, 8, 16, 32, 64]
@@ -124,10 +119,141 @@ def run(name, build, size, n_real=N_REALIZATIONS, substeps=SUBSTEPS):
         # progress after every M rather than only at the end.
         import json
         json.dump({"system":name,"dim":dim,"n_l":len(c_ops),"n_real":n_real,
+                   "substeps":substeps,"reference":ref_method,
                    "M":Ms,"stat":stat,"bias":bias,"bias_jk":bias_jk},
                   open(f"convergence_progress_{name}_dim{dim}.json","w"))
     return (np.array(Ms), np.array(stat), np.array(bias),
             np.array(bias_jk), dim, len(c_ops))
+
+
+
+def analyze_and_plot(name, Ms, stat, bias, bias_jk, dim, n_l, n_real,
+                     substeps, out_png=None):
+    """Draw the convergence figure and print the self-check verdict.
+
+    Split out of the run loop so --replot can redraw a figure (and re-judge
+    it) from an existing convergence_progress_*.json in seconds, without
+    repeating the multi-hour compute.
+    """
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    Ms, stat, bias, bias_jk = (np.asarray(Ms, float), np.asarray(stat),
+                               np.asarray(bias), np.asarray(bias_jk))
+    s_slope = np.polyfit(np.log(Ms), np.log(stat), 1)[0]
+    b_slope = np.polyfit(np.log(Ms), np.log(bias), 1)[0]
+    # The bias is a property of the MEAN over N_REALIZATIONS runs, so the
+    # noise floor it must clear is the SEM (= spread / sqrt(N)), NOT the
+    # single-run spread. (Comparing a mean's bias to the single-run spread
+    # is ~sqrt(N) too strict and falsely reports "noise-limited".) Below the
+    # SEM the corrected "bias" is leftover Monte-Carlo noise; above it the
+    # correction's true rate is visible, so we fit the slope there.
+    sem = stat / np.sqrt(n_real)
+    # QUOTING RULE (same as stated in BENCHMARKS.md): a fitted exponent is
+    # quoted only where at least 3 points clear the SEM floor by a factor of
+    # TWO. Points between 1x and 2x SEM are visible but half-noise, too close
+    # to the floor to support a rate claim; there the slope is withheld and
+    # the corrected bias is an upper bound.
+    above_floor = bias_jk > 2.0 * sem
+    if above_floor.sum() >= 3:
+        bjk_slope = np.polyfit(np.log(Ms[above_floor]),
+                               np.log(bias_jk[above_floor]), 1)[0]
+        bjk_slope_note = ""
+    else:
+        bjk_slope = float("nan")
+        bjk_slope_note = " (<3 points clear 2x SEM -- upper bound only)"
+
+    fig, ax = plt.subplots(figsize=(6.6, 5.0))
+    ax.loglog(Ms, stat, "o-", color="tab:blue", lw=1.8,
+              label=fr"statistical spread (fit slope {s_slope:.2f})")
+    ax.loglog(Ms, stat / np.sqrt(n_real), ":", color="tab:blue",
+              alpha=0.5, label=r"SEM = spread/$\sqrt{N_r}$ (bias noise floor)")
+    ax.loglog(Ms, bias, "s-", color="tab:green", lw=1.8,
+              label=fr"bias, uncorrected (fit slope {b_slope:.2f})")
+    jk_pos = bias_jk > 0
+    _jklab = (fr"bias, jackknife-2 (fit slope {bjk_slope:.2f}"
+              fr"{bjk_slope_note})" if not np.isnan(bjk_slope)
+              else fr"bias, jackknife-2{bjk_slope_note}")
+    ax.loglog(Ms[jk_pos], bias_jk[jk_pos], "D-", color="tab:red", lw=1.8,
+              label=_jklab)
+    # mark the noise floor: where corrected bias sinks below the spread,
+    # further reduction is limited by sampling, not by the estimator order
+    floor_hit = np.where(bias_jk <= sem)[0]
+    if floor_hit.size:
+        mf = Ms[floor_hit[0]]
+        ax.axvline(mf, color="tab:red", ls=":", alpha=0.4)
+        ax.annotate("jackknife bias\nreaches noise floor", (mf, sem[floor_hit[0]]),
+                    textcoords="offset points", xytext=(10, -22),
+                    fontsize=7, color="tab:red", alpha=0.8)
+
+    # Theoretical guide lines, anchored at the first point.
+    ax.loglog(Ms, stat[0] * (Ms / Ms[0]) ** -0.5, "--", color="tab:blue",
+              alpha=0.6, label=r"$M^{-1/2}$ (Monte Carlo)")
+    ax.loglog(Ms, bias[0] * (Ms / Ms[0]) ** -1.0, "--", color="tab:green",
+              alpha=0.6, label=r"$M^{-1}$ (finite-$M$ bias)")
+    ax.loglog(Ms, bias_jk[0] * (Ms / Ms[0]) ** -2.0, "--", color="tab:red",
+              alpha=0.6, label=r"$M^{-2}$ (jackknife-corrected bias)")
+
+    ax.set_xlabel("bundle size $M$")
+    ax.set_ylabel(r"max-over-time error in $\langle H\rangle$")
+    ax.set_title(f"{name} (dim {dim}, $N_L$={n_l}): SLB convergence in $M$")
+    ax.grid(True, which="both", alpha=0.3)
+    ax.legend(frameon=False, fontsize=8)
+    fig.tight_layout()
+    add_settings_footer(
+        fig,
+        format_slb_settings(M=M_VALUES, substeps=substeps,
+                            n_realizations=n_real, swept=True),
+        "spread = std over realizations; bias = |mean \u2212 ref| for the "
+        "uncorrected and jackknife-2 estimators (same seed per M); "
+        "full-Lindblad reference. The jackknife cancels the leading O(1/M) "
+        "bias term, so its slope should steepen from ~-1 toward ~-2.",
+    )
+    out_png = out_png or f"benchmark_convergence_{name}_dim{dim}.png"
+    fig.savefig(out_png, dpi=130, bbox_inches="tight")
+    plt.close(fig)
+    # ---- self-diagnosing verdict, so a run on any machine reports whether
+    # ---- this figure actually "worked" without needing a second pair of eyes
+    n_clear = int(np.sum(bias_jk > 2.0 * sem))  # documented quoting threshold
+    red_vs_green = (bias / np.where(bias_jk > 0, bias_jk, np.nan))
+    # below the floor the jackknife "bias" is noise, which deflates the
+    # denominator and inflates the ratio -- so quote the gain only where
+    # the corrected bias is actually measured
+    above = bias_jk > 2.0 * sem
+    best_gain = float(np.nanmax(red_vs_green[above])) if n_clear else \
+        float(np.nanmax(red_vs_green))
+    print(f"  saved {out_png}")
+    print(f"  --- JACKKNIFE FIGURE SELF-CHECK [{name}] ---")
+    print(f"    points where corrected bias clears 2x the SEM floor: "
+          f"{n_clear} of {len(Ms)}")
+    if n_clear >= 3 and not np.isnan(bjk_slope):
+        if bjk_slope <= b_slope - 0.2:
+            print(f"    VERDICT: OK -- bias rate STEEPENS under the jackknife: "
+                  f"uncorrected {b_slope:.2f}  ->  jackknife {bjk_slope:.2f} "
+                  f"(toward the M^-2 the leading-order cancellation predicts)")
+            print(f"    measurable over {n_clear} points above the SEM floor; "
+                  f"max bias reduction {best_gain:.1f}x. Safe to commit.")
+        else:
+            print(f"    VERDICT: LEVEL-ONLY -- jackknife lowers the bias "
+                  f"level (up to {best_gain:.1f}x at floor-cleared points) but "
+                  f"its RATE does not steepen: uncorrected {b_slope:.2f}  ->  "
+                  f"jackknife {bjk_slope:.2f} over {n_clear} points above the "
+                  f"floor. The M^-2 regime is not reached in this M range.")
+            print(f"    The level reduction is real and safe to commit; do NOT "
+                  f"quote a steepened exponent for this size.")
+    elif n_clear >= 1:
+        print(f"    VERDICT: MARGINAL -- corrected bias clears 2x SEM at only "
+              f"{n_clear} of {len(Ms)} M values (max reduction {best_gain:.1f}x "
+              f"there). The reduction is real but the SLOPE is not quotable "
+              f"under the 2x-SEM/3-point rule.")
+        print(f"    -> raise N_REALIZATIONS (try {2*N_REALIZATIONS}) and re-run "
+              f"before trusting the jackknife slope.")
+    else:
+        print(f"    VERDICT: NOISE-LIMITED -- corrected bias never clears the "
+              f"spread; you are seeing sampling noise, not the correction's rate.")
+        print(f"    -> raise N_REALIZATIONS (try {2*N_REALIZATIONS} or more) and "
+              f"re-run; the jackknife curve is drowning in Monte-Carlo noise.")
 
 
 def main():
@@ -138,22 +264,52 @@ def main():
                          "doubles both) to push the noise floor lower")
     ap.add_argument("--dims", type=int, nargs="+", default=None,
                     help="only these Hilbert dims (default: every configured size)")
+    ap.add_argument("--replot", action="store_true",
+                    help="redraw figures and re-print verdicts from existing "
+                         "convergence_progress_*_dim*.json files, no compute")
     ap.add_argument("--only", default=None,
                     help="run just one system (spin_chain or oscillator_bath)")
     args = ap.parse_args()
-    global N_REALIZATIONS_BY_SYSTEM, SYSTEMS
-    if args.scale != 1.0:
-        N_REALIZATIONS_BY_SYSTEM = {k: int(round(v*args.scale))
-                                    for k, v in N_REALIZATIONS_BY_SYSTEM.items()}
+    global SYSTEMS
     if args.only:
         SYSTEMS = [s for s in SYSTEMS if s[0] == args.only]
 
-    import matplotlib
-    matplotlib.use("Agg")
-    import matplotlib.pyplot as plt
+    if args.replot:
+        import glob, json
+        # legacy (pre-all-sizes) files have no _dim suffix and their figures
+        # are embedded in BENCHMARKS.md under the unsuffixed name -- include
+        # them so every published figure obeys the same quoting rule
+        for fname in sorted(glob.glob("convergence_progress_*.json")):
+            d = json.load(open(fname))
+            if args.only and d["system"] != args.only:
+                continue
+            if args.dims and d["dim"] not in args.dims:
+                continue
+            substeps = d.get("substeps")
+            if substeps is None:
+                # legacy file from before substeps were stamped: recover the
+                # configured value for this (system, dim) and say so.
+                for nm, build, points in SYSTEMS:
+                    if nm != d["system"]:
+                        continue
+                    for size, ss, _nr in points:
+                        if build(size)[0].shape[0] == d["dim"]:
+                            substeps = ss
+                print(f"  [{fname}] no substeps stamped; using configured "
+                      f"value {substeps} for this size")
+            print(f"\n### replot {d['system']} dim {d['dim']} "
+                  f"({d['n_real']} realizations, {substeps} substeps) ###")
+            legacy = "_dim" not in fname
+            analyze_and_plot(d["system"], d["M"], d["stat"], d["bias"],
+                             d["bias_jk"], d["dim"], d["n_l"], d["n_real"],
+                             substeps,
+                             out_png=(f"benchmark_convergence_{d['system']}.png"
+                                      if legacy else None))
+        return
 
     for name, build, points in SYSTEMS:
       for size, substeps, n_real in points:
+        n_real = int(round(n_real * args.scale))
         probe_dim = build(size)[0].shape[0]
         if args.dims and probe_dim not in args.dims:
             continue
@@ -164,99 +320,8 @@ def main():
             continue
         Ms, stat, bias, bias_jk, dim, n_l = out
 
-        s_slope = np.polyfit(np.log(Ms), np.log(stat), 1)[0]
-        b_slope = np.polyfit(np.log(Ms), np.log(bias), 1)[0]
-        # The bias is a property of the MEAN over N_REALIZATIONS runs, so the
-        # noise floor it must clear is the SEM (= spread / sqrt(N)), NOT the
-        # single-run spread. (Comparing a mean's bias to the single-run spread
-        # is ~sqrt(N) too strict and falsely reports "noise-limited".) Below the
-        # SEM the corrected "bias" is leftover Monte-Carlo noise; above it the
-        # correction's true rate is visible, so we fit the slope there.
-        sem = stat / np.sqrt(n_real)
-        above_floor = bias_jk > sem
-        if above_floor.sum() >= 2:
-            bjk_slope = np.polyfit(np.log(Ms[above_floor]),
-                                   np.log(bias_jk[above_floor]), 1)[0]
-            bjk_slope_note = ""
-        else:
-            bjk_slope = float("nan")
-            bjk_slope_note = " (reaches noise floor immediately)"
-
-        fig, ax = plt.subplots(figsize=(6.6, 5.0))
-        ax.loglog(Ms, stat, "o-", color="tab:blue", lw=1.8,
-                  label=fr"statistical spread (fit slope {s_slope:.2f})")
-        ax.loglog(Ms, stat / np.sqrt(n_real), ":", color="tab:blue",
-                  alpha=0.5, label=r"SEM = spread/$\sqrt{N_r}$ (bias noise floor)")
-        ax.loglog(Ms, bias, "s-", color="tab:green", lw=1.8,
-                  label=fr"bias, uncorrected (fit slope {b_slope:.2f})")
-        jk_pos = bias_jk > 0
-        _jklab = (fr"bias, jackknife-2 (fit slope {bjk_slope:.2f}"
-                  fr"{bjk_slope_note})" if not np.isnan(bjk_slope)
-                  else fr"bias, jackknife-2{bjk_slope_note}")
-        ax.loglog(Ms[jk_pos], bias_jk[jk_pos], "D-", color="tab:red", lw=1.8,
-                  label=_jklab)
-        # mark the noise floor: where corrected bias sinks below the spread,
-        # further reduction is limited by sampling, not by the estimator order
-        floor_hit = np.where(bias_jk <= sem)[0]
-        if floor_hit.size:
-            mf = Ms[floor_hit[0]]
-            ax.axvline(mf, color="tab:red", ls=":", alpha=0.4)
-            ax.annotate("jackknife bias\nreaches noise floor", (mf, sem[floor_hit[0]]),
-                        textcoords="offset points", xytext=(10, -22),
-                        fontsize=7, color="tab:red", alpha=0.8)
-
-        # Theoretical guide lines, anchored at the first point.
-        ax.loglog(Ms, stat[0] * (Ms / Ms[0]) ** -0.5, "--", color="tab:blue",
-                  alpha=0.6, label=r"$M^{-1/2}$ (Monte Carlo)")
-        ax.loglog(Ms, bias[0] * (Ms / Ms[0]) ** -1.0, "--", color="tab:green",
-                  alpha=0.6, label=r"$M^{-1}$ (finite-$M$ bias)")
-        ax.loglog(Ms, bias_jk[0] * (Ms / Ms[0]) ** -2.0, "--", color="tab:red",
-                  alpha=0.6, label=r"$M^{-2}$ (jackknife-corrected bias)")
-
-        ax.set_xlabel("bundle size $M$")
-        ax.set_ylabel(r"max-over-time error in $\langle H\rangle$")
-        ax.set_title(f"{name} (dim {dim}, $N_L$={n_l}): SLB convergence in $M$")
-        ax.grid(True, which="both", alpha=0.3)
-        ax.legend(frameon=False, fontsize=8)
-        fig.tight_layout()
-        add_settings_footer(
-            fig,
-            format_slb_settings(M=M_VALUES, substeps=SUBSTEPS,
-                                n_realizations=n_real, swept=True),
-            "spread = std over realizations; bias = |mean \u2212 ref| for the "
-            "uncorrected and jackknife-2 estimators (same seed per M); "
-            "full-Lindblad reference. The jackknife cancels the leading O(1/M) "
-            "bias term, so its slope should steepen from ~-1 toward ~-2.",
-        )
-        fig.savefig(f"benchmark_convergence_{name}_dim{dim}.png", dpi=130,
-                    bbox_inches="tight")
-        plt.close(fig)
-        # ---- self-diagnosing verdict, so a run on any machine reports whether
-        # ---- this figure actually "worked" without needing a second pair of eyes
-        n_clear = int(np.sum(bias_jk > sem))  # uses this system's own floor
-        red_vs_green = (bias / np.where(bias_jk > 0, bias_jk, np.nan))
-        best_gain = float(np.nanmax(red_vs_green))
-        print(f"  saved benchmark_convergence_{name}_dim{dim}.png")
-        print(f"  --- JACKKNIFE FIGURE SELF-CHECK [{name}] ---")
-        print(f"    points where corrected bias clears the noise floor: "
-              f"{n_clear} of {len(Ms)}")
-        if n_clear >= 2 and not np.isnan(bjk_slope):
-            print(f"    VERDICT: OK -- bias rate STEEPENS under the jackknife: "
-                  f"uncorrected {b_slope:.2f}  ->  jackknife {bjk_slope:.2f} "
-                  f"(toward the M^-2 the leading-order cancellation predicts)")
-            print(f"    measurable over {n_clear} points above the SEM floor; "
-                  f"max bias reduction {best_gain:.1f}x. Safe to commit.")
-        elif n_clear == 1:
-            print(f"    VERDICT: MARGINAL -- corrected bias clears the floor at only "
-                  f"one M (max reduction {best_gain:.1f}x). The reduction is real but "
-                  f"the SLOPE is not reliably measurable.")
-            print(f"    -> raise N_REALIZATIONS (try {2*N_REALIZATIONS}) and re-run "
-                  f"before trusting the jackknife slope.")
-        else:
-            print(f"    VERDICT: NOISE-LIMITED -- corrected bias never clears the "
-                  f"spread; you are seeing sampling noise, not the correction's rate.")
-            print(f"    -> raise N_REALIZATIONS (try {2*N_REALIZATIONS} or more) and "
-                  f"re-run; the jackknife curve is drowning in Monte-Carlo noise.")
+        analyze_and_plot(name, Ms, stat, bias, bias_jk, dim, n_l,
+                         n_real, substeps)
 
 
 if __name__ == "__main__":

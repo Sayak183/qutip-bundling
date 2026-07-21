@@ -42,3 +42,31 @@ def test_instability_message_is_actionable():
     with pytest.raises(SolverInstabilityError, match="substeps"):
         rk4_mesolve(H, rho0, tlist, [1e4 * qutip.sigmam()],
                     e_ops=[qutip.sigmaz()], substeps=1)
+
+
+def test_soft_divergence_is_caught_while_finite():
+    """A runaway state must be rejected while its entries are still FINITE.
+
+    Regression test: a state with entries ~1e97 once passed the old
+    finiteness-only check and could have been used as a reference. With a
+    dense tlist the guard checks often, so it must fire on the magnitude
+    symptom ("grew") many orders of magnitude before float overflow --
+    matching on "grew" proves the non-finite branch was not the one taken.
+    """
+    H = qutip.sigmaz()
+    rho0 = qutip.basis(2, 0)
+    tlist = np.linspace(0.0, 5.0, 400)
+    with pytest.raises(SolverInstabilityError, match="grew"):
+        rk4_mesolve(H, rho0, tlist, [1e4 * qutip.sigmam()],
+                    e_ops=[qutip.sigmaz()], substeps=1)
+
+
+def test_soft_divergence_guard_no_false_positive_long_run():
+    """A long, well-resolved solve must not trip the magnitude or trace
+    guards: entries stay physical and the trace is conserved to rounding."""
+    H = qutip.sigmaz()
+    rho0 = qutip.basis(2, 0)
+    tlist = np.linspace(0.0, 50.0, 500)
+    res = rk4_mesolve(H, rho0, tlist, [0.3 * qutip.sigmam()],
+                      e_ops=[qutip.sigmaz()], substeps=4)
+    assert np.all(np.isfinite(res.expect[0]))

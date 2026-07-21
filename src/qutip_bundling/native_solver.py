@@ -32,6 +32,17 @@ import qutip
 __all__ = ["rk4_mesolve", "NativeResult", "SolverInstabilityError"]
 
 
+# Guard thresholds for the per-point divergence check in ``rk4_mesolve``.
+# A valid density matrix has ``|rho_ij| <= Tr(rho)``; entries three orders of
+# magnitude beyond that are unambiguous divergence long before float overflow
+# ("soft divergence" -- e.g. entries of ~1e97 are finite but garbage, and once
+# slipped past a finiteness-only check). Trace drift is a second, independent
+# symptom: the generator is trace-free, so RK4 conserves the trace to rounding
+# and any real drift means numerical breakdown.
+_SOFT_DIVERGENCE_FACTOR = 1e3
+_TRACE_DRIFT_TOL = 1e-6
+
+
 class SolverInstabilityError(RuntimeError):
     """Raised when the RK4 integration diverges to a non-finite state.
 
@@ -105,7 +116,11 @@ def rk4_mesolve(
     machine precision, and each substep re-Hermitizes ``rho``. Positivity is
     not explicitly projected -- it holds only to the integrator's order, which
     is why stiff systems need enough ``substeps`` (a single substep can
-    diverge). If the state diverges to non-finite values, a
+    diverge). Divergence is checked at every ``tlist`` point -- not only when
+    the state overflows to non-finite values, but as soon as matrix entries
+    grow far beyond the physical bound ``|rho_ij| <= Tr(rho)`` or the
+    (exactly conserved) trace drifts, so a large-but-finite runaway state is
+    caught early rather than slipping through a finiteness-only check. A
     ``SolverInstabilityError`` is raised instead of returning a silently
     corrupted result. Validate against ``qutip.mesolve`` on a small system.
 
@@ -152,6 +167,11 @@ def rk4_mesolve(
         if store_states:
             states_out.append(qutip.Qobj(rho_arr.copy(), dims=rho0.dims))
 
+    tr0 = float(np.trace(rho).real)
+    _scale = max(1.0, abs(tr0))
+    entry_bound = _SOFT_DIVERGENCE_FACTOR * _scale
+    trace_tol = _TRACE_DRIFT_TOL * _scale
+
     record(0, rho)
     for i in range(tlist.size - 1):
         dt = (tlist[i + 1] - tlist[i]) / substeps
@@ -163,9 +183,24 @@ def rk4_mesolve(
             rho = rho + (dt / 6.0) * (k1 + 2.0 * k2 + 2.0 * k3 + k4)
             rho = 0.5 * (rho + rho.conj().T)
         if not np.isfinite(rho).all():
+            symptom = "the density matrix became non-finite"
+        else:
+            max_abs = float(np.abs(rho).max())
+            tr_drift = abs(float(np.trace(rho).real) - tr0)
+            if max_abs > entry_bound:
+                symptom = (f"matrix entries grew to {max_abs:.3g} while still "
+                           f"finite (soft divergence; a physical state has "
+                           f"entries <= Tr(rho) = {tr0:.3g})")
+            elif tr_drift > trace_tol:
+                symptom = (f"Tr(rho) drifted by {tr_drift:.3g} (the generator "
+                           f"is trace-free, so any drift is numerical "
+                           f"breakdown)")
+            else:
+                symptom = None
+        if symptom is not None:
             raise SolverInstabilityError(
                 f"rk4_mesolve diverged near t={tlist[i + 1]:.4g} with "
-                f"substeps={substeps}: the density matrix became non-finite. "
+                f"substeps={substeps}: {symptom}. "
                 f"The Lindblad generator is too stiff for this step size -- "
                 f"increase 'substeps' (e.g. try {max(substeps, 1) * 2}) or use a "
                 f"finer tlist spacing."

@@ -19,7 +19,7 @@ one matrix product per operator, and $N_L$ typically grows as the square of the
 Hilbert-space dimension.
 
 The dissipator is *quadratic* in the operators, so it can be reproduced **in
-expectation** by a much smaller set of $$M$$ randomly *bundled* operators:
+expectation** by a much smaller set of $M$ randomly *bundled* operators:
 
 $$
 R_m = \frac{1}{\sqrt{M}} \sum_\alpha r_{m,\alpha}\, c_\alpha
@@ -27,19 +27,19 @@ $$
 
 where the $r_{m,\alpha}$ are independent random numbers with zero mean and unit
 second moment. The bundled dissipator is an **unbiased estimator** of the full
-one for any $$M$$, and the bundled operators still have Lindblad form, so the
+one for any $M$, and the bundled operators still have Lindblad form, so the
 dynamics stay completely positive and trace preserving.
 
 Pair that with the deterministic Davies Lamb-shift Hamiltonian (built from
 the *bare* $L_\alpha$, never bundled), and a single bundled `mesolve` call
-reproduces full master-equation dynamics with $$M$$ independent of the
-Hilbert-space dimension — per-step cost drops from $$O(N^{5})$$ to $$O(N^{3})$$.
+reproduces full master-equation dynamics with $M$ independent of the
+Hilbert-space dimension — per-step cost drops from $O(N^{5})$ to $O(N^{3})$.
 
 ## Benchmarks
 
-On a dissipative spin chain, full `mesolve` (paying for all $$N_{L}$$ Lindblad
+On a dissipative spin chain, full `mesolve` (paying for all $N_{L}$ Lindblad
 operators) becomes infeasible as the system grows, while bundling — using only
-$$M$$ of them — keeps going at a fraction of the cost:
+$M$ of them — keeps going at a fraction of the cost:
 
 ![cost versus system size](benchmarks/benchmark_cost_scaling_spin_chain.png)
 
@@ -50,12 +50,12 @@ is never slower and typically a few-fold faster, and on the stiffer oscillator
 it is **orders of magnitude faster, widening with system size into the
 thousands**. See
 [`benchmarks/BENCHMARKS.md`](benchmarks/BENCHMARKS.md) for the full study —
-both systems defined, accuracy versus $$M$$ (energy and coherence), cost scaling
+both systems defined, accuracy versus $M$ (energy and coherence), cost scaling
 versus the exact solver, the accuracy-versus-cost frontier against `mcsolve`, and
 its iso-accuracy scaling with dimension — all reproducible with the scripts in
 that folder. The Davies construction itself accepts an optional
 `coupling_threshold` argument (see `davies_operators`) for pruning negligibly
-coupled operators at build time, independently of the bundling parameter $$M$$.
+coupled operators at build time, independently of the bundling parameter $M$.
 
 ## Install
 
@@ -136,15 +136,15 @@ Spectral inputs (`gamma`, `imag_gamma`) may be either a callable
 
 `bundle` is the actual method, and it takes **any** list of collapse
 operators — it does not care how they were built. The bundling is a purely
-algebraic operation: it replaces $$N_{L}$$ operators $$c_{alpha}$$ with $$M$$ random
+algebraic operation: it replaces $N_{L}$ operators $c_{alpha}$ with $M$ random
 linear combinations
 
 $$
 R_m = \frac{1}{\sqrt{M}} \sum_\alpha r_{m,\alpha}\ c_\alpha ,
 $$
 
-so that the bundled dissipator $$\sum_{m} D[R_{m}]$$ equals the full dissipator
-$$\sum_{\alpha} D[c_{\alpha}]$$ in expectation. Nothing in that statement assumes the
+so that the bundled dissipator $\sum_{m} D[R_{m}]$ equals the full dissipator
+$\sum_{\alpha} D[c_{\alpha}]$ in expectation. Nothing in that statement assumes the
 Davies construction, an ohmic bath, or even a master equation derived from a
 microscopic model.
 
@@ -173,11 +173,11 @@ optional way to *produce* an operator list, not a requirement of the method.
 ### Any bath spectral function
 
 When you do use `davies_operators` or `build_collapse_ops`, the spectral
-function $$\gamma(\omega)$$ is arbitrary — the library never assumes a particular
+function $\gamma(\omega)$ is arbitrary — the library never assumes a particular
 form (the ohmic example in the demos and tests is just an example). Pass any
 callable or array. For physically sensible relaxation to the Gibbs state it
 should be non-negative and satisfy detailed balance
-$$\gamma(-\omega)/\gamma(\omega) = exp(-\omega/kT)$$ (see CONVENTIONS.md). For
+$\gamma(-\omega)/\gamma(\omega) = exp(-\omega/kT)$ (see CONVENTIONS.md). For
 instance a Drude–Lorentz bath:
 
 ```python
@@ -192,7 +192,7 @@ c_ops = davies_operators(H, X, gamma_drude)
 ```
 
 A microscopically-derived construction may not even factor into
-operators x $$\gamma(\omega)$$ — some methods hand you collapse operators with the
+operators x $\gamma(\omega)$ — some methods hand you collapse operators with the
 rates already included and no separate spectral function. Those just go
 straight into `bundle`.
 
@@ -230,10 +230,10 @@ raw       = ens.samples      # shape (n_realizations, n_e_ops, n_times)
 
 ### Advanced: bias reduction with the jackknife
 
-A finite bundle size $$M$$ introduces an `O(1/M)` *bias* (eq. 14 of the paper).
-You can usually control it just by increasing $$M$$ or inspecting `ens.samples`
+A finite bundle size $M$ introduces an `O(1/M)` *bias* (eq. 14 of the paper).
+You can usually control it just by increasing $M$ or inspecting `ens.samples`
 directly. When you specifically want to cancel the leading bias term at fixed
-$$M$$, the package provides the jackknife-2 estimator (eqs. 15–16):
+$M$, the package provides the jackknife-2 estimator (eqs. 15–16):
 
 ```python
 from qutip_bundling import mesolve_jackknife
@@ -249,10 +249,10 @@ bundle → solve → average.
 ## How the pieces fit together
 
 Bundling is a Monte Carlo trick for the **dissipator only**. The Davies
-Lamb-shift Hamiltonian $$H_{LS}$$ is a deterministic part of the renormalized
+Lamb-shift Hamiltonian $H_{LS}$ is a deterministic part of the renormalized
 Hamiltonian (eq. 4 of the paper) — it's built once from the bare $L_\alpha$,
 added to the system Hamiltonian, and never enters the bundling step. If
-$$\mathrm{Im}{\gamma}$$ is identically zero (the paper's test cases), $$H_{LS}=0$$ and
+$\mathrm{Im}{\gamma}$ is identically zero (the paper's test cases), $H_{LS}=0$ and
 the package reduces to the dissipator-only case.
 
 Because the API returns operators rather than wrapping a solver, the same
@@ -263,7 +263,7 @@ custom propagator.
 
 A step-by-step Jupyter notebook is in `examples/tutorial.ipynb`. It builds a
 system, bundles its operators, shows convergence to the deterministic answer
-as $$M$$ grows, shows the standard deviation vs standard error, and uses the
+as $M$ grows, shows the standard deviation vs standard error, and uses the
 `native` backend. Every cell is executed and its output checked.
 
 ## Validation
@@ -276,7 +276,7 @@ guarantees:
    decays as `1/sqrt(samples)`).
 2. The Lamb shift is deterministic, Hermitian, and unchanged by any bundling
    call.
-3. A bundled `mesolve` with `M = 8` plus $$H_{LS}$$ reproduces the dynamics of
+3. A bundled `mesolve` with `M = 8` plus $H_{LS}$ reproduces the dynamics of
    the full operator set within the dynamic range of the observables.
 
 ## Acknowledgments
