@@ -184,7 +184,7 @@ def figure(name, doc):
     ax.set_xlabel("wall-clock per single run / trajectory (s)"
                   if NORMALIZE_PER_UNIT_WORK
                   else "wall-clock cost (s)", fontsize=13)
-    ax.set_ylabel(r"time-averaged error in $\langle H\rangle$", fontsize=13)
+    ax.set_ylabel(r"time-averaged RMSE in $\langle H\rangle$", fontsize=13)
     ax.set_title(rf"{name} (dim {doc['dim']}, $N_L$={doc['n_l']})", fontsize=14)
     ax.grid(True, which="both", alpha=0.3)
     ax.legend(frameon=False, fontsize=11)
