@@ -780,7 +780,10 @@ speedup, versus $\sim\!11\times$ at dim 32.
 On the oscillator the effect is dramatic at every size: `mcsolve` needs
 thousands of trajectories already at dim 8 and crosses "impractical"
 ($\gtrsim\!20{,}000$) by dim 16, while SLB hits the target with a *single*
-bundle ($M^\ast=1$) at every size. At dim 64 the honest arithmetic is stark —
+bundle ($M^\ast=1$) — directly measured at dims 8–32, and at dim 64 inferred
+from the smallest swept point ($M=2$), already $\sim\!250\times$ more accurate
+than `mcsolve`'s best there, with accuracy improving monotonically toward
+$M=1$. At dim 64 the honest arithmetic is stark —
 `mcsolve` would need $\sim\!2.8\times10^5$ trajectories at $\sim\!20$ s each,
 about **67 days**, against 47 seconds for SLB: a speedup of order $10^5$,
 reported as a lower bound ($\gtrsim\!8{,}700\times$) wherever the trajectory
