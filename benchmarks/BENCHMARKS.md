@@ -536,13 +536,27 @@ past it the exact solver is impractical.
 
 **The cost curves (top).** The exact full-dissipator `mesolve` evolves the
 density matrix with all $N_L$ collapse operators; its fitted slope is the
-steepest on the plot ($N^{4.9}$ on the chain, $N^{6.4}$ on the oscillator), and
+steepest on the plot ($N^{4.9}$ on the chain, $N^{6.5}$ on the oscillator), and
 past dim 32 it cannot run here at all — its superoperator construction exhausts
 even 32 GB. SLB at a *fixed* bundle size ($M=8$) only ever propagates $M$
-operators, so one solve is cheap ($N^{2.0}$);
-the SLB and construction curves need no exact reference, so they extend well
-past the wall, far enough for the fitted slope to reach the true scaling regime
-(small sizes are overhead-dominated and read misleadingly flat).
+operators, so one solve is cheap; the SLB and construction curves need no exact
+reference, so they extend well past the wall — on the oscillator all the way to
+dim 128, a $16\times$ span in dimension.
+
+One caveat on the SLB slopes, stated plainly because a fitted exponent invites
+it: **the fixed-$M$ and iso curves are clean power laws on the chain but not on
+the oscillator.** On the chain the fixed-$M$ cost fits $N^{2.0}$ over dim
+4–256 with monotone per-step ratios, close to the $O(N^3)$-per-solve floor once
+overhead is amortized — a quotable scaling law. On the oscillator the same
+curve fits $N^{1.4}$, but the per-doubling cost ratios are *not* monotone (a
+large jump at dim 8→32, then a much smaller one at 32→128 as the dense linear
+algebra reaches its efficient BLAS regime), so that number is a least-squares
+summary of a curved trend, not a scaling exponent, and is **not quoted as
+one**. The scaling *claim* of this work therefore rests on the chain's
+$N^{2.0}$; the oscillator panel is included as the decisive visual of the exact
+solver's wall — `mesolve` at $N^{6.5}$ and the native route at $N^{3.2}$ both
+climbing into hours per solve while SLB stays near-flat — rather than for a
+fitted SLB exponent.
 
 **A second exact route, as a control.** The dash-dot curve is the same Lindblad
 equation propagated by the package's own fixed-step RK4 with *all* $N_L$
@@ -553,30 +567,36 @@ point where `mesolve` can no longer provide one.** Wherever both routes run they
 agree to $10^{-10}$–$10^{-8}$ (stated in the figure footer, recorded per
 dimension in the data), and where the native route is used alone it is re-run at
 half its substeps and rejected if halving moves the answer appreciably. That it
-also scales better than `mesolve` ($N^{3.3}$ / $N^{3.8}$) is worth noting but is
+also scales better than `mesolve` ($N^{3.3}$ / $N^{3.2}$) is worth noting but is
 not a claim of this work: `mesolve` remains the neutral, widely-used standard
 against which the cost argument is made. The
-oscillator's curve ends earlier than the chain's for a physical reason: its
-anharmonic ladder's frequencies grow like $n^2$, and past dim 64 the
-fixed-step RK4 at the disclosed substep count is no longer stable. The
-benchmark ends the curve there and records it (`stiff_dim` in the data)
-rather than silently raising substeps at the last point — a fixed-step cost
-curve is only slope-comparable at uniform substeps. The oscillator's
-*accuracy* sweep ends one octave earlier still, for a subtler reason worth
-stating: bundling concentrates the dissipative weight of all $N_L$ operators
-into $M$ bundles, so the realized SLB generator is **stiffer than the
-physical one**, increasingly so at small $M$. Just below the hard stability
-cliff this produces samples that grow exponentially without ever becoming
-non-finite — numerically meaningless yet invisible to a finiteness check.
-The sweep detects this soft divergence by magnitude against the reference
-scale, records it (`diverged` rows in the data), and ends the accuracy curve
-honestly at the last stable size. The *reference* is held to the same
-standard: at every dimension where it is produced by the native route, it is
-recomputed at half the substeps, and if halving changes the answer at all
-appreciably (tolerance $10^{-4}$) the step size is marginal there — the
-reference is then **rejected** and that dimension carries no accuracy data,
-rather than a number nobody can certify. On the oscillator at dim 64 this
-check fires, which is precisely why its accuracy curve stops where it does. Two costs that
+oscillator is the stiffer system: its anharmonic ladder's frequencies grow
+like $n^2$, so the fixed-step RK4 needs more substeps to stay stable than the
+chain does. Because a fixed-step cost curve is only slope-comparable at
+*uniform* substeps, the whole oscillator sweep is run at a single elevated
+count (32 substeps, recorded in the metadata and the footer) chosen for
+stability at the largest size reached; at the smaller sizes this over-resolves
+the dynamics, so those points are a mild upper bound on SLB's true cost — a
+conservative bias, never a flattering one. At that setting every curve reaches
+dim 128, a $16\times$ dimensional span. The curve ends there because at dim 256
+even 32 substeps is unstable and the honest fix is an implicit solver, not more
+RK4 steps (see the outlook). This same "stiffer than the physical system"
+effect is why bundling itself needs those substeps: concentrating the
+dissipative weight of all $N_L$ operators into $M$ bundles makes the realized
+SLB generator **stiffer than the physical one**, increasingly so at small $M$.
+Just below the hard stability cliff this produces samples that grow
+exponentially while remaining finite — numerically meaningless yet invisible to
+a plain finiteness check — which the solver's magnitude-and-trace guard now
+catches against the physical scale and records (`slb_unstable_at_substeps` in
+the data). The *reference* is held to the same standard: where it is produced
+by the native route it is re-integrated at a different substep count and
+rejected if the answer moves appreciably (tolerance $10^{-4}$). The cheap check
+halves the substeps, but near the stability edge the halved run itself
+diverges — which says nothing about the reference — so the benchmark then falls
+back to the standard *upward* convergence test against a **finer** run at
+double the substeps, recording which direction was used. At dim 128 this upward
+fallback certifies the 32-substep reference against a 64-substep run to
+$4\times10^{-8}$. Two costs that
 must not be blurred are shown separately: the dotted curve is the one-time
 **Davies construction** of the $N_L$ operators (an eigendecomposition plus $N_L$
 operator assemblies) — cheap in absolute terms here, but scaling with its own
@@ -629,9 +649,14 @@ This is what keeps the iso-accuracy slope near $N^{2.6}$ rather than $N^4$, so t
 holding accuracy costs about one extra power of $N$. But it still sits far below
 the exact solver, so SLB's advantage survives the honest accounting. It is
 computable only up to the reference wall, since tuning $M^\ast$ needs the exact
-answer. (On the oscillator the target is met with $M^\ast=1$ at every size — a
-single bundle already suffices — so there the fixed-$M$ and iso-accuracy costs
-coincide.)
+answer. (The target is applied per system, since the two have very different
+bias scales: $0.02$ on the chain, where it produces the climbing $M^\ast$
+ladder above, and a tighter $0.005$ on the oscillator, whose bias is small
+enough that the looser target was met with a single bundle at most sizes and so
+measured nothing. At $0.005$ the oscillator ladder is $4/4/4/4/2$ across dim
+8–128 — nearly flat, consistent with a system whose bundling bias barely grows
+with size, and the reason its iso and fixed-$M$ curves sit close together
+rather than the iso curve rising above.)
 
 **What this figure does and doesn't show.** It shows SLB's speedup over the
 *exact* solver — the comparison the method is built to win. It leaves `mcsolve`

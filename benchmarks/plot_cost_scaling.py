@@ -17,7 +17,13 @@ import numpy as np
 from common import add_settings_footer, as_array, load_data
 
 # --- CONFIGURATION ---
+# Iso-accuracy target per system. The spin chain's M* ladder climbs with
+# size at 0.02, so that target is discriminating there. The oscillator
+# needs FEWER bundles as it grows (M*=1 clears 0.02 by dim 64), so a
+# tighter 0.005 target keeps the iso curve meaningful -- every dimension's
+# committed sweep already contains an M that reaches it.
 TARGET_VAL = 0.02
+TARGET_BY_SYSTEM = {"spin_chain": 0.02, "oscillator_bath": 0.005}
 
 # Which estimate's error defines M*?
 #   "ensemble" : error of the N_ACC-run AVERAGE  -> sqrt(bias^2 + SEM^2).
@@ -324,7 +330,8 @@ def main():
     names = ["spin_chain", "oscillator_bath"] if args.system == "all" else [args.system]
     for name in names:
         doc = load_data(f"cost_scaling_{name}.json")
-        figure(name, doc, TARGET_VAL, ESTIMATE_TYPE, ERROR_TYPE)
+        target = TARGET_BY_SYSTEM.get(name, TARGET_VAL)
+        figure(name, doc, target, ESTIMATE_TYPE, ERROR_TYPE)
 
 if __name__ == "__main__":
     main()
