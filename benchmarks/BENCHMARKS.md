@@ -12,23 +12,31 @@ Everything below is produced by self-contained scripts in this folder:
   Davies-operator construction separately from the propagation; the plot script
   derives the mean curves, the bands, and the peak-error decomposition from it.
 - `run_cost_scaling.py` + `plot_cost_scaling.py` — cost scaling versus the exact
-  solver (Result 2). The run script does the compute and writes
-  `data/cost_scaling_<system>.json` (stamped with package versions, seeds, and
-  the full bundle-size sweep); the plot script derives the figure from that
-  file in seconds.
+  solver (Result 2). The exact reference is QuTiP's `mesolve` up to the memory
+  wall (~dim 32), and beyond it — where `mesolve` can no longer build its
+  superoperator — the native full-dissipator RK4 solver (`rk4_mesolve`), which
+  propagates all `N_L` operators directly and is cross-validated against
+  `mesolve` wherever both run. The run script does the compute and writes
+  `data/cost_scaling_<system>.json` (stamped with package versions, seeds, the
+  bundle-size sweep, and the substeps used for each reference); the plot script
+  derives the figure from that file in seconds.
 - `run_frontier.py` + `plot_frontier.py` — accuracy-versus-cost frontier against
   `mcsolve` (Result 3), same split: raw SLB run samples and per-`ntraj` stats go
-  into `data/frontier_<system>.json` (with the substeps-guard verdict recorded),
-  and the plot script draws the frontier from it. `run_frontier.py --preset big`
-  is the heavy workstation variant (dim 64 / N_L ~ 866).
+  into `data/frontier_<system>.json` (each run also records whether its
+  fixed-step integrator stayed stable at the chosen substep count, so an
+  under-resolved reference is flagged rather than trusted), and the plot script
+  draws the frontier from it. `run_frontier.py --preset big` is the heavy
+  workstation variant (spin chain at dim 64, $N_L=869$).
 - `run_isocost_vs_dim.py` + `plot_isocost_vs_dim.py` — iso-accuracy cost versus
   dimension (Result 4), split the same way: the run script writes
   `data/isocost_vs_dim_<system>.json` with the raw run samples and the mcsolve
   $S^2$ fit; the plot script derives $M^\ast$, $\texttt{ntraj}^\ast$, and the
   speedups from it.
 
-To regenerate every figure: `pip install qutip-bundling matplotlib`, then run each
-script. The supporting checks (`benchmark_convergence.py`,
+To regenerate every figure, install the package (`pip install -e ".[examples,test]"`
+from a checkout, or `pip install qutip-bundling matplotlib`) and run each script
+from this folder. The `run_*.py` scripts do the compute; the `plot_*.py` scripts
+redraw from the saved `data/*.json` in seconds without recomputing. The supporting checks (`benchmark_convergence.py`,
 `benchmark_jackknife.py`, `benchmark_seed_robustness.py`,
 `benchmark_substep_convergence.py`) produce the validation figures (§6).
 
