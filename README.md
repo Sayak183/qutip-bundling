@@ -33,7 +33,9 @@ dynamics stay completely positive and trace preserving.
 Pair that with the deterministic Davies Lamb-shift Hamiltonian (built from
 the *bare* $L_\alpha$, never bundled), and a single bundled `mesolve` call
 reproduces full master-equation dynamics with $M$ independent of the
-Hilbert-space dimension — per-step cost drops from $O(N^{5})$ to $O(N^{3})$.
+Hilbert-space dimension — per-step cost drops from $O(N^{5})$ to $O(N^{3})$
+in the worst case (and, because $N_L$ grows sub-quadratically for these
+systems, closer to $N^{2}$ in the measured benchmarks).
 
 ## Benchmarks
 
@@ -278,6 +280,12 @@ guarantees:
    call.
 3. A bundled `mesolve` with `M = 8` plus $H_{LS}$ reproduces the dynamics of
    the full operator set within the dynamic range of the observables.
+
+## References
+
+The method's paper, the Lindblad/GKLS and Davies foundations, and the
+QuTiP solvers this package builds on and is benchmarked against are
+collected in [`REFERENCES.md`](REFERENCES.md).
 
 ## Acknowledgments
 
