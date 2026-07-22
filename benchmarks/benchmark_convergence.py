@@ -164,7 +164,7 @@ def analyze_and_plot(name, Ms, stat, bias, bias_jk, dim, n_l, n_real,
         bjk_slope = float("nan")
         bjk_slope_note = " (<3 points clear 2x SEM -- upper bound only)"
 
-    fig, ax = plt.subplots(figsize=(6.6, 5.0))
+    fig, ax = plt.subplots(figsize=(8.2, 6.0))
     ax.loglog(Ms, stat, "o-", color="tab:blue", lw=1.8,
               label=fr"statistical spread (fit slope {s_slope:.2f})")
     ax.loglog(Ms, stat / np.sqrt(n_real), ":", color="tab:blue",
@@ -185,7 +185,7 @@ def analyze_and_plot(name, Ms, stat, bias, bias_jk, dim, n_l, n_real,
         ax.axvline(mf, color="tab:red", ls=":", alpha=0.4)
         ax.annotate("jackknife bias\nreaches noise floor", (mf, sem[floor_hit[0]]),
                     textcoords="offset points", xytext=(10, -22),
-                    fontsize=7, color="tab:red", alpha=0.8)
+                    fontsize=10, color="tab:red", alpha=0.9)
 
     # Theoretical guide lines, anchored at the first point.
     ax.loglog(Ms, stat[0] * (Ms / Ms[0]) ** -0.5, "--", color="tab:blue",
@@ -195,11 +195,13 @@ def analyze_and_plot(name, Ms, stat, bias, bias_jk, dim, n_l, n_real,
     ax.loglog(Ms, bias_jk[0] * (Ms / Ms[0]) ** -2.0, "--", color="tab:red",
               alpha=0.6, label=r"$M^{-2}$ (jackknife-corrected bias)")
 
-    ax.set_xlabel("bundle size $M$")
-    ax.set_ylabel(r"max-over-time error in $\langle H\rangle$")
-    ax.set_title(f"{name} (dim {dim}, $N_L$={n_l}): SLB convergence in $M$")
+    ax.set_xlabel("bundle size $M$", fontsize=13)
+    ax.set_ylabel(r"max-over-time error in $\langle H\rangle$", fontsize=13)
+    ax.set_title(f"{name} (dim {dim}, $N_L$={n_l}): SLB convergence in $M$",
+                 fontsize=14)
     ax.grid(True, which="both", alpha=0.3)
-    ax.legend(frameon=False, fontsize=8)
+    ax.legend(frameon=False, fontsize=11)
+    ax.tick_params(labelsize=11)
     fig.tight_layout()
     add_settings_footer(
         fig,
