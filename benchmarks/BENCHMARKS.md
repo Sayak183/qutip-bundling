@@ -645,9 +645,9 @@ dimension shown is cheaper by four to five orders of magnitude (chain, dim
 the sub-wall region where both methods are cheap, is the figure's claim. The required
 $M^\ast$ grows with $N$ but *sublinearly*: measured on the chain across six
 dimensions (4 to 128, the last two reached via the native reference), the
-ladder runs $1\to8\to16\to32\to32\to64$ — close to $M^\ast\sim\sqrt{N}$, and
+ladder runs $4\to16\to32\to32\to64\to64$ — close to $M^\ast\sim\sqrt{N}$, and
 far short of the $M^\ast\propto N$ that would cost SLB a full power of $N$.
-This is what keeps the chain's iso-accuracy slope near $N^{2.5}$ rather than $N^4$, so this curve is steeper than fixed-$M$:
+This is what keeps the chain's iso-accuracy slope near $N^{2.4}$ rather than $N^4$, so this curve is steeper than fixed-$M$:
 holding accuracy costs about one extra power of $N$. But it still sits far below
 the exact solver, so SLB's advantage survives the honest accounting. It is
 computable only up to the reference wall, since tuning $M^\ast$ needs the exact
@@ -655,15 +655,16 @@ answer. (The target is applied per system, since the two have very different
 bias scales: $0.02$ on the chain, where it produces the climbing $M^\ast$
 ladder above, and a tighter $0.005$ on the oscillator, whose bias is small
 enough that the looser target was met with a single bundle at most sizes and so
-measured nothing. At $0.005$ the oscillator ladder is $4/4/4/4/2$ across dim
-8–128 — nearly flat, consistent with a system whose bundling bias barely grows
-with size, and the reason its iso and fixed-$M$ curves sit close together
-rather than the iso curve rising above.)
+measured nothing. At $0.005$ the oscillator ladder is $8/4/4/2$ across dim
+16–128 — nearly flat, consistent with a system whose bundling bias barely
+grows with size, and the reason its iso and fixed-$M$ curves sit close
+together rather than the iso curve rising above.)
 
-(In the single-run supplement figure the dim-8 iso point appears as a hollow
-marker: the single-run RMSE reaches $0.005$ there only at $M=8$, one step past
-that dimension's swept range, so the point is flagged rather than silently
-placed. The headline ensemble figure meets the target at every size.)
+On the oscillator's iso curve the dim-8 point is drawn as a hollow marker: at
+that smallest size the single-run RMSE reaches $0.005$ only at $M=8$, one step
+past that dimension's swept range ($M\le 4$), so the target is not met within
+the sweep and the point is flagged rather than silently placed. Every larger
+dimension meets the target with a solid $M^\ast$.
 
 **What this figure does and doesn't show.** It shows SLB's speedup over the
 *exact* solver — the comparison the method is built to win. It leaves `mcsolve`

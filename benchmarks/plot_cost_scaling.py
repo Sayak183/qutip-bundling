@@ -33,7 +33,13 @@ TARGET_BY_SYSTEM = {"spin_chain": 0.02, "oscillator_bath": 0.005}
 #   "single"   : error of ONE run -> sqrt(bias^2 + Std^2). Harsher: no
 #                averaging, so noise stays full size and M* comes out larger.
 # Either is defensible; the footer always states which one produced the figure.
-ESTIMATE_TYPE = "ensemble"
+# COMMITTED DEFAULT: "single". Result 2 costs ONE run and pairs it with that
+# run's own error (RMSE^2 = bias^2 + StdDev^2) -- the per-solve question the
+# cost curves ask. The unsuffixed headline figures are the single-run view;
+# switching to "ensemble" writes _ensemble_rmse-suffixed files so the
+# committed headline can never be silently rewritten under a non-default
+# setting.
+ESTIMATE_TYPE = "single"
 ERROR_TYPE = "rmse"       # Options: "rmse", "bias", "sem", "std"
 
 SHOW_NATIVE_CURVE = True  # cost of the native full-dissipator exact solve
@@ -237,22 +243,24 @@ def figure(name, doc, target, est_type, err_type):
         for x, y, u in zip(ud, uc, unreached):
             ax_main.annotate(f"M={int(u[2])}\n(missed)", (x, y),
                              textcoords="offset points", xytext=(6, -14),
-                             fontsize=7, color="tab:blue", alpha=0.8)
+                             fontsize=10, color="tab:blue", alpha=0.9)
     ax_main.loglog(dims[dd], t_dav[dd], "x:", color="gray", lw=1.5, alpha=0.8, label=_slope_label("Davies construction", dims, t_dav))
 
     # Annotate M*
     for x, y, ms in zip(dims[ii], iso_cost[ii], mstar[ii]):
-        ax_main.annotate(f"M*={int(ms)}", (x, y), xytext=(0, 8), textcoords="offset points", ha='center', fontsize=8)
+        ax_main.annotate(f"M*={int(ms)}", (x, y), xytext=(0, 8), textcoords="offset points", ha='center', fontsize=11)
 
-    ax_main.set_ylabel("wall-clock time (s)")
+    ax_main.set_ylabel("wall-clock time (s)", fontsize=13)
     ax_main.set_xticks(dims)
-    ax_main.set_xticklabels([f"{int(d)}\n" + rf"$N_L$={int(l)}" for d, l in zip(dims, n_ls)], fontsize=8)
+    ax_main.set_xticklabels([f"{int(d)}\n" + rf"$N_L$={int(l)}" for d, l in zip(dims, n_ls)], fontsize=11)
     ax_main.tick_params(axis="x", which="minor", labelbottom=False)
-    ax_main.set_xlabel("Hilbert dimension N  (with Lindblad operator count $N_L$)")
+    ax_main.set_xlabel("Hilbert dimension N  (with Lindblad operator count $N_L$)",
+                       fontsize=13)
     
     est_label_cap = "Ensemble" if est_type == "ensemble" else "Single-Run"
-    ax_main.set_title(f"{name}: cost scaling with M* annotations ({est_label_cap} {err_type.upper()})")
-    ax_main.legend(fontsize=8)
+    ax_main.set_title(f"{name}: cost scaling with M* annotations "
+                      f"({est_label_cap} {err_type.upper()})", fontsize=14)
+    ax_main.legend(fontsize=11)
     ax_main.grid(True, which="both", alpha=0.3)
 
     # ---- BOTTOM PANEL: MSE Share Bar Chart ----
@@ -280,11 +288,11 @@ def figure(name, doc, target, est_type, err_type):
         ax_bar.bar(x_positions, noise_shares, width, bottom=bias_shares, color="#B0C4DE", edgecolor="black", label=noise_label)
         
         ax_bar.set_xticks(x_positions)
-        ax_bar.set_xticklabels([f"{int(d)}\n$M^*={int(m)}$" for d, m in zip(v_dims, v_mstar)], fontsize=8)
-        ax_bar.set_ylabel("MSE share")
-        ax_bar.set_title(rf"MSE budget at $M^*$ (Bias² vs. {noise_label})", fontsize=10)
+        ax_bar.set_xticklabels([f"{int(d)}\n$M^*={int(m)}$" for d, m in zip(v_dims, v_mstar)], fontsize=11)
+        ax_bar.set_ylabel("MSE share", fontsize=13)
+        ax_bar.set_title(rf"MSE budget at $M^*$ (Bias² vs. {noise_label})", fontsize=13)
         ax_bar.set_ylim(0, 1.05)
-        ax_bar.legend(loc="upper right", ncol=2, fontsize=8)
+        ax_bar.legend(loc="upper right", ncol=2, fontsize=11)
     else:
         # Fallback if target was completely unreachable across the board
         ax_bar.text(0.5, 0.5, "No data reached target", ha='center', va='center')
@@ -315,7 +323,8 @@ def figure(name, doc, target, est_type, err_type):
     add_settings_footer(fig, *segs)
     
     # Append suffix to filename if non-default switches are used
-    metric_suffix = f"_{est_type}_{err_type}" if (est_type != "ensemble" or err_type != "rmse") else ""
+    metric_suffix = ("" if (est_type == "single" and err_type == "rmse")
+                     else f"_{est_type}_{err_type}")
     out = f"benchmark_cost_scaling_{name}{metric_suffix}.png"
     
     fig.savefig(out, dpi=110, bbox_inches="tight")
