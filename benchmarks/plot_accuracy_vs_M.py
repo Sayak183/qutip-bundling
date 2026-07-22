@@ -201,7 +201,7 @@ def decomposition_figure(plt, name, doc, tlist):
         ("samples_coherence", as_array(doc["reference_coherence"]),
          rf"\langle C_{{{ia},{ib}}}\rangle", "coherence"),
     ]
-    fig, axes = plt.subplots(1, 2, figsize=(9.6, 4.2))
+    fig, axes = plt.subplots(1, 2, figsize=(12.0, 5.2))
     t_stars = []
     for ax, (key, ref, obs_math, obs_name) in zip(axes, panels):
         t_star, m, bias, fluct = peak_error_anatomy(doc, key, ref)
