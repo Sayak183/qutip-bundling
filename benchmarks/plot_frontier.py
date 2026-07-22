@@ -85,11 +85,11 @@ def derive_slb_stats(doc, n_runs):
         
     return m_values, stats
 
-def figure(name, doc):
-    import matplotlib
-    matplotlib.use("Agg")
-    fig, ax = plt.subplots(figsize=(7.2, 5.2))
-    
+def _draw_frontier_axis(ax, name, doc, label_fs=11, annot_fs=9,
+                        mc_annot_fs=7, title_fs=14, show_legend=True):
+    """Draw one system-size frontier onto ax. Used by the single-dim
+    headline figure and, panel by panel, by the all-sizes strip -- one
+    code path so the two can never drift apart."""
     # Grab the specific N sweep for the current system
     current_n_sweep = N_RUNS_SWEEP.get(name, [16, 32])
     colors = plt.cm.Blues(np.linspace(0.6, 0.9, len(current_n_sweep)))
@@ -144,7 +144,7 @@ def figure(name, doc):
     if y_label_vals is not None and x_label_vals is not None:
         for x, y, m_eff in zip(x_label_vals, y_label_vals, m_vals_hi):
             ax.annotate(f"M={m_eff}", (x, y), textcoords="offset points", 
-                        xytext=(6, 6), fontsize=9, color=colors[-1], fontweight='bold')
+                        xytext=(6, 6), fontsize=annot_fs, color=colors[-1], fontweight='bold')
 
     mc = doc["mc"]
     # FAIRNESS: mcsolve must be shown under the SAME error definition as SLB.
@@ -177,7 +177,7 @@ def figure(name, doc):
     ax.errorbar(mc_cost_ens, mc_rmse_ens, yerr=mc_err, fmt="o--", color="tab:purple", 
                 lw=1.8, ms=7, capsize=3, label=mc_label)
     for r, c, y in zip(mc, mc_cost_ens, mc_rmse_ens):
-        ax.annotate(f"{r['ntraj']}", (c, y), textcoords="offset points", xytext=(5, -11), fontsize=7, color="tab:purple")
+        ax.annotate(f"{r['ntraj']}", (c, y), textcoords="offset points", xytext=(5, -11), fontsize=mc_annot_fs, color="tab:purple")
 
     ax.set_xscale("log")
     ax.set_yscale("log")
@@ -185,9 +185,20 @@ def figure(name, doc):
                   if NORMALIZE_PER_UNIT_WORK
                   else "wall-clock cost (s)", fontsize=13)
     ax.set_ylabel(r"time-averaged RMSE in $\langle H\rangle$", fontsize=13)
-    ax.set_title(rf"{name} (dim {doc['dim']}, $N_L$={doc['n_l']})", fontsize=14)
+    ax.set_title(rf"{name} (dim {doc['dim']}, $N_L$={doc['n_l']})",
+                 fontsize=title_fs)
     ax.grid(True, which="both", alpha=0.3)
-    ax.legend(frameon=False, fontsize=11)
+    if show_legend:
+        ax.legend(frameon=False, fontsize=label_fs)
+    return m_vals_hi, current_n_sweep
+
+
+def figure(name, doc):
+    import matplotlib
+    matplotlib.use("Agg")
+    fig, ax = plt.subplots(figsize=(7.2, 5.2))
+    
+    m_vals_hi, current_n_sweep = _draw_frontier_axis(ax, name, doc)
     
     if PLOT_ENSEMBLE_RMSE and not PLOT_SINGLE_RMSE:
         footer_math = "Ens RMSE\u00b2 = bias\u00b2 + SEM\u00b2"
@@ -217,6 +228,45 @@ def figure(name, doc):
     fig.savefig(out_file, dpi=130, bbox_inches="tight")
     plt.close(fig)
 
+def sizes_figure(name, docs):
+    """All-sizes strip: one frontier panel per dimension, smallest to
+    largest, shared y-axis. Draws each panel with the SAME code path as the
+    headline figure, so the strip can never disagree with it. Panel titles
+    carry each dim's own substeps from its data file's metadata (they
+    differ across sizes on the oscillator)."""
+    import matplotlib
+    matplotlib.use("Agg")
+    k = len(docs)
+    fig, axes = plt.subplots(1, k, figsize=(4.8 * k, 5.0), sharey=True)
+    n_sweep = None
+    for i, (ax, doc) in enumerate(zip(axes, docs)):
+        _, n_sweep = _draw_frontier_axis(ax, name, doc, label_fs=10,
+                                         annot_fs=8, mc_annot_fs=7,
+                                         title_fs=12, show_legend=(i == 0))
+        ss = doc.get("substeps") or doc["meta"].get("substeps")
+        ax.set_title(rf"dim {doc['dim']}   ($N_L$={doc['n_l']}, "
+                     rf"{ss} substeps)", fontsize=12)
+        ax.set_xlabel("wall-clock cost (s)", fontsize=11)
+        ax.set_ylabel(r"time-averaged RMSE in $\langle H\rangle$"
+                      if i == 0 else "", fontsize=11)
+        ax.tick_params(labelsize=10)
+    fig.suptitle(f"{name}: accuracy\u2013cost frontier, small to large",
+                 fontsize=14, y=1.02)
+    add_settings_footer(
+        fig,
+        f"SLB N in {n_sweep} runs; per-panel dim/N_L/substeps in titles "
+        f"(from each data file's own metadata)",
+        "mcsolve ntraj annotated per point; "
+        "Ens RMSE\u00b2 = bias\u00b2 + SEM\u00b2; "
+        f"error bar = {ERROR_BAR_TYPE}",
+        fontsize=11, wrap_chars=1,
+    )
+    out = f"benchmark_frontier_{name}_sizes.png"
+    fig.savefig(out, dpi=130, bbox_inches="tight")
+    plt.close(fig)
+    print(f"  saved {out}")
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--system", default="all")
@@ -238,6 +288,12 @@ def main():
         print(f"[{name}] plotting {fname} (dim {doc.get('dim','?')})")
         figure(name, doc)
         print(f"  saved plot")
+        # all-sizes strip: every per-dim file this system has, small to large
+        dim_paths = sorted(glob.glob(f"data/frontier_{name}_dim*.json"),
+                           key=lambda p2: int(_re.search(r"_dim(\d+)", p2).group(1)))
+        if len(dim_paths) >= 2:
+            docs = [load_data(os.path.basename(p2)) for p2 in dim_paths]
+            sizes_figure(name, docs)
 
 if __name__ == "__main__":
     main()

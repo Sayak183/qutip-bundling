@@ -164,7 +164,7 @@ def analyze_and_plot(name, Ms, stat, bias, bias_jk, dim, n_l, n_real,
         bjk_slope = float("nan")
         bjk_slope_note = " (<3 points clear 2x SEM -- upper bound only)"
 
-    fig, ax = plt.subplots(figsize=(8.2, 6.0))
+    fig, ax = plt.subplots(figsize=(7.0, 5.4))
     ax.loglog(Ms, stat, "o-", color="tab:blue", lw=1.8,
               label=fr"statistical spread (fit slope {s_slope:.2f})")
     ax.loglog(Ms, stat / np.sqrt(n_real), ":", color="tab:blue",
@@ -185,7 +185,7 @@ def analyze_and_plot(name, Ms, stat, bias, bias_jk, dim, n_l, n_real,
         ax.axvline(mf, color="tab:red", ls=":", alpha=0.4)
         ax.annotate("jackknife bias\nreaches noise floor", (mf, sem[floor_hit[0]]),
                     textcoords="offset points", xytext=(10, -22),
-                    fontsize=10, color="tab:red", alpha=0.9)
+                    fontsize=11, color="tab:red", alpha=0.9)
 
     # Theoretical guide lines, anchored at the first point.
     ax.loglog(Ms, stat[0] * (Ms / Ms[0]) ** -0.5, "--", color="tab:blue",
@@ -195,22 +195,26 @@ def analyze_and_plot(name, Ms, stat, bias, bias_jk, dim, n_l, n_real,
     ax.loglog(Ms, bias_jk[0] * (Ms / Ms[0]) ** -2.0, "--", color="tab:red",
               alpha=0.6, label=r"$M^{-2}$ (jackknife-corrected bias)")
 
-    ax.set_xlabel("bundle size $M$", fontsize=13)
-    ax.set_ylabel(r"max-over-time error in $\langle H\rangle$", fontsize=13)
+    ax.set_xlabel("bundle size $M$", fontsize=14)
+    ax.set_ylabel(r"max-over-time error in $\langle H\rangle$", fontsize=14)
     ax.set_title(f"{name} (dim {dim}, $N_L$={n_l}): SLB convergence in $M$",
                  fontsize=14)
     ax.grid(True, which="both", alpha=0.3)
-    ax.legend(frameon=False, fontsize=11)
-    ax.tick_params(labelsize=11)
+    ax.legend(frameon=False, fontsize=12)
+    ax.tick_params(labelsize=12)
     fig.tight_layout()
     add_settings_footer(
         fig,
         format_slb_settings(M=M_VALUES, substeps=substeps,
                             n_realizations=n_real, swept=True),
+        # pre-wrapped: add_settings_footer never breaks inside a segment,
+        # and this explanation as a single line forces the tight bbox far
+        # wider than the axes, shrinking the plot relative to its caption
         "spread = std over realizations; bias = |mean \u2212 ref| for the "
-        "uncorrected and jackknife-2 estimators (same seed per M); "
-        "full-Lindblad reference. The jackknife cancels the leading O(1/M) "
-        "bias term, so its slope should steepen from ~-1 toward ~-2.",
+        "uncorrected\nand jackknife-2 estimators (same seed per M); "
+        "full-Lindblad reference.\nThe jackknife cancels the leading O(1/M) "
+        "bias term,\nso its slope should steepen from ~-1 toward ~-2.",
+        fontsize=12, wrap_chars=1, y=-0.02,  # force settings/caption onto separate lines
     )
     out_png = out_png or f"benchmark_convergence_{name}_dim{dim}.png"
     fig.savefig(out_png, dpi=130, bbox_inches="tight")
