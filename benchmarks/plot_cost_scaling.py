@@ -167,8 +167,8 @@ def figure(name, doc, target, est_type, err_type):
 
     # Implement the dual-panel layout
     fig, (ax_main, ax_bar) = plt.subplots(
-        nrows=2, ncols=1, figsize=(12, 8.5), 
-        gridspec_kw={'height_ratios': [2.5, 1], 'hspace': 0.3}
+        nrows=2, ncols=1, figsize=(12, 9.2), 
+        gridspec_kw={'height_ratios': [2.5, 1], 'hspace': 0.5}
     )
 
     # ---- TOP PANEL: Cost Scaling ----
@@ -320,7 +320,7 @@ def figure(name, doc, target, est_type, err_type):
             for p in points):
         segs.append("iso-accuracy beyond the mesolve wall uses the native "
                     "full-dissipator reference")
-    add_settings_footer(fig, *segs)
+    add_settings_footer(fig, *segs, fontsize=11.5, wrap_chars=140)
     
     # Append suffix to filename if non-default switches are used
     metric_suffix = ("" if (est_type == "single" and err_type == "rmse")
