@@ -222,24 +222,49 @@ def run(name, build, sizes, full_budget=FULL_TIME_BUDGET,
                     print(f"  dim={dim:4d}  reference via native full "
                           f"dissipator ({n_l} operators, "
                           f"{NATIVE_REF_SUBSTEPS} substeps): {t_native:.3g}s")
-                    res_lo = rk4_mesolve(H, rho0, TLIST, c_ops=c_ops,
-                                         e_ops=[H],
-                                         substeps=NATIVE_REF_SUBSTEPS // 2)
-                    dev = float(np.max(np.abs(np.real(res_lo.expect[0])
-                                              - reference)))
+                    # Convergence check. Cheap route first: re-run at HALF the
+                    # substeps and compare. Near the stability edge that
+                    # comparison is meaningless -- the halved run diverges,
+                    # which says nothing about the reference itself (dim 128
+                    # runs fine at 32 substeps but 16 blows up). So when the
+                    # coarse partner diverges, fall back to the standard
+                    # UPWARD test against a FINER run at 2x substeps: if a
+                    # finer integration agrees, the step size is converged.
+                    direction, partner = "down", NATIVE_REF_SUBSTEPS // 2
+                    try:
+                        res_cmp = rk4_mesolve(H, rho0, TLIST, c_ops=c_ops,
+                                              e_ops=[H], substeps=partner)
+                        dev = float(np.max(np.abs(np.real(res_cmp.expect[0])
+                                                  - reference)))
+                    except SolverInstabilityError:
+                        dev = float("inf")
+                    if not np.isfinite(dev):
+                        direction, partner = "up", NATIVE_REF_SUBSTEPS * 2
+                        print(f"      coarse partner ({NATIVE_REF_SUBSTEPS//2} "
+                              f"substeps) diverges -- retrying the check "
+                              f"UPWARD against {partner} substeps "
+                              f"(costs ~2x the reference solve)")
+                        try:
+                            res_cmp = rk4_mesolve(H, rho0, TLIST, c_ops=c_ops,
+                                                  e_ops=[H], substeps=partner)
+                            dev = float(np.max(np.abs(
+                                np.real(res_cmp.expect[0]) - reference)))
+                        except SolverInstabilityError:
+                            dev = float("inf")
                     ok = np.isfinite(dev) and dev <= NATIVE_REF_SELFCHECK_TOL
-                    selfcheck = {"substeps_pair": [NATIVE_REF_SUBSTEPS // 2,
-                                                   NATIVE_REF_SUBSTEPS],
+                    pair = sorted([partner, NATIVE_REF_SUBSTEPS])
+                    selfcheck = {"substeps_pair": pair,
+                                 "direction": direction,
                                  "max_abs_dev": dev,
                                  "tol": NATIVE_REF_SELFCHECK_TOL,
                                  "passed": bool(ok)}
-                    print(f"      reference self-check "
-                          f"({NATIVE_REF_SUBSTEPS//2} vs "
-                          f"{NATIVE_REF_SUBSTEPS} substeps): max dev "
+                    print(f"      reference self-check ({pair[0]} vs "
+                          f"{pair[1]} substeps, {direction}ward): max dev "
                           f"{dev:.2e}  [{'OK' if ok else 'FAILED'}]")
                     if not ok:
-                        print(f"      REFERENCE REJECTED at dim {dim}: halving "
-                              f"the substeps changes the answer by {dev:.1e} "
+                        print(f"      REFERENCE REJECTED at dim {dim}: "
+                              f"comparing {pair[0]} vs {pair[1]} substeps "
+                              f"changes the answer by {dev:.1e} "
                               f"(tol {NATIVE_REF_SELFCHECK_TOL:g}) -- the step "
                               f"size is marginal here, so this reference cannot "
                               f"be certified. No accuracy data at this "
@@ -270,9 +295,21 @@ def run(name, build, sizes, full_budget=FULL_TIME_BUDGET,
         except SolverInstabilityError as err:
             stiff_dim = dim
             print(f"  dim={dim:4d}  RK4 unstable at {SUBSTEPS} substeps -- "
-                  f"curve ends here (uniform-substeps benchmark; the stiff\n"
-                  f"            generator would need more substeps, which would no longer "
-                  f"be cost-comparable). {err}")
+                  f"SLB cost curve ends here (uniform-substeps benchmark;\n"
+                  f"            the stiff generator would need more substeps, which would no "
+                  f"longer be cost-comparable). {err}")
+            # Record what DID succeed at this size before stopping: the Davies
+            # construction and, past the mesolve wall, a certified native
+            # reference cost hours to obtain and must not be discarded just
+            # because the SLB timing solve at these substeps was unstable.
+            points.append({
+                "size": s, "dim": dim, "n_l": n_l, "t_davies": t_davies,
+                "t_full": t_full, "t_slb_fixed": None,
+                "slb_unstable_at_substeps": SUBSTEPS,
+                "reference": reference, "reference_method": ref_method,
+                "t_native_ref": t_native, "native_ref_selfcheck": selfcheck,
+                "m_sweep": None,
+            })
             break
 
         ff = "%.3g s" % t_full if np.isfinite(t_full) else "(wall)"
@@ -293,6 +330,7 @@ def run(name, build, sizes, full_budget=FULL_TIME_BUDGET,
 
     meta = run_metadata(
         system=name, sizes=sizes, M_REP=M_REP, N_ACC=N_ACC,
+        substeps=SUBSTEPS,
         full_budget_used=full_budget, NATIVE_REF_SUBSTEPS=NATIVE_REF_SUBSTEPS,
         M_SWEEP_GRID=M_SWEEP_GRID, SWEEP_STOP_RMSE=SWEEP_STOP_RMSE,
         rng_sweep=RNG_SWEEP, rng_timing=RNG_TIMING,
@@ -305,6 +343,7 @@ def run(name, build, sizes, full_budget=FULL_TIME_BUDGET,
 
 
 def main():
+    global NATIVE_REF_SUBSTEPS, SUBSTEPS
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[1])
     ap.add_argument("--system", default="all",
                     choices=[*SYSTEMS, "all"],
@@ -316,12 +355,42 @@ def main():
                     help="largest dimension for the native full-dissipator "
                          "reference past the mesolve wall (reference only; "
                          "128 costs ~an hour on the spin chain)")
+    ap.add_argument("--slb-substeps", type=int, default=SUBSTEPS,
+                    help="RK4 substeps for the SLB solves (default from "
+                         "common.SUBSTEPS). The oscillator needs 16 to stay "
+                         "stable at dim 64; raising it UNIFORMLY keeps every "
+                         "dimension cost-comparable and is conservative -- "
+                         "at small dims SLB is then over-integrated, so its "
+                         "curve is an upper bound on its true cost. The "
+                         "value used is stamped into the metadata, so the "
+                         "figure footer always reports the real setting.")
+    ap.add_argument("--native-ref-substeps", type=int, default=None,
+                    help="substeps for the native full-dissipator "
+                         "reference (default 2x SUBSTEPS). The oscillator "
+                         "needs 32 to certify at dim 64; raising it "
+                         "UNIFORMLY multiplies every dimension's reference "
+                         "cost by the same factor, so the fitted slope is "
+                         "unchanged and only the intercept moves. The "
+                         "value used is recorded in the data metadata.")
     ap.add_argument("--full-budget", type=float, default=FULL_TIME_BUDGET,
                     help="raise the exact-solver time budget (seconds) to push "
                          "the reference wall out one size, e.g. 2400 buys the "
                          "spin dim-64 point (~35 min solve) and with it one "
                          "more iso-accuracy measurement")
     args = ap.parse_args()
+    if args.slb_substeps != SUBSTEPS:
+        SUBSTEPS = args.slb_substeps
+        print(f"[config] SLB substeps set to {SUBSTEPS} (uniform across "
+              f"all dimensions; conservative for SLB at small dims)")
+    # the reference keeps its 2x integration margin over whatever the SLB
+    # solves use, unless overridden explicitly
+    ref_ss = (args.native_ref_substeps if args.native_ref_substeps
+              else 2 * SUBSTEPS)
+    if ref_ss != NATIVE_REF_SUBSTEPS:
+        NATIVE_REF_SUBSTEPS = ref_ss
+        print(f"[config] native reference substeps set to "
+              f"{NATIVE_REF_SUBSTEPS} (self-check halves to "
+              f"{NATIVE_REF_SUBSTEPS // 2})")
     names = list(SYSTEMS) if args.system == "all" else [args.system]
     for name in names:
         build, sizes = SYSTEMS[name]

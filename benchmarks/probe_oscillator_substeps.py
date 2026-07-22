@@ -20,6 +20,7 @@ It touches NOTHING in the repo -- it only prints a table you can read off:
 Run:  python probe_oscillator_substeps.py
 """
 from __future__ import annotations
+import argparse
 import time
 import numpy as np
 import qutip
@@ -30,10 +31,10 @@ from qutip_bundling.native_solver import rk4_mesolve, SolverInstabilityError
 
 NATIVE_REF_TOL = 1e-4          # same tolerance the benchmark certifies against
 FOCK = {64: 32, 128: 64}      # dim -> n_fock (dim = 2 * n_fock)
-SUBSTEP_LADDER = [8, 16, 32, 64]
+SUBSTEP_LADDER = [8, 16, 32, 64, 128]
 
 
-def certify(H, rho0, c_ops, substeps):
+def certify(H, rho0, c_ops, substeps, tlist=TLIST):
     """Return (ref_time, self_check_dev, ok) or (time, inf, False) on divergence.
 
     ok means: the full-substep reference ran, AND halving the substeps changes
@@ -41,12 +42,12 @@ def certify(H, rho0, c_ops, substeps):
     """
     try:
         t0 = time.perf_counter()
-        hi = rk4_mesolve(H, rho0, TLIST, c_ops=c_ops, e_ops=[H], substeps=substeps)
+        hi = rk4_mesolve(H, rho0, tlist, c_ops=c_ops, e_ops=[H], substeps=substeps)
         dt = time.perf_counter() - t0
     except SolverInstabilityError:
         return None, float("inf"), False
     try:
-        lo = rk4_mesolve(H, rho0, TLIST, c_ops=c_ops, e_ops=[H],
+        lo = rk4_mesolve(H, rho0, tlist, c_ops=c_ops, e_ops=[H],
                          substeps=substeps // 2)
     except SolverInstabilityError:
         return dt, float("inf"), False
@@ -55,17 +56,37 @@ def certify(H, rho0, c_ops, substeps):
 
 
 def main():
+    ap = argparse.ArgumentParser(description=__doc__.splitlines()[3])
+    ap.add_argument("--quick", type=float, nargs="?", const=0.5, default=None,
+                    help="probe over the FIRST FIFTH of the time window "
+                         "only. Fixed-step instability is a property of the "
+                         "step size, not of how long you integrate, and it "
+                         "shows up early (dim 64 blew up at t=1.03, dim 128 "
+                         "at t=0.51) -- so this answers 'does it diverge?' "
+                         "at ~1/5 the cost. A PASS here is necessary, not "
+                         "sufficient: confirm over the full window before "
+                         "trusting a reference.")
+    ap.add_argument("--dims", type=int, nargs="+", default=[64, 128],
+                    help="which dimensions to probe")
+    ap.add_argument("--substeps", type=int, nargs="+", default=SUBSTEP_LADDER,
+                    help="ascending substep ladder to try")
+    args = ap.parse_args()
+    tlist = (TLIST[:max(2, int(len(TLIST) * args.quick))]
+             if args.quick else TLIST)
+    if args.quick:
+        print(f"[quick {args.quick:g}] probing t = {tlist[0]:.3g} .. {tlist[-1]:.3g} "
+              f"({len(tlist)} of {len(TLIST)} points)")
     print(f"{'dim':>5} {'N_L':>6} {'substeps':>9} {'ref_time':>10} "
           f"{'selfcheck_dev':>14} {'verdict':>9}")
-    for dim in (64, 128):
+    for dim in args.dims:
         n_fock = FOCK[dim]
         H, X, psi0 = build_oscillator_bath(n_fock)
         rho0 = qutip.ket2dm(psi0)
         c_ops = davies_operators(H, X, gamma)
         n_l = len(c_ops)
         first_ok = None
-        for ss in SUBSTEP_LADDER:
-            dt, dev, ok = certify(H, rho0, c_ops, ss)
+        for ss in args.substeps:
+            dt, dev, ok = certify(H, rho0, c_ops, ss, tlist)
             tstr = "  (diverged)" if dt is None else f"{dt:9.1f}s"
             print(f"{dim:>5} {n_l:>6} {ss:>9} {tstr:>10} "
                   f"{dev:>14.2e} {'OK' if ok else 'FAIL':>9}")
@@ -73,7 +94,7 @@ def main():
                 first_ok = ss
                 break            # smallest working substep count found
         if first_ok is None:
-            print(f"   -> dim {dim}: NOT certifiable up to {SUBSTEP_LADDER[-1]} "
+            print(f"   -> dim {dim}: NOT certifiable up to {args.substeps[-1]} "
                   f"substeps (needs a stiff/implicit solver, not more RK4 steps)")
         else:
             factor = first_ok // 4

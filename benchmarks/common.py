@@ -241,7 +241,7 @@ def add_settings_footer(fig, *segments, y=-0.02, fontsize=9, wrap_chars=170):
 DATA_DIR = Path(__file__).resolve().parent / "data"
 
 
-def run_metadata(tlist=TLIST, **params):
+def run_metadata(tlist=TLIST, substeps=SUBSTEPS, **params):
     """Metadata block stamped into every data file: enough to trace a figure
     back to the exact run (and machine state) that produced its numbers."""
     return {
@@ -253,7 +253,7 @@ def run_metadata(tlist=TLIST, **params):
         "platform": platform.platform(),
         "tlist": {"t0": float(tlist[0]), "t1": float(tlist[-1]),
                   "n": int(len(tlist))},
-        "substeps": SUBSTEPS,
+        "substeps": substeps,
         "full_time_budget_s": FULL_TIME_BUDGET,
         "max_full_dim": MAX_FULL_DIM,
         "params": params,

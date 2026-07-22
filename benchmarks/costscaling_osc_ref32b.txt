@@ -1,0 +1,26 @@
+﻿**********************
+Windows PowerShell transcript start
+Start time: 20260721171513
+Username: ADHIKARI\sayak
+RunAs User: ADHIKARI\sayak
+Configuration Name: 
+Machine: ADHIKARI (Microsoft Windows NT 10.0.26200.0)
+Host Application: C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe
+Process ID: 25200
+PSVersion: 5.1.26100.8894
+PSEdition: Desktop
+PSCompatibleVersions: 1.0, 2.0, 3.0, 4.0, 5.0, 5.1.26100.8894
+BuildVersion: 10.0.26100.8894
+CLRVersion: 4.0.30319.42000
+WSManStackVersion: 3.0
+PSRemotingProtocolVersion: 2.3
+SerializationVersion: 1.1.0.1
+**********************
+Transcript started, output file is costscaling_osc_ref32b.txt
+PS C:\Users\sayak\Downloads\repo-split\qutip-bundling\benchmarks> python run_cost_scaling.py --system oscillator_bath --native-ref-substeps 32
+
+PS C:\Users\sayak\Downloads\repo-split\qutip-bundling\benchmarks> Stop-Transcript
+**********************
+Windows PowerShell transcript end
+End time: 20260721175520
+**********************
