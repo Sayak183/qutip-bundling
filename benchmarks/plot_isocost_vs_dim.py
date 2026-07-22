@@ -108,6 +108,7 @@ def derive(doc, target, n_runs_list, est_type):
     points = doc["points"]
     out = {
         "dims": as_array([p["dim"] for p in points]),
+        "n_ls": as_array([p["n_l"] for p in points]),
         "full_cost": as_array([p["t_full"] for p in points]),
         "slb": {}, "mc_cost": [], "mc_star": [], "mc_ok": [],
     }
@@ -135,11 +136,12 @@ def derive(doc, target, n_runs_list, est_type):
 def figure(name, out, target, substeps, n_runs_list, est_type):
     plt.switch_backend("Agg")
     d = out["dims"]
+    n_ls = out["n_ls"]
     if len(d) == 0: return
 
     fig, (ax_main, ax_bar) = plt.subplots(
-        nrows=2, ncols=1, figsize=(8, 8), 
-        gridspec_kw={'height_ratios': [2, 1], 'hspace': 0.25}
+        nrows=2, ncols=1, figsize=(9.5, 9), 
+        gridspec_kw={'height_ratios': [2, 1], 'hspace': 0.55}
     )
 
     # --- TOP PANEL: Main Scaling Plot ---
@@ -164,17 +166,23 @@ def figure(name, out, target, substeps, n_runs_list, est_type):
     for x, y, m, ok in zip(d, out["slb"][n_max]["cost"], out["slb"][n_max]["mstar"],
                            out["slb"][n_max]["ok"]):
         ax_main.annotate(f"M*={int(m)}", (x, y), xytext=(5, -12), textcoords="offset points", 
-                         fontsize=9, color=greens.get(n_max, "tab:green"))
+                         fontsize=11, color=greens.get(n_max, "tab:green"))
         
     for x, y, nt, ok in zip(d, out["mc_cost"], out["mc_star"], out["mc_ok"]):
         label = f"ntraj≈{int(round(nt)):,}" if (ok and np.isfinite(nt)) else f"ntraj≳{NTRAJ_EXTRAP_MAX:,}"
         ax_main.annotate(label, (x, y), xytext=(5, 6), textcoords="offset points", 
-                         fontsize=9, color="tab:purple")
+                         fontsize=11, color="tab:purple")
 
-    ax_main.set_ylabel("wall-clock cost to reach target (s)")
+    ax_main.set_ylabel("wall-clock cost to reach target (s)", fontsize=13)
+    ax_main.set_xlabel("Hilbert dimension N  (with Lindblad operator count $N_L$)",
+                       fontsize=13)
+    ax_main.set_xticks(d)
+    ax_main.set_xticklabels([f"{int(dd)}\n" + rf"$N_L$={int(nl)}"
+                             for dd, nl in zip(d, n_ls)], fontsize=11)
+    ax_main.minorticks_off()
     est_label_cap = "Ensemble" if est_type == "ensemble" else "Single-Run"
-    ax_main.set_title(f"{name}: cost to reach {est_label_cap} RMSE={target} — SLB vs mcsolve")
-    ax_main.legend(loc="upper left", fontsize=9)
+    ax_main.set_title(f"{name}: cost to reach {est_label_cap} RMSE={target} — SLB vs mcsolve", fontsize=14)
+    ax_main.legend(loc="upper left", fontsize=11)
     ax_main.grid(True, which="both", alpha=0.3)
 
 
@@ -203,13 +211,14 @@ def figure(name, out, target, substeps, n_runs_list, est_type):
             total_height = bias + noise
             y_offset = (target**2) * 0.02
             ax_bar.text(x_positions[i] + offsets[idx], total_height + y_offset, f"N={n}", 
-                        ha='center', va='bottom', fontsize=7, color='black')
+                        ha='center', va='bottom', fontsize=9, color='black')
 
     ax_bar.set_xticks(x_positions)
-    ax_bar.set_xticklabels([str(dim) for dim in d])
-    ax_bar.set_title(rf"MSE Budget at $M^*$ (Bias² vs. {noise_str})", fontsize=10)
-    ax_bar.set_xlabel(r"Hilbert-space dimension $N$")
-    ax_bar.set_ylabel("MSE")
+    ax_bar.set_xticklabels([f"{int(dd)}\n" + rf"$N_L$={int(nl)}"
+                            for dd, nl in zip(d, n_ls)], fontsize=11)
+    ax_bar.set_title(rf"MSE Budget at $M^*$ (Bias² vs. {noise_str})", fontsize=13)
+    ax_bar.set_xlabel(r"Hilbert-space dimension $N$", fontsize=13)
+    ax_bar.set_ylabel("MSE", fontsize=13)
     ax_bar.grid(True, axis='y', alpha=0.3)
     
     target_mse = target**2
