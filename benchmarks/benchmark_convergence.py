@@ -164,7 +164,7 @@ def analyze_and_plot(name, Ms, stat, bias, bias_jk, dim, n_l, n_real,
         bjk_slope = float("nan")
         bjk_slope_note = " (<3 points clear 2x SEM -- upper bound only)"
 
-    fig, ax = plt.subplots(figsize=(7.0, 5.4))
+    fig, ax = plt.subplots(figsize=(8.8, 5.4))
     ax.loglog(Ms, stat, "o-", color="tab:blue", lw=1.8,
               label=fr"statistical spread (fit slope {s_slope:.2f})")
     ax.loglog(Ms, stat / np.sqrt(n_real), ":", color="tab:blue",
@@ -183,9 +183,10 @@ def analyze_and_plot(name, Ms, stat, bias, bias_jk, dim, n_l, n_real,
     if floor_hit.size:
         mf = Ms[floor_hit[0]]
         ax.axvline(mf, color="tab:red", ls=":", alpha=0.4)
-        ax.annotate("jackknife bias\nreaches noise floor", (mf, sem[floor_hit[0]]),
-                    textcoords="offset points", xytext=(10, -22),
-                    fontsize=11, color="tab:red", alpha=0.9)
+        ax.annotate("noise floor", xy=(mf, 1.0), xycoords=("data", "axes fraction"),
+                    xytext=(4, -4), textcoords="offset points",
+                    ha="left", va="top", fontsize=10, color="tab:red",
+                    alpha=0.85, rotation=90)
 
     # Theoretical guide lines, anchored at the first point.
     ax.loglog(Ms, stat[0] * (Ms / Ms[0]) ** -0.5, "--", color="tab:blue",
@@ -200,7 +201,8 @@ def analyze_and_plot(name, Ms, stat, bias, bias_jk, dim, n_l, n_real,
     ax.set_title(f"{name} (dim {dim}, $N_L$={n_l}): SLB convergence in $M$",
                  fontsize=14)
     ax.grid(True, which="both", alpha=0.3)
-    ax.legend(frameon=False, fontsize=12)
+    ax.legend(frameon=False, fontsize=11, loc="center left",
+              bbox_to_anchor=(1.02, 0.5))
     ax.tick_params(labelsize=12)
     fig.tight_layout()
     add_settings_footer(
