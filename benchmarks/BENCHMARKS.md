@@ -658,6 +658,13 @@ measured nothing. At $0.005$ the oscillator ladder is $4/4/4/4/2$ across dim
 with size, and the reason its iso and fixed-$M$ curves sit close together
 rather than the iso curve rising above.)
 
+On the oscillator's iso curve, the dim-8 point is drawn as a hollow marker: at
+that smallest size the single-run RMSE reaches $0.005$ only at $M=8$, one step
+past where that dimension's sweep was run ($M\le 4$), so the target is not met
+within the swept range and the point is flagged rather than silently placed.
+Every larger dimension meets the target with a solid $M^\ast$, so the slope is
+unaffected.
+
 **What this figure does and doesn't show.** It shows SLB's speedup over the
 *exact* solver — the comparison the method is built to win. It leaves `mcsolve`
 out on purpose: a trajectory method's cost scales differently, so a
