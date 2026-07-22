@@ -46,7 +46,16 @@ PLOT_STD  = True
 # (accuracy_vs_M_<system>_dim<D>.json); PLOT_DIM picks which to draw.
 # None = auto-pick the largest dim available on disk.
 PLOT_DIM = None
-USE_SINGLE_RUN_RMSE = True # If True: RMSE = sqrt(bias^2 + StdDev^2). If False: RMSE = sqrt(bias^2 + SEM^2)
+# COMMITTED DEFAULT: True. Result 1's error anatomy is deliberately the
+# SINGLE-RUN decomposition (RMSE^2 = bias^2 + StdDev^2) -- it answers "what
+# error does ONE run carry, and how does it split?", which is the question
+# the fixed-sampling sweep is designed for. This is an intentional exception
+# to the ensemble-headline convention of Results 2-4 (there the object being
+# costed is the whole N_r-run estimate). False switches to the ensemble
+# anatomy (RMSE^2 = bias^2 + SEM^2) and writes an _ensRMSE-suffixed file so
+# the committed headline figure can never be silently rewritten under a
+# non-default setting.
+USE_SINGLE_RUN_RMSE = True
 # ------------------------------------------------------
 
 def _timing_caption(doc):
@@ -244,10 +253,11 @@ def decomposition_figure(plt, name, doc, tlist):
         _timing_caption(doc),
     )
     
-    fig.savefig(f"benchmark_error_decomposition_{name}.png", dpi=130,
+    suffix = "" if USE_SINGLE_RUN_RMSE else "_ensRMSE"
+    fig.savefig(f"benchmark_error_decomposition_{name}{suffix}.png", dpi=130,
                 bbox_inches="tight")
     plt.close(fig)
-    print(f"  saved benchmark_error_decomposition_{name}.png  "
+    print(f"  saved benchmark_error_decomposition_{name}{suffix}.png  "
           f"(t* energy={t_stars[0]:.2f}, coherence={t_stars[1]:.2f})")
 
 
