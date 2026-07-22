@@ -181,13 +181,13 @@ def figure(name, doc):
 
     ax.set_xscale("log")
     ax.set_yscale("log")
-    ax.set_xlabel("wall-clock per single run / trajectory (s)   (lower is better)"
+    ax.set_xlabel("wall-clock per single run / trajectory (s)"
                   if NORMALIZE_PER_UNIT_WORK
-                  else "wall-clock cost (s)   (lower is better)")
-    ax.set_ylabel(r"time-averaged error in $\langle H\rangle$   (lower is better)")
-    ax.set_title(rf"{name} (dim {doc['dim']}, $N_L$={doc['n_l']})")
+                  else "wall-clock cost (s)", fontsize=13)
+    ax.set_ylabel(r"time-averaged error in $\langle H\rangle$", fontsize=13)
+    ax.set_title(rf"{name} (dim {doc['dim']}, $N_L$={doc['n_l']})", fontsize=14)
     ax.grid(True, which="both", alpha=0.3)
-    ax.legend(frameon=False, fontsize=8)
+    ax.legend(frameon=False, fontsize=11)
     
     if PLOT_ENSEMBLE_RMSE and not PLOT_SINGLE_RMSE:
         footer_math = "Ens RMSE\u00b2 = bias\u00b2 + SEM\u00b2"

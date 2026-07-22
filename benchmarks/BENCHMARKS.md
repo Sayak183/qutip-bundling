@@ -492,8 +492,7 @@ curves sit on top of the reference at every $M$, with bands too narrow to see �
 the figure appears to show nothing. That *is* the result: even $M=2$ tracks a
 trajectory spanning $\langle H\rangle\approx13\to4$ to within $\sim\!10^{-2}$,
 so there is no visible discrepancy to plot. It is the same fact that Results 2
-and 4 report quantitatively (a handful of bundles suffices at every size —
-$M^\ast\le 4$ under Result 2's tightened target — and the speedup over
+and 4 report quantitatively ($M^\ast=1$ suffices at every size; the speedup over
 `mcsolve` reaches three to four orders of magnitude): this system's dense,
 stiff dissipator is exactly the structure bundling exploits. The error
 decomposition below is where the oscillator's behaviour becomes legible.
@@ -579,10 +578,9 @@ count (32 substeps, recorded in the metadata and the footer) chosen for
 stability at the largest size reached; at the smaller sizes this over-resolves
 the dynamics, so those points are a mild upper bound on SLB's true cost — a
 conservative bias, never a flattering one. At that setting every curve reaches
-dim 128, a $16\times$ dimensional span, where the sweep's configured sizes end.
-The ladder's stiffness grows like $n^2$, so each further octave would demand
-roughly $4\times$ more substeps; the principled route to larger sizes is an
-implicit solver, not more RK4 steps (see the outlook). This same "stiffer than the physical system"
+dim 128, a $16\times$ dimensional span. The curve ends there because at dim 256
+even 32 substeps is unstable and the honest fix is an implicit solver, not more
+RK4 steps (see the outlook). This same "stiffer than the physical system"
 effect is why bundling itself needs those substeps: concentrating the
 dissipative weight of all $N_L$ operators into $M$ bundles makes the realized
 SLB generator **stiffer than the physical one**, increasingly so at small $M$.
@@ -645,9 +643,9 @@ dimension shown is cheaper by four to five orders of magnitude (chain, dim
 the sub-wall region where both methods are cheap, is the figure's claim. The required
 $M^\ast$ grows with $N$ but *sublinearly*: measured on the chain across six
 dimensions (4 to 128, the last two reached via the native reference), the
-ladder runs $4\to16\to32\to32\to64\to64$ — close to $M^\ast\sim\sqrt{N}$, and
+ladder runs $1\to8\to16\to32\to32\to64$ — close to $M^\ast\sim\sqrt{N}$, and
 far short of the $M^\ast\propto N$ that would cost SLB a full power of $N$.
-This is what keeps the chain's iso-accuracy slope near $N^{2.4}$ rather than $N^4$, so this curve is steeper than fixed-$M$:
+This is what keeps the iso-accuracy slope near $N^{2.6}$ rather than $N^4$, so this curve is steeper than fixed-$M$:
 holding accuracy costs about one extra power of $N$. But it still sits far below
 the exact solver, so SLB's advantage survives the honest accounting. It is
 computable only up to the reference wall, since tuning $M^\ast$ needs the exact
@@ -655,16 +653,17 @@ answer. (The target is applied per system, since the two have very different
 bias scales: $0.02$ on the chain, where it produces the climbing $M^\ast$
 ladder above, and a tighter $0.005$ on the oscillator, whose bias is small
 enough that the looser target was met with a single bundle at most sizes and so
-measured nothing. At $0.005$ the oscillator ladder is $8/4/4/2$ across dim
-16–128 — nearly flat, consistent with a system whose bundling bias barely
-grows with size, and the reason its iso and fixed-$M$ curves sit close
-together rather than the iso curve rising above.)
+measured nothing. At $0.005$ the oscillator ladder is $4/4/4/4/2$ across dim
+8–128 — nearly flat, consistent with a system whose bundling bias barely grows
+with size, and the reason its iso and fixed-$M$ curves sit close together
+rather than the iso curve rising above.)
 
-On the oscillator's iso curve the dim-8 point is drawn as a hollow marker: at
+On the oscillator's iso curve, the dim-8 point is drawn as a hollow marker: at
 that smallest size the single-run RMSE reaches $0.005$ only at $M=8$, one step
-past that dimension's swept range ($M\le 4$), so the target is not met within
-the sweep and the point is flagged rather than silently placed. Every larger
-dimension meets the target with a solid $M^\ast$.
+past where that dimension's sweep was run ($M\le 4$), so the target is not met
+within the swept range and the point is flagged rather than silently placed.
+Every larger dimension meets the target with a solid $M^\ast$, so the slope is
+unaffected.
 
 **What this figure does and doesn't show.** It shows SLB's speedup over the
 *exact* solver — the comparison the method is built to win. It leaves `mcsolve`
