@@ -532,6 +532,19 @@ with its own exponent as the dimension increases, so the pipeline price should
 never be blurred into the solve time — Result 2 now tracks it as its own cost
 curve.
 
+**Size invariance.** Overlaying the bias sweep at every measured dimension on
+one axis shows the property that makes bundling worth doing: the bias curves at
+dim 16, 32, and 64 sit close together and share the same $M^{-1}$ slope, so a
+*fixed* bundle count buys essentially the same accuracy no matter how large the
+system is. The bundling error is set by $M$, not by $N$ — which is exactly why
+$M$ can be held constant as the dimension grows (the premise of the Result 2
+cost scaling). The SEM curves fall as $M^{-1/2}$ as expected, and the fitted
+exponents (in the legend) are quoted only where they clear the strict noise
+floor.
+
+![spin chain size invariance](accuracy_vs_M_invariance_spin_chain.png)
+![oscillator size invariance](accuracy_vs_M_invariance_oscillator_bath.png)
+
 ### Result 2 — cost scaling versus the exact solver
 
 ![spin chain cost scaling](benchmark_cost_scaling_spin_chain.png)
@@ -689,11 +702,8 @@ raises `SolverInstabilityError` instead of silently returning a corrupted result
 
 ### Result 3 — accuracy-versus-cost frontier against `mcsolve`
 
-![spin chain frontier](benchmark_frontier_spin_chain.png)
-![oscillator frontier](benchmark_frontier_oscillator_bath.png)
-
-The same frontier drawn at every measured size, smallest to largest, makes the
-size trend visible directly — on the chain the SLB curves pull away from
+The frontier is drawn at every measured size, smallest to largest, so the size
+trend is visible directly — on the chain the SLB curves pull away from
 `mcsolve` panel by panel (the $1.8\times \to 5\times \to 11\times$ growth
 reported below is the horizontal gap widening), while on the oscillator SLB
 sits below and left of `mcsolve` already at the smallest size and stays there:
