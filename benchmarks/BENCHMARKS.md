@@ -447,6 +447,18 @@ frontier (Result 3) sweeps the bias knob `M` for SLB against the noise knob
 > care about speed can jump to Result 2. The supporting checks behind every
 > claim are in §6.
 
+**A note on the dimension range.** The accuracy results (1, 3, 4) run to dim 64;
+only the cost scaling (Result 2) reaches dim 128. The reason is not a limit of
+SLB — Result 2 shows SLB itself running comfortably to dim 128 (and to 256 on
+the chain). It is a limit of what we can *check against*. Measuring accuracy
+needs an exact reference at every point, and past the memory wall (~dim 32) the
+only exact route is the native full-dissipator solve, which we certify through
+dim 64; Results 3 and 4 also need an `mcsolve` comparison, and past dim 64
+`mcsolve`'s trajectory count runs into months of compute. Result 2's cost
+curves carry no such constraint — timing a run needs no ground truth — so they
+alone extend further. In short, we report accuracy exactly as far as we can
+certify it honestly, and speed as far as SLB will run.
+
 ### Result 1 — accuracy versus the bundle size $M$
 
 ![spin chain accuracy](benchmark_accuracy_spin_chain.png)
