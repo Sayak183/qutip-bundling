@@ -844,17 +844,12 @@ re-running the benchmark.)
 
 The checks that answer the obvious doubts.
 
-**Convergence at the predicted rates.** The bias should fall as $M^{-1}$ and the
-statistical spread as $M^{-1/2}$.
-
-![spin chain convergence](benchmark_convergence_spin_chain.png)
-![oscillator convergence](benchmark_convergence_oscillator_bath.png)
-
-Fitting recovers the predicted $M^{-1}$ bias on both systems ($M^{-0.99}$ chain,
-$M^{-0.97}$ oscillator); the spread follows $M^{-1/2}$ on the chain ($M^{-0.52}$)
-and faster on the oscillator. Matching the predicted *bias* exponent — the thing
-that sets SLB's accuracy — is the strongest single check that the estimator
-behaves as derived.
+**Convergence at the predicted rates, and the jackknife correction.** The
+uncorrected bias should fall as $M^{-1}$ and the statistical spread as
+$M^{-1/2}$ — both visible in every panel of the strips below (green and blue
+curves), and the fitted bias exponent sits at $M^{-0.95}$ to $M^{-1.00}$
+across all sizes, the strongest single check that the estimator behaves as
+derived.
 
 **Bias rate under the jackknife.** Sweeping $M$ at fixed size and comparing the
 uncorrected estimator against the jackknife-2 one (same seeds at every $M$)
@@ -887,18 +882,10 @@ sizes the realization budgets leave a higher floor, and the correction then
 acts as a level reduction without a resolved change of law. The self-check in
 `benchmark_convergence.py`, and the strip in `plot_jackknife_rate_strip.py`,
 apply exactly this rule — steepening is claimed only where the data support it.
-
-**Bias versus size, with jackknife (this is the Result 2 size trend,
-quantified).** At fixed `M` the finite-$M$ bias grows with dimension; the
-built-in jackknife correction suppresses it.
-
-![spin chain jackknife](benchmark_jackknife_spin_chain.png)
-![oscillator jackknife](benchmark_jackknife_oscillator_bath.png)
-
-The uncorrected bias rises steeply with dimension while the corrected bias stays
-comparatively flat — so the Result 2 growth is a known, correctable effect, not
-a breakdown. On the oscillator the corrected residual sits at the noise floor
-(consistent with zero).
+Reading across the panels of each strip, the uncorrected bias (green) also
+rises with dimension while the jackknife keeps the corrected bias comparatively
+flat — so Result 2's growth of the bias with system size is a known,
+correctable effect, not a breakdown.
 
 **Seed robustness.** Recomputing the frontier across independent master seeds
 leaves the conclusion unchanged: per-seed frontiers cluster tightly and SLB
