@@ -159,14 +159,14 @@ $k_BT=0.5$, satisfying detailed balance.**
 into collapse operators by the same Davies (secular) recipe —
 `davies_operators(H, X, gamma)`. First diagonalize the system Hamiltonian,
 
-$$H_{\rm sys}\,|a\rangle = E_a\|a\rangle .$$
+$$H_{\rm sys}\,|a\rangle = E_a\,|a\rangle .$$
 
 Then every **ordered** pair of eigenstates $(a,b)$ whose coupling element
 $\langle a|X|b\rangle$ is non-zero contributes one Lindblad operator, tagged with
 the Bohr frequency of that transition:
 
 $$\omega_{ab} = E_b - E_a , \qquad
-  c_{ab} = \sqrt{\gamma(\omega_{ab})}\\langle a|X|b\rangle\|a\rangle\langle b| .$$
+  c_{ab} = \sqrt{\gamma(\omega_{ab})}\,\langle a|X|b\rangle\,|a\rangle\langle b| .$$
 
 The number of such operators is $N_L$ — one per energy-conserving channel the
 coupling opens. The sign convention $\omega_{ab}=E_b-E_a$ is what makes the
@@ -324,22 +324,11 @@ job:
   with the statistical error $S/\sqrt{N_r}$ as $\sqrt{\text{bias}^2+\text{SEM}^2}$,
   then averages over the trajectory. This is the fair choice for a head-to-head:
   it counts *both* error components — a bias-only or single-time number would
-  ignore `mcsolve`'s large trajectory variance — and time-averaging avoids both a
+  ignore `mcsolve`'s large trajectory variance, and could be gamed by trading
+  bias for variance or the reverse — and time-averaging avoids both a
   lucky single instant and the upward bias of a max-over-time number. The substep
   integrator check (§6) still reports a single **mid-relaxation time
   $t=2.5$**, where one representative instant suffices.
-
-**Why time-averaged RMSE, plainly.** A stochastic estimate carries two errors —
-a systematic **bias** (its mean sits off the true answer) and a statistical
-**scatter** (a single run fluctuates about that mean). Any single number that
-hides one of them can be gamed: a method can look accurate by trading bias for
-variance or the reverse. The RMSE $\sqrt{\text{bias}^2+\text{SEM}^2}$ refuses that
-trade — it counts both at once — and the time-average reports the *typical* total
-error across the whole relaxation instead of one cherry-picked instant. That is
-why it is the metric wherever two methods are compared head-to-head (Results 3
-and 4); the per-$M$ and per-dimension self-scaling checks (§6), which only ask
-"how fast does *this* method's error shrink", use the simpler max-over-time or
-single-time numbers noted above.
 
 (The dynamics run to $t=5$ in natural units — $J=1$ for the chain, $\omega_0=1$
 for the oscillator — over 40 output points; $t=2.5$ is the mid-relaxation
@@ -856,7 +845,7 @@ uncorrected estimator against the jackknife-2 one (same seeds at every $M$)
 separates the correction's two effects: it lowers the bias *level* everywhere,
 and — where the sampling floor is pushed low enough to see it — it **steepens
 its rate** from $M^{-1}$ toward the $M^{-2}$ that the leading-order cancellation
-of eq. (16) predicts. The three panels below, smallest to largest, show the
+the method predicts (Adhikari & Baer 2025; see `REFERENCES.md`). The three panels below, smallest to largest, show the
 whole story at once: the jackknife rate is resolved and clearly steepened only
 where enough points clear the noise floor.
 
@@ -919,6 +908,10 @@ advantage does not change the conclusion.
 ---
 
 ## 7. Reproducing and reading these numbers
+
+The theory this builds on — the SLB method paper, the Lindblad/GKLS and Davies
+foundations, and the QuTiP solvers benchmarked against — is collected in
+[`REFERENCES.md`](../REFERENCES.md).
 
 Absolute times depend on the machine, core count, and BLAS build — treat them as
 relative comparisons. A few notes:
