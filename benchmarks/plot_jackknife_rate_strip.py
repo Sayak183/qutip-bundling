@@ -84,7 +84,7 @@ def fit_stats(d):
 
 def draw_panel(ax, f, label, show_ylabel):
     M, stat, bias, bjk, sem = f["M"], f["stat"], f["bias"], f["bjk"], f["sem"]
-    ax.loglog(M, stat, "o-", color="tab:blue", lw=1.6, ms=5, label="spread")
+    ax.loglog(M, stat, "o-", color="tab:blue", lw=1.6, ms=5, label="std")
     ax.loglog(M, sem, ":", color="tab:blue", alpha=0.5, label="SEM floor")
     ax.loglog(M, bias, "s-", color="tab:green", lw=1.6, ms=5,
               label=fr"bias, uncorr. ($M^{{{f['b_slope']:.2f}}}$)")
@@ -96,8 +96,7 @@ def draw_panel(ax, f, label, show_ylabel):
     ax.loglog(M, bias[0]*(M/M[0])**-1.0, "--", color="tab:green", alpha=0.45)
     ax.loglog(M, bjk[0]*(M/M[0])**-2.0, "--", color="tab:red", alpha=0.45)
 
-    ax.set_title(f"{label}  ($N_r$={f['nr']}, {f['n_above']} pts $>$2\u00b7SEM)",
-                 fontsize=12)
+    ax.set_title(label, fontsize=13)
     ax.set_xlabel("bundle size $M$", fontsize=12)
     if show_ylabel:
         ax.set_ylabel(r"max-over-time error in $\langle H\rangle$", fontsize=12)
