@@ -1,10 +1,10 @@
-﻿**********************
+**********************
 Windows PowerShell transcript start
 Start time: 20260716011718
-Username: ADHIKARI\sayak
-RunAs User: ADHIKARI\sayak
+Username: <redacted>
+RunAs User: <redacted>
 Configuration Name: 
-Machine: ADHIKARI (Microsoft Windows NT 10.0.26200.0)
+Machine: <redacted> (Microsoft Windows NT 10.0.26200.0)
 Host Application: C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe
 Process ID: 15372
 PSVersion: 5.1.26100.8875
@@ -17,9 +17,9 @@ PSRemotingProtocolVersion: 2.3
 SerializationVersion: 1.1.0.1
 **********************
 Transcript started, output file is convergence_night.txt
-PS C:\Users\sayak\Downloads\repo-split\qutip-bundling\benchmarks> python benchmark_convergence.py
+PS <repo>\benchmarks> python benchmark_convergence.py
     measurable over 4 points above the SEM floor; max bias reduction 78.9x. Safe to commit.
-PS C:\Users\sayak\Downloads\repo-split\qutip-bundling\benchmarks> Stop-Transcript
+PS <repo>\benchmarks> Stop-Transcript
 **********************
 Windows PowerShell transcript end
 End time: 20260716085137

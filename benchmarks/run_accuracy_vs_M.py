@@ -27,8 +27,8 @@ For each system, at one fixed reference-feasible size, it records:
 
 Uses the fine 80-point time grid (TLIST_FINE), like the published Result 1.
 
-Writes, per system:  data/accuracy_vs_M_<system>.json
-Run:                 python run_accuracy_vs_M.py [--system ...]
+Writes, per system and dimension:  data/accuracy_vs_M_<system>_dim<D>.json
+Run:                 python run_accuracy_vs_M.py (--system ... | --all)
 """
 
 from __future__ import annotations
@@ -41,8 +41,9 @@ import qutip
 
 from common import (
     gamma, build_spin_chain, build_oscillator_bath, TLIST_FINE, SUBSTEPS,
-    run_metadata, save_data,
+    DATA_DIR, run_metadata, save_data,
 )
+from benchmark_cli import add_safety_arguments, preflight_run, selected_systems
 from qutip_bundling import davies_operators, mesolve_ensemble
 from qutip_bundling.native_solver import rk4_mesolve, SolverInstabilityError
 
@@ -199,21 +200,41 @@ def run(name, build, size, m_ladder, substeps):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[1])
-    ap.add_argument("--system", default="all",
-                    choices=[*SYSTEMS, "all"],
-                    help="which system to run (default: all)")
+    add_safety_arguments(ap, SYSTEMS)
     ap.add_argument("--dims", type=int, nargs="+", default=None,
                     help="only these Hilbert dims (default: all configured "
                          "sizes; each saved to its own file).")
     args = ap.parse_args()
-    names = list(SYSTEMS) if args.system == "all" else [args.system]
+    names = selected_systems(args, SYSTEMS)
+    work = []
+    plans = []
     for name in names:
         build, points = SYSTEMS[name]
+        available_dims = set()
         for size, m_ladder, substeps in points:
             probe_dim = build(size)[0].shape[0]
+            available_dims.add(probe_dim)
             if args.dims and probe_dim not in args.dims:
                 continue
-            run(name, build, size, m_ladder, substeps)
+            work.append((name, build, size, m_ladder, substeps))
+            plans.append((
+                f"Result 1: {name}, dim {probe_dim}, M={m_ladder}",
+                DATA_DIR / f"accuracy_vs_M_{name}_dim{probe_dim}.json",
+            ))
+        if args.dims:
+            missing = sorted(set(args.dims) - available_dims)
+            if missing:
+                ap.error(
+                    f"{name} has no configured Result 1 dimensions {missing}; "
+                    f"available dimensions are {sorted(available_dims)}"
+                )
+
+    if not preflight_run(
+        plans, overwrite=args.overwrite, dry_run=args.dry_run
+    ):
+        return
+    for item in work:
+        run(*item)
 
 
 if __name__ == "__main__":

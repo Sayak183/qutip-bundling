@@ -1,0 +1,9 @@
+system,dim,method,knob,value,cost_s,bias,sem,rmse
+oscillator_bath,64,SLB,M,2,5.13989,,,
+oscillator_bath,64,SLB,M,4,7.48559,,,
+oscillator_bath,64,SLB,M,8,12.4099,,,
+oscillator_bath,64,SLB,M,16,21.6916,,,
+oscillator_bath,64,SLB,M,32,41.5721,,,
+oscillator_bath,64,SLB,M,64,82.1967,,,
+oscillator_bath,64,mcsolve,ntraj,10,323.769,0.960464,2.37617,2.65916
+oscillator_bath,64,mcsolve,ntraj,50,1649.37,0.527765,1.22842,1.38728

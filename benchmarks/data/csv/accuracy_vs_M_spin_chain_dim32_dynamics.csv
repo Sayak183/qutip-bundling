@@ -1,0 +1,1121 @@
+system,dim,observable,series,time,mean,std
+spin_chain,32,energy,reference,0,-4,
+spin_chain,32,energy,reference,0.0632911,-4.03122778,
+spin_chain,32,energy,reference,0.126582,-4.05991444,
+spin_chain,32,energy,reference,0.189873,-4.08631577,
+spin_chain,32,energy,reference,0.253165,-4.11065796,
+spin_chain,32,energy,reference,0.316456,-4.13314143,
+spin_chain,32,energy,reference,0.379747,-4.15394406,
+spin_chain,32,energy,reference,0.443038,-4.17322399,
+spin_chain,32,energy,reference,0.506329,-4.1911221,
+spin_chain,32,energy,reference,0.56962,-4.2077641,
+spin_chain,32,energy,reference,0.632911,-4.22326233,
+spin_chain,32,energy,reference,0.696203,-4.2377174,
+spin_chain,32,energy,reference,0.759494,-4.25121954,
+spin_chain,32,energy,reference,0.822785,-4.2638498,
+spin_chain,32,energy,reference,0.886076,-4.27568112,
+spin_chain,32,energy,reference,0.949367,-4.28677925,
+spin_chain,32,energy,reference,1.01266,-4.29720353,
+spin_chain,32,energy,reference,1.07595,-4.30700763,
+spin_chain,32,energy,reference,1.13924,-4.31624013,
+spin_chain,32,energy,reference,1.20253,-4.32494512,
+spin_chain,32,energy,reference,1.26582,-4.33316262,
+spin_chain,32,energy,reference,1.32911,-4.34092902,
+spin_chain,32,energy,reference,1.39241,-4.34827749,
+spin_chain,32,energy,reference,1.4557,-4.35523828,
+spin_chain,32,energy,reference,1.51899,-4.361839,
+spin_chain,32,energy,reference,1.58228,-4.36810492,
+spin_chain,32,energy,reference,1.64557,-4.37405916,
+spin_chain,32,energy,reference,1.70886,-4.37972293,
+spin_chain,32,energy,reference,1.77215,-4.3851157,
+spin_chain,32,energy,reference,1.83544,-4.39025535,
+spin_chain,32,energy,reference,1.89873,-4.39515836,
+spin_chain,32,energy,reference,1.96203,-4.39983987,
+spin_chain,32,energy,reference,2.02532,-4.40431387,
+spin_chain,32,energy,reference,2.08861,-4.40859327,
+spin_chain,32,energy,reference,2.1519,-4.41268999,
+spin_chain,32,energy,reference,2.21519,-4.41661507,
+spin_chain,32,energy,reference,2.27848,-4.42037872,
+spin_chain,32,energy,reference,2.34177,-4.42399042,
+spin_chain,32,energy,reference,2.40506,-4.42745894,
+spin_chain,32,energy,reference,2.46835,-4.43079245,
+spin_chain,32,energy,reference,2.53165,-4.43399852,
+spin_chain,32,energy,reference,2.59494,-4.43708421,
+spin_chain,32,energy,reference,2.65823,-4.44005609,
+spin_chain,32,energy,reference,2.72152,-4.44292028,
+spin_chain,32,energy,reference,2.78481,-4.44568247,
+spin_chain,32,energy,reference,2.8481,-4.44834801,
+spin_chain,32,energy,reference,2.91139,-4.45092185,
+spin_chain,32,energy,reference,2.97468,-4.45340866,
+spin_chain,32,energy,reference,3.03797,-4.45581279,
+spin_chain,32,energy,reference,3.10127,-4.45813831,
+spin_chain,32,energy,reference,3.16456,-4.46038904,
+spin_chain,32,energy,reference,3.22785,-4.46256855,
+spin_chain,32,energy,reference,3.29114,-4.46468021,
+spin_chain,32,energy,reference,3.35443,-4.46672716,
+spin_chain,32,energy,reference,3.41772,-4.46871238,
+spin_chain,32,energy,reference,3.48101,-4.47063864,
+spin_chain,32,energy,reference,3.5443,-4.47250857,
+spin_chain,32,energy,reference,3.60759,-4.47432464,
+spin_chain,32,energy,reference,3.67089,-4.47608917,
+spin_chain,32,energy,reference,3.73418,-4.47780436,
+spin_chain,32,energy,reference,3.79747,-4.47947227,
+spin_chain,32,energy,reference,3.86076,-4.48109485,
+spin_chain,32,energy,reference,3.92405,-4.48267396,
+spin_chain,32,energy,reference,3.98734,-4.48421133,
+spin_chain,32,energy,reference,4.05063,-4.48570861,
+spin_chain,32,energy,reference,4.11392,-4.48716737,
+spin_chain,32,energy,reference,4.17722,-4.48858908,
+spin_chain,32,energy,reference,4.24051,-4.48997515,
+spin_chain,32,energy,reference,4.3038,-4.4913269,
+spin_chain,32,energy,reference,4.36709,-4.4926456,
+spin_chain,32,energy,reference,4.43038,-4.49393244,
+spin_chain,32,energy,reference,4.49367,-4.49518855,
+spin_chain,32,energy,reference,4.55696,-4.49641503,
+spin_chain,32,energy,reference,4.62025,-4.49761289,
+spin_chain,32,energy,reference,4.68354,-4.49878312,
+spin_chain,32,energy,reference,4.74684,-4.49992665,
+spin_chain,32,energy,reference,4.81013,-4.50104437,
+spin_chain,32,energy,reference,4.87342,-4.50213712,
+spin_chain,32,energy,reference,4.93671,-4.50320571,
+spin_chain,32,energy,reference,5,-4.50425092,
+spin_chain,32,energy,SLB M=2,0,-4,0
+spin_chain,32,energy,SLB M=2,0.0632911,-4.025824886,0.01688232518
+spin_chain,32,energy,SLB M=2,0.126582,-4.042624783,0.03022981135
+spin_chain,32,energy,SLB M=2,0.189873,-4.052732308,0.04077732243
+spin_chain,32,energy,SLB M=2,0.253165,-4.058301305,0.04906816866
+spin_chain,32,energy,SLB M=2,0.316456,-4.061205807,0.05549366866
+spin_chain,32,energy,SLB M=2,0.379747,-4.062972454,0.06034185619
+spin_chain,32,energy,SLB M=2,0.443038,-4.064748289,0.06384347036
+spin_chain,32,energy,SLB M=2,0.506329,-4.067302129,0.06620628559
+spin_chain,32,energy,SLB M=2,0.56962,-4.07105483,0.06763406807
+spin_chain,32,energy,SLB M=2,0.632911,-4.076131645,0.06833121704
+spin_chain,32,energy,SLB M=2,0.696203,-4.08242884,0.06849712751
+spin_chain,32,energy,SLB M=2,0.759494,-4.089686465,0.06831537403
+spin_chain,32,energy,SLB M=2,0.822785,-4.09755974,0.06794242277
+spin_chain,32,energy,SLB M=2,0.886076,-4.105682756,0.06749931763
+spin_chain,32,energy,SLB M=2,0.949367,-4.113719817,0.0670681427
+spin_chain,32,energy,SLB M=2,1.01266,-4.121401629,0.06669352978
+spin_chain,32,energy,SLB M=2,1.07595,-4.128545553,0.0663883817
+spin_chain,32,energy,SLB M=2,1.13924,-4.135060853,0.06614243147
+spin_chain,32,energy,SLB M=2,1.20253,-4.140941358,0.06593208002
+spin_chain,32,energy,SLB M=2,1.26582,-4.146248917,0.06572995395
+spin_chain,32,energy,SLB M=2,1.32911,-4.151091499,0.06551268755
+spin_chain,32,energy,SLB M=2,1.39241,-4.155599732,0.06526566234
+spin_chain,32,energy,SLB M=2,1.4557,-4.159905167,0.06498399644
+spin_chain,32,energy,SLB M=2,1.51899,-4.164122741,0.0646699909
+spin_chain,32,energy,SLB M=2,1.58228,-4.16833895,0.06432831633
+spin_chain,32,energy,SLB M=2,1.64557,-4.172606174,0.06396105466
+spin_chain,32,energy,SLB M=2,1.70886,-4.176942778,0.063564801
+spin_chain,32,energy,SLB M=2,1.77215,-4.181337851,0.06313122806
+spin_chain,32,energy,SLB M=2,1.83544,-4.185759078,0.062651042
+spin_chain,32,energy,SLB M=2,1.89873,-4.190162067,0.06211977165
+spin_chain,32,energy,SLB M=2,1.96203,-4.194499546,0.06154298491
+spin_chain,32,energy,SLB M=2,2.02532,-4.198729166,0.06093864167
+spin_chain,32,energy,SLB M=2,2.08861,-4.202819025,0.0603353138
+spin_chain,32,energy,SLB M=2,2.1519,-4.20675053,0.0597664701
+spin_chain,32,energy,SLB M=2,2.21519,-4.210518625,0.05926248112
+spin_chain,32,energy,SLB M=2,2.27848,-4.214129817,0.05884294318
+spin_chain,32,energy,SLB M=2,2.34177,-4.217598662,0.0585118946
+spin_chain,32,energy,SLB M=2,2.40506,-4.220943519,0.0582575216
+spin_chain,32,energy,SLB M=2,2.46835,-4.224182367,0.05805629541
+spin_chain,32,energy,SLB M=2,2.53165,-4.227329362,0.05787997181
+spin_chain,32,energy,SLB M=2,2.59494,-4.230392609,0.05770307444
+spin_chain,32,energy,SLB M=2,2.65823,-4.233373383,0.05750864444
+spin_chain,32,energy,SLB M=2,2.72152,-4.236266769,0.05729086815
+spin_chain,32,energy,SLB M=2,2.78481,-4.239063463,0.05705432582
+spin_chain,32,energy,SLB M=2,2.8481,-4.241752337,0.0568105658
+spin_chain,32,energy,SLB M=2,2.91139,-4.244323253,0.05657339171
+spin_chain,32,energy,SLB M=2,2.97468,-4.24676963,0.05635441462
+spin_chain,32,energy,SLB M=2,3.03797,-4.249090329,0.05616014814
+spin_chain,32,energy,SLB M=2,3.10127,-4.251290571,0.05599124986
+spin_chain,32,energy,SLB M=2,3.16456,-4.253381751,0.05584372157
+spin_chain,32,energy,SLB M=2,3.22785,-4.255380203,0.05571123523
+spin_chain,32,energy,SLB M=2,3.29114,-4.257305141,0.05558758717
+spin_chain,32,energy,SLB M=2,3.35443,-4.25917608,0.05546844579
+spin_chain,32,energy,SLB M=2,3.41772,-4.261010172,0.0553520595
+spin_chain,32,energy,SLB M=2,3.48101,-4.262819831,0.05523907069
+spin_chain,32,energy,SLB M=2,3.5443,-4.264611025,0.0551318606
+spin_chain,32,energy,SLB M=2,3.60759,-4.266382463,0.0550338495
+spin_chain,32,energy,SLB M=2,3.67089,-4.268125813,0.05494899271
+spin_chain,32,energy,SLB M=2,3.73418,-4.26982692,0.05488143586
+spin_chain,32,energy,SLB M=2,3.79747,-4.271467847,0.05483515412
+spin_chain,32,energy,SLB M=2,3.86076,-4.273029474,0.05481341157
+spin_chain,32,energy,SLB M=2,3.92405,-4.274494296,0.05481804027
+spin_chain,32,energy,SLB M=2,3.98734,-4.275849046,0.05484873861
+spin_chain,32,energy,SLB M=2,4.05063,-4.277086798,0.05490269442
+spin_chain,32,energy,SLB M=2,4.11392,-4.278208273,0.05497474345
+spin_chain,32,energy,SLB M=2,4.17722,-4.279222189,0.05505811194
+spin_chain,32,energy,SLB M=2,4.24051,-4.280144605,0.05514554652
+spin_chain,32,energy,SLB M=2,4.3038,-4.280997359,0.0552304829
+spin_chain,32,energy,SLB M=2,4.36709,-4.281805809,0.05530792657
+spin_chain,32,energy,SLB M=2,4.43038,-4.28259615,0.0553748473
+spin_chain,32,energy,SLB M=2,4.49367,-4.283392675,0.05543009101
+spin_chain,32,energy,SLB M=2,4.55696,-4.284215284,0.0554739736
+spin_chain,32,energy,SLB M=2,4.62025,-4.285077554,0.05550778784
+spin_chain,32,energy,SLB M=2,4.68354,-4.285985591,0.05553340257
+spin_chain,32,energy,SLB M=2,4.74684,-4.286937759,0.0555530374
+spin_chain,32,energy,SLB M=2,4.81013,-4.287925295,0.05556914167
+spin_chain,32,energy,SLB M=2,4.87342,-4.288933709,0.05558429843
+spin_chain,32,energy,SLB M=2,4.93671,-4.289944759,0.05560104302
+spin_chain,32,energy,SLB M=2,5,-4.290938748,0.05562159193
+spin_chain,32,energy,SLB M=4,0,-4,0
+spin_chain,32,energy,SLB M=4,0.0632911,-4.028502679,0.01302156877
+spin_chain,32,energy,SLB M=4,0.126582,-4.050908414,0.02341391551
+spin_chain,32,energy,SLB M=4,0.189873,-4.068436754,0.03159326981
+spin_chain,32,energy,SLB M=4,0.253165,-4.082284695,0.03795256976
+spin_chain,32,energy,SLB M=4,0.316456,-4.093562457,0.04284469874
+spin_chain,32,energy,SLB M=4,0.379747,-4.103240345,0.0465681303
+spin_chain,32,energy,SLB M=4,0.443038,-4.112111007,0.04935888558
+spin_chain,32,energy,SLB M=4,0.506329,-4.120769379,0.05139145481
+spin_chain,32,energy,SLB M=4,0.56962,-4.129610524,0.05278894296
+spin_chain,32,energy,SLB M=4,0.632911,-4.138843643,0.05363995013
+spin_chain,32,energy,SLB M=4,0.696203,-4.148519049,0.05401767358
+spin_chain,32,energy,SLB M=4,0.759494,-4.158563899,0.0539961602
+spin_chain,32,energy,SLB M=4,0.822785,-4.168822084,0.05365961677
+spin_chain,32,energy,SLB M=4,0.886076,-4.179093865,0.05310273175
+spin_chain,32,energy,SLB M=4,0.949367,-4.189171443,0.05242254693
+spin_chain,32,energy,SLB M=4,1.01266,-4.198867663,0.05170505397
+spin_chain,32,energy,SLB M=4,1.07595,-4.208036169,0.05101159251
+spin_chain,32,energy,SLB M=4,1.13924,-4.216582522,0.0503704705
+spin_chain,32,energy,SLB M=4,1.20253,-4.224466845,0.04977725752
+spin_chain,32,energy,SLB M=4,1.26582,-4.231699374,0.04920366775
+spin_chain,32,energy,SLB M=4,1.32911,-4.238330863,0.04861147397
+spin_chain,32,energy,SLB M=4,1.39241,-4.244440003,0.04796646638
+spin_chain,32,energy,SLB M=4,1.4557,-4.250119971,0.04724833207
+spin_chain,32,energy,SLB M=4,1.51899,-4.255465916,0.04645457988
+spin_chain,32,energy,SLB M=4,1.58228,-4.260564725,0.04559889629
+spin_chain,32,energy,SLB M=4,1.64557,-4.265487892,0.04470585602
+spin_chain,32,energy,SLB M=4,1.70886,-4.270287726,0.04380442031
+spin_chain,32,energy,SLB M=4,1.77215,-4.274996702,0.04292238514
+spin_chain,32,energy,SLB M=4,1.83544,-4.279629369,0.04208300438
+spin_chain,32,energy,SLB M=4,1.89873,-4.284186016,0.04130391153
+spin_chain,32,energy,SLB M=4,1.96203,-4.288657246,0.04059754195
+spin_chain,32,energy,SLB M=4,2.02532,-4.293028637,0.03997190853
+spin_chain,32,energy,SLB M=4,2.08861,-4.297284845,0.03943085313
+spin_chain,32,energy,SLB M=4,2.1519,-4.301412692,0.03897358721
+spin_chain,32,energy,SLB M=4,2.21519,-4.305403065,0.03859400936
+spin_chain,32,energy,SLB M=4,2.27848,-4.309251593,0.03828056841
+spin_chain,32,energy,SLB M=4,2.34177,-4.312958312,0.0380172523
+spin_chain,32,energy,SLB M=4,2.40506,-4.31652662,0.03778575689
+spin_chain,32,energy,SLB M=4,2.46835,-4.319961853,0.03756831391
+spin_chain,32,energy,SLB M=4,2.53165,-4.323269837,0.0373503913
+spin_chain,32,energy,SLB M=4,2.59494,-4.326455693,0.03712253328
+spin_chain,32,energy,SLB M=4,2.65823,-4.329523082,0.03688095436
+spin_chain,32,energy,SLB M=4,2.72152,-4.332473971,0.03662692348
+spin_chain,32,energy,SLB M=4,2.78481,-4.335308901,0.03636529982
+spin_chain,32,energy,SLB M=4,2.8481,-4.338027642,0.0361027516
+spin_chain,32,energy,SLB M=4,2.91139,-4.340630078,0.03584615185
+spin_chain,32,energy,SLB M=4,2.97468,-4.343117121,0.03560145714
+spin_chain,32,energy,SLB M=4,3.03797,-4.345491468,0.03537315599
+spin_chain,32,energy,SLB M=4,3.10127,-4.347758064,0.03516417608
+spin_chain,32,energy,SLB M=4,3.16456,-4.34992418,0.03497603158
+spin_chain,32,energy,SLB M=4,3.22785,-4.351999067,0.03480902479
+spin_chain,32,energy,SLB M=4,3.29114,-4.353993264,0.0346624045
+spin_chain,32,energy,SLB M=4,3.35443,-4.355917652,0.03453448826
+spin_chain,32,energy,SLB M=4,3.41772,-4.35778238,0.03442283229
+spin_chain,32,energy,SLB M=4,3.48101,-4.359595868,0.03432452385
+spin_chain,32,energy,SLB M=4,3.5443,-4.361364,0.03423662667
+spin_chain,32,energy,SLB M=4,3.60759,-4.36308965,0.03415670701
+spin_chain,32,energy,SLB M=4,3.67089,-4.364772616,0.03408333818
+spin_chain,32,energy,SLB M=4,3.73418,-4.366409956,0.03401640884
+spin_chain,32,energy,SLB M=4,3.79747,-4.367996713,0.03395715358
+spin_chain,32,energy,SLB M=4,3.86076,-4.369526901,0.03390783604
+spin_chain,32,energy,SLB M=4,3.92405,-4.370994635,0.03387115483
+spin_chain,32,energy,SLB M=4,3.98734,-4.372395245,0.03384949644
+spin_chain,32,energy,SLB M=4,4.05063,-4.373726226,0.03384420713
+spin_chain,32,energy,SLB M=4,4.11392,-4.374987897,0.03385506709
+spin_chain,32,energy,SLB M=4,4.17722,-4.376183685,0.03388008276
+spin_chain,32,energy,SLB M=4,4.24051,-4.377319999,0.03391563284
+spin_chain,32,energy,SLB M=4,4.3038,-4.378405729,0.03395692696
+spin_chain,32,energy,SLB M=4,4.36709,-4.379451415,0.03399864824
+spin_chain,32,energy,SLB M=4,4.43038,-4.380468235,0.03403565425
+spin_chain,32,energy,SLB M=4,4.49367,-4.381466902,0.03406359871
+spin_chain,32,energy,SLB M=4,4.55696,-4.382456653,0.03407939477
+spin_chain,32,energy,SLB M=4,4.62025,-4.38344442,0.03408148419
+spin_chain,32,energy,SLB M=4,4.68354,-4.384434298,0.03406991982
+spin_chain,32,energy,SLB M=4,4.74684,-4.385427347,0.03404627671
+spin_chain,32,energy,SLB M=4,4.81013,-4.386421757,0.03401342954
+spin_chain,32,energy,SLB M=4,4.87342,-4.387413324,0.03397521296
+spin_chain,32,energy,SLB M=4,4.93671,-4.388396164,0.03393599151
+spin_chain,32,energy,SLB M=4,5,-4.389363583,0.03390016749
+spin_chain,32,energy,SLB M=8,0,-4,0
+spin_chain,32,energy,SLB M=8,0.0632911,-4.029445585,0.008809181314
+spin_chain,32,energy,SLB M=8,0.126582,-4.054759207,0.01626817169
+spin_chain,32,energy,SLB M=8,0.189873,-4.076614893,0.02249931497
+spin_chain,32,energy,SLB M=8,0.253165,-4.095665811,0.02762095308
+spin_chain,32,energy,SLB M=8,0.316456,-4.11251748,0.03175064399
+spin_chain,32,energy,SLB M=8,0.379747,-4.127705308,0.03500353819
+spin_chain,32,energy,SLB M=8,0.443038,-4.14167857,0.03748796137
+spin_chain,32,energy,SLB M=8,0.506329,-4.154791924,0.03930106329
+spin_chain,32,energy,SLB M=8,0.56962,-4.167304686,0.04052686161
+spin_chain,32,energy,SLB M=8,0.632911,-4.179387131,0.04123772538
+spin_chain,32,energy,SLB M=8,0.696203,-4.191132445,0.04149869828
+spin_chain,32,energy,SLB M=8,0.759494,-4.202572478,0.04137298022
+spin_chain,32,energy,SLB M=8,0.822785,-4.21369528,0.04092657335
+spin_chain,32,energy,SLB M=8,0.886076,-4.2244625,0.04023056201
+spin_chain,32,energy,SLB M=8,0.949367,-4.234824996,0.03936033746
+spin_chain,32,energy,SLB M=8,1.01266,-4.244735479,0.03839192729
+spin_chain,32,energy,SLB M=8,1.07595,-4.254157519,0.03739624489
+spin_chain,32,energy,SLB M=8,1.13924,-4.26307075,0.03643256239
+spin_chain,32,energy,SLB M=8,1.20253,-4.271472573,0.03554274586
+spin_chain,32,energy,SLB M=8,1.26582,-4.279376984,0.03474779913
+spin_chain,32,energy,SLB M=8,1.32911,-4.286811368,0.03404781831
+spin_chain,32,energy,SLB M=8,1.39241,-4.293812163,0.03342559459
+spin_chain,32,energy,SLB M=8,1.4557,-4.300420228,0.03285299389
+spin_chain,32,energy,SLB M=8,1.51899,-4.306676642,0.03229849429
+spin_chain,32,energy,SLB M=8,1.58228,-4.312619391,0.03173406168
+spin_chain,32,energy,SLB M=8,1.64557,-4.318281233,0.03113999495
+spin_chain,32,energy,SLB M=8,1.70886,-4.323688762,0.03050713531
+spin_chain,32,energy,SLB M=8,1.77215,-4.328862557,0.02983656411
+spin_chain,32,energy,SLB M=8,1.83544,-4.333818125,0.02913747687
+spin_chain,32,energy,SLB M=8,1.89873,-4.338567339,0.02842415267
+spin_chain,32,energy,SLB M=8,1.96203,-4.343120005,0.02771294404
+spin_chain,32,energy,SLB M=8,2.02532,-4.347485298,0.02701995194
+spin_chain,32,energy,SLB M=8,2.08861,-4.351672803,0.02635966204
+spin_chain,32,energy,SLB M=8,2.1519,-4.355693087,0.02574440598
+spin_chain,32,energy,SLB M=8,2.21519,-4.35955775,0.02518424272
+spin_chain,32,energy,SLB M=8,2.27848,-4.363279023,0.02468678349
+spin_chain,32,energy,SLB M=8,2.34177,-4.366869053,0.02425673027
+spin_chain,32,energy,SLB M=8,2.40506,-4.370339039,0.02389514579
+spin_chain,32,energy,SLB M=8,2.46835,-4.373698391,0.02359881821
+spin_chain,32,energy,SLB M=8,2.53165,-4.376954088,0.0233601383
+spin_chain,32,energy,SLB M=8,2.59494,-4.380110328,0.02316777362
+spin_chain,32,energy,SLB M=8,2.65823,-4.383168554,0.02300814267
+spin_chain,32,energy,SLB M=8,2.72152,-4.386127842,0.02286737275
+spin_chain,32,energy,SLB M=8,2.78481,-4.388985604,0.02273327131
+spin_chain,32,energy,SLB M=8,2.8481,-4.391738496,0.02259685799
+spin_chain,32,energy,SLB M=8,2.91139,-4.394383407,0.02245317327
+spin_chain,32,energy,SLB M=8,2.97468,-4.396918399,0.0223012881
+spin_chain,32,energy,SLB M=8,3.03797,-4.399343445,0.02214363243
+spin_chain,32,energy,SLB M=8,3.10127,-4.401660903,0.02198488512
+spin_chain,32,energy,SLB M=8,3.16456,-4.403875642,0.02183070428
+spin_chain,32,energy,SLB M=8,3.22785,-4.405994826,0.02168656202
+spin_chain,32,energy,SLB M=8,3.29114,-4.408027391,0.0215568619
+spin_chain,32,energy,SLB M=8,3.35443,-4.409983297,0.02144442862
+spin_chain,32,energy,SLB M=8,3.41772,-4.411872656,0.02135035841
+spin_chain,32,energy,SLB M=8,3.48101,-4.413704859,0.02127416164
+spin_chain,32,energy,SLB M=8,3.5443,-4.415487813,0.02121408073
+spin_chain,32,energy,SLB M=8,3.60759,-4.417227387,0.02116749838
+spin_chain,32,energy,SLB M=8,3.67089,-4.418927126,0.0211313342
+spin_chain,32,energy,SLB M=8,3.73418,-4.420588263,0.02110240458
+spin_chain,32,energy,SLB M=8,3.79747,-4.422210004,0.02107770946
+spin_chain,32,energy,SLB M=8,3.86076,-4.42379006,0.02105465103
+spin_chain,32,energy,SLB M=8,3.92405,-4.425325314,0.02103118474
+spin_chain,32,energy,SLB M=8,3.98734,-4.426812563,0.02100591041
+spin_chain,32,energy,SLB M=8,4.05063,-4.428249216,0.02097811334
+spin_chain,32,energy,SLB M=8,4.11392,-4.429633865,0.02094773908
+spin_chain,32,energy,SLB M=8,4.17722,-4.430966676,0.02091533305
+spin_chain,32,energy,SLB M=8,4.24051,-4.432249545,0.02088192766
+spin_chain,32,energy,SLB M=8,4.3038,-4.433486015,0.02084889408
+spin_chain,32,energy,SLB M=8,4.36709,-4.434680992,0.02081776203
+spin_chain,32,energy,SLB M=8,4.43038,-4.435840284,0.02079003065
+spin_chain,32,energy,SLB M=8,4.49367,-4.436970053,0.02076697882
+spin_chain,32,energy,SLB M=8,4.55696,-4.438076232,0.02074951025
+spin_chain,32,energy,SLB M=8,4.62025,-4.439164005,0.0207380393
+spin_chain,32,energy,SLB M=8,4.68354,-4.440237384,0.02073244919
+spin_chain,32,energy,SLB M=8,4.74684,-4.441298953,0.0207321263
+spin_chain,32,energy,SLB M=8,4.81013,-4.442349777,0.02073605369
+spin_chain,32,energy,SLB M=8,4.87342,-4.443389498,0.02074296125
+spin_chain,32,energy,SLB M=8,4.93671,-4.444416573,0.02075149423
+spin_chain,32,energy,SLB M=8,5,-4.445428634,0.02076037239
+spin_chain,32,energy,SLB M=16,0,-4,0
+spin_chain,32,energy,SLB M=16,0.0632911,-4.030822329,0.006625298448
+spin_chain,32,energy,SLB M=16,0.126582,-4.058191546,0.01215253708
+spin_chain,32,energy,SLB M=16,0.189873,-4.082551165,0.0166960719
+spin_chain,32,energy,SLB M=16,0.253165,-4.104334439,0.02037096009
+spin_chain,32,energy,SLB M=16,0.316456,-4.12395102,0.0232815394
+spin_chain,32,energy,SLB M=16,0.379747,-4.141774722,0.02551585418
+spin_chain,32,energy,SLB M=16,0.443038,-4.15813383,0.0271462654
+spin_chain,32,energy,SLB M=16,0.506329,-4.173304903,0.02823470523
+spin_chain,32,energy,SLB M=16,0.56962,-4.187510499,0.02883991358
+spin_chain,32,energy,SLB M=16,0.632911,-4.200920678,0.02902385511
+spin_chain,32,energy,SLB M=16,0.696203,-4.213657756,0.02885523624
+spin_chain,32,energy,SLB M=16,0.759494,-4.22580344,0.02840919866
+spin_chain,32,energy,SLB M=16,0.822785,-4.237407372,0.02776352933
+spin_chain,32,energy,SLB M=16,0.886076,-4.248496081,0.02699273347
+spin_chain,32,energy,SLB M=16,0.949367,-4.259081482,0.02616192054
+spin_chain,32,energy,SLB M=16,1.01266,-4.269168251,0.02532241575
+spin_chain,32,energy,SLB M=16,1.07595,-4.278759629,0.02451026609
+spin_chain,32,energy,SLB M=16,1.13924,-4.287861481,0.02374761559
+spin_chain,32,energy,SLB M=16,1.20253,-4.296484625,0.02304580968
+spin_chain,32,energy,SLB M=16,1.26582,-4.304645608,0.02240861712
+spin_chain,32,energy,SLB M=16,1.32911,-4.312366274,0.02183438596
+spin_chain,32,energy,SLB M=16,1.39241,-4.319672474,0.02131692419
+spin_chain,32,energy,SLB M=16,1.4557,-4.326592315,0.02084579125
+spin_chain,32,energy,SLB M=16,1.51899,-4.33315433,0.02040699847
+spin_chain,32,energy,SLB M=16,1.58228,-4.33938583,0.01998470929
+spin_chain,32,energy,SLB M=16,1.64557,-4.345311674,0.01956383853
+spin_chain,32,energy,SLB M=16,1.70886,-4.350953566,0.01913276968
+spin_chain,32,energy,SLB M=16,1.77215,-4.356329887,0.01868530008
+spin_chain,32,energy,SLB M=16,1.83544,-4.361456011,0.01822117516
+spin_chain,32,energy,SLB M=16,1.89873,-4.366344971,0.0177451589
+spin_chain,32,energy,SLB M=16,1.96203,-4.371008318,0.01726506931
+spin_chain,32,energy,SLB M=16,2.02532,-4.375457007,0.01678957771
+spin_chain,32,energy,SLB M=16,2.08861,-4.379702137,0.01632652548
+spin_chain,32,energy,SLB M=16,2.1519,-4.383755466,0.01588223688
+spin_chain,32,energy,SLB M=16,2.21519,-4.387629601,0.01546180401
+spin_chain,32,energy,SLB M=16,2.27848,-4.391337877,0.01506988135
+spin_chain,32,energy,SLB M=16,2.34177,-4.394893966,0.01471133415
+spin_chain,32,energy,SLB M=16,2.40506,-4.398311294,0.014391209
+spin_chain,32,energy,SLB M=16,2.46835,-4.401602376,0.01411389404
+spin_chain,32,energy,SLB M=16,2.53165,-4.404778193,0.01388179222
+spin_chain,32,energy,SLB M=16,2.59494,-4.407847706,0.01369412801
+spin_chain,32,energy,SLB M=16,2.65823,-4.410817588,0.01354649299
+spin_chain,32,energy,SLB M=16,2.72152,-4.413692208,0.01343142131
+spin_chain,32,energy,SLB M=16,2.78481,-4.416473887,0.01333981853
+spin_chain,32,energy,SLB M=16,2.8481,-4.419163363,0.01326272971
+spin_chain,32,energy,SLB M=16,2.91139,-4.421760426,0.01319286318
+spin_chain,32,energy,SLB M=16,2.97468,-4.424264605,0.01312545946
+spin_chain,32,energy,SLB M=16,3.03797,-4.426675841,0.01305839143
+spin_chain,32,energy,SLB M=16,3.10127,-4.428995046,0.01299164116
+spin_chain,32,energy,SLB M=16,3.16456,-4.431224484,0.01292646513
+spin_chain,32,energy,SLB M=16,3.22785,-4.433367925,0.01286453633
+spin_chain,32,energy,SLB M=16,3.29114,-4.435430578,0.01280730326
+spin_chain,32,energy,SLB M=16,3.35443,-4.437418813,0.0127556346
+spin_chain,32,energy,SLB M=16,3.41772,-4.439339716,0.01270971925
+spin_chain,32,energy,SLB M=16,3.48101,-4.441200553,0.01266913245
+spin_chain,32,energy,SLB M=16,3.5443,-4.443008217,0.01263295435
+spin_chain,32,energy,SLB M=16,3.60759,-4.444768719,0.01259990808
+spin_chain,32,energy,SLB M=16,3.67089,-4.446486807,0.01256849094
+spin_chain,32,energy,SLB M=16,3.73418,-4.448165733,0.01253713056
+spin_chain,32,energy,SLB M=16,3.79747,-4.449807214,0.01250437436
+spin_chain,32,energy,SLB M=16,3.86076,-4.451411565,0.01246908938
+spin_chain,32,energy,SLB M=16,3.92405,-4.452977985,0.01243064828
+spin_chain,32,energy,SLB M=16,3.98734,-4.454504958,0.01238904301
+spin_chain,32,energy,SLB M=16,4.05063,-4.4559907,0.01234489592
+spin_chain,32,energy,SLB M=16,4.11392,-4.457433611,0.0122993632
+spin_chain,32,energy,SLB M=16,4.17722,-4.458832662,0.01225394994
+spin_chain,32,energy,SLB M=16,4.24051,-4.46018768,0.01221028921
+spin_chain,32,energy,SLB M=16,4.3038,-4.461499506,0.01216992436
+spin_chain,32,energy,SLB M=16,4.36709,-4.462770006,0.01213413134
+spin_chain,32,energy,SLB M=16,4.43038,-4.46400195,0.012103802
+spin_chain,32,energy,SLB M=16,4.49367,-4.465198782,0.01207938743
+spin_chain,32,energy,SLB M=16,4.55696,-4.466364314,0.01206088853
+spin_chain,32,energy,SLB M=16,4.62025,-4.467502393,0.01204788956
+spin_chain,32,energy,SLB M=16,4.68354,-4.468616564,0.01203962145
+spin_chain,32,energy,SLB M=16,4.74684,-4.469709809,0.01203505631
+spin_chain,32,energy,SLB M=16,4.81013,-4.470784342,0.01203301702
+spin_chain,32,energy,SLB M=16,4.87342,-4.471841518,0.0120323025
+spin_chain,32,energy,SLB M=16,4.93671,-4.472881842,0.01203180384
+spin_chain,32,energy,SLB M=16,5,-4.473905073,0.0120306067
+spin_chain,32,energy,SLB M=32,0,-4,0
+spin_chain,32,energy,SLB M=32,0.0632911,-4.030650645,0.004933230006
+spin_chain,32,energy,SLB M=32,0.126582,-4.058362136,0.00912899383
+spin_chain,32,energy,SLB M=32,0.189873,-4.083498074,0.01260023953
+spin_chain,32,energy,SLB M=32,0.253165,-4.106396066,0.01538765277
+spin_chain,32,energy,SLB M=32,0.316456,-4.127363428,0.01755341016
+spin_chain,32,energy,SLB M=32,0.379747,-4.146673357,0.01917122378
+spin_chain,32,energy,SLB M=32,0.443038,-4.164562273,0.02031590031
+spin_chain,32,energy,SLB M=32,0.506329,-4.181228751,0.02105530417
+spin_chain,32,energy,SLB M=32,0.56962,-4.196834267,0.02144651416
+spin_chain,32,energy,SLB M=32,0.632911,-4.211505709,0.02153634731
+spin_chain,32,energy,SLB M=32,0.696203,-4.22533939,0.02136504953
+spin_chain,32,energy,SLB M=32,0.759494,-4.238406149,0.02097112971
+spin_chain,32,energy,SLB M=32,0.822785,-4.25075704,0.0203954226
+spin_chain,32,energy,SLB M=32,0.886076,-4.262429094,0.01968307788
+spin_chain,32,energy,SLB M=32,0.949367,-4.273450686,0.01888301976
+spin_chain,32,energy,SLB M=32,1.01266,-4.283846137,0.01804515547
+spin_chain,32,energy,SLB M=32,1.07595,-4.293639299,0.01721611082
+spin_chain,32,energy,SLB M=32,1.13924,-4.302856004,0.0164345838
+spin_chain,32,energy,SLB M=32,1.20253,-4.311525381,0.01572753076
+spin_chain,32,energy,SLB M=32,1.26582,-4.319680149,0.01510826633
+spin_chain,32,energy,SLB M=32,1.32911,-4.327356083,0.0145770526
+spin_chain,32,energy,SLB M=32,1.39241,-4.334590895,0.01412396103
+spin_chain,32,energy,SLB M=32,1.4557,-4.341422782,0.01373304549
+spin_chain,32,energy,SLB M=32,1.51899,-4.347888898,0.01338654318
+spin_chain,32,energy,SLB M=32,1.58228,-4.354023974,0.01306808578
+spin_chain,32,energy,SLB M=32,1.64557,-4.359859231,0.01276447227
+spin_chain,32,energy,SLB M=32,1.70886,-4.365421705,0.01246613068
+spin_chain,32,energy,SLB M=32,1.77215,-4.37073401,0.01216668989
+spin_chain,32,energy,SLB M=32,1.83544,-4.375814514,0.01186218859
+spin_chain,32,energy,SLB M=32,1.89873,-4.380677855,0.01155031251
+spin_chain,32,energy,SLB M=32,1.96203,-4.385335698,0.01122992326
+spin_chain,32,energy,SLB M=32,2.02532,-4.389797587,0.01090093873
+spin_chain,32,energy,SLB M=32,2.08861,-4.394071816,0.01056449477
+spin_chain,32,energy,SLB M=32,2.1519,-4.398166158,0.01022322414
+spin_chain,32,energy,SLB M=32,2.21519,-4.402088435,0.009881454982
+spin_chain,32,energy,SLB M=32,2.27848,-4.405846857,0.009545143316
+spin_chain,32,energy,SLB M=32,2.34177,-4.409450131,0.009221437074
+spin_chain,32,energy,SLB M=32,2.40506,-4.412907375,0.008917851274
+spin_chain,32,energy,SLB M=32,2.46835,-4.416227883,0.00864117436
+spin_chain,32,energy,SLB M=32,2.53165,-4.419420802,0.008396334923
+spin_chain,32,energy,SLB M=32,2.59494,-4.422494786,0.008185532307
+spin_chain,32,energy,SLB M=32,2.65823,-4.425457709,0.008007896198
+spin_chain,32,energy,SLB M=32,2.72152,-4.428316442,0.00785979516
+spin_chain,32,energy,SLB M=32,2.78481,-4.431076769,0.007735704026
+spin_chain,32,energy,SLB M=32,2.8481,-4.433743417,0.00762936567
+spin_chain,32,energy,SLB M=32,2.91139,-4.436320194,0.007534916426
+spin_chain,32,energy,SLB M=32,2.97468,-4.438810223,0.007447711822
+spin_chain,32,energy,SLB M=32,3.03797,-4.441216214,0.007364728664
+spin_chain,32,energy,SLB M=32,3.10127,-4.44354074,0.007284550676
+spin_chain,32,energy,SLB M=32,3.16456,-4.445786484,0.007207043321
+spin_chain,32,energy,SLB M=32,3.22785,-4.447956416,0.007132866245
+spin_chain,32,energy,SLB M=32,3.29114,-4.45005388,0.007062964622
+spin_chain,32,energy,SLB M=32,3.35443,-4.452082599,0.00699815539
+spin_chain,32,energy,SLB M=32,3.41772,-4.454046579,0.006938864324
+spin_chain,32,energy,SLB M=32,3.48101,-4.455949969,0.006885037357
+spin_chain,32,energy,SLB M=32,3.5443,-4.45779686,0.006836194916
+spin_chain,32,energy,SLB M=32,3.60759,-4.459591088,0.006791579532
+spin_chain,32,energy,SLB M=32,3.67089,-4.46133606,0.006750339753
+spin_chain,32,energy,SLB M=32,3.73418,-4.463034622,0.006711690499
+spin_chain,32,energy,SLB M=32,3.79747,-4.46468899,0.006675016461
+spin_chain,32,energy,SLB M=32,3.86076,-4.466300771,0.006639908515
+spin_chain,32,energy,SLB M=32,3.92405,-4.46787102,0.006606136376
+spin_chain,32,energy,SLB M=32,3.98734,-4.469400383,0.006573584272
+spin_chain,32,energy,SLB M=32,4.05063,-4.470889266,0.006542176667
+spin_chain,32,energy,SLB M=32,4.11392,-4.472338008,0.006511835723
+spin_chain,32,energy,SLB M=32,4.17722,-4.473747064,0.006482454741
+spin_chain,32,energy,SLB M=32,4.24051,-4.475117132,0.006453916079
+spin_chain,32,energy,SLB M=32,4.3038,-4.476449254,0.006426124778
+spin_chain,32,energy,SLB M=32,4.36709,-4.477744844,0.006399030418
+spin_chain,32,energy,SLB M=32,4.43038,-4.479005665,0.006372635476
+spin_chain,32,energy,SLB M=32,4.49367,-4.48023376,0.006346983901
+spin_chain,32,energy,SLB M=32,4.55696,-4.481431326,0.00632212417
+spin_chain,32,energy,SLB M=32,4.62025,-4.482600592,0.006298074739
+spin_chain,32,energy,SLB M=32,4.68354,-4.483743671,0.006274802045
+spin_chain,32,energy,SLB M=32,4.74684,-4.484862437,0.006252214594
+spin_chain,32,energy,SLB M=32,4.81013,-4.485958434,0.00623018185
+spin_chain,32,energy,SLB M=32,4.87342,-4.487032821,0.00620856203
+spin_chain,32,energy,SLB M=32,4.93671,-4.488086361,0.00618722573
+spin_chain,32,energy,SLB M=32,5,-4.489119455,0.006166070035
+spin_chain,32,energy,SLB M=64,0,-4,0
+spin_chain,32,energy,SLB M=64,0.0632911,-4.031188191,0.003399200943
+spin_chain,32,energy,SLB M=64,0.126582,-4.059620274,0.00629975522
+spin_chain,32,energy,SLB M=64,0.189873,-4.085598641,0.008726046797
+spin_chain,32,energy,SLB M=64,0.253165,-4.109399792,0.01070493844
+spin_chain,32,energy,SLB M=64,0.316456,-4.131274109,0.01226704711
+spin_chain,32,energy,SLB M=64,0.379747,-4.151445509,0.01344697672
+spin_chain,32,energy,SLB M=64,0.443038,-4.17011139,0.01428266466
+spin_chain,32,energy,SLB M=64,0.506329,-4.187443104,0.01481414494
+spin_chain,32,energy,SLB M=64,0.56962,-4.203587108,0.01508208914
+spin_chain,32,energy,SLB M=64,0.632911,-4.218666795,0.01512647803
+spin_chain,32,energy,SLB M=64,0.696203,-4.232784942,0.01498565485
+spin_chain,32,energy,SLB M=64,0.759494,-4.246026575,0.01469589554
+spin_chain,32,energy,SLB M=64,0.822785,-4.258462094,0.01429144573
+spin_chain,32,energy,SLB M=64,0.886076,-4.270150395,0.01380482607
+spin_chain,32,energy,SLB M=64,0.949367,-4.281141828,0.01326708597
+spin_chain,32,energy,SLB M=64,1.01266,-4.291480793,0.01270768542
+spin_chain,32,energy,SLB M=64,1.07595,-4.301207875,0.01215373934
+spin_chain,32,energy,SLB M=64,1.13924,-4.310361443,0.01162859868
+spin_chain,32,energy,SLB M=64,1.20253,-4.318978715,0.01115000725
+spin_chain,32,energy,SLB M=64,1.26582,-4.327096312,0.01072839922
+spin_chain,32,energy,SLB M=64,1.32911,-4.334750388,0.01036601412
+spin_chain,32,energy,SLB M=64,1.39241,-4.341976431,0.0100573667
+spin_chain,32,energy,SLB M=64,1.4557,-4.348808847,0.009791111323
+spin_chain,32,energy,SLB M=64,1.51899,-4.355280435,0.009552798736
+spin_chain,32,energy,SLB M=64,1.58228,-4.361421872,0.00932774557
+spin_chain,32,energy,SLB M=64,1.64557,-4.367261255,0.009103299848
+spin_chain,32,energy,SLB M=64,1.70886,-4.372823796,0.008870182554
+spin_chain,32,energy,SLB M=64,1.77215,-4.378131664,0.008622907842
+spin_chain,32,energy,SLB M=64,1.83544,-4.383204013,0.008359543654
+spin_chain,32,energy,SLB M=64,1.89873,-4.388057158,0.008081126855
+spin_chain,32,energy,SLB M=64,1.96203,-4.39270488,0.007790988136
+spin_chain,32,energy,SLB M=64,2.02532,-4.397158819,0.007494125072
+spin_chain,32,energy,SLB M=64,2.08861,-4.401428907,0.007196659854
+spin_chain,32,energy,SLB M=64,2.1519,-4.405523804,0.006905331485
+spin_chain,32,energy,SLB M=64,2.21519,-4.409451301,0.00662693884
+spin_chain,32,energy,SLB M=64,2.27848,-4.413218664,0.00636770386
+spin_chain,32,energy,SLB M=64,2.34177,-4.416832897,0.006132563855
+spin_chain,32,energy,SLB M=64,2.40506,-4.420300924,0.005924531925
+spin_chain,32,energy,SLB M=64,2.46835,-4.423629694,0.005744271754
+spin_chain,32,energy,SLB M=64,2.53165,-4.426826213,0.005590050913
+spin_chain,32,energy,SLB M=64,2.59494,-4.429897521,0.005458126287
+spin_chain,32,energy,SLB M=64,2.65823,-4.432850636,0.005343462449
+spin_chain,32,energy,SLB M=64,2.72152,-4.435692471,0.005240624107
+spin_chain,32,energy,SLB M=64,2.78481,-4.438429744,0.005144594528
+spin_chain,32,energy,SLB M=64,2.8481,-4.441068907,0.005051393367
+spin_chain,32,energy,SLB M=64,2.91139,-4.443616064,0.004958404864
+spin_chain,32,energy,SLB M=64,2.97468,-4.446076929,0.004864442786
+spin_chain,32,energy,SLB M=64,3.03797,-4.448456791,0.004769597209
+spin_chain,32,energy,SLB M=64,3.10127,-4.450760497,0.004674955654
+spin_chain,32,energy,SLB M=64,3.16456,-4.452992449,0.004582236138
+spin_chain,32,energy,SLB M=64,3.22785,-4.455156614,0.004493411934
+spin_chain,32,energy,SLB M=64,3.29114,-4.457256543,0.00441034762
+spin_chain,32,energy,SLB M=64,3.35443,-4.459295385,0.004334489534
+spin_chain,32,energy,SLB M=64,3.41772,-4.461275924,0.004266646398
+spin_chain,32,energy,SLB M=64,3.48101,-4.463200599,0.00420688531
+spin_chain,32,energy,SLB M=64,3.5443,-4.465071546,0.004154560997
+spin_chain,32,energy,SLB M=64,3.60759,-4.466890636,0.004108469545
+spin_chain,32,energy,SLB M=64,3.67089,-4.468659518,0.004067080379
+spin_chain,32,energy,SLB M=64,3.73418,-4.470379665,0.004028808405
+spin_chain,32,energy,SLB M=64,3.79747,-4.472052431,0.003992259804
+spin_chain,32,energy,SLB M=64,3.86076,-4.473679098,0.003956407238
+spin_chain,32,energy,SLB M=64,3.92405,-4.475260924,0.003920689412
+spin_chain,32,energy,SLB M=64,3.98734,-4.476799188,0.003885012691
+spin_chain,32,energy,SLB M=64,4.05063,-4.47829522,0.003849689563
+spin_chain,32,energy,SLB M=64,4.11392,-4.47975042,0.003815326289
+spin_chain,32,energy,SLB M=64,4.17722,-4.481166273,0.003782686982
+spin_chain,32,energy,SLB M=64,4.24051,-4.482544335,0.003752551557
+spin_chain,32,energy,SLB M=64,4.3038,-4.483886215,0.003725579192
+spin_chain,32,energy,SLB M=64,4.36709,-4.485193554,0.003702193149
+spin_chain,32,energy,SLB M=64,4.43038,-4.486467977,0.003682499413
+spin_chain,32,energy,SLB M=64,4.49367,-4.487711065,0.003666251385
+spin_chain,32,energy,SLB M=64,4.55696,-4.488924315,0.003652867863
+spin_chain,32,energy,SLB M=64,4.62025,-4.490109109,0.003641507131
+spin_chain,32,energy,SLB M=64,4.68354,-4.491266695,0.003631190781
+spin_chain,32,energy,SLB M=64,4.74684,-4.492398175,0.003620941267
+spin_chain,32,energy,SLB M=64,4.81013,-4.493504506,0.003609920322
+spin_chain,32,energy,SLB M=64,4.87342,-4.494586513,0.003597532031
+spin_chain,32,energy,SLB M=64,4.93671,-4.495644911,0.003583475298
+spin_chain,32,energy,SLB M=64,5,-4.496680329,0.003567739213
+spin_chain,32,coherence,reference,0,-0.75662593,
+spin_chain,32,coherence,reference,0.0632911,-0.72129433,
+spin_chain,32,coherence,reference,0.126582,-0.6875843,
+spin_chain,32,coherence,reference,0.189873,-0.65542276,
+spin_chain,32,coherence,reference,0.253165,-0.62473986,
+spin_chain,32,coherence,reference,0.316456,-0.59546885,
+spin_chain,32,coherence,reference,0.379747,-0.5675459,
+spin_chain,32,coherence,reference,0.443038,-0.54091005,
+spin_chain,32,coherence,reference,0.506329,-0.51550302,
+spin_chain,32,coherence,reference,0.56962,-0.49126911,
+spin_chain,32,coherence,reference,0.632911,-0.46815513,
+spin_chain,32,coherence,reference,0.696203,-0.44611023,
+spin_chain,32,coherence,reference,0.759494,-0.42508583,
+spin_chain,32,coherence,reference,0.822785,-0.40503551,
+spin_chain,32,coherence,reference,0.886076,-0.38591494,
+spin_chain,32,coherence,reference,0.949367,-0.36768175,
+spin_chain,32,coherence,reference,1.01266,-0.35029548,
+spin_chain,32,coherence,reference,1.07595,-0.33371746,
+spin_chain,32,coherence,reference,1.13924,-0.31791079,
+spin_chain,32,coherence,reference,1.20253,-0.30284017,
+spin_chain,32,coherence,reference,1.26582,-0.28847195,
+spin_chain,32,coherence,reference,1.32911,-0.27477393,
+spin_chain,32,coherence,reference,1.39241,-0.26171539,
+spin_chain,32,coherence,reference,1.4557,-0.249267,
+spin_chain,32,coherence,reference,1.51899,-0.23740074,
+spin_chain,32,coherence,reference,1.58228,-0.22608984,
+spin_chain,32,coherence,reference,1.64557,-0.21530876,
+spin_chain,32,coherence,reference,1.70886,-0.2050331,
+spin_chain,32,coherence,reference,1.77215,-0.19523957,
+spin_chain,32,coherence,reference,1.83544,-0.18590594,
+spin_chain,32,coherence,reference,1.89873,-0.17701098,
+spin_chain,32,coherence,reference,1.96203,-0.16853441,
+spin_chain,32,coherence,reference,2.02532,-0.1604569,
+spin_chain,32,coherence,reference,2.08861,-0.15275997,
+spin_chain,32,coherence,reference,2.1519,-0.14542599,
+spin_chain,32,coherence,reference,2.21519,-0.13843815,
+spin_chain,32,coherence,reference,2.27848,-0.13178037,
+spin_chain,32,coherence,reference,2.34177,-0.12543734,
+spin_chain,32,coherence,reference,2.40506,-0.11939442,
+spin_chain,32,coherence,reference,2.46835,-0.11363765,
+spin_chain,32,coherence,reference,2.53165,-0.10815372,
+spin_chain,32,coherence,reference,2.59494,-0.1029299,
+spin_chain,32,coherence,reference,2.65823,-0.09795408,
+spin_chain,32,coherence,reference,2.72152,-0.09321466,
+spin_chain,32,coherence,reference,2.78481,-0.08870062,
+spin_chain,32,coherence,reference,2.8481,-0.08440142,
+spin_chain,32,coherence,reference,2.91139,-0.080307,
+spin_chain,32,coherence,reference,2.97468,-0.07640777,
+spin_chain,32,coherence,reference,3.03797,-0.07269458,
+spin_chain,32,coherence,reference,3.10127,-0.06915872,
+spin_chain,32,coherence,reference,3.16456,-0.06579184,
+spin_chain,32,coherence,reference,3.22785,-0.06258602,
+spin_chain,32,coherence,reference,3.29114,-0.05953368,
+spin_chain,32,coherence,reference,3.35443,-0.05662759,
+spin_chain,32,coherence,reference,3.41772,-0.05386087,
+spin_chain,32,coherence,reference,3.48101,-0.05122694,
+spin_chain,32,coherence,reference,3.5443,-0.04871955,
+spin_chain,32,coherence,reference,3.60759,-0.04633271,
+spin_chain,32,coherence,reference,3.67089,-0.04406072,
+spin_chain,32,coherence,reference,3.73418,-0.04189816,
+spin_chain,32,coherence,reference,3.79747,-0.03983985,
+spin_chain,32,coherence,reference,3.86076,-0.03788084,
+spin_chain,32,coherence,reference,3.92405,-0.03601642,
+spin_chain,32,coherence,reference,3.98734,-0.03424211,
+spin_chain,32,coherence,reference,4.05063,-0.03255363,
+spin_chain,32,coherence,reference,4.11392,-0.03094689,
+spin_chain,32,coherence,reference,4.17722,-0.02941801,
+spin_chain,32,coherence,reference,4.24051,-0.02796327,
+spin_chain,32,coherence,reference,4.3038,-0.02657915,
+spin_chain,32,coherence,reference,4.36709,-0.02526228,
+spin_chain,32,coherence,reference,4.43038,-0.02400944,
+spin_chain,32,coherence,reference,4.49367,-0.02281758,
+spin_chain,32,coherence,reference,4.55696,-0.02168378,
+spin_chain,32,coherence,reference,4.62025,-0.02060526,
+spin_chain,32,coherence,reference,4.68354,-0.01957937,
+spin_chain,32,coherence,reference,4.74684,-0.01860359,
+spin_chain,32,coherence,reference,4.81013,-0.01767552,
+spin_chain,32,coherence,reference,4.87342,-0.01679286,
+spin_chain,32,coherence,reference,4.93671,-0.01595343,
+spin_chain,32,coherence,reference,5,-0.01515515,
+spin_chain,32,coherence,SLB M=2,0,-0.75662593,8.904072273e-16
+spin_chain,32,coherence,SLB M=2,0.0632911,-0.7214664736,0.02142838024
+spin_chain,32,coherence,SLB M=2,0.126582,-0.6892910451,0.03915559578
+spin_chain,32,coherence,SLB M=2,0.189873,-0.6597337487,0.05390520767
+spin_chain,32,coherence,SLB M=2,0.253165,-0.6324177357,0.06631436719
+spin_chain,32,coherence,SLB M=2,0.316456,-0.6069791329,0.07692535994
+spin_chain,32,coherence,SLB M=2,0.379747,-0.5830867575,0.08618197776
+spin_chain,32,coherence,SLB M=2,0.443038,-0.5604563405,0.09442990721
+spin_chain,32,coherence,SLB M=2,0.506329,-0.5388587485,0.1019213323
+spin_chain,32,coherence,SLB M=2,0.56962,-0.5181224022,0.1088242432
+spin_chain,32,coherence,SLB M=2,0.632911,-0.498130578,0.1152362505
+spin_chain,32,coherence,SLB M=2,0.696203,-0.478814644,0.1212016106
+spin_chain,32,coherence,SLB M=2,0.759494,-0.4601444581,0.1267293103
+spin_chain,32,coherence,SLB M=2,0.822785,-0.4421172299,0.1318098748
+spin_chain,32,coherence,SLB M=2,0.886076,-0.4247461074,0.1364290755
+spin_chain,32,coherence,SLB M=2,0.949367,-0.4080496249,0.1405775641
+spin_chain,32,coherence,SLB M=2,1.01266,-0.3920429076,0.1442563528
+spin_chain,32,coherence,SLB M=2,1.07595,-0.3767312938,0.1474787046
+spin_chain,32,coherence,SLB M=2,1.13924,-0.362106675,0.150269344
+spin_chain,32,coherence,SLB M=2,1.20253,-0.3481465528,0.152661975
+spin_chain,32,coherence,SLB M=2,1.26582,-0.3348154809,0.1546959531
+spin_chain,32,coherence,SLB M=2,1.32911,-0.3220683391,0.1564127693
+spin_chain,32,coherence,SLB M=2,1.39241,-0.309854714,0.1578527819
+spin_chain,32,coherence,SLB M=2,1.4557,-0.2981236232,0.1590524821
+spin_chain,32,coherence,SLB M=2,1.51899,-0.2868278784,0.1600424604
+spin_chain,32,coherence,SLB M=2,1.58228,-0.2759275315,0.1608462055
+spin_chain,32,coherence,SLB M=2,1.64557,-0.2653920318,0.1614797712
+spin_chain,32,coherence,SLB M=2,1.70886,-0.2552009887,0.1619523082
+spin_chain,32,coherence,SLB M=2,1.77215,-0.2453435872,0.1622673246
+spin_chain,32,coherence,SLB M=2,1.83544,-0.2358169431,0.1624244537
+spin_chain,32,coherence,SLB M=2,1.89873,-0.2266237224,0.1624214291
+spin_chain,32,coherence,SLB M=2,1.96203,-0.2177694495,0.1622559505
+spin_chain,32,coherence,SLB M=2,2.02532,-0.2092598797,0.1619271683
+spin_chain,32,coherence,SLB M=2,2.08861,-0.2010987469,0.1614366471
+spin_chain,32,coherence,SLB M=2,2.1519,-0.1932861198,0.1607887585
+spin_chain,32,coherence,SLB M=2,2.21519,-0.185817461,0.1599906028
+spin_chain,32,coherence,SLB M=2,2.27848,-0.1786834102,0.159051614
+spin_chain,32,coherence,SLB M=2,2.34177,-0.1718701977,0.1579830045
+spin_chain,32,coherence,SLB M=2,2.40506,-0.1653605614,0.1567972023
+spin_chain,32,coherence,SLB M=2,2.46835,-0.1591349758,0.1555073454
+spin_chain,32,coherence,SLB M=2,2.53165,-0.1531730122,0.1541268741
+spin_chain,32,coherence,SLB M=2,2.59494,-0.1474546528,0.1526691874
+spin_chain,32,coherence,SLB M=2,2.65823,-0.1419614142,0.1511473667
+spin_chain,32,coherence,SLB M=2,2.72152,-0.1366771745,0.1495739153
+spin_chain,32,coherence,SLB M=2,2.78481,-0.1315886377,0.1479605245
+spin_chain,32,coherence,SLB M=2,2.8481,-0.1266854348,0.1463178549
+spin_chain,32,coherence,SLB M=2,2.91139,-0.1219598828,0.1446553324
+spin_chain,32,coherence,SLB M=2,2.97468,-0.1174064732,0.142980966
+spin_chain,32,coherence,SLB M=2,3.03797,-0.113021186,0.1413011899
+spin_chain,32,coherence,SLB M=2,3.10127,-0.1088007256,0.1396207482
+spin_chain,32,coherence,SLB M=2,3.16456,-0.1047418054,0.1379426471
+spin_chain,32,coherence,SLB M=2,3.22785,-0.1008405561,0.1362681975
+spin_chain,32,coherence,SLB M=2,3.29114,-0.09709214045,0.1345971869
+spin_chain,32,coherence,SLB M=2,3.35443,-0.09349060465,0.1329281703
+spin_chain,32,coherence,SLB M=2,3.41772,-0.09002897705,0.1312588747
+spin_chain,32,coherence,SLB M=2,3.48101,-0.08669956935,0.129586671
+spin_chain,32,coherence,SLB M=2,3.5443,-0.08349442625,0.1279090475
+spin_chain,32,coherence,SLB M=2,3.60759,-0.0804058421,0.1262240419
+spin_chain,32,coherence,SLB M=2,3.67089,-0.07742685415,0.1245305715
+spin_chain,32,coherence,SLB M=2,3.73418,-0.0745516342,0.1228286397
+spin_chain,32,coherence,SLB M=2,3.79747,-0.0717757222,0.1211194096
+spin_chain,32,coherence,SLB M=2,3.86076,-0.06909606145,0.1194051633
+spin_chain,32,coherence,SLB M=2,3.92405,-0.06651083665,0.1176891535
+spin_chain,32,coherence,SLB M=2,3.98734,-0.0640191436,0.1159753905
+spin_chain,32,coherence,SLB M=2,4.05063,-0.06162054105,0.1142683804
+spin_chain,32,coherence,SLB M=2,4.11392,-0.0593145543,0.1125728438
+spin_chain,32,coherence,SLB M=2,4.17722,-0.0571002044,0.1108934463
+spin_chain,32,coherence,SLB M=2,4.24051,-0.0549756323,0.1092345504
+spin_chain,32,coherence,SLB M=2,4.3038,-0.0529378668,0.1076000066
+spin_chain,32,coherence,SLB M=2,4.36709,-0.0509827659,0.1059929946
+spin_chain,32,coherence,SLB M=2,4.43038,-0.04910514035,0.1044159085
+spin_chain,32,coherence,SLB M=2,4.49367,-0.04729902915,0.1028702857
+spin_chain,32,coherence,SLB M=2,4.55696,-0.04555809305,0.1013567877
+spin_chain,32,coherence,SLB M=2,4.62025,-0.04387606445,0.09987521826
+spin_chain,32,coherence,SLB M=2,4.68354,-0.0422471948,0.09842460583
+spin_chain,32,coherence,SLB M=2,4.74684,-0.04066663535,0.09700334237
+spin_chain,32,coherence,SLB M=2,4.81013,-0.0391307126,0.09560938104
+spin_chain,32,coherence,SLB M=2,4.87342,-0.03763705665,0.09424048754
+spin_chain,32,coherence,SLB M=2,4.93671,-0.0361845703,0.09289451517
+spin_chain,32,coherence,SLB M=2,5,-0.0347732561,0.09156966695
+spin_chain,32,coherence,SLB M=4,0,-0.75662593,8.904072273e-16
+spin_chain,32,coherence,SLB M=4,0.0632911,-0.7210482746,0.01620535511
+spin_chain,32,coherence,SLB M=4,0.126582,-0.6877095826,0.02992439824
+spin_chain,32,coherence,SLB M=4,0.189873,-0.6564241925,0.04147037502
+spin_chain,32,coherence,SLB M=4,0.253165,-0.6269939575,0.0511677883
+spin_chain,32,coherence,SLB M=4,0.316456,-0.5992206961,0.05933655409
+spin_chain,32,coherence,SLB M=4,0.379747,-0.572917247,0.0662750056
+spin_chain,32,coherence,SLB M=4,0.443038,-0.5479161949,0.07224435408
+spin_chain,32,coherence,SLB M=4,0.506329,-0.5240757586,0.07745742271
+spin_chain,32,coherence,SLB M=4,0.56962,-0.5012826781,0.08207379076
+spin_chain,32,coherence,SLB M=4,0.632911,-0.4794522534,0.08620199915
+spin_chain,32,coherence,SLB M=4,0.696203,-0.4585259469,0.08990771058
+spin_chain,32,coherence,SLB M=4,0.759494,-0.4384670916,0.09322539909
+spin_chain,32,coherence,SLB M=4,0.822785,-0.4192553708,0.0961707163
+spin_chain,32,coherence,SLB M=4,0.886076,-0.4008807532,0.09875115505
+spin_chain,32,coherence,SLB M=4,0.949367,-0.3833375344,0.1009736553
+spin_chain,32,coherence,SLB M=4,1.01266,-0.3666190545,0.1028488597
+spin_chain,32,coherence,SLB M=4,1.07595,-0.3507135375,0.1043925599
+spin_chain,32,coherence,SLB M=4,1.13924,-0.3356013399,0.1056252572
+spin_chain,32,coherence,SLB M=4,1.20253,-0.321253702,0.1065707847
+spin_chain,32,coherence,SLB M=4,1.26582,-0.307632949,0.1072547126
+spin_chain,32,coherence,SLB M=4,1.32911,-0.2946939203,0.1077029179
+spin_chain,32,coherence,SLB M=4,1.39241,-0.2823863088,0.1079404396
+spin_chain,32,coherence,SLB M=4,1.4557,-0.2706575141,0.1079905807
+spin_chain,32,coherence,SLB M=4,1.51899,-0.2594556172,0.1078742001
+spin_chain,32,coherence,SLB M=4,1.58228,-0.2487321157,0.1076092048
+spin_chain,32,coherence,SLB M=4,1.64557,-0.2384441199,0.1072103276
+spin_chain,32,coherence,SLB M=4,1.70886,-0.228555829,0.1066892657
+spin_chain,32,coherence,SLB M=4,1.77215,-0.2190391948,0.1060552088
+spin_chain,32,coherence,SLB M=4,1.83544,-0.2098737885,0.1053156674
+spin_chain,32,coherence,SLB M=4,1.89873,-0.2010459722,0.1044774102
+spin_chain,32,coherence,SLB M=4,1.96203,-0.1925475472,0.1035472722
+spin_chain,32,coherence,SLB M=4,2.02532,-0.1843740745,0.1025326444
+spin_chain,32,coherence,SLB M=4,2.08861,-0.176523087,0.1014415631
+spin_chain,32,coherence,SLB M=4,2.1519,-0.1689923938,0.100282443
+spin_chain,32,coherence,SLB M=4,2.21519,-0.161778647,0.09906362613
+spin_chain,32,coherence,SLB M=4,2.27848,-0.1548762869,0.09779292277
+spin_chain,32,coherence,SLB M=4,2.34177,-0.1482769394,0.09647732841
+spin_chain,32,coherence,SLB M=4,2.40506,-0.1419692776,0.09512297505
+spin_chain,32,coherence,SLB M=4,2.46835,-0.1359392999,0.09373530587
+spin_chain,32,coherence,SLB M=4,2.53165,-0.1301709644,0.09231937097
+spin_chain,32,coherence,SLB M=4,2.59494,-0.1246470487,0.09088013494
+spin_chain,32,coherence,SLB M=4,2.65823,-0.1193501265,0.08942269162
+spin_chain,32,coherence,SLB M=4,2.72152,-0.1142635352,0.0879523486
+spin_chain,32,coherence,SLB M=4,2.78481,-0.1093722145,0.08647459434
+spin_chain,32,coherence,SLB M=4,2.8481,-0.1046633463,0.08499497151
+spin_chain,32,coherence,SLB M=4,2.91139,-0.1001267237,0.08351892402
+spin_chain,32,coherence,SLB M=4,2.97468,-0.0957548418,0.08205162067
+spin_chain,32,coherence,SLB M=4,3.03797,-0.09154271735,0.08059779085
+spin_chain,32,coherence,SLB M=4,3.10127,-0.08748748435,0.07916155497
+spin_chain,32,coherence,SLB M=4,3.16456,-0.08358782685,0.07774625292
+spin_chain,32,coherence,SLB M=4,3.22785,-0.0798433323,0.07635430617
+spin_chain,32,coherence,SLB M=4,3.29114,-0.0762538371,0.07498712181
+spin_chain,32,coherence,SLB M=4,3.35443,-0.07281885075,0.07364509723
+spin_chain,32,coherence,SLB M=4,3.41772,-0.0695370978,0.07232772803
+spin_chain,32,coherence,SLB M=4,3.48101,-0.06640623145,0.07103383099
+spin_chain,32,coherence,SLB M=4,3.5443,-0.06342271825,0.06976183013
+spin_chain,32,coherence,SLB M=4,3.60759,-0.0605818957,0.0685100606
+spin_chain,32,coherence,SLB M=4,3.67089,-0.0578781633,0.06727703115
+spin_chain,32,coherence,SLB M=4,3.73418,-0.05530527175,0.06606159171
+spin_chain,32,coherence,SLB M=4,3.79747,-0.05285665665,0.06486300311
+spin_chain,32,coherence,SLB M=4,3.86076,-0.05052576685,0.06368091471
+spin_chain,32,coherence,SLB M=4,3.92405,-0.04830634615,0.06251528155
+spin_chain,32,coherence,SLB M=4,3.98734,-0.04619263115,0.06136626884
+spin_chain,32,coherence,SLB M=4,4.05063,-0.04417945395,0.06023416322
+spin_chain,32,coherence,SLB M=4,4.11392,-0.04226223985,0.05911932182
+spin_chain,32,coherence,SLB M=4,4.17722,-0.04043692325,0.05802214576
+spin_chain,32,coherence,SLB M=4,4.24051,-0.0386997927,0.05694307379
+spin_chain,32,coherence,SLB M=4,4.3038,-0.03704730385,0.05588257001
+spin_chain,32,coherence,SLB M=4,4.36709,-0.0354758923,0.05484110754
+spin_chain,32,coherence,SLB M=4,4.43038,-0.0339818163,0.05381912704
+spin_chain,32,coherence,SLB M=4,4.49367,-0.0325610498,0.05281698436
+spin_chain,32,coherence,SLB M=4,4.55696,-0.0312092507,0.05183489228
+spin_chain,32,coherence,SLB M=4,4.62025,-0.029921794,0.05087286902
+spin_chain,32,coherence,SLB M=4,4.68354,-0.02869388175,0.04993070324
+spin_chain,32,coherence,SLB M=4,4.74684,-0.02752069645,0.04900794156
+spin_chain,32,coherence,SLB M=4,4.81013,-0.0263975897,0.04810390492
+spin_chain,32,coherence,SLB M=4,4.87342,-0.02532027005,0.04721772946
+spin_chain,32,coherence,SLB M=4,4.93671,-0.0242849759,0.04634843045
+spin_chain,32,coherence,SLB M=4,5,-0.0232886002,0.04549498174
+spin_chain,32,coherence,SLB M=8,0,-0.75662593,8.904072273e-16
+spin_chain,32,coherence,SLB M=8,0.0632911,-0.7220071245,0.01130450244
+spin_chain,32,coherence,SLB M=8,0.126582,-0.6891587843,0.02112389318
+spin_chain,32,coherence,SLB M=8,0.189873,-0.657951702,0.0295899992
+spin_chain,32,coherence,SLB M=8,0.253165,-0.6282581891,0.03684679247
+spin_chain,32,coherence,SLB M=8,0.316456,-0.5999578379,0.04304426339
+spin_chain,32,coherence,SLB M=8,0.379747,-0.5729421474,0.04833105422
+spin_chain,32,coherence,SLB M=8,0.443038,-0.5471176709,0.05284707864
+spin_chain,32,coherence,SLB M=8,0.506329,-0.5224075185,0.05671733764
+spin_chain,32,coherence,SLB M=8,0.56962,-0.4987511958,0.06004785492
+spin_chain,32,coherence,SLB M=8,0.632911,-0.4761029583,0.06292412035
+spin_chain,32,coherence,SLB M=8,0.696203,-0.4544289809,0.065411889
+spin_chain,32,coherence,SLB M=8,0.759494,-0.433703777,0.06755974022
+spin_chain,32,coherence,SLB M=8,0.822785,-0.4139063328,0.06940260979
+spin_chain,32,coherence,SLB M=8,0.886076,-0.3950164417,0.07096555133
+spin_chain,32,coherence,SLB M=8,0.949367,-0.3770116312,0.07226718239
+spin_chain,32,coherence,SLB M=8,1.01266,-0.3598649942,0.07332253526
+spin_chain,32,coherence,SLB M=8,1.07595,-0.3435440586,0.07414524352
+spin_chain,32,coherence,SLB M=8,1.13924,-0.3280107238,0.0747490966
+spin_chain,32,coherence,SLB M=8,1.20253,-0.3132221355,0.07514903464
+spin_chain,32,coherence,SLB M=8,1.26582,-0.299132268,0.0753616143
+spin_chain,32,coherence,SLB M=8,1.32911,-0.2856939524,0.07540498049
+spin_chain,32,coherence,SLB M=8,1.39241,-0.2728610277,0.07529837156
+spin_chain,32,coherence,SLB M=8,1.4557,-0.2605903451,0.07506125577
+spin_chain,32,coherence,SLB M=8,1.51899,-0.2488433872,0.07471226293
+spin_chain,32,coherence,SLB M=8,1.58228,-0.2375873451,0.07426813102
+spin_chain,32,coherence,SLB M=8,1.64557,-0.2267955678,0.07374288334
+spin_chain,32,coherence,SLB M=8,1.70886,-0.2164473829,0.07314741227
+spin_chain,32,coherence,SLB M=8,1.77215,-0.2065273627,0.07248953705
+spin_chain,32,coherence,SLB M=8,1.83544,-0.1970241683,0.07177447774
+spin_chain,32,coherence,SLB M=8,1.89873,-0.1879291236,0.07100562528
+spin_chain,32,coherence,SLB M=8,1.96203,-0.1792347211,0.07018539808
+spin_chain,32,coherence,SLB M=8,2.02532,-0.1709332206,0.06931603142
+spin_chain,32,coherence,SLB M=8,2.08861,-0.1630154951,0.06840016839
+spin_chain,32,coherence,SLB M=8,2.1519,-0.1554702354,0.06744120547
+spin_chain,32,coherence,SLB M=8,2.21519,-0.1482835726,0.06644341494
+spin_chain,32,coherence,SLB M=8,2.27848,-0.1414391147,0.0654118886
+spin_chain,32,coherence,SLB M=8,2.34177,-0.1349183685,0.06435237476
+spin_chain,32,coherence,SLB M=8,2.40506,-0.1287014435,0.06327105616
+spin_chain,32,coherence,SLB M=8,2.46835,-0.1227679404,0.06217430348
+spin_chain,32,coherence,SLB M=8,2.53165,-0.1170978913,0.06106840867
+spin_chain,32,coherence,SLB M=8,2.59494,-0.1116726409,0.05995931607
+spin_chain,32,coherence,SLB M=8,2.65823,-0.1064755615,0.05885235862
+spin_chain,32,coherence,SLB M=8,2.72152,-0.1014925349,0.05775203219
+spin_chain,32,coherence,SLB M=8,2.78481,-0.09671216795,0.05666183585
+spin_chain,32,coherence,SLB M=8,2.8481,-0.0921257323,0.05558420736
+spin_chain,32,coherence,SLB M=8,2.91139,-0.08772686875,0.05452057179
+spin_chain,32,coherence,SLB M=8,2.97468,-0.08351110225,0.05347149517
+spin_chain,32,coherence,SLB M=8,3.03797,-0.07947525145,0.05243689765
+spin_chain,32,coherence,SLB M=8,3.10127,-0.07561679415,0.05141630564
+spin_chain,32,coherence,SLB M=8,3.16456,-0.07193327915,0.05040907657
+spin_chain,32,coherence,SLB M=8,3.22785,-0.06842182735,0.04941458092
+spin_chain,32,coherence,SLB M=8,3.29114,-0.0650787787,0.04843231748
+spin_chain,32,coherence,SLB M=8,3.35443,-0.06189950035,0.04746197823
+spin_chain,32,coherence,SLB M=8,3.41772,-0.0588783575,0.04650346585
+spin_chain,32,coherence,SLB M=8,3.48101,-0.05600882685,0.04555688986
+spin_chain,32,coherence,SLB M=8,3.5443,-0.0532837235,0.04462255183
+spin_chain,32,coherence,SLB M=8,3.60759,-0.0506954934,0.0437009129
+spin_chain,32,coherence,SLB M=8,3.67089,-0.04823653045,0.04279254804
+spin_chain,32,coherence,SLB M=8,3.73418,-0.0458994725,0.04189808002
+spin_chain,32,coherence,SLB M=8,3.79747,-0.04367743915,0.04101808703
+spin_chain,32,coherence,SLB M=8,3.86076,-0.04156419295,0.04015300292
+spin_chain,32,coherence,SLB M=8,3.92405,-0.039554209,0.03930302275
+spin_chain,32,coherence,SLB M=8,3.98734,-0.0376426497,0.03846803738
+spin_chain,32,coherence,SLB M=8,4.05063,-0.0358252705,0.03764761108
+spin_chain,32,coherence,SLB M=8,4.11392,-0.03409826395,0.03684101956
+spin_chain,32,coherence,SLB M=8,4.17722,-0.0324580838,0.03604733645
+spin_chain,32,coherence,SLB M=8,4.24051,-0.0309012624,0.0352655491
+spin_chain,32,coherence,SLB M=8,4.3038,-0.02942425915,0.03449469065
+spin_chain,32,coherence,SLB M=8,4.36709,-0.02802335485,0.03373395553
+spin_chain,32,coherence,SLB M=8,4.43038,-0.02669460125,0.03298278044
+spin_chain,32,coherence,SLB M=8,4.49367,-0.02543383315,0.0322408862
+spin_chain,32,coherence,SLB M=8,4.55696,-0.02423673515,0.03150827799
+spin_chain,32,coherence,SLB M=8,4.62025,-0.0230989524,0.03078521087
+spin_chain,32,coherence,SLB M=8,4.68354,-0.0220162244,0.03007212795
+spin_chain,32,coherence,SLB M=8,4.74684,-0.02098452475,0.02936959406
+spin_chain,32,coherence,SLB M=8,4.81013,-0.0200001879,0.02867821948
+spin_chain,32,coherence,SLB M=8,4.87342,-0.01906000425,0.02799859255
+spin_chain,32,coherence,SLB M=8,4.93671,-0.01816127155,0.0273312242
+spin_chain,32,coherence,SLB M=8,5,-0.0173018029,0.02667650057
+spin_chain,32,coherence,SLB M=16,0,-0.75662593,8.904072273e-16
+spin_chain,32,coherence,SLB M=16,0.0632911,-0.7208838837,0.007552492933
+spin_chain,32,coherence,SLB M=16,0.126582,-0.6868499801,0.01417188049
+spin_chain,32,coherence,SLB M=16,0.189873,-0.6544443537,0.01993323683
+spin_chain,32,coherence,SLB M=16,0.253165,-0.6235866549,0.02491727012
+spin_chain,32,coherence,SLB M=16,0.316456,-0.5941974609,0.0292068682
+spin_chain,32,coherence,SLB M=16,0.379747,-0.5661998035,0.03288388115
+spin_chain,32,coherence,SLB M=16,0.443038,-0.5395205646,0.03602642815
+spin_chain,32,coherence,SLB M=16,0.506329,-0.5140915317,0.03870680738
+spin_chain,32,coherence,SLB M=16,0.56962,-0.4898499881,0.04098996627
+spin_chain,32,coherence,SLB M=16,0.632911,-0.4667387772,0.04293248616
+spin_chain,32,coherence,SLB M=16,0.696203,-0.444705868,0.04458205526
+spin_chain,32,coherence,SLB M=16,0.759494,-0.4237035233,0.04597744939
+spin_chain,32,coherence,SLB M=16,0.822785,-0.4036872209,0.04714904221
+spin_chain,32,coherence,SLB M=16,0.886076,-0.384614506,0.04811981852
+spin_chain,32,coherence,SLB M=16,0.949367,-0.3664439463,0.04890678251
+spin_chain,32,coherence,SLB M=16,1.01266,-0.3491343402,0.049522583
+spin_chain,32,coherence,SLB M=16,1.07595,-0.3326442682,0.04997715048
+spin_chain,32,coherence,SLB M=16,1.13924,-0.3169320254,0.05027914757
+spin_chain,32,coherence,SLB M=16,1.20253,-0.3019559237,0.05043708566
+spin_chain,32,coherence,SLB M=16,1.26582,-0.2876748742,0.05046004862
+spin_chain,32,coherence,SLB M=16,1.32911,-0.2740491554,0.05035802116
+spin_chain,32,coherence,SLB M=16,1.39241,-0.261041232,0.05014188809
+spin_chain,32,coherence,SLB M=16,1.4557,-0.2486164963,0.04982319714
+spin_chain,32,coherence,SLB M=16,1.51899,-0.2367438332,0.04941378624
+spin_chain,32,coherence,SLB M=16,1.58228,-0.2253959187,0.04892535385
+spin_chain,32,coherence,SLB M=16,1.64557,-0.2145492213,0.04836904392
+spin_chain,32,coherence,SLB M=16,1.70886,-0.2041837113,0.0477550831
+spin_chain,32,coherence,SLB M=16,1.77215,-0.1942823105,0.04709251175
+spin_chain,32,coherence,SLB M=16,1.83544,-0.1848301605,0.04638902943
+spin_chain,32,coherence,SLB M=16,1.89873,-0.1758137964,0.04565097349
+spin_chain,32,coherence,SLB M=16,1.96203,-0.1672203229,0.04488343008
+spin_chain,32,coherence,SLB M=16,2.02532,-0.1590366864,0.04409047058
+spin_chain,32,coherence,SLB M=16,2.08861,-0.1512491114,0.04327546606
+spin_chain,32,coherence,SLB M=16,2.1519,-0.1438427493,0.0424414258
+spin_chain,32,coherence,SLB M=16,2.21519,-0.1368015671,0.04159129348
+spin_chain,32,coherence,SLB M=16,2.27848,-0.1301084558,0.04072814791
+spin_chain,32,coherence,SLB M=16,2.34177,-0.1237455257,0.0398552684
+spin_chain,32,coherence,SLB M=16,2.40506,-0.1176945398,0.03897606689
+spin_chain,32,coherence,SLB M=16,2.46835,-0.1119374087,0.03809391761
+spin_chain,32,coherence,SLB M=16,2.53165,-0.1064566853,0.03721193238
+spin_chain,32,coherence,SLB M=16,2.59494,-0.1012360054,0.03633275992
+spin_chain,32,coherence,SLB M=16,2.65823,-0.09626040825,0.03545845186
+spin_chain,32,coherence,SLB M=16,2.72152,-0.0915165284,0.03459044003
+spin_chain,32,coherence,SLB M=16,2.78481,-0.08699263995,0.03372962815
+spin_chain,32,coherence,SLB M=16,2.8481,-0.08267855795,0.03287656158
+spin_chain,32,coherence,SLB M=16,2.91139,-0.07856543255,0.03203164212
+spin_chain,32,coherence,SLB M=16,2.97468,-0.0746454686,0.03119532919
+spin_chain,32,coherence,SLB M=16,3.03797,-0.07091160425,0.03036827973
+spin_chain,32,coherence,SLB M=16,3.10127,-0.0673572016,0.02955140645
+spin_chain,32,coherence,SLB M=16,3.16456,-0.0639757758,0.02874585982
+spin_chain,32,coherence,SLB M=16,3.22785,-0.06076079125,0.02795294358
+spin_chain,32,coherence,SLB M=16,3.29114,-0.0577055403,0.02717399708
+spin_chain,32,coherence,SLB M=16,3.35443,-0.0548031035,0.02641028309
+spin_chain,32,coherence,SLB M=16,3.41772,-0.0520463865,0.02566289725
+spin_chain,32,coherence,SLB M=16,3.48101,-0.04942821475,0.02493270409
+spin_chain,32,coherence,SLB M=16,3.5443,-0.04694146595,0.02422030988
+spin_chain,32,coherence,SLB M=16,3.60759,-0.04457920745,0.02352605024
+spin_chain,32,coherence,SLB M=16,3.67089,-0.0423348321,0.02284999159
+spin_chain,32,coherence,SLB M=16,3.73418,-0.04020215505,0.0221919313
+spin_chain,32,coherence,SLB M=16,3.79747,-0.0381754781,0.02155141122
+spin_chain,32,coherence,SLB M=16,3.86076,-0.0362495985,0.02092773873
+spin_chain,32,coherence,SLB M=16,3.92405,-0.0344197811,0.02032002491
+spin_chain,32,coherence,SLB M=16,3.98734,-0.0326816901,0.01972725546
+spin_chain,32,coherence,SLB M=16,4.05063,-0.0310312962,0.01914837411
+spin_chain,32,coherence,SLB M=16,4.11392,-0.02946478,0.01858238387
+spin_chain,32,coherence,SLB M=16,4.17722,-0.02797843265,0.01802843926
+spin_chain,32,coherence,SLB M=16,4.24051,-0.02656857955,0.01748592757
+spin_chain,32,coherence,SLB M=16,4.3038,-0.02523152765,0.01695451392
+spin_chain,32,coherence,SLB M=16,4.36709,-0.02396354515,0.01643415058
+spin_chain,32,coherence,SLB M=16,4.43038,-0.0227608722,0.01592505329
+spin_chain,32,coherence,SLB M=16,4.49367,-0.021619756,0.01542763874
+spin_chain,32,coherence,SLB M=16,4.55696,-0.02053650695,0.01494244593
+spin_chain,32,coherence,SLB M=16,4.62025,-0.01950756315,0.01447004531
+spin_chain,32,coherence,SLB M=16,4.68354,-0.01852955435,0.01401095179
+spin_chain,32,coherence,SLB M=16,4.74684,-0.01759935875,0.01356554627
+spin_chain,32,coherence,SLB M=16,4.81013,-0.01671413635,0.01313402869
+spin_chain,32,coherence,SLB M=16,4.87342,-0.0158713474,0.01271638851
+spin_chain,32,coherence,SLB M=16,4.93671,-0.01506874675,0.0123124101
+spin_chain,32,coherence,SLB M=16,5,-0.01430435285,0.01192170482
+spin_chain,32,coherence,SLB M=32,0,-0.75662593,8.904072273e-16
+spin_chain,32,coherence,SLB M=32,0.0632911,-0.7210197847,0.005560284943
+spin_chain,32,coherence,SLB M=32,0.126582,-0.6870895591,0.01044313427
+spin_chain,32,coherence,SLB M=32,0.189873,-0.6547555865,0.01469038303
+spin_chain,32,coherence,SLB M=32,0.253165,-0.6239390474,0.01835012354
+spin_chain,32,coherence,SLB M=32,0.316456,-0.5945629074,0.0214751186
+spin_chain,32,coherence,SLB M=32,0.379747,-0.5665529609,0.02412060781
+spin_chain,32,coherence,SLB M=32,0.443038,-0.5398388038,0.02634190662
+spin_chain,32,coherence,SLB M=32,0.506329,-0.5143546252,0.028192189
+spin_chain,32,coherence,SLB M=32,0.56962,-0.4900396978,0.02972072406
+spin_chain,32,coherence,SLB M=32,0.632911,-0.4668385338,0.03097171444
+spin_chain,32,coherence,SLB M=32,0.696203,-0.4447006891,0.03198374926
+spin_chain,32,coherence,SLB M=32,0.759494,-0.4235802571,0.03278978145
+spin_chain,32,coherence,SLB M=32,0.822785,-0.4034351307,0.03341748557
+spin_chain,32,coherence,SLB M=32,0.886076,-0.3842261117,0.03388985167
+spin_chain,32,coherence,SLB M=32,0.949367,-0.3659159897,0.0342258786
+spin_chain,32,coherence,SLB M=32,1.01266,-0.3484686852,0.03444129204
+spin_chain,32,coherence,SLB M=32,1.07595,-0.3318485455,0.03454921341
+spin_chain,32,coherence,SLB M=32,1.13924,-0.316019864,0.03456075242
+spin_chain,32,coherence,SLB M=32,1.20253,-0.3009466578,0.03448550246
+spin_chain,32,coherence,SLB M=32,1.26582,-0.2865926994,0.03433192811
+spin_chain,32,coherence,SLB M=32,1.32911,-0.2729217803,0.03410763202
+spin_chain,32,coherence,SLB M=32,1.39241,-0.2598981478,0.03381952827
+spin_chain,32,coherence,SLB M=32,1.4557,-0.2474870457,0.03347393573
+spin_chain,32,coherence,SLB M=32,1.51899,-0.2356552715,0.03307662835
+spin_chain,32,coherence,SLB M=32,1.58228,-0.2243716827,0.03263287522
+spin_chain,32,coherence,SLB M=32,1.64557,-0.2136075763,0.03214749823
+spin_chain,32,coherence,SLB M=32,1.70886,-0.2033369058,0.03162495355
+spin_chain,32,coherence,SLB M=32,1.77215,-0.1935363094,0.03106944047
+spin_chain,32,coherence,SLB M=32,1.83544,-0.1841849471,0.03048500856
+spin_chain,32,coherence,SLB M=32,1.89873,-0.1752641908,0.02987564078
+spin_chain,32,coherence,SLB M=32,1.96203,-0.1667571866,0.02924531033
+spin_chain,32,coherence,SLB M=32,2.02532,-0.1586483606,0.02859798436
+spin_chain,32,coherence,SLB M=32,2.08861,-0.1509229255,0.02793759774
+spin_chain,32,coherence,SLB M=32,2.1519,-0.1435664272,0.02726800383
+spin_chain,32,coherence,SLB M=32,2.21519,-0.1365643976,0.02659292256
+spin_chain,32,coherence,SLB M=32,2.27848,-0.1299021174,0.02591589982
+spin_chain,32,coherence,SLB M=32,2.34177,-0.1235645262,0.02524027879
+spin_chain,32,coherence,SLB M=32,2.40506,-0.1175362528,0.0245691708
+spin_chain,32,coherence,SLB M=32,2.46835,-0.1118017632,0.02390542648
+spin_chain,32,coherence,SLB M=32,2.53165,-0.1063455852,0.02325158527
+spin_chain,32,coherence,SLB M=32,2.59494,-0.1011525799,0.02260981361
+spin_chain,32,coherence,SLB M=32,2.65823,-0.09620821195,0.02198183788
+spin_chain,32,coherence,SLB M=32,2.72152,-0.09149879765,0.02136889395
+spin_chain,32,coherence,SLB M=32,2.78481,-0.0870116836,0.02077171752
+spin_chain,32,coherence,SLB M=32,2.8481,-0.08273535745,0.0201905809
+spin_chain,32,coherence,SLB M=32,2.91139,-0.07865946855,0.0196253768
+spin_chain,32,coherence,SLB M=32,2.97468,-0.0747747674,0.01907573636
+spin_chain,32,coherence,SLB M=32,3.03797,-0.07107297745,0.01854115219
+spin_chain,32,coherence,SLB M=32,3.10127,-0.0675466177,0.01802108029
+spin_chain,32,coherence,SLB M=32,3.16456,-0.0641887999,0.01751499859
+spin_chain,32,coherence,SLB M=32,3.22785,-0.06099302615,0.01702242454
+spin_chain,32,coherence,SLB M=32,3.29114,-0.0579530061,0.01654289585
+spin_chain,32,coherence,SLB M=32,3.35443,-0.0550625095,0.01607593623
+spin_chain,32,coherence,SLB M=32,3.41772,-0.05231527505,0.01562103101
+spin_chain,32,coherence,SLB M=32,3.48101,-0.0497049647,0.01517762734
+spin_chain,32,coherence,SLB M=32,3.5443,-0.0472251708,0.0147451593
+spin_chain,32,coherence,SLB M=32,3.60759,-0.0448694649,0.01432309735
+spin_chain,32,coherence,SLB M=32,3.67089,-0.04263147385,0.01391100302
+spin_chain,32,coherence,SLB M=32,3.73418,-0.04050496775,0.01350856907
+spin_chain,32,coherence,SLB M=32,3.79747,-0.0384839532,0.01311563353
+spin_chain,32,coherence,SLB M=32,3.86076,-0.03656274775,0.01273215594
+spin_chain,32,coherence,SLB M=32,3.92405,-0.03473603705,0.01235817016
+spin_chain,32,coherence,SLB M=32,3.98734,-0.03299889525,0.01199371443
+spin_chain,32,coherence,SLB M=32,4.05063,-0.0313467906,0.01163875918
+spin_chain,32,coherence,SLB M=32,4.11392,-0.0297755541,0.01129315583
+spin_chain,32,coherence,SLB M=32,4.17722,-0.02828133085,0.01095660173
+spin_chain,32,coherence,SLB M=32,4.24051,-0.0268605266,0.01062864547
+spin_chain,32,coherence,SLB M=32,4.3038,-0.02550974325,0.01030871744
+spin_chain,32,coherence,SLB M=32,4.36709,-0.02422572365,0.009996181088
+spin_chain,32,coherence,SLB M=32,4.43038,-0.02300531005,0.009690403485
+spin_chain,32,coherence,SLB M=32,4.49367,-0.02184541485,0.009390815143
+spin_chain,32,coherence,SLB M=32,4.55696,-0.0207430122,0.009096970413
+spin_chain,32,coherence,SLB M=32,4.62025,-0.01969514395,0.008808579948
+spin_chain,32,coherence,SLB M=32,4.68354,-0.018698939,0.00852552848
+spin_chain,32,coherence,SLB M=32,4.74684,-0.0177516421,0.008247862629
+spin_chain,32,coherence,SLB M=32,4.81013,-0.01685064145,0.007975769736
+spin_chain,32,coherence,SLB M=32,4.87342,-0.01599349805,0.007709537873
+spin_chain,32,coherence,SLB M=32,4.93671,-0.01517796225,0.007449507662
+spin_chain,32,coherence,SLB M=32,5,-0.01440198175,0.007196032254
+spin_chain,32,coherence,SLB M=64,0,-0.75662593,8.904072273e-16
+spin_chain,32,coherence,SLB M=64,0.0632911,-0.7212261904,0.003862967032
+spin_chain,32,coherence,SLB M=64,0.126582,-0.6874940983,0.007276808715
+spin_chain,32,coherence,SLB M=64,0.189873,-0.6553468804,0.01026766707
+spin_chain,32,coherence,SLB M=64,0.253165,-0.6247042386,0.01286697434
+spin_chain,32,coherence,SLB M=64,0.316456,-0.5954890671,0.01510989089
+spin_chain,32,coherence,SLB M=64,0.379747,-0.5676281228,0.01703333271
+spin_chain,32,coherence,SLB M=64,0.443038,-0.5410525669,0.01867395844
+spin_chain,32,coherence,SLB M=64,0.506329,-0.5156983067,0.02006645951
+spin_chain,32,coherence,SLB M=64,0.56962,-0.4915061054,0.02124235331
+spin_chain,32,coherence,SLB M=64,0.632911,-0.468421437,0.02222936471
+spin_chain,32,coherence,SLB M=64,0.696203,-0.4463941241,0.02305132931
+spin_chain,32,coherence,SLB M=64,0.759494,-0.4253777956,0.02372845778
+spin_chain,32,coherence,SLB M=64,0.822785,-0.405329231,0.02427778921
+spin_chain,32,coherence,SLB M=64,0.886076,-0.3862076687,0.02471368655
+spin_chain,32,coherence,SLB M=64,0.949367,-0.3679741485,0.02504827153
+spin_chain,32,coherence,SLB M=64,1.01266,-0.3505909507,0.02529179571
+spin_chain,32,coherence,SLB M=64,1.07595,-0.334021178,0.02545293643
+spin_chain,32,coherence,SLB M=64,1.13924,-0.3182285105,0.0255390639
+spin_chain,32,coherence,SLB M=64,1.20253,-0.3031771229,0.02555650023
+spin_chain,32,coherence,SLB M=64,1.26582,-0.2888317695,0.02551076089
+spin_chain,32,coherence,SLB M=64,1.32911,-0.2751579837,0.02540678725
+spin_chain,32,coherence,SLB M=64,1.39241,-0.2621223587,0.02524913981
+spin_chain,32,coherence,SLB M=64,1.4557,-0.2496928602,0.02504214656
+spin_chain,32,coherence,SLB M=64,1.51899,-0.2378391194,0.0247900044
+spin_chain,32,coherence,SLB M=64,1.58228,-0.2265326654,0.02449683217
+spin_chain,32,coherence,SLB M=64,1.64557,-0.2157470695,0.024166698
+spin_chain,32,coherence,SLB M=64,1.70886,-0.2054579802,0.02380362267
+spin_chain,32,coherence,SLB M=64,1.77215,-0.1956430448,0.02341156474
+spin_chain,32,coherence,SLB M=64,1.83544,-0.1862817311,0.02299440628
+spin_chain,32,coherence,SLB M=64,1.89873,-0.1773550685,0.02255591801
+spin_chain,32,coherence,SLB M=64,1.96203,-0.1688453406,0.02209972869
+spin_chain,32,coherence,SLB M=64,2.02532,-0.1607357614,0.02162927955
+spin_chain,32,coherence,SLB M=64,2.08861,-0.1530101664,0.0211477882
+spin_chain,32,coherence,SLB M=64,2.1519,-0.145652759,0.02065822085
+spin_chain,32,coherence,SLB M=64,2.21519,-0.1386479171,0.02016327602
+spin_chain,32,coherence,SLB M=64,2.27848,-0.131980087,0.01966539543
+spin_chain,32,coherence,SLB M=64,2.34177,-0.1256337586,0.01916678764
+spin_chain,32,coherence,SLB M=64,2.40506,-0.1195935136,0.01866945927
+spin_chain,32,coherence,SLB M=64,2.46835,-0.1138441385,0.01817525663
+spin_chain,32,coherence,SLB M=64,2.53165,-0.1083707673,0.01768588408
+spin_chain,32,coherence,SLB M=64,2.59494,-0.1031590444,0.01720291526
+spin_chain,32,coherence,SLB M=64,2.65823,-0.09819527445,0.01672778293
+spin_chain,32,coherence,SLB M=64,2.72152,-0.0934665443,0.01626175053
+spin_chain,32,coherence,SLB M=64,2.78481,-0.0889608008,0.01580587234
+spin_chain,32,coherence,SLB M=64,2.8481,-0.08466688225,0.01536096758
+spin_chain,32,coherence,SLB M=64,2.91139,-0.08057449535,0.01492759297
+spin_chain,32,coherence,SLB M=64,2.97468,-0.07667414865,0.01450603769
+spin_chain,32,coherence,SLB M=64,3.03797,-0.0729570574,0.01409633727
+spin_chain,32,coherence,SLB M=64,3.10127,-0.06941502475,0.01369830124
+spin_chain,32,coherence,SLB M=64,3.16456,-0.0660403199,0.01331155546
+spin_chain,32,coherence,SLB M=64,3.22785,-0.06282556825,0.01293558392
+spin_chain,32,coherence,SLB M=64,3.29114,-0.05976366095,0.0125697799
+spin_chain,32,coherence,SLB M=64,3.35443,-0.05684769105,0.01221348698
+spin_chain,32,coherence,SLB M=64,3.41772,-0.0540709246,0.01186604356
+spin_chain,32,coherence,SLB M=64,3.48101,-0.0514267963,0.01152682103
+spin_chain,32,coherence,SLB M=64,3.5443,-0.04890893,0.01119525446
+spin_chain,32,coherence,SLB M=64,3.60759,-0.04651117775,0.0108708753
+spin_chain,32,coherence,SLB M=64,3.67089,-0.04422766435,0.01055332847
+spin_chain,32,coherence,SLB M=64,3.73418,-0.0420528249,0.01024238312
+spin_chain,32,coherence,SLB M=64,3.79747,-0.0399814395,0.009937928347
+spin_chain,32,coherence,SLB M=64,3.86076,-0.03800864635,0.009639951779
+spin_chain,32,coherence,SLB M=64,3.92405,-0.0361299384,0.009348509153
+spin_chain,32,coherence,SLB M=64,3.98734,-0.0343411407,0.009063682532
+spin_chain,32,coherence,SLB M=64,4.05063,-0.0326383697,0.008785538079
+spin_chain,32,coherence,SLB M=64,4.11392,-0.0310179877,0.008514087098
+spin_chain,32,coherence,SLB M=64,4.17722,-0.0294765411,0.008249263043
+spin_chain,32,coherence,SLB M=64,4.24051,-0.02801071025,0.007990910594
+spin_chain,32,coherence,SLB M=64,4.3038,-0.02661726185,0.007738796467
+spin_chain,32,coherence,SLB M=64,4.36709,-0.02529301145,0.007492635986
+spin_chain,32,coherence,SLB M=64,4.43038,-0.0240348033,0.007252130234
+spin_chain,32,coherence,SLB M=64,4.49367,-0.02283950625,0.007017005361
+spin_chain,32,coherence,SLB M=64,4.55696,-0.02170402095,0.006787052275
+spin_chain,32,coherence,SLB M=64,4.62025,-0.020625298,0.006562152229
+spin_chain,32,coherence,SLB M=64,4.68354,-0.01960037135,0.006342289935
+spin_chain,32,coherence,SLB M=64,4.74684,-0.01862638065,0.006127553881
+spin_chain,32,coherence,SLB M=64,4.81013,-0.0177006045,0.005918119392
+spin_chain,32,coherence,SLB M=64,4.87342,-0.01682048175,0.005714222427
+spin_chain,32,coherence,SLB M=64,4.93671,-0.0159836214,0.005516127245
+spin_chain,32,coherence,SLB M=64,5,-0.01518781,0.005324093527

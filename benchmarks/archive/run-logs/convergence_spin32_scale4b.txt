@@ -1,10 +1,10 @@
-﻿**********************
+**********************
 Windows PowerShell transcript start
-Start time: 20260721162930
-Username: ADHIKARI\sayak
-RunAs User: ADHIKARI\sayak
+Start time: 20260721010250
+Username: <redacted>
+RunAs User: <redacted>
 Configuration Name: 
-Machine: ADHIKARI (Microsoft Windows NT 10.0.26200.0)
+Machine: <redacted> (Microsoft Windows NT 10.0.26200.0)
 Host Application: C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe
 Process ID: 25200
 PSVersion: 5.1.26100.8894
@@ -16,11 +16,11 @@ WSManStackVersion: 3.0
 PSRemotingProtocolVersion: 2.3
 SerializationVersion: 1.1.0.1
 **********************
-Transcript started, output file is costscaling_osc_ref32.txt
-PS C:\Users\sayak\Downloads\repo-split\qutip-bundling\benchmarks> python run_cost_scaling.py --system oscillator_bath --native-ref-substeps 32
+Transcript started, output file is convergence_spin32_scale4b.txt
+PS <repo>\benchmarks> python benchmark_convergence.py --only spin_chain --dims 32 --scale 4
 
-PS C:\Users\sayak\Downloads\repo-split\qutip-bundling\benchmarks> Stop-Transcript
+PS <repo>\benchmarks> Stop-Transcript
 **********************
 Windows PowerShell transcript end
-End time: 20260721170641
+End time: 20260721052133
 **********************

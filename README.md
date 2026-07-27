@@ -50,8 +50,9 @@ what lets the calculation finish. Against QuTiP's trajectory solver `mcsolve`,
 bundling matches or beats its accuracy per unit compute: on the spin chain it
 is never slower and typically a few-fold faster, and on the stiffer oscillator
 it is **orders of magnitude faster, widening with system size into the
-thousands**. See
-[`benchmarks/BENCHMARKS.md`](benchmarks/BENCHMARKS.md) for the full study —
+thousands**. See the
+[`benchmark quick start`](benchmarks/README.md) to reproduce the figures safely,
+or [`benchmarks/BENCHMARKS.md`](benchmarks/BENCHMARKS.md) for the full study —
 both systems defined, accuracy versus $M$ (energy and coherence), cost scaling
 versus the exact solver, the accuracy-versus-cost frontier against `mcsolve`, and
 its iso-accuracy scaling with dimension — all reproducible with the scripts in

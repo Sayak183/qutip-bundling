@@ -27,7 +27,7 @@ the metadata and set well below any plausible target so the plot side always
 has the data it needs.
 
 Writes, per system:  data/cost_scaling_<system>.json
-Run:                 python run_cost_scaling.py [--system spin_chain|oscillator_bath|all]
+Run:                 python run_cost_scaling.py (--system SYSTEM | --all)
                      (this is the slow benchmark)
 """
 
@@ -41,8 +41,10 @@ import qutip
 
 from common import (
     gamma, build_spin_chain, build_oscillator_bath, TLIST, SUBSTEPS,
-    FULL_TIME_BUDGET, MAX_FULL_DIM, tavg_rmse_jackknife, run_metadata, save_data,
+    DATA_DIR, FULL_TIME_BUDGET, MAX_FULL_DIM, tavg_rmse_jackknife,
+    run_metadata, save_data,
 )
+from benchmark_cli import add_safety_arguments, preflight_run, selected_systems
 from qutip_bundling import davies_operators, mesolve_ensemble
 try:
     from qutip_bundling import SolverInstabilityError
@@ -345,12 +347,10 @@ def run(name, build, sizes, full_budget=FULL_TIME_BUDGET,
 def main():
     global NATIVE_REF_SUBSTEPS, SUBSTEPS
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[1])
-    ap.add_argument("--system", default="all",
-                    choices=[*SYSTEMS, "all"],
-                    help="which system to run (default: all)")
+    add_safety_arguments(ap, SYSTEMS)
     ap.add_argument("--sizes", type=int, nargs="+", default=None,
-                    help="override the size list (smoke tests); the override "
-                         "is recorded in the data file's metadata")
+                    help="model sizes to run instead of the configured list "
+                         "(smoke tests; these are not Hilbert dimensions)")
     ap.add_argument("--native-ref-max", type=int, default=NATIVE_REF_MAX_DIM,
                     help="largest dimension for the native full-dissipator "
                          "reference past the mesolve wall (reference only; "
@@ -378,6 +378,26 @@ def main():
                          "spin dim-64 point (~35 min solve) and with it one "
                          "more iso-accuracy measurement")
     args = ap.parse_args()
+    if args.sizes and any(size <= 0 for size in args.sizes):
+        ap.error("--sizes values must be positive integers")
+
+    names = selected_systems(args, SYSTEMS)
+    work = []
+    plans = []
+    for name in names:
+        build, configured_sizes = SYSTEMS[name]
+        sizes = args.sizes if args.sizes else configured_sizes
+        work.append((name, build, sizes))
+        plans.append((
+            f"Result 2: {name}, model sizes={sizes}",
+            DATA_DIR / f"cost_scaling_{name}.json",
+        ))
+
+    if not preflight_run(
+        plans, overwrite=args.overwrite, dry_run=args.dry_run
+    ):
+        return
+
     if args.slb_substeps != SUBSTEPS:
         SUBSTEPS = args.slb_substeps
         print(f"[config] SLB substeps set to {SUBSTEPS} (uniform across "
@@ -391,10 +411,8 @@ def main():
         print(f"[config] native reference substeps set to "
               f"{NATIVE_REF_SUBSTEPS} (self-check halves to "
               f"{NATIVE_REF_SUBSTEPS // 2})")
-    names = list(SYSTEMS) if args.system == "all" else [args.system]
-    for name in names:
-        build, sizes = SYSTEMS[name]
-        run(name, build, args.sizes if args.sizes else sizes,
+    for name, build, sizes in work:
+        run(name, build, sizes,
             full_budget=args.full_budget, native_ref_max=args.native_ref_max)
 
 

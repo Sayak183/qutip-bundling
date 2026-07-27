@@ -22,25 +22,19 @@ For each system (at one fixed, reference-feasible size) it records:
     ntraj=1000 would be megabytes for no analysis-time gain, so the derived
     stats are stored).
 
-Presets
--------
-  default : the published Result 3 -- both systems at dim 16.
-  big     : the heavy workstation variant (spin chain 6 sites -> dim 64 with
-            N_L ~ 866; oscillator n_fock=16 -> dim 32), trimmed sweeps.
-            Replaces the old benchmark_vs_mcsolve_big.py wrapper. The heavy
-            parts are the baselines (full-mesolve reference, mcsolve): >= 16 GB
-            RAM recommended. Distinct data/figure names keep the dim-16
-            results intact. If the reference raises MemoryError, that failure
-            IS the motivation for bundling -- but without a reference the RMSE
-            cannot be measured at that size; use the cost-scaling benchmark
-            (which needs no reference beyond the wall) for the large-N cost
-            argument.
+Scope
+-----
+The command requires an explicit --system or --all scope. Use --dims to select
+a subset. The dimension-64 configurations are heavy workstation runs; the
+baselines (full reference and mcsolve) are the expensive parts. If the
+reference raises MemoryError, the RMSE cannot be measured at that size; use the
+cost-scaling benchmark for the large-N cost argument beyond the reference wall.
 
 Uses the fine 80-point time grid (TLIST_FINE), like the other accuracy-style
 comparisons.
 
-Writes, per system:  data/frontier_<system>.json
-Run:                 python run_frontier.py [--preset default|big] [--system ...]
+Writes, per system and dimension:  data/frontier_<system>_dim<D>.json
+Run:                 python run_frontier.py (--system ... | --all) [--dims ...]
 """
 
 from __future__ import annotations
@@ -53,8 +47,9 @@ import qutip
 
 from common import (
     gamma, build_spin_chain, build_oscillator_bath, TLIST_FINE, SUBSTEPS,
-    MC_OPTIONS, tavg_bias_sem_rmse, run_metadata, save_data,
+    DATA_DIR, MC_OPTIONS, tavg_bias_sem_rmse, run_metadata, save_data,
 )
+from benchmark_cli import add_safety_arguments, preflight_run, selected_systems
 from qutip_bundling import davies_operators, mesolve_ensemble
 from qutip_bundling.native_solver import rk4_mesolve
 
@@ -233,21 +228,44 @@ def run(name, build, size, m_grid, ntraj_grid, n_runs_max, substeps):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[1])
-    ap.add_argument("--system", default="all",
-                    choices=[*SYSTEMS, "all"],
-                    help="which system to run (default: all)")
+    add_safety_arguments(ap, SYSTEMS)
     ap.add_argument("--dims", type=int, nargs="+", default=None,
                     help="only these Hilbert dims (default: every configured "
                          "size; each saved to its own file)")
     args = ap.parse_args()
-    names = list(SYSTEMS) if args.system == "all" else [args.system]
+    names = selected_systems(args, SYSTEMS)
+    work = []
+    plans = []
     for name in names:
         build, points = SYSTEMS[name]
+        available_dims = set()
         for size, m_grid, ntraj_grid, n_runs_max, substeps in points:
             probe_dim = build(size)[0].shape[0]
+            available_dims.add(probe_dim)
             if args.dims and probe_dim not in args.dims:
                 continue
-            run(name, build, size, m_grid, ntraj_grid, n_runs_max, substeps)
+            work.append((
+                name, build, size, m_grid, ntraj_grid, n_runs_max, substeps,
+            ))
+            plans.append((
+                f"Result 3: {name}, dim {probe_dim}, M={m_grid}, "
+                f"ntraj={ntraj_grid}",
+                DATA_DIR / f"frontier_{name}_dim{probe_dim}.json",
+            ))
+        if args.dims:
+            missing = sorted(set(args.dims) - available_dims)
+            if missing:
+                ap.error(
+                    f"{name} has no configured Result 3 dimensions {missing}; "
+                    f"available dimensions are {sorted(available_dims)}"
+                )
+
+    if not preflight_run(
+        plans, overwrite=args.overwrite, dry_run=args.dry_run
+    ):
+        return
+    for item in work:
+        run(*item)
 
 
 if __name__ == "__main__":

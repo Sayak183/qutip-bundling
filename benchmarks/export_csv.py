@@ -2,10 +2,11 @@
 export_csv.py
 =============
 
-Flatten the benchmark data files (data/*.json, written by the run_*.py
-scripts) into Excel-friendly CSVs under data/csv/. The JSON stays the
-machine-readable source of truth, with full metadata; the CSVs are the
-human/collaborator view of the same numbers.
+Flatten the canonical benchmark data files (top-level data/*.json, written by
+the run_*.py scripts) into Excel-friendly CSVs under data/csv/. The JSON stays
+the machine-readable source of truth, with full metadata; the CSVs are the
+human/collaborator view of the same numbers. Superseded files under
+data/legacy/ are deliberately excluded from the default export.
 
 Per data file it writes up to two CSVs:
 

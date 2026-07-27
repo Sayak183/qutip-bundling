@@ -75,6 +75,19 @@ def _size_str(name, dim):
     return f"dim {dim}"
 
 
+def _reference_label(doc):
+    """Human-readable provenance for the exact reference saved with the data."""
+    method = doc.get("reference_method")
+    if method == "mesolve":
+        return "full Lindblad reference (QuTiP mesolve)"
+    prefix = "native_rk4_substeps"
+    if isinstance(method, str) and method.startswith(prefix):
+        substeps = method.removeprefix(prefix)
+        detail = f", {substeps} substeps" if substeps else ""
+        return f"full Lindblad reference (certified native RK4{detail})"
+    return "full Lindblad reference"
+
+
 def _curves(doc, key):
     """{M: (mean, std)} for one observable from the raw realizations."""
     out = {}
@@ -88,6 +101,7 @@ def accuracy_figure(plt, name, doc, tlist, reference, curves,
                     obs_math, fname_suffix, subtitle):
     """Single panel: observable vs time, one SLB curve per M."""
     meta = doc["meta"]["params"]
+    reference_label = _reference_label(doc)
     
     # ---------------------------------------------------------
     # EDIT THIS LIST TO QUICKLY CHANGE WHICH M VALUES ARE SHOWN
@@ -102,7 +116,7 @@ def accuracy_figure(plt, name, doc, tlist, reference, curves,
     fig, ax = plt.subplots(1, 1, figsize=(6.6, 4.5))
     
     ax.plot(tlist, reference, "k-", lw=1.4, alpha=0.7,
-            label="full Lindblad reference (mesolve)", zorder=1)
+            label=reference_label, zorder=1)
     
     palette = ["tab:orange", "tab:blue", "tab:green", "tab:purple",
                "tab:red", "tab:brown", "tab:pink", "tab:olive"]
@@ -130,8 +144,7 @@ def accuracy_figure(plt, name, doc, tlist, reference, curves,
         fig,
         format_slb_settings(M=plotted_m, substeps=doc["meta"]["substeps"],
                             n_realizations=meta["N_REALIZATIONS"]),
-        "shaded band = \u00b11 std over realizations; "
-        "full-Lindblad reference (mesolve)",
+        f"shaded band = \u00b11 std over realizations; {reference_label}",
         _timing_caption(doc),
     )
     

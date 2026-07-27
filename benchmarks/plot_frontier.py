@@ -50,6 +50,12 @@ NORMALIZE_PER_UNIT_WORK = False
 DEFAULT_SYSTEMS = ["spin_chain", "oscillator_bath"]
 # -------------------------------------------------
 
+
+def _run_substeps(doc):
+    """Per-run integrator setting; top-level value overrides generic metadata."""
+    return doc.get("substeps") or doc["meta"].get("substeps")
+
+
 def derive_slb_stats(doc, n_runs):
     reference = as_array(doc["reference"])
     m_values = [row["M"] for row in doc["slb_sweep"]]
@@ -60,21 +66,35 @@ def derive_slb_stats(doc, n_runs):
     }
     
     for row in doc["slb_sweep"]:
-        # Extract the raw trajectories and truncate to the requested n_runs
-        samples = np.asarray(row["samples"], dtype=float)[:n_runs]
+        # Extract the raw trajectories and truncate to the requested n_runs.
+        # Never silently label a curve with more runs than the JSON contains.
+        all_samples = np.asarray(row["samples"], dtype=float)
+        available = all_samples.shape[0]
+        if n_runs > available:
+            system = doc.get("meta", {}).get("params", {}).get("system", "?")
+            dim = doc.get("dim", "?")
+            raise ValueError(
+                f"Result 3 requested N_r={n_runs} for {system} dim {dim}, "
+                f"M={row['M']}, but the saved data contains only {available} "
+                "runs. Lower N_RUNS_SWEEP or regenerate the data."
+            )
+        samples = all_samples[:n_runs]
+        actual_n = samples.shape[0]
+        if actual_n < 2:
+            raise ValueError("Result 3 statistics require at least two SLB runs")
         
         # Calculate time-dependent statistics
         mean = samples.mean(axis=0)
         std = samples.std(axis=0, ddof=1)
         bias = np.abs(mean - reference)
-        sem = std / np.sqrt(n_runs)
+        sem = std / np.sqrt(actual_n)
         
         # Calculate the two types of RMSE
         rmse_ens = np.sqrt(bias**2 + sem**2)
         rmse_single = np.sqrt(bias**2 + std**2)
         
         # Time-average the results
-        stats["cost_ens"].append(n_runs * row["per_run_cost"])
+        stats["cost_ens"].append(actual_n * row["per_run_cost"])
         stats["cost_single"].append(row["per_run_cost"])
         
         stats["rmse_ens"].append(float(np.mean(rmse_ens)))
@@ -209,7 +229,7 @@ def figure(name, doc):
     
     add_settings_footer(
         fig,
-        f"SLB: sweep M={m_vals_hi}, {doc['meta']['substeps']} RK4 substep(s)/step "
+        f"SLB: sweep M={m_vals_hi}, {_run_substeps(doc)} RK4 substep(s)/step "
         f"(from the run's own metadata), N in {current_n_sweep} runs",
         f"mcsolve: sweep ntraj={[r['ntraj'] for r in doc['mc']]}, single-thread, "
         f"atol={MC_ATOL:g}/rtol={MC_RTOL:g}",
@@ -243,7 +263,7 @@ def sizes_figure(name, docs):
         _, n_sweep = _draw_frontier_axis(ax, name, doc, label_fs=10,
                                          annot_fs=8, mc_annot_fs=7,
                                          title_fs=12, show_legend=(i == 0))
-        ss = doc.get("substeps") or doc["meta"].get("substeps")
+        ss = _run_substeps(doc)
         ax.set_title(rf"dim {doc['dim']}   ($N_L$={doc['n_l']}, "
                      rf"{ss} substeps)", fontsize=12)
         ax.set_xlabel("wall-clock cost (s)", fontsize=11)

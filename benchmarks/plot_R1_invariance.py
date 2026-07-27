@@ -1,6 +1,6 @@
-import os
-import glob
 import json
+from pathlib import Path
+
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.stats import linregress
@@ -22,15 +22,15 @@ EVALUATE_AT_WORST_TIME = True
 MIN_M = 2
 MAX_M = 32
 
+DATA_DIR = Path(__file__).resolve().parent / "data"
+
+
 def load_r1_data(system, dim):
-    pattern = f"data/*{system}*dim{dim}*.json"
-    files = glob.glob(pattern)
-    
-    if not files:
-        raise FileNotFoundError(f"No JSON data found for {system} at dim {dim}")
-    
-    latest_file = max(files, key=os.path.getctime)
-    with open(latest_file, 'r') as f:
+    path = DATA_DIR / f"accuracy_vs_M_{system}_dim{dim}.json"
+    if not path.exists():
+        raise FileNotFoundError(f"No Result 1 JSON data found at {path}")
+
+    with open(path, "r", encoding="utf-8") as f:
         data = json.load(f)
     return data
 
@@ -81,7 +81,7 @@ for system in SYSTEMS:
         # ---------------------------------------------------------
         try:
             sweep_data = data['slb_sweep']
-            ref_arr = np.array(data['reference'])
+            ref_arr = np.array(data['reference_energy'])
             
             M_vals, bias_vals, sem_vals = [], [], []
             realizations = 0
@@ -90,7 +90,7 @@ for system in SYSTEMS:
             worst_t_idx = 0
             if EVALUATE_AT_WORST_TIME and len(sweep_data) > 0:
                 smallest_item = sweep_data[0] 
-                s_arr = np.array(smallest_item['samples'])
+                s_arr = np.array(smallest_item['samples_energy'])
                 if s_arr.ndim == 1:
                     s_arr = s_arr.reshape(1, -1)
                 smallest_mean = np.mean(s_arr, axis=0)
@@ -99,7 +99,7 @@ for system in SYSTEMS:
             for item in sweep_data:
                 m_val = item.get('M', item.get('bundles'))
                 
-                samples_arr = np.array(item['samples'])
+                samples_arr = np.array(item['samples_energy'])
                 if samples_arr.ndim == 1:
                     samples_arr = samples_arr.reshape(1, -1)
                     

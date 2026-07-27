@@ -18,6 +18,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from common import add_settings_footer, as_array, load_data, tavg_rmse
+from isocost_config import run_counts
 
 # --- CONFIGURATION ---
 TARGET_RMSE = 0.02       # accuracy target
@@ -37,11 +38,9 @@ TARGET_RMSE = 0.02       # accuracy target
 ESTIMATE_TYPE = "ensemble" # Options: "ensemble" or "single"
 NTRAJ_EXTRAP_MAX = 20000 # Beyond this, mcsolve is considered impractical
 
-# Define specific sampling levels to plot for each system
-SYSTEM_N_RUNS = {
-    "spin_chain": [4, 8, 16],
-    "oscillator_bath": [16, 32, 64]
-}
+# Sampling levels come from isocost_config.SYSTEM_N_RUNS, shared with the
+# data-generation script. Edit them there, then regenerate the data before
+# plotting if the largest configured count increases.
 # ---------------------
 
 def derive_slb(point, n_runs, target, est_type):
@@ -52,19 +51,31 @@ def derive_slb(point, n_runs, target, est_type):
     reference = as_array(point["reference"])
     
     for row in point["slb_sweep"]:
-        # Extract exactly n_runs to compute statistics
-        samples = np.asarray(row["samples"], dtype=float)[:n_runs]
+        # Extract exactly n_runs to compute statistics. NumPy slicing silently
+        # returns fewer rows when the request is too large, so validate first:
+        # a 32-run label must never be derived from a 16-run dataset.
+        all_samples = np.asarray(row["samples"], dtype=float)
+        available = all_samples.shape[0]
+        if n_runs > available:
+            raise ValueError(
+                f"Result 4 requests N_r={n_runs} for dim {point['dim']}, "
+                f"M={row['M']}, but the data contains only {available} runs. "
+                f"Rerun run_isocost_vs_dim.py with the shared SYSTEM_N_RUNS "
+                f"configuration, or lower the configured count, then replot."
+            )
+        samples = all_samples[:n_runs]
+        n_actual = samples.shape[0]
         
         # 1. Total Observed MSE of the ensemble mean
         ensemble_mean = np.mean(samples, axis=0)
         total_mse = np.mean((ensemble_mean - reference)**2)
         
         # 2. Statistical Variance
-        if n_runs > 1:
+        if n_actual > 1:
             var_single_run = np.mean(np.var(samples, axis=0, ddof=1)) # This is Std^2
         else:
             var_single_run = 0.0
-        sem_sq = var_single_run / n_runs
+        sem_sq = var_single_run / n_actual
         
         # 3. Implied Systematic Bias^2
         bias_sq = max(0.0, total_mse - sem_sq)
@@ -75,7 +86,7 @@ def derive_slb(point, n_runs, target, est_type):
             cost = row["per_run_cost"] # COST OF 1 RUN
         else:
             noise_sq = sem_sq
-            cost = n_runs * row["per_run_cost"] # COST OF N RUNS
+            cost = n_actual * row["per_run_cost"] # COST OF N RUNS
             
         rmse = np.sqrt(bias_sq + noise_sq)
         
@@ -133,7 +144,7 @@ def derive(doc, target, n_runs_list, est_type):
     out["mc_ok"] = np.array(out["mc_ok"])
     return out
 
-def figure(name, out, target, substeps, n_runs_list, est_type):
+def figure(name, out, target, substeps_text, n_runs_list, est_type):
     plt.switch_backend("Agg")
     d = out["dims"]
     n_ls = out["n_ls"]
@@ -230,7 +241,7 @@ def figure(name, out, target, substeps, n_runs_list, est_type):
 
     segs = [
         f"iso-accuracy: smallest M reaching {est_type} RMSE={target}; "
-        f"{substeps} RK4 substep(s)/step",
+        f"{substeps_text}",
         f"{footer_math}; computable only to the exact-reference wall; '≳' = mcsolve needs impractical trajectory count",
     ]
     if est_type == "single":
@@ -257,10 +268,19 @@ def main():
     names = ["spin_chain", "oscillator_bath"] if args.system == "all" else [args.system]
     for name in names:
         doc = load_data(f"isocost_vs_dim_{name}.json")
-        n_runs_list = SYSTEM_N_RUNS.get(name, [4])
+        n_runs_list = run_counts(name)
         
         out = derive(doc, args.target, n_runs_list, ESTIMATE_TYPE)
-        figure(name, out, args.target, doc["meta"]["substeps"], n_runs_list, ESTIMATE_TYPE)
+        pairs = [(int(p["dim"]), int(p["substeps"])) for p in doc["points"]]
+        unique_substeps = sorted({ss for _, ss in pairs})
+        if len(unique_substeps) == 1:
+            substeps_text = f"{unique_substeps[0]} RK4 substep(s)/step"
+        else:
+            settings = ", ".join(f"dim {dim}: {ss}" for dim, ss in pairs)
+            substeps_text = f"RK4 substeps/step by dimension ({settings})"
+        figure(
+            name, out, args.target, substeps_text, n_runs_list, ESTIMATE_TYPE,
+        )
 
 if __name__ == "__main__":
     main()

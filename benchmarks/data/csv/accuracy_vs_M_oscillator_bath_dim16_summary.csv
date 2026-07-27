@@ -1,0 +1,7 @@
+system,dim,n_l,M,ensemble_cost_s,t_davies_s,t_reference_s
+oscillator_bath,16,128,2,6.80046,0.0085659,2.73846
+oscillator_bath,16,128,4,9.45217,0.0085659,2.73846
+oscillator_bath,16,128,8,14.7659,0.0085659,2.73846
+oscillator_bath,16,128,16,25.4231,0.0085659,2.73846
+oscillator_bath,16,128,32,45.9713,0.0085659,2.73846
+oscillator_bath,16,128,64,87.8893,0.0085659,2.73846

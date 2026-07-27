@@ -6,11 +6,15 @@ master equation `mesolve`, and the Monte-Carlo trajectory solver `mcsolve`.
 
 Everything below is produced by self-contained scripts in this folder:
 
+> **New here?** Start with [`README.md`](README.md) to replot a committed result
+> in seconds without launching the expensive numerical benchmarks.
+
 - `run_accuracy_vs_M.py` + `plot_accuracy_vs_M.py` — accuracy versus bundle size
   (Result 1). The run script saves the raw per-realization dynamics of both
-  observables for every `M` into `data/accuracy_vs_M_<system>.json`, timing the
-  Davies-operator construction separately from the propagation; the plot script
-  derives the mean curves, the bands, and the peak-error decomposition from it.
+  observables for every `M` into
+  `data/accuracy_vs_M_<system>_dim<D>.json`, timing the Davies-operator
+  construction separately from the propagation; the plot script derives the
+  mean curves, the bands, and the peak-error decomposition from it.
 - `run_cost_scaling.py` + `plot_cost_scaling.py` — cost scaling versus the exact
   solver (Result 2). The exact reference is QuTiP's `mesolve` up to the memory
   wall (~dim 32), and beyond it — where `mesolve` can no longer build its
@@ -22,11 +26,13 @@ Everything below is produced by self-contained scripts in this folder:
   derives the figure from that file in seconds.
 - `run_frontier.py` + `plot_frontier.py` — accuracy-versus-cost frontier against
   `mcsolve` (Result 3), same split: raw SLB run samples and per-`ntraj` stats go
-  into `data/frontier_<system>.json` (each run also records whether its
+  into `data/frontier_<system>_dim<D>.json` (each run also records whether its
   fixed-step integrator stayed stable at the chosen substep count, so an
   under-resolved reference is flagged rather than trusted), and the plot script
-  draws the frontier from it. `run_frontier.py --preset big` is the heavy
-  workstation variant (spin chain at dim 64, $N_L=869$).
+  draws the frontier from it. The valid command for the heavy spin-chain
+  dimension-64 run is
+  `python run_frontier.py --system spin_chain --dims 64 --overwrite`
+  ($N_L=869$); preview it first with `--dry-run`.
 - `run_isocost_vs_dim.py` + `plot_isocost_vs_dim.py` — iso-accuracy cost versus
   dimension (Result 4), split the same way: the run script writes
   `data/isocost_vs_dim_<system>.json` with the raw run samples and the mcsolve
@@ -35,8 +41,11 @@ Everything below is produced by self-contained scripts in this folder:
 
 To regenerate every figure, install the package (`pip install -e ".[examples,test]"`
 from a checkout, or `pip install qutip-bundling matplotlib`) and run each script
-from this folder. The `run_*.py` scripts do the compute; the `plot_*.py` scripts
-redraw from the saved `data/*.json` in seconds without recomputing. The supporting checks (`benchmark_convergence.py`,
+from this folder. Start with the `plot_*.py` scripts: they redraw from the saved
+`data/*.json` in seconds without recomputing. The `run_*.py` scripts do the
+expensive simulations: they require an explicit `--system` or `--all`, support
+`--dry-run`, and refuse to replace tracked JSON unless `--overwrite` is given.
+The supporting checks (`benchmark_convergence.py`,
 `benchmark_jackknife.py`, `benchmark_seed_robustness.py`,
 `benchmark_substep_convergence.py`) produce the validation figures (§6).
 
@@ -90,8 +99,9 @@ random pure-state trajectories. One trajectory is a wavefunction
 $|\psi(t)\rangle$ that drifts under the non-Hermitian effective Hamiltonian
 $H_{\rm eff} = H - \tfrac{i}{2}\sum_a L_a^\dagger L_a$, interrupted by random
 *quantum jumps*: at random times one of the original $N_L$ collapse operators
-$L_a$ fires (chosen with probability $\propto\langle\psi|L_a^\dagger
-L_a|\psi\rangle$) and the state resets to $L_a|\psi\rangle$. A single trajectory
+$L_a$ fires (chosen with probability
+$\propto\langle\psi|L_a^\dagger L_a|\psi\rangle$) and the state resets to
+$L_a|\psi\rangle$. A single trajectory
 looks nothing like the smooth answer; you recover the density matrix by
 averaging over `ntraj` trajectories. Both the jump times and which operator fires are random, so no two trajectories are alike — they differ even in how many jumps occur. Raising ntraj does not change any single trajectory; it only adds more independent samples to the average, shrinking the Monte-Carlo error as $N_{\rm traj}^{-1/2}$.  **The randomness is in the state path, and
 all $N_L$ operators are kept exact.**
@@ -134,7 +144,8 @@ The bath is specified entirely by one spectral function — the rate at which th
 bath exchanges energy quantum $\omega$ with the system:
 
 $$
-\gamma(\omega) = \alpha\\omega*e^{-|\omega|/\omega_c}\\big/\\big(1-e^{-\omega/k_BT}\big),
+\gamma(\omega) =
+\frac{\alpha\,\omega\,e^{-|\omega|/\omega_c}}{1-e^{-\omega/(k_BT)}},
 \qquad \alpha = 0.3,\; k_BT = 0.5,\; \omega_c = 8 .
 $$
 
@@ -214,7 +225,8 @@ c_ops = davies_operators(H, X, gamma)   # the {c_ab} above, length N_L
 The **system Hamiltonian** for $n$ spins is
 
 $$
-H_{\rm sys} = -J\sum_{i=1}^{n-1}\sigma^z_i\sigma^z_{i+1}\-h\sum_{i=1}^{n}\sigma^x_i,
+H_{\rm sys} = -J\sum_{i=1}^{n-1}\sigma^z_i\sigma^z_{i+1}
+              - h\sum_{i=1}^{n}\sigma^x_i,
 \qquad J = 1.0,\; h = 0.6 .
 $$
 
@@ -251,8 +263,8 @@ $\sim 2200$ at $n=7$ (dim 128). This rapid operator growth is SLB's natural home
 The **system Hamiltonian** is
 
 $$
-H_{\rm sys} = \omega_0\\left(n+\tfrac12\right) + \chi*n^2
-            + \tfrac{\Delta}{2}\\sigma_z + g\(x\otimes\sigma_x)
+H_{\rm sys} = \omega_0\left(n+\tfrac12\right) + \chi n^2
+              + \tfrac{\Delta}{2}\sigma_z + g(x\otimes\sigma_x)
 $$
 
 with $\omega_0=1.0$, anharmonicity $\chi=0.1$, spin gap $\Delta=1.0$, and an
@@ -276,7 +288,7 @@ It is a single shared bath — $X = x\otimes I$ acts only on the oscillator, so 
 oscillator and spin couple to **one** common reservoir (the spin has no separate
 bath of its own). Because $X$ touches only the oscillator, the bath never damps the
 spin directly; dissipation reaches the spin only indirectly, through the internal
-coherent coupling $g\(x\otimes\sigma_x)$. The system starts in the oscillator's
+coherent coupling $g(x\otimes\sigma_x)$. The system starts in the oscillator's
 top Fock state with the spin down. As above, the total evolved object is the Lindblad master
 equation with dissipators built from $(H_{\rm sys}, X, \gamma)$ as in §2.1 ($N_L = 128$ at dim 16). Note the two
 distinct "couplings": $g=0.3$ is an **internal coherent** coupling inside
@@ -294,15 +306,14 @@ molecular/vibronic problems the method was developed for.
 The quantity of interest is how well the bundled $\langle H(t)\rangle$ (and, in
 Result 1, a coherence) tracks the exact reference. The accuracy and coherence
 figures show this **resolved over the whole trajectory**: for each $M$, the SLB
-mean curve is drawn with a shaded **$\pm1$ standard-deviation band** (the spread
-over the stochastic realizations) and, beneath it, a **residual panel**
-$\langle H\rangle_{\rm SLB}-\langle H\rangle_{\rm ref}$. Nothing is collapsed to a
-single instant — the error is visible at every time.
+mean curve is drawn against the reference with a shaded **$\pm1$
+standard-deviation band** (the spread over stochastic realizations). The
+separate error-decomposition figure in Result 1 then resolves the bias and
+fluctuation at the hardest instant.
 
 This keeps the **two error components** separate:
 
-- the **bias** is how far the residual curve sits from zero — the systematic
-  offset of the bundled mean from the exact answer;
+- the **bias** is the offset of the bundled mean from the exact answer;
 - the **statistical fluctuation** is the width of the shaded band — how much a
   single bundled run scatters around that mean.
 
@@ -330,9 +341,11 @@ job:
   integrator check (§6) still reports a single **mid-relaxation time
   $t=2.5$**, where one representative instant suffices.
 
-(The dynamics run to $t=5$ in natural units — $J=1$ for the chain, $\omega_0=1$
-for the oscillator — over 40 output points; $t=2.5$ is the mid-relaxation
-sample, where the energy has substantially decayed but not yet saturated.)
+(The dynamics run to $t=5$ in natural units — $J=1$ for the chain,
+$\omega_0=1$ for the oscillator. Result 2 and the validation checks use 40
+output points; the accuracy-style Results 1, 3, and 4 use 80. In either grid,
+$t=2.5$ is the mid-relaxation sample, where the energy has substantially
+decayed but not yet saturated.)
 
 ### 3.2 How much sampling each method does
 
@@ -354,10 +367,10 @@ density-matrix solves of $M$ operators each — a total of $M\times$
 
 | figure | `M` | `n_realizations` | error bars |
 |---|---|---|---|
-| accuracy (Result 1) | system-dependent | 32 | $\pm1$ std band |
+| accuracy (Result 1) | system-dependent | 200 | $\pm1$ std band |
 | cost scaling (Result 2) | 8 (iso-accuracy sweeps `M`) | 1 (cost) / 16 (RMSE) | — |
-| frontier (Result 3) | 1, 2, 4, 8, 16, 32 | 8 / 16 / 32 | $S/\sqrt{N_r}$ |
-| iso-cost vs dim (Result 4) | swept to target ($\le 128$) | 4 / 8 / 16 | mcsolve via $S/\sqrt{\texttt{ntraj}}$ fit |
+| frontier (Result 3) | 1–64, system/size-dependent | spin: 2 / 4 / 8; oscillator: 8 / 16 | $S/\sqrt{N_r}$ |
+| iso-cost vs dim (Result 4) | swept to target ($\le 128$) | spin: 4 / 8 / 16; oscillator: 16 | mcsolve via $S/\sqrt{\texttt{ntraj}}$ fit |
 
 **`mcsolve` has one level of sampling:** a single reported point is `ntraj`
 independent trajectories (swept over `[10, 50, 200, 1000]` in the frontier
@@ -518,7 +531,7 @@ the sampling is tuned — so the trends are purely the effect of $M$: the bias
 should fall like $1/M$ (the bundling systematic) and the fluctuation like
 $1/\sqrt{M}$ (the bundling noise). On the chain the energy shows exactly this
 ($M^{-1.2}$ and $M^{-0.5}$ fitted). One honest caveat: once the true bias drops
-below the statistical floor of the run-mean (SEM $=$ fluctuation$/\sqrt{32}$),
+below the statistical floor of the run-mean (SEM $=$ fluctuation$/\sqrt{200}$),
 the *measured* bias flattens into that noise — visible for the coherence at
 large $M$, where the fitted bias slope is shallower for exactly this reason.
 
@@ -646,8 +659,8 @@ blows up with $N$.
 
 **Iso-accuracy — the cost to hold a *fixed* accuracy (third curve).** To answer
 "fast *at what accuracy*", the iso-accuracy curve chooses, at each $N$, the
-smallest bundle size $M^\ast$ — the first on a geometric grid $M = 1, 2, 4,
-\ldots$ whose 16-run time-averaged RMSE reaches a fixed target (here
+smallest bundle size $M^\ast$ — the first on the geometric grid
+$M = 1, 2, 4, \ldots$ whose 16-run time-averaged RMSE reaches a fixed target (here
 $\text{RMSE}=0.02$, measured against the exact solve) — and plots the cost of *that*
 solve; each $M^\ast$ label on the iso-accuracy curve names the bundle size
 paying that point's cost, and its achieved RMSE hugs the target from below in
@@ -716,13 +729,14 @@ Each curve sweeps its own knob (`M` for SLB, `ntraj` for `mcsolve`); the axes
 are wall-clock time and the **time-averaged RMSE** in $\langle H(t)\rangle$
 (§3.1, both lower-is-better), so the method toward the **lower-left wins at
 matched accuracy**. Error bars are each method's own sample spread $S/\sqrt{N_r}$ —
-SLB over its independent runs, `mcsolve` over its trajectories. The three SLB
-curves are increasing run counts ($N_r=8, 16, 32$; $N_r$ is reserved for the
-number of runs throughout, since $N$ denotes the Hilbert-space dimension);
-more runs lower the
-statistical floor, but SLB is **bias-limited** here, so $N_r=16$ already sits
-essentially on the frontier. Both methods run at disclosed integration
-resolution (§3.3) and share the same grid and reference.
+SLB over its independent runs, `mcsolve` over its trajectories. The configured
+SLB averaging levels are $N_r=2, 4, 8$ for the spin chain and $N_r=8, 16$ for
+the oscillator ($N_r$ is reserved for the number of runs throughout, since $N$
+denotes the Hilbert-space dimension). More runs lower the statistical floor,
+but SLB is **bias-limited** here, so the upper curves are already essentially
+on the frontier. The plotter refuses to label a curve whose requested $N_r$
+exceeds the samples saved in that dimension's JSON. Both methods run at
+disclosed integration resolution (§3.3) and share the same grid and reference.
 
 **The frontier at dim 64.** Run at the largest size the reference can certify
 ($N_L=869$ on the chain, $1{,}172$ on the oscillator, the reference supplied by
@@ -816,13 +830,15 @@ so $S^2$ there rests on one measurement rather than a three-point fit —
 valid, since $S^2$ is a property of the system, but noisier. Capped points are
 lower bounds and therefore conservative.)*
 
-**SLB is shown at three averaging levels** ($N_r=4, 8, 16$ runs), each re-optimizing
-`M` for the target: for each level, $M^\ast$ is the smallest bundle size on the
-grid $1, 2, 4, \ldots, 128$ whose $N$-run time-averaged RMSE first reaches $0.02$. A less obvious point falls out: *fewer* runs are often
-*cheaper*, because with fewer runs you compensate with a larger `M`, and a few
-well-converged high-`M` runs beat many low-`M` ones for a fixed target. The
-speedup panel plots one line per level so nothing is hidden; the cheapest level
-sets the strongest (topmost) speedup.
+**SLB averaging levels are configured per system:** $N_r=4, 8, 16$ for the spin
+chain and $N_r=16$ for the oscillator in the committed figures. Each level
+re-optimizes `M` for the target: $M^\ast$ is the smallest bundle size on the
+grid $1, 2, 4, \ldots, 128$ whose $N_r$-run time-averaged RMSE first reaches
+$0.02$. On the spin chain, fewer runs are often *cheaper*, because they can be
+offset by a larger `M`: a few well-converged high-`M` runs can beat many low-`M`
+ones for a fixed target. Run-count levels are controlled in one place,
+`isocost_config.py`; the runner generates the largest configured count and the
+plotter refuses to label a level that the saved data cannot support.
 
 **Two modelling choices, stated plainly.** (1) The `mcsolve` cost is a
 *projection*, not a brute-force run to the threshold: because its trajectory
@@ -941,6 +957,8 @@ relative comparisons. A few notes:
   `run_*.py` script (metadata inside: package versions, seeds, parameter
   grids, timestamps), so any figure is traceable to the exact run that
   produced it — and re-styling or re-targeting a figure never requires
-  re-running the benchmark. `python export_csv.py` flattens every data file
-  into Excel-friendly CSVs under `data/csv/`: the observable dynamics over
-  time with their std in tidy long format, plus the scalar summaries.
+  re-running the benchmark. [`data/README.md`](data/README.md) lists the
+  canonical filenames and separates them from superseded data.
+  `python export_csv.py` flattens every canonical data file into
+  Excel-friendly CSVs under `data/csv/`: the observable dynamics over time
+  with their std in tidy long format, plus the scalar summaries.

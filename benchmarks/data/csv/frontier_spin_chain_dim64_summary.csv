@@ -1,0 +1,10 @@
+system,dim,method,knob,value,cost_s,bias,sem,rmse
+spin_chain,64,SLB,M,2,1.19269,,,
+spin_chain,64,SLB,M,4,1.74672,,,
+spin_chain,64,SLB,M,8,2.98289,,,
+spin_chain,64,SLB,M,16,5.37513,,,
+spin_chain,64,SLB,M,32,10.2486,,,
+spin_chain,64,SLB,M,64,20.8267,,,
+spin_chain,64,mcsolve,ntraj,10,51.2986,0.133794,0.220067,0.26454
+spin_chain,64,mcsolve,ntraj,50,244.756,0.0767646,0.0687786,0.110996
+spin_chain,64,mcsolve,ntraj,200,979.251,0.0545369,0.0386827,0.0697474

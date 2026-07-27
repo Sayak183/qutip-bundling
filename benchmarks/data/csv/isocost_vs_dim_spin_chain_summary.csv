@@ -1,36 +1,44 @@
 system,dim,n_l,method,knob,value,per_run_or_per_traj_s,rmse_repeats
-spin_chain,4,4,SLB,M,1,0.0197268,
-spin_chain,4,4,SLB,M,2,0.0269936,
-spin_chain,4,4,SLB,M,4,0.0316702,
-spin_chain,4,4,mcsolve,ntraj,100,0.00135173,0.0488922 0.0423709 0.0365658 0.0366285
-spin_chain,4,4,mcsolve,ntraj,200,0.00158147,0.0319249 0.0232572 0.0271987 0.0305185
-spin_chain,4,4,mcsolve,ntraj,400,0.00236591,0.0188963 0.0331931 0.0164834 0.0334545
-spin_chain,8,20,SLB,M,1,0.060252,
-spin_chain,8,20,SLB,M,2,0.0756633,
-spin_chain,8,20,SLB,M,4,0.0959454,
-spin_chain,8,20,SLB,M,8,0.166297,
-spin_chain,8,20,SLB,M,16,0.247459,
-spin_chain,8,20,SLB,M,20,0.251122,
-spin_chain,8,20,mcsolve,ntraj,100,0.00491995,0.0323077 0.0508385 0.0534802 0.0354274
-spin_chain,8,20,mcsolve,ntraj,200,0.00509897,0.0355546 0.0350908 0.0289284 0.0264305
-spin_chain,8,20,mcsolve,ntraj,400,0.00614666,0.0342312 0.0176976 0.0220212 0.0272108
-spin_chain,16,64,SLB,M,1,0.0559253,
-spin_chain,16,64,SLB,M,2,0.0843404,
-spin_chain,16,64,SLB,M,4,0.0959228,
-spin_chain,16,64,SLB,M,8,0.178467,
-spin_chain,16,64,SLB,M,16,0.282965,
-spin_chain,16,64,SLB,M,32,0.556619,
-spin_chain,16,64,SLB,M,64,1.01326,
-spin_chain,16,64,mcsolve,ntraj,100,0.0136989,0.0847478 0.0564973 0.0523234 0.063569
-spin_chain,16,64,mcsolve,ntraj,200,0.0145944,0.0409927 0.0636354 0.0505776 0.0926024
-spin_chain,16,64,mcsolve,ntraj,400,0.0163763,0.026071 0.0267512 0.0338267 0.0254576
-spin_chain,32,218,SLB,M,1,0.659669,
-spin_chain,32,218,SLB,M,2,0.805232,
-spin_chain,32,218,SLB,M,4,1.38726,
-spin_chain,32,218,SLB,M,8,1.84002,
-spin_chain,32,218,SLB,M,16,3.43912,
-spin_chain,32,218,SLB,M,32,7.24576,
-spin_chain,32,218,SLB,M,64,12.5484,
-spin_chain,32,218,mcsolve,ntraj,100,0.152696,0.0612736 0.0942619 0.0563452 0.0772482
-spin_chain,32,218,mcsolve,ntraj,200,0.168293,0.0504861 0.0504647 0.0522042 0.0478067
-spin_chain,32,218,mcsolve,ntraj,400,0.171353,0.0444392 0.0409448 0.0310745 0.0317573
+spin_chain,4,4,SLB,M,1,0.0193136,
+spin_chain,4,4,SLB,M,2,0.023357,
+spin_chain,4,4,SLB,M,4,0.0338743,
+spin_chain,4,4,mcsolve,ntraj,100,0.00120923,0.0300021 0.0513865 0.0273714 0.0392726
+spin_chain,4,4,mcsolve,ntraj,200,0.00153172,0.0231852 0.0176922 0.0244843 0.0232983
+spin_chain,4,4,mcsolve,ntraj,400,0.00196943,0.013912 0.0171395 0.0195705 0.0129747
+spin_chain,8,20,SLB,M,1,0.023364,
+spin_chain,8,20,SLB,M,2,0.0268524,
+spin_chain,8,20,SLB,M,4,0.0360797,
+spin_chain,8,20,SLB,M,8,0.0544326,
+spin_chain,8,20,SLB,M,16,0.0915618,
+spin_chain,8,20,SLB,M,20,0.109233,
+spin_chain,8,20,mcsolve,ntraj,100,0.00223214,0.0505013 0.0243489 0.0478308 0.042157
+spin_chain,8,20,mcsolve,ntraj,200,0.00242807,0.0281666 0.0313706 0.0282474 0.0375498
+spin_chain,8,20,mcsolve,ntraj,400,0.00287265,0.0191172 0.0384731 0.0195602 0.020447
+spin_chain,16,64,SLB,M,1,0.0289667,
+spin_chain,16,64,SLB,M,2,0.033933,
+spin_chain,16,64,SLB,M,4,0.0488508,
+spin_chain,16,64,SLB,M,8,0.0729336,
+spin_chain,16,64,SLB,M,16,0.124425,
+spin_chain,16,64,SLB,M,32,0.228331,
+spin_chain,16,64,SLB,M,64,0.433536,
+spin_chain,16,64,mcsolve,ntraj,100,0.00719768,0.0504654 0.0460194 0.0720946 0.0466852
+spin_chain,16,64,mcsolve,ntraj,200,0.00746346,0.0400471 0.0348903 0.0414639 0.0584343
+spin_chain,16,64,mcsolve,ntraj,400,0.00788687,0.0293941 0.0320301 0.0237925 0.031635
+spin_chain,32,218,SLB,M,1,0.444829,
+spin_chain,32,218,SLB,M,2,0.588917,
+spin_chain,32,218,SLB,M,4,0.884501,
+spin_chain,32,218,SLB,M,8,1.44916,
+spin_chain,32,218,SLB,M,16,2.60659,
+spin_chain,32,218,SLB,M,32,4.89424,
+spin_chain,32,218,SLB,M,64,9.37321,
+spin_chain,32,218,mcsolve,ntraj,100,0.0725903,0.0787565 0.0812244 0.0804439 0.0730721
+spin_chain,32,218,mcsolve,ntraj,200,0.075043,0.05934 0.0424891 0.0528482 0.0404249
+spin_chain,32,218,mcsolve,ntraj,400,0.0757892,0.0290731 0.0330726 0.0351317 0.0388364
+spin_chain,64,869,SLB,M,1,0.881672,
+spin_chain,64,869,SLB,M,2,1.20691,
+spin_chain,64,869,SLB,M,4,1.91156,
+spin_chain,64,869,SLB,M,8,3.38938,
+spin_chain,64,869,SLB,M,16,5.56809,
+spin_chain,64,869,SLB,M,32,10.4372,
+spin_chain,64,869,SLB,M,64,19.7695,
+spin_chain,64,869,mcsolve,ntraj,100,3.48726,0.112145 0.0793213 0.0722 0.109395

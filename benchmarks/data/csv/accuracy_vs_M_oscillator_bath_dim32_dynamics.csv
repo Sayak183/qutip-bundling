@@ -1,0 +1,1121 @@
+system,dim,observable,series,time,mean,std
+oscillator_bath,32,energy,reference,0,38.5,
+oscillator_bath,32,energy,reference,0.0632911,37.23323801,
+oscillator_bath,32,energy,reference,0.126582,36.01187223,
+oscillator_bath,32,energy,reference,0.189873,34.83676982,
+oscillator_bath,32,energy,reference,0.253165,33.70786015,
+oscillator_bath,32,energy,reference,0.316456,32.62443216,
+oscillator_bath,32,energy,reference,0.379747,31.585348,
+oscillator_bath,32,energy,reference,0.443038,30.58919591,
+oscillator_bath,32,energy,reference,0.506329,29.63439909,
+oscillator_bath,32,energy,reference,0.56962,28.71929272,
+oscillator_bath,32,energy,reference,0.632911,27.84217798,
+oscillator_bath,32,energy,reference,0.696203,27.00135948,
+oscillator_bath,32,energy,reference,0.759494,26.19517063,
+oscillator_bath,32,energy,reference,0.822785,25.4219906,
+oscillator_bath,32,energy,reference,0.886076,24.68025495,
+oscillator_bath,32,energy,reference,0.949367,23.96846207,
+oscillator_bath,32,energy,reference,1.01266,23.28517644,
+oscillator_bath,32,energy,reference,1.07595,22.62902975,
+oscillator_bath,32,energy,reference,1.13924,21.99872057,
+oscillator_bath,32,energy,reference,1.20253,21.39301304,
+oscillator_bath,32,energy,reference,1.26582,20.81073476,
+oscillator_bath,32,energy,reference,1.32911,20.25077447,
+oscillator_bath,32,energy,reference,1.39241,19.71207934,
+oscillator_bath,32,energy,reference,1.4557,19.1936522,
+oscillator_bath,32,energy,reference,1.51899,18.69454874,
+oscillator_bath,32,energy,reference,1.58228,18.21387474,
+oscillator_bath,32,energy,reference,1.64557,17.75078336,
+oscillator_bath,32,energy,reference,1.70886,17.3044725,
+oscillator_bath,32,energy,reference,1.77215,16.87418235,
+oscillator_bath,32,energy,reference,1.83544,16.45919295,
+oscillator_bath,32,energy,reference,1.89873,16.05882193,
+oscillator_bath,32,energy,reference,1.96203,15.67242241,
+oscillator_bath,32,energy,reference,2.02532,15.29938092,
+oscillator_bath,32,energy,reference,2.08861,14.93911552,
+oscillator_bath,32,energy,reference,2.1519,14.59107397,
+oscillator_bath,32,energy,reference,2.21519,14.25473211,
+oscillator_bath,32,energy,reference,2.27848,13.92959218,
+oscillator_bath,32,energy,reference,2.34177,13.61518138,
+oscillator_bath,32,energy,reference,2.40506,13.31105046,
+oscillator_bath,32,energy,reference,2.46835,13.01677238,
+oscillator_bath,32,energy,reference,2.53165,12.7319411,
+oscillator_bath,32,energy,reference,2.59494,12.45617038,
+oscillator_bath,32,energy,reference,2.65823,12.18909273,
+oscillator_bath,32,energy,reference,2.72152,11.93035832,
+oscillator_bath,32,energy,reference,2.78481,11.67963409,
+oscillator_bath,32,energy,reference,2.8481,11.43660277,
+oscillator_bath,32,energy,reference,2.91139,11.20096206,
+oscillator_bath,32,energy,reference,2.97468,10.97242385,
+oscillator_bath,32,energy,reference,3.03797,10.7507134,
+oscillator_bath,32,energy,reference,3.10127,10.53556869,
+oscillator_bath,32,energy,reference,3.16456,10.32673972,
+oscillator_bath,32,energy,reference,3.22785,10.12398788,
+oscillator_bath,32,energy,reference,3.29114,9.92708536,
+oscillator_bath,32,energy,reference,3.35443,9.73581461,
+oscillator_bath,32,energy,reference,3.41772,9.54996776,
+oscillator_bath,32,energy,reference,3.48101,9.36934618,
+oscillator_bath,32,energy,reference,3.5443,9.19375999,
+oscillator_bath,32,energy,reference,3.60759,9.0230276,
+oscillator_bath,32,energy,reference,3.67089,8.85697531,
+oscillator_bath,32,energy,reference,3.73418,8.69543691,
+oscillator_bath,32,energy,reference,3.79747,8.53825334,
+oscillator_bath,32,energy,reference,3.86076,8.38527226,
+oscillator_bath,32,energy,reference,3.92405,8.23634781,
+oscillator_bath,32,energy,reference,3.98734,8.09134023,
+oscillator_bath,32,energy,reference,4.05063,7.9501156,
+oscillator_bath,32,energy,reference,4.11392,7.81254552,
+oscillator_bath,32,energy,reference,4.17722,7.67850691,
+oscillator_bath,32,energy,reference,4.24051,7.54788168,
+oscillator_bath,32,energy,reference,4.3038,7.42055657,
+oscillator_bath,32,energy,reference,4.36709,7.29642284,
+oscillator_bath,32,energy,reference,4.43038,7.17537614,
+oscillator_bath,32,energy,reference,4.49367,7.05731626,
+oscillator_bath,32,energy,reference,4.55696,6.94214693,
+oscillator_bath,32,energy,reference,4.62025,6.82977569,
+oscillator_bath,32,energy,reference,4.68354,6.72011366,
+oscillator_bath,32,energy,reference,4.74684,6.61307541,
+oscillator_bath,32,energy,reference,4.81013,6.5085788,
+oscillator_bath,32,energy,reference,4.87342,6.40654482,
+oscillator_bath,32,energy,reference,4.93671,6.30689745,
+oscillator_bath,32,energy,reference,5,6.20956358,
+oscillator_bath,32,energy,SLB M=2,0,38.5,0
+oscillator_bath,32,energy,SLB M=2,0.0632911,37.2333372,0.002715428096
+oscillator_bath,32,energy,SLB M=2,0.126582,36.01215753,0.005324589431
+oscillator_bath,32,energy,SLB M=2,0.189873,34.83728227,0.007977421491
+oscillator_bath,32,energy,SLB M=2,0.253165,33.70861363,0.01045555385
+oscillator_bath,32,energy,SLB M=2,0.316456,32.62542641,0.01257498888
+oscillator_bath,32,energy,SLB M=2,0.379747,31.58657684,0.01425410305
+oscillator_bath,32,energy,SLB M=2,0.443038,30.59065175,0.01549217025
+oscillator_bath,32,energy,SLB M=2,0.506329,29.63607484,0.01633676766
+oscillator_bath,32,energy,SLB M=2,0.56962,28.72118211,0.01685701958
+oscillator_bath,32,energy,SLB M=2,0.632911,27.84427508,0.01712504542
+oscillator_bath,32,energy,SLB M=2,0.696203,27.00365792,0.01720484139
+oscillator_bath,32,energy,SLB M=2,0.759494,26.19766314,0.01714715162
+oscillator_bath,32,energy,SLB M=2,0.822785,25.4246687,0.01698873102
+oscillator_bath,32,energy,SLB M=2,0.886076,24.68310919,0.01675434792
+oscillator_bath,32,energy,SLB M=2,0.949367,23.97148245,0.01646003041
+oscillator_bath,32,energy,SLB M=2,1.01266,23.28835307,0.01611637352
+oscillator_bath,32,energy,SLB M=2,1.07595,22.63235348,0.01573118648
+oscillator_bath,32,energy,SLB M=2,1.13924,22.00218358,0.01531122594
+oscillator_bath,32,energy,SLB M=2,1.20253,21.39660916,0.01486306123
+oscillator_bath,32,energy,SLB M=2,1.26582,20.81445969,0.01439332349
+oscillator_bath,32,energy,SLB M=2,1.32911,20.25462571,0.01390859985
+oscillator_bath,32,energy,SLB M=2,1.39241,19.71605598,0.01341519874
+oscillator_bath,32,energy,SLB M=2,1.4557,19.19775464,0.01291892828
+oscillator_bath,32,energy,SLB M=2,1.51899,18.69877835,0.01242494723
+oscillator_bath,32,energy,SLB M=2,1.58228,18.21823347,0.01193770798
+oscillator_bath,32,energy,SLB M=2,1.64557,17.75527345,0.01146095812
+oscillator_bath,32,energy,SLB M=2,1.70886,17.3090962,0.01099778226
+oscillator_bath,32,energy,SLB M=2,1.77215,16.87894168,0.01055066062
+oscillator_bath,32,energy,SLB M=2,1.83544,16.46408951,0.01012152323
+oscillator_bath,32,energy,SLB M=2,1.89873,16.0638568,0.009711798865
+oscillator_bath,32,energy,SLB M=2,1.96203,15.67759601,0.009322452793
+oscillator_bath,32,energy,SLB M=2,2.02532,15.30469294,0.008954018628
+oscillator_bath,32,energy,SLB M=2,2.08861,14.9445649,0.008606621281
+oscillator_bath,32,energy,SLB M=2,2.1519,14.59665891,0.008280007255
+oscillator_bath,32,energy,SLB M=2,2.21519,14.26045006,0.007973576517
+oscillator_bath,32,energy,SLB M=2,2.27848,13.93543993,0.007686428941
+oscillator_bath,32,energy,SLB M=2,2.34177,13.62115518,0.007417426077
+oscillator_bath,32,energy,SLB M=2,2.40506,13.31714611,0.007165267963
+oscillator_bath,32,energy,SLB M=2,2.46835,13.02298541,0.006928577926
+oscillator_bath,32,energy,SLB M=2,2.53165,12.7382669,0.006705989558
+oscillator_bath,32,energy,SLB M=2,2.59494,12.46260437,0.006496226478
+oscillator_bath,32,energy,SLB M=2,2.65823,12.19563047,0.006298159859
+oscillator_bath,32,energy,SLB M=2,2.72152,11.93699568,0.006110843036
+oscillator_bath,32,energy,SLB M=2,2.78481,11.68636728,0.005933522172
+oscillator_bath,32,energy,SLB M=2,2.8481,11.44342843,0.005765618753
+oscillator_bath,32,energy,SLB M=2,2.91139,11.2078773,0.005606699037
+oscillator_bath,32,energy,SLB M=2,2.97468,10.97942619,0.00545643298
+oscillator_bath,32,energy,SLB M=2,3.03797,10.7578008,0.005314550761
+oscillator_bath,32,energy,SLB M=2,3.10127,10.54273947,0.005180807556
+oscillator_bath,32,energy,SLB M=2,3.16456,10.3339925,0.005054954184
+oscillator_bath,32,energy,SLB M=2,3.22785,10.13132151,0.004936719871
+oscillator_bath,32,energy,SLB M=2,3.29114,9.934498892,0.004825803692
+oscillator_bath,32,energy,SLB M=2,3.35443,9.743307179,0.004721874589
+oscillator_bath,32,energy,SLB M=2,3.41772,9.557538583,0.00462457808
+oscillator_bath,32,energy,SLB M=2,3.48101,9.376994487,0.004533544386
+oscillator_bath,32,energy,SLB M=2,3.5443,9.201484988,0.00444839847
+oscillator_bath,32,energy,SLB M=2,3.60759,9.030828468,0.004368770753
+oscillator_bath,32,energy,SLB M=2,3.67089,8.864851181,0.004294308609
+oscillator_bath,32,energy,SLB M=2,3.73418,8.70338687,0.004224680084
+oscillator_bath,32,energy,SLB M=2,3.79747,8.546276401,0.004159583678
+oscillator_bath,32,energy,SLB M=2,3.86076,8.393367412,0.00409874969
+oscillator_bath,32,energy,SLB M=2,3.92405,8.244513988,0.004041941984
+oscillator_bath,32,energy,SLB M=2,3.98734,8.099576349,0.003988956225
+oscillator_bath,32,energy,SLB M=2,4.05063,7.958420549,0.003939616443
+oscillator_bath,32,energy,SLB M=2,4.11392,7.8209182,0.003893772987
+oscillator_bath,32,energy,SLB M=2,4.17722,7.686946205,0.003851295617
+oscillator_bath,32,energy,SLB M=2,4.24051,7.556386504,0.003812070321
+oscillator_bath,32,energy,SLB M=2,4.3038,7.429125836,0.003775992084
+oscillator_bath,32,energy,SLB M=2,4.36709,7.305055516,0.003742962868
+oscillator_bath,32,energy,SLB M=2,4.43038,7.184071215,0.00371288825
+oscillator_bath,32,energy,SLB M=2,4.49367,7.066072758,0.003685674188
+oscillator_bath,32,energy,SLB M=2,4.55696,6.950963936,0.003661224386
+oscillator_bath,32,energy,SLB M=2,4.62025,6.838652315,0.003639445096
+oscillator_bath,32,energy,SLB M=2,4.68354,6.72904907,0.003620237731
+oscillator_bath,32,energy,SLB M=2,4.74684,6.622068815,0.003603505789
+oscillator_bath,32,energy,SLB M=2,4.81013,6.517629449,0.003589154004
+oscillator_bath,32,energy,SLB M=2,4.87342,6.415652008,0.003577085352
+oscillator_bath,32,energy,SLB M=2,4.93671,6.316060525,0.003567209588
+oscillator_bath,32,energy,SLB M=2,5,6.218781893,0.003559436895
+oscillator_bath,32,energy,SLB M=4,0,38.5,0
+oscillator_bath,32,energy,SLB M=4,0.0632911,37.23342678,0.001881246692
+oscillator_bath,32,energy,SLB M=4,0.126582,36.01221813,0.003437188591
+oscillator_bath,32,energy,SLB M=4,0.189873,34.83723196,0.004841562928
+oscillator_bath,32,energy,SLB M=4,0.253165,33.70840363,0.006076145344
+oscillator_bath,32,energy,SLB M=4,0.316456,32.6250338,0.007095654136
+oscillator_bath,32,energy,SLB M=4,0.379747,31.58599677,0.007879243538
+oscillator_bath,32,energy,SLB M=4,0.443038,30.58989076,0.008433479207
+oscillator_bath,32,energy,SLB M=4,0.506329,29.63514586,0.008782719916
+oscillator_bath,32,energy,SLB M=4,0.56962,28.72010106,0.008959430655
+oscillator_bath,32,energy,SLB M=4,0.632911,27.84305874,0.008997500765
+oscillator_bath,32,energy,SLB M=4,0.696203,27.0023228,0.008928483037
+oscillator_bath,32,energy,SLB M=4,0.759494,26.19622481,0.008779880704
+oscillator_bath,32,energy,SLB M=4,0.822785,25.42314148,0.008574637683
+oscillator_bath,32,energy,SLB M=4,0.886076,24.68150595,0.008331232665
+oscillator_bath,32,energy,SLB M=4,0.949367,23.96981441,0.008064068658
+oscillator_bath,32,energy,SLB M=4,1.01266,23.2866296,0.007783999895
+oscillator_bath,32,energy,SLB M=4,1.07595,22.63058203,0.00749892832
+oscillator_bath,32,energy,SLB M=4,1.13924,22.00036958,0.00721441029
+oscillator_bath,32,energy,SLB M=4,1.20253,21.39475607,0.006934234339
+oscillator_bath,32,energy,SLB M=4,1.26582,20.8125691,0.006660917114
+oscillator_bath,32,energy,SLB M=4,1.32911,20.2526976,0.006396093334
+oscillator_bath,32,energy,SLB M=4,1.39241,19.71408896,0.0061407947
+oscillator_bath,32,energy,SLB M=4,1.4557,19.19574628,0.005895634269
+oscillator_bath,32,energy,SLB M=4,1.51899,18.69672545,0.00566092174
+oscillator_bath,32,energy,SLB M=4,1.58228,18.21613239,0.00543673862
+oscillator_bath,32,energy,SLB M=4,1.64557,17.7531203,0.005222987607
+oscillator_bath,32,energy,SLB M=4,1.70886,17.30688709,0.005019438917
+oscillator_bath,32,energy,SLB M=4,1.77215,16.87667288,0.004825770689
+oscillator_bath,32,energy,SLB M=4,1.83544,16.46175761,0.004641607021
+oscillator_bath,32,energy,SLB M=4,1.89873,16.06145883,0.004466549123
+oscillator_bath,32,energy,SLB M=4,1.96203,15.67512954,0.00430019899
+oscillator_bath,32,energy,SLB M=4,2.02532,15.30215621,0.004142172126
+oscillator_bath,32,energy,SLB M=4,2.08861,14.94195683,0.003992105617
+oscillator_bath,32,energy,SLB M=4,2.1519,14.59397917,0.003849662076
+oscillator_bath,32,energy,SLB M=4,2.21519,14.25769903,0.003714522923
+oscillator_bath,32,energy,SLB M=4,2.27848,13.93261871,0.003586390152
+oscillator_bath,32,energy,SLB M=4,2.34177,13.61826547,0.003464982761
+oscillator_bath,32,energy,SLB M=4,2.40506,13.31419014,0.00335003535
+oscillator_bath,32,energy,SLB M=4,2.46835,13.01996576,0.003241297085
+oscillator_bath,32,energy,SLB M=4,2.53165,12.73518641,0.003138531525
+oscillator_bath,32,energy,SLB M=4,2.59494,12.45946597,0.003041516807
+oscillator_bath,32,energy,SLB M=4,2.65823,12.19243704,0.002950043739
+oscillator_bath,32,energy,SLB M=4,2.72152,11.93374992,0.002863914639
+oscillator_bath,32,energy,SLB M=4,2.78481,11.68307163,0.002782942944
+oscillator_bath,32,energy,SLB M=4,2.8481,11.44008503,0.002706949697
+oscillator_bath,32,energy,SLB M=4,2.91139,11.20448789,0.002635761119
+oscillator_bath,32,energy,SLB M=4,2.97468,10.97599217,0.002569208129
+oscillator_bath,32,energy,SLB M=4,3.03797,10.75432322,0.002507123922
+oscillator_bath,32,energy,SLB M=4,3.10127,10.53921905,0.0024493422
+oscillator_bath,32,energy,SLB M=4,3.16456,10.33042973,0.002395695752
+oscillator_bath,32,energy,SLB M=4,3.22785,10.12771668,0.002346017699
+oscillator_bath,32,energy,SLB M=4,3.29114,9.930852122,0.002300140343
+oscillator_bath,32,energy,SLB M=4,3.35443,9.739618535,0.002257894258
+oscillator_bath,32,energy,SLB M=4,3.41772,9.553808087,0.002219110562
+oscillator_bath,32,energy,SLB M=4,3.48101,9.373222169,0.002183620057
+oscillator_bath,32,energy,SLB M=4,3.5443,9.197670914,0.002151253736
+oscillator_bath,32,energy,SLB M=4,3.60759,9.026972761,0.002121844327
+oscillator_bath,32,energy,SLB M=4,3.67089,8.860954037,0.002095227012
+oscillator_bath,32,energy,SLB M=4,3.73418,8.699448558,0.002071238887
+oscillator_bath,32,energy,SLB M=4,3.79747,8.542297266,0.002049721783
+oscillator_bath,32,energy,SLB M=4,3.86076,8.389347869,0.00203051998
+oscillator_bath,32,energy,SLB M=4,3.92405,8.240454516,0.002013484715
+oscillator_bath,32,energy,SLB M=4,3.98734,8.095477475,0.001998471355
+oscillator_bath,32,energy,SLB M=4,4.05063,7.954282844,0.001985342935
+oscillator_bath,32,energy,SLB M=4,4.11392,7.816742266,0.001973967537
+oscillator_bath,32,energy,SLB M=4,4.17722,7.682732662,0.001964223005
+oscillator_bath,32,energy,SLB M=4,4.24051,7.552135984,0.00195599307
+oscillator_bath,32,energy,SLB M=4,4.3038,7.424838976,0.001949168927
+oscillator_bath,32,energy,SLB M=4,4.36709,7.300732943,0.001943651423
+oscillator_bath,32,energy,SLB M=4,4.43038,7.179713548,0.001939347592
+oscillator_bath,32,energy,SLB M=4,4.49367,7.061680598,0.001936173096
+oscillator_bath,32,energy,SLB M=4,4.55696,6.946537866,0.00193405111
+oscillator_bath,32,energy,SLB M=4,4.62025,6.834192893,0.001932911457
+oscillator_bath,32,energy,SLB M=4,4.68354,6.724556834,0.001932691245
+oscillator_bath,32,energy,SLB M=4,4.74684,6.617544277,0.0019333327
+oscillator_bath,32,energy,SLB M=4,4.81013,6.513073103,0.001934786272
+oscillator_bath,32,energy,SLB M=4,4.87342,6.411064326,0.001937006374
+oscillator_bath,32,energy,SLB M=4,4.93671,6.311441965,0.00193995237
+oscillator_bath,32,energy,SLB M=4,5,6.214132901,0.00194358797
+oscillator_bath,32,energy,SLB M=8,0,38.5,0
+oscillator_bath,32,energy,SLB M=8,0.0632911,37.23339448,0.001281969094
+oscillator_bath,32,energy,SLB M=8,0.126582,36.01216073,0.002260978593
+oscillator_bath,32,energy,SLB M=8,0.189873,34.8371576,0.003028551729
+oscillator_bath,32,energy,SLB M=8,0.253165,33.70831789,0.003614206659
+oscillator_bath,32,energy,SLB M=8,0.316456,32.62493835,0.004035697393
+oscillator_bath,32,energy,SLB M=8,0.379747,31.58588933,0.00431370181
+oscillator_bath,32,energy,SLB M=8,0.443038,30.5897658,0.004472438676
+oscillator_bath,32,energy,SLB M=8,0.506329,29.63499571,0.004536805317
+oscillator_bath,32,energy,SLB M=8,0.56962,28.71991715,0.004529816983
+oscillator_bath,32,energy,SLB M=8,0.632911,27.84283279,0.004471185923
+oscillator_bath,32,energy,SLB M=8,0.696203,27.00204768,0.004376863446
+oscillator_bath,32,energy,SLB M=8,0.759494,26.19589513,0.004259192172
+oscillator_bath,32,energy,SLB M=8,0.822785,25.42275383,0.004127360313
+oscillator_bath,32,energy,SLB M=8,0.886076,24.68105878,0.003987965205
+oscillator_bath,32,energy,SLB M=8,0.949367,23.96930778,0.003845579838
+oscillator_bath,32,energy,SLB M=8,1.01266,23.28606474,0.003703271813
+oscillator_bath,32,energy,SLB M=8,1.07595,22.62996089,0.003563036939
+oscillator_bath,32,energy,SLB M=8,1.13924,21.99969441,0.003426141295
+oscillator_bath,32,energy,SLB M=8,1.20253,21.3940291,0.003293372478
+oscillator_bath,32,energy,SLB M=8,1.26582,20.81179234,0.003165212736
+oscillator_bath,32,energy,SLB M=8,1.32911,20.25187267,0.00304194949
+oscillator_bath,32,energy,SLB M=8,1.39241,19.71321712,0.002923740811
+oscillator_bath,32,energy,SLB M=8,1.4557,19.19482844,0.002810650393
+oscillator_bath,32,energy,SLB M=8,1.51899,18.69576226,0.002702671026
+oscillator_bath,32,energy,SLB M=8,1.58228,18.21512434,0.002599739541
+oscillator_bath,32,energy,SLB M=8,1.64557,17.75206784,0.002501745664
+oscillator_bath,32,energy,SLB M=8,1.70886,17.30579069,0.002408541054
+oscillator_bath,32,energy,SLB M=8,1.77215,16.8755331,0.002319951986
+oscillator_bath,32,energy,SLB M=8,1.83544,16.46057516,0.002235784201
+oscillator_bath,32,energy,SLB M=8,1.89873,16.06023457,0.00215583308
+oscillator_bath,32,energy,SLB M=8,1.96203,15.67386447,0.002079888755
+oscillator_bath,32,energy,SLB M=8,2.02532,15.30085147,0.002007744155
+oscillator_bath,32,energy,SLB M=8,2.08861,14.94061368,0.001939195697
+oscillator_bath,32,energy,SLB M=8,2.1519,14.59259892,0.001874048765
+oscillator_bath,32,energy,SLB M=8,2.21519,14.25628305,0.001812118951
+oscillator_bath,32,energy,SLB M=8,2.27848,13.93116839,0.00175323365
+oscillator_bath,32,energy,SLB M=8,2.34177,13.61678216,0.001697233631
+oscillator_bath,32,energy,SLB M=8,2.40506,13.31267515,0.001643972588
+oscillator_bath,32,energy,SLB M=8,2.46835,13.01842037,0.001593314441
+oscillator_bath,32,energy,SLB M=8,2.53165,12.73361179,0.00154513801
+oscillator_bath,32,energy,SLB M=8,2.59494,12.45786321,0.001499331964
+oscillator_bath,32,energy,SLB M=8,2.65823,12.19080716,0.001455793962
+oscillator_bath,32,energy,SLB M=8,2.72152,11.93209384,0.001414433753
+oscillator_bath,32,energy,SLB M=8,2.78481,11.6813902,0.001375168891
+oscillator_bath,32,energy,SLB M=8,2.8481,11.438379,0.001337922364
+oscillator_bath,32,energy,SLB M=8,2.91139,11.20275799,0.001302626849
+oscillator_bath,32,energy,SLB M=8,2.97468,10.97423903,0.001269217384
+oscillator_bath,32,energy,SLB M=8,3.03797,10.75254744,0.001237637078
+oscillator_bath,32,energy,SLB M=8,3.10127,10.5374212,0.001207830349
+oscillator_bath,32,energy,SLB M=8,3.16456,10.32861034,0.001179748061
+oscillator_bath,32,energy,SLB M=8,3.22785,10.12587625,0.001153338934
+oscillator_bath,32,energy,SLB M=8,3.29114,9.928991156,0.001128557112
+oscillator_bath,32,energy,SLB M=8,3.35443,9.737737502,0.00110535716
+oscillator_bath,32,energy,SLB M=8,3.41772,9.551907453,0.001083693788
+oscillator_bath,32,energy,SLB M=8,3.48101,9.371302386,0.001063522908
+oscillator_bath,32,energy,SLB M=8,3.5443,9.195732426,0.001044797778
+oscillator_bath,32,energy,SLB M=8,3.60759,9.025016002,0.001027475327
+oscillator_bath,32,energy,SLB M=8,3.67089,8.858979428,0.001011507361
+oscillator_bath,32,energy,SLB M=8,3.73418,8.697456512,0.0009968487412
+oscillator_bath,32,energy,SLB M=8,3.79747,8.540288181,0.0009834504791
+oscillator_bath,32,energy,SLB M=8,3.86076,8.387322131,0.0009712648755
+oscillator_bath,32,energy,SLB M=8,3.92405,8.238412495,0.0009602418249
+oscillator_bath,32,energy,SLB M=8,3.98734,8.093419528,0.0009503321947
+oscillator_bath,32,energy,SLB M=8,4.05063,7.952209312,0.0009414851511
+oscillator_bath,32,energy,SLB M=8,4.11392,7.814653472,0.000933650984
+oscillator_bath,32,energy,SLB M=8,4.17722,7.680628916,0.000926778221
+oscillator_bath,32,energy,SLB M=8,4.24051,7.550017579,0.0009208179456
+oscillator_bath,32,energy,SLB M=8,4.3038,7.422706185,0.0009157206743
+oscillator_bath,32,energy,SLB M=8,4.36709,7.298586026,0.000911437179
+oscillator_bath,32,energy,SLB M=8,4.43038,7.177552744,0.0009079227013
+oscillator_bath,32,energy,SLB M=8,4.49367,7.059506134,0.0009051301864
+oscillator_bath,32,energy,SLB M=8,4.55696,6.944349946,0.0009030165867
+oscillator_bath,32,energy,SLB M=8,4.62025,6.83199171,0.000901539932
+oscillator_bath,32,energy,SLB M=8,4.68354,6.722342559,0.0009006607753
+oscillator_bath,32,energy,SLB M=8,4.74684,6.615317068,0.0009003423169
+oscillator_bath,32,energy,SLB M=8,4.81013,6.510833096,0.000900547866
+oscillator_bath,32,energy,SLB M=8,4.87342,6.408811644,0.0009012454382
+oscillator_bath,32,energy,SLB M=8,4.93671,6.309176712,0.0009024026152
+oscillator_bath,32,energy,SLB M=8,5,6.211855165,0.000903992027
+oscillator_bath,32,energy,SLB M=16,0,38.5,0
+oscillator_bath,32,energy,SLB M=16,0.0632911,37.23330699,0.0009680418171
+oscillator_bath,32,energy,SLB M=16,0.126582,36.01196505,0.001660877826
+oscillator_bath,32,energy,SLB M=16,0.189873,34.83686112,0.002149168087
+oscillator_bath,32,energy,SLB M=16,0.253165,33.70793972,0.002479688414
+oscillator_bath,32,energy,SLB M=16,0.316456,32.62449991,0.002687585078
+oscillator_bath,32,energy,SLB M=16,0.379747,31.5854095,0.002801413228
+oscillator_bath,32,energy,SLB M=16,0.443038,30.58925902,0.002844898523
+oscillator_bath,32,energy,SLB M=16,0.506329,29.63447171,0.002837522532
+oscillator_bath,32,energy,SLB M=16,0.56962,28.71938159,0.00279484621
+oscillator_bath,32,energy,SLB M=16,0.632911,27.84228813,0.002728885413
+oscillator_bath,32,energy,SLB M=16,0.696203,27.00149422,0.002648599829
+oscillator_bath,32,energy,SLB M=16,0.759494,26.19533184,0.002560426735
+oscillator_bath,32,energy,SLB M=16,0.822785,25.42217905,0.002468822485
+oscillator_bath,32,energy,SLB M=16,0.886076,24.68047069,0.002376749132
+oscillator_bath,32,energy,SLB M=16,0.949367,23.96870474,0.002286088175
+oscillator_bath,32,energy,SLB M=16,1.01266,23.28544548,0.002197973619
+oscillator_bath,32,energy,SLB M=16,1.07595,22.62932456,0.00211303663
+oscillator_bath,32,energy,SLB M=16,1.13924,21.99904061,0.002031591065
+oscillator_bath,32,energy,SLB M=16,1.20253,21.39335782,0.001953753839
+oscillator_bath,32,energy,SLB M=16,1.26582,20.81110387,0.001879523027
+oscillator_bath,32,energy,SLB M=16,1.32911,20.25116756,0.001808830453
+oscillator_bath,32,energy,SLB M=16,1.39241,19.71249609,0.001741567635
+oscillator_bath,32,energy,SLB M=16,1.4557,19.19409229,0.001677603592
+oscillator_bath,32,energy,SLB M=16,1.51899,18.69501184,0.001616794272
+oscillator_bath,32,energy,SLB M=16,1.58228,18.21436049,0.001558987481
+oscillator_bath,32,energy,SLB M=16,1.64557,17.75129138,0.001504027744
+oscillator_bath,32,energy,SLB M=16,1.70886,17.30500237,0.001451758345
+oscillator_bath,32,energy,SLB M=16,1.77215,16.87473361,0.001402024652
+oscillator_bath,32,energy,SLB M=16,1.83544,16.4597651,0.00135467762
+oscillator_bath,32,energy,SLB M=16,1.89873,16.05941448,0.001309573873
+oscillator_bath,32,energy,SLB M=16,1.96203,15.67303482,0.001266577623
+oscillator_bath,32,energy,SLB M=16,2.02532,15.30001264,0.00122556303
+oscillator_bath,32,energy,SLB M=16,2.08861,14.939766,0.001186411894
+oscillator_bath,32,energy,SLB M=16,2.1519,14.59174268,0.001149017485
+oscillator_bath,32,energy,SLB M=16,2.21519,14.25541849,0.001113280582
+oscillator_bath,32,energy,SLB M=16,2.27848,13.9302957,0.001079111122
+oscillator_bath,32,energy,SLB M=16,2.34177,13.61590152,0.001046426597
+oscillator_bath,32,energy,SLB M=16,2.40506,13.3117867,0.001015152789
+oscillator_bath,32,energy,SLB M=16,2.46835,13.01752423,0.0009852220713
+oscillator_bath,32,energy,SLB M=16,2.53165,12.73270808,0.0009565699168
+oscillator_bath,32,energy,SLB M=16,2.59494,12.45695204,0.0009291399629
+oscillator_bath,32,energy,SLB M=16,2.65823,12.18988861,0.000902880236
+oscillator_bath,32,energy,SLB M=16,2.72152,11.93116802,0.0008777412352
+oscillator_bath,32,energy,SLB M=16,2.78481,11.68045719,0.0008536774494
+oscillator_bath,32,energy,SLB M=16,2.8481,11.43743889,0.0008306467663
+oscillator_bath,32,energy,SLB M=16,2.91139,11.20181085,0.0008086096348
+oscillator_bath,32,energy,SLB M=16,2.97468,10.97328496,0.0007875284807
+oscillator_bath,32,energy,SLB M=16,3.03797,10.75158651,0.0007673686127
+oscillator_bath,32,energy,SLB M=16,3.10127,10.53645349,0.0007480953922
+oscillator_bath,32,energy,SLB M=16,3.16456,10.32763591,0.000729677575
+oscillator_bath,32,energy,SLB M=16,3.22785,10.12489519,0.0007120844368
+oscillator_bath,32,energy,SLB M=16,3.29114,9.928003536,0.0006952864693
+oscillator_bath,32,energy,SLB M=16,3.35443,9.736743391,0.0006792541787
+oscillator_bath,32,energy,SLB M=16,3.41772,9.550906918,0.0006639615007
+oscillator_bath,32,energy,SLB M=16,3.48101,9.370295495,0.0006493823028
+oscillator_bath,32,energy,SLB M=16,3.5443,9.194719244,0.0006354898642
+oscillator_bath,32,energy,SLB M=16,3.60759,9.023996591,0.0006222615113
+oscillator_bath,32,energy,SLB M=16,3.67089,8.857953851,0.0006096733533
+oscillator_bath,32,energy,SLB M=16,3.73418,8.696424827,0.0005977042789
+oscillator_bath,32,energy,SLB M=16,3.79747,8.539250447,0.0005863320341
+oscillator_bath,32,energy,SLB M=16,3.86076,8.386278405,0.0005755383902
+oscillator_bath,32,energy,SLB M=16,3.92405,8.23736283,0.0005653044007
+oscillator_bath,32,energy,SLB M=16,3.98734,8.092363978,0.0005556130201
+oscillator_bath,32,energy,SLB M=16,4.05063,7.951147928,0.0005464489587
+oscillator_bath,32,energy,SLB M=16,4.11392,7.813586306,0.0005377969957
+oscillator_bath,32,energy,SLB M=16,4.17722,7.679556016,0.0005296444339
+oscillator_bath,32,energy,SLB M=16,4.24051,7.548938991,0.0005219784831
+oscillator_bath,32,energy,SLB M=16,4.3038,7.421621957,0.0005147890584
+oscillator_bath,32,energy,SLB M=16,4.36709,7.297496201,0.0005080664557
+oscillator_bath,32,energy,SLB M=16,4.43038,7.176457367,0.0005018002721
+oscillator_bath,32,energy,SLB M=16,4.49367,7.058405245,0.0004959851752
+oscillator_bath,32,energy,SLB M=16,4.55696,6.943243587,0.0004906109299
+oscillator_bath,32,energy,SLB M=16,4.62025,6.830879919,0.0004856721388
+oscillator_bath,32,energy,SLB M=16,4.68354,6.721225372,0.0004811621752
+oscillator_bath,32,energy,SLB M=16,4.74684,6.614194521,0.0004770748555
+oscillator_bath,32,energy,SLB M=16,4.81013,6.509705223,0.0004734056199
+oscillator_bath,32,energy,SLB M=16,4.87342,6.407678477,0.0004701472701
+oscillator_bath,32,energy,SLB M=16,4.93671,6.308038279,0.0004672941525
+oscillator_bath,32,energy,SLB M=16,5,6.210711493,0.0004648402922
+oscillator_bath,32,energy,SLB M=32,0,38.5,0
+oscillator_bath,32,energy,SLB M=32,0.0632911,37.23323694,0.0006444280715
+oscillator_bath,32,energy,SLB M=32,0.126582,36.01186149,0.001090982684
+oscillator_bath,32,energy,SLB M=32,0.189873,34.8367464,0.0013881148
+oscillator_bath,32,energy,SLB M=32,0.253165,33.70782509,0.001571791041
+oscillator_bath,32,energy,SLB M=32,0.316456,32.62438905,0.001670676037
+oscillator_bath,32,energy,SLB M=32,0.379747,31.58530167,0.0017081687
+oscillator_bath,32,energy,SLB M=32,0.443038,30.5891514,0.00170316249
+oscillator_bath,32,energy,SLB M=32,0.506329,29.63436102,0.001670454705
+oscillator_bath,32,energy,SLB M=32,0.56962,28.71926493,0.001621156951
+oscillator_bath,32,energy,SLB M=32,0.632911,27.84216338,0.001563208292
+oscillator_bath,32,energy,SLB M=32,0.696203,27.00136008,0.001501953266
+oscillator_bath,32,energy,SLB M=32,0.759494,26.1951877,0.001440731257
+oscillator_bath,32,energy,SLB M=32,0.822785,25.42202477,0.00138142675
+oscillator_bath,32,energy,SLB M=32,0.886076,24.68030642,0.001324934393
+oscillator_bath,32,energy,SLB M=32,0.949367,23.96853072,0.00127153189
+oscillator_bath,32,energy,SLB M=32,1.01266,23.28526196,0.001221153543
+oscillator_bath,32,energy,SLB M=32,1.07595,22.62913172,0.001173572948
+oscillator_bath,32,energy,SLB M=32,1.13924,21.99883854,0.001128523793
+oscillator_bath,32,energy,SLB M=32,1.20253,21.39314651,0.001085753787
+oscillator_bath,32,energy,SLB M=32,1.26582,20.81088327,0.001045057341
+oscillator_bath,32,energy,SLB M=32,1.32911,20.25093756,0.001006276675
+oscillator_bath,32,energy,SLB M=32,1.39241,19.71225657,0.0009692959204
+oscillator_bath,32,energy,SLB M=32,1.4557,19.19384314,0.0009340275492
+oscillator_bath,32,energy,SLB M=32,1.51899,18.69475299,0.0009004043013
+oscillator_bath,32,energy,SLB M=32,1.58228,18.2140919,0.0008683666906
+oscillator_bath,32,energy,SLB M=32,1.64557,17.75101303,0.0008378587125
+oscillator_bath,32,energy,SLB M=32,1.70886,17.30471431,0.0008088241467
+oscillator_bath,32,energy,SLB M=32,1.77215,16.87443592,0.0007812031764
+oscillator_bath,32,energy,SLB M=32,1.83544,16.4594579,0.0007549353747
+oscillator_bath,32,energy,SLB M=32,1.89873,16.05909791,0.0007299573835
+oscillator_bath,32,energy,SLB M=32,1.96203,15.67270905,0.0007062059245
+oscillator_bath,32,energy,SLB M=32,2.02532,15.29967786,0.0006836195396
+oscillator_bath,32,energy,SLB M=32,2.08861,14.93942242,0.0006621378245
+oscillator_bath,32,energy,SLB M=32,2.1519,14.5913905,0.00064170245
+oscillator_bath,32,energy,SLB M=32,2.21519,14.25505793,0.0006222582446
+oscillator_bath,32,energy,SLB M=32,2.27848,13.92992699,0.0006037559496
+oscillator_bath,32,energy,SLB M=32,2.34177,13.61552487,0.0005861446398
+oscillator_bath,32,energy,SLB M=32,2.40506,13.31140233,0.0005693806982
+oscillator_bath,32,energy,SLB M=32,2.46835,13.01713237,0.0005534205964
+oscillator_bath,32,energy,SLB M=32,2.53165,12.73230893,0.0005382251775
+oscillator_bath,32,energy,SLB M=32,2.59494,12.4565458,0.0005237568078
+oscillator_bath,32,energy,SLB M=32,2.65823,12.18947549,0.0005099816648
+oscillator_bath,32,energy,SLB M=32,2.72152,11.93074819,0.0004968655465
+oscillator_bath,32,energy,SLB M=32,2.78481,11.68003085,0.000484377159
+oscillator_bath,32,energy,SLB M=32,2.8481,11.43700621,0.0004724873085
+oscillator_bath,32,energy,SLB M=32,2.91139,11.20137199,0.0004611683864
+oscillator_bath,32,energy,SLB M=32,2.97468,10.97284006,0.0004503942907
+oscillator_bath,32,energy,SLB M=32,3.03797,10.75113573,0.0004401391719
+oscillator_bath,32,energy,SLB M=32,3.10127,10.53599697,0.0004303794536
+oscillator_bath,32,energy,SLB M=32,3.16456,10.32717378,0.0004210932228
+oscillator_bath,32,energy,SLB M=32,3.22785,10.12442757,0.0004122590302
+oscillator_bath,32,energy,SLB M=32,3.29114,9.927530532,0.0004038567474
+oscillator_bath,32,energy,SLB M=32,3.35443,9.736265119,0.0003958676163
+oscillator_bath,32,energy,SLB M=32,3.41772,9.550423481,0.0003882737417
+oscillator_bath,32,energy,SLB M=32,3.48101,9.369806989,0.0003810581034
+oscillator_bath,32,energy,SLB M=32,3.5443,9.194225759,0.0003742045431
+oscillator_bath,32,energy,SLB M=32,3.60759,9.023498212,0.0003676977004
+oscillator_bath,32,energy,SLB M=32,3.67089,8.857450658,0.0003615241021
+oscillator_bath,32,energy,SLB M=32,3.73418,8.695916896,0.0003556694238
+oscillator_bath,32,energy,SLB M=32,3.79747,8.538737848,0.0003501222912
+oscillator_bath,32,energy,SLB M=32,3.86076,8.385761204,0.0003448692618
+oscillator_bath,32,energy,SLB M=32,3.92405,8.23684109,0.0003398999932
+oscillator_bath,32,energy,SLB M=32,3.98734,8.091837757,0.0003352028282
+oscillator_bath,32,energy,SLB M=32,4.05063,7.950617281,0.000330768619
+oscillator_bath,32,energy,SLB M=32,4.11392,7.813051283,0.000326586388
+oscillator_bath,32,energy,SLB M=32,4.17722,7.679016666,0.0003226476181
+oscillator_bath,32,energy,SLB M=32,4.24051,7.548395358,0.0003189436858
+oscillator_bath,32,energy,SLB M=32,4.3038,7.421074083,0.000315465768
+oscillator_bath,32,energy,SLB M=32,4.36709,7.296944127,0.0003122060532
+oscillator_bath,32,energy,SLB M=32,4.43038,7.175901128,0.000309155864
+oscillator_bath,32,energy,SLB M=32,4.49367,7.057844877,0.0003063088064
+oscillator_bath,32,energy,SLB M=32,4.55696,6.942679122,0.0003036570191
+oscillator_bath,32,energy,SLB M=32,4.62025,6.830311386,0.0003011931201
+oscillator_bath,32,energy,SLB M=32,4.68354,6.720652802,0.0002989105489
+oscillator_bath,32,energy,SLB M=32,4.74684,6.61361794,0.000296802909
+oscillator_bath,32,energy,SLB M=32,4.81013,6.509124656,0.0002948633347
+oscillator_bath,32,energy,SLB M=32,4.87342,6.407093948,0.000293085988
+oscillator_bath,32,energy,SLB M=32,4.93671,6.307449811,0.0002914638668
+oscillator_bath,32,energy,SLB M=32,5,6.210119109,0.0002899912548
+oscillator_bath,32,energy,SLB M=64,0,38.5,0
+oscillator_bath,32,energy,SLB M=64,0.0632911,37.2332363,0.0004525360944
+oscillator_bath,32,energy,SLB M=64,0.126582,36.01187085,0.0007620471051
+oscillator_bath,32,energy,SLB M=64,0.189873,34.83677022,0.0009613591642
+oscillator_bath,32,energy,SLB M=64,0.253165,33.70786352,0.001077470621
+oscillator_bath,32,energy,SLB M=64,0.316456,32.62443958,0.001132702002
+oscillator_bath,32,energy,SLB M=64,0.379747,31.58536041,0.001145221619
+oscillator_bath,32,energy,SLB M=64,0.443038,30.5892141,0.0011294161
+oscillator_bath,32,energy,SLB M=64,0.506329,29.63442367,0.001096275918
+oscillator_bath,32,energy,SLB M=64,0.56962,28.71932412,0.001053838418
+oscillator_bath,32,energy,SLB M=64,0.632911,27.84221647,0.001007669933
+oscillator_bath,32,energy,SLB M=64,0.696203,27.00140514,0.0009613592669
+oscillator_bath,32,energy,SLB M=64,0.759494,26.19522347,0.0009169876286
+oscillator_bath,32,energy,SLB M=64,0.822785,25.42205051,0.0008755598456
+oscillator_bath,32,energy,SLB M=64,0.886076,24.68032179,0.0008373671132
+oscillator_bath,32,energy,SLB M=64,0.949367,23.96853565,0.0008022751176
+oscillator_bath,32,energy,SLB M=64,1.01266,23.28525657,0.0007699428141
+oscillator_bath,32,energy,SLB M=64,1.07595,22.62911623,0.0007399631198
+oscillator_bath,32,energy,SLB M=64,1.13924,21.99881322,0.0007119477093
+oscillator_bath,32,energy,SLB M=64,1.20253,21.39311166,0.0006855717473
+oscillator_bath,32,energy,SLB M=64,1.26582,20.81083918,0.0006605826371
+oscillator_bath,32,energy,SLB M=64,1.32911,20.25088453,0.0006367991668
+oscillator_bath,32,energy,SLB M=64,1.39241,19.71219488,0.0006140967043
+oscillator_bath,32,energy,SLB M=64,1.4557,19.19377308,0.0005923901991
+oscillator_bath,32,energy,SLB M=64,1.51899,18.69467481,0.0005716240751
+oscillator_bath,32,energy,SLB M=64,1.58228,18.21400587,0.0005517568166
+oscillator_bath,32,energy,SLB M=64,1.64557,17.75091941,0.0005327577328
+oscillator_bath,32,energy,SLB M=64,1.70886,17.30461335,0.0005145963295
+oscillator_bath,32,energy,SLB M=64,1.77215,16.87432787,0.0004972426571
+oscillator_bath,32,energy,SLB M=64,1.83544,16.459343,0.0004806674512
+oscillator_bath,32,energy,SLB M=64,1.89873,16.05897641,0.0004648376148
+oscillator_bath,32,energy,SLB M=64,1.96203,15.67258118,0.0004497209126
+oscillator_bath,32,energy,SLB M=64,2.02532,15.29954386,0.000435284321
+oscillator_bath,32,energy,SLB M=64,2.08861,14.93928251,0.0004214964235
+oscillator_bath,32,energy,SLB M=64,2.1519,14.59124491,0.0004083242812
+oscillator_bath,32,energy,SLB M=64,2.21519,14.25490687,0.0003957392429
+oscillator_bath,32,energy,SLB M=64,2.27848,13.92977066,0.0003837130292
+oscillator_bath,32,energy,SLB M=64,2.34177,13.61536346,0.0003722192952
+oscillator_bath,32,energy,SLB M=64,2.40506,13.31123604,0.0003612327442
+oscillator_bath,32,energy,SLB M=64,2.46835,13.01696136,0.0003507315974
+oscillator_bath,32,energy,SLB M=64,2.53165,12.73213337,0.0003406931703
+oscillator_bath,32,energy,SLB M=64,2.59494,12.45636585,0.0003310981127
+oscillator_bath,32,energy,SLB M=64,2.65823,12.1892913,0.0003219269446
+oscillator_bath,32,energy,SLB M=64,2.72152,11.9305599,0.0003131619734
+oscillator_bath,32,energy,SLB M=64,2.78481,11.67983858,0.0003047864437
+oscillator_bath,32,energy,SLB M=64,2.8481,11.43681009,0.0002967843802
+oscillator_bath,32,energy,SLB M=64,2.91139,11.20117213,0.0002891401379
+oscillator_bath,32,energy,SLB M=64,2.97468,10.97263658,0.0002818387895
+oscillator_bath,32,energy,SLB M=64,3.03797,10.75092873,0.0002748673209
+oscillator_bath,32,energy,SLB M=64,3.10127,10.53578653,0.0002682115102
+oscillator_bath,32,energy,SLB M=64,3.16456,10.32696001,0.0002618589314
+oscillator_bath,32,energy,SLB M=64,3.22785,10.12421055,0.0002557964348
+oscillator_bath,32,energy,SLB M=64,3.29114,9.927310356,0.0002500128807
+oscillator_bath,32,energy,SLB M=64,3.35443,9.73604186,0.0002444961861
+oscillator_bath,32,energy,SLB M=64,3.41772,9.550197214,0.000239235552
+oscillator_bath,32,energy,SLB M=64,3.48101,9.369577788,0.0002342207295
+oscillator_bath,32,energy,SLB M=64,3.5443,9.193993695,0.0002294399165
+oscillator_bath,32,energy,SLB M=64,3.60759,9.023263355,0.0002248849253
+oscillator_bath,32,energy,SLB M=64,3.67089,8.857213074,0.000220545829
+oscillator_bath,32,energy,SLB M=64,3.73418,8.695676651,0.0002164127707
+oscillator_bath,32,energy,SLB M=64,3.79747,8.538495006,0.0002124785994
+oscillator_bath,32,energy,SLB M=64,3.86076,8.385515828,0.0002087331918
+oscillator_bath,32,energy,SLB M=64,3.92405,8.236593241,0.0002051683545
+oscillator_bath,32,energy,SLB M=64,3.98734,8.091587497,0.0002017789124
+oscillator_bath,32,energy,SLB M=64,4.05063,7.950364668,0.0001985553084
+oscillator_bath,32,energy,SLB M=64,4.11392,7.812796377,0.0001954906406
+oscillator_bath,32,energy,SLB M=64,4.17722,7.678759525,0.0001925793522
+oscillator_bath,32,energy,SLB M=64,4.24051,7.548136039,0.0001898137905
+oscillator_bath,32,energy,SLB M=64,4.3038,7.420812641,0.0001871885
+oscillator_bath,32,energy,SLB M=64,4.36709,7.296680617,0.0001846974743
+oscillator_bath,32,energy,SLB M=64,4.43038,7.175635606,0.0001823358128
+oscillator_bath,32,energy,SLB M=64,4.49367,7.057577395,0.0001800972717
+oscillator_bath,32,energy,SLB M=64,4.55696,6.942409731,0.0001779778373
+oscillator_bath,32,energy,SLB M=64,4.62025,6.830040141,0.0001759721937
+oscillator_bath,32,energy,SLB M=64,4.68354,6.720379751,0.0001740760941
+oscillator_bath,32,energy,SLB M=64,4.74684,6.613343131,0.0001722859766
+oscillator_bath,32,energy,SLB M=64,4.81013,6.508848138,0.0001705973095
+oscillator_bath,32,energy,SLB M=64,4.87342,6.406815768,0.0001690068121
+oscillator_bath,32,energy,SLB M=64,4.93671,6.307170014,0.0001675106683
+oscillator_bath,32,energy,SLB M=64,5,6.20983774,0.0001661062862
+oscillator_bath,32,coherence,reference,0,-0.3191209,
+oscillator_bath,32,coherence,reference,0.0632911,-0.22036287,
+oscillator_bath,32,coherence,reference,0.126582,-0.13623693,
+oscillator_bath,32,coherence,reference,0.189873,-0.07207484,
+oscillator_bath,32,coherence,reference,0.253165,-0.02777658,
+oscillator_bath,32,coherence,reference,0.316456,-0.00039554,
+oscillator_bath,32,coherence,reference,0.379747,0.01408513,
+oscillator_bath,32,coherence,reference,0.443038,0.0196608,
+oscillator_bath,32,coherence,reference,0.506329,0.0197334,
+oscillator_bath,32,coherence,reference,0.56962,0.01689665,
+oscillator_bath,32,coherence,reference,0.632911,0.0129407,
+oscillator_bath,32,coherence,reference,0.696203,0.00897155,
+oscillator_bath,32,coherence,reference,0.759494,0.00557371,
+oscillator_bath,32,coherence,reference,0.822785,0.00297185,
+oscillator_bath,32,coherence,reference,0.886076,0.00116834,
+oscillator_bath,32,coherence,reference,0.949367,4.812e-05,
+oscillator_bath,32,coherence,reference,1.01266,-0.00054897,
+oscillator_bath,32,coherence,reference,1.07595,-0.00078351,
+oscillator_bath,32,coherence,reference,1.13924,-0.0007929,
+oscillator_bath,32,coherence,reference,1.20253,-0.00068233,
+oscillator_bath,32,coherence,reference,1.26582,-0.00052468,
+oscillator_bath,32,coherence,reference,1.32911,-0.00036519,
+oscillator_bath,32,coherence,reference,1.39241,-0.00022798,
+oscillator_bath,32,coherence,reference,1.4557,-0.00012249,
+oscillator_bath,32,coherence,reference,1.51899,-4.907e-05,
+oscillator_bath,32,coherence,reference,1.58228,-3.25e-06,
+oscillator_bath,32,coherence,reference,1.64557,2.136e-05,
+oscillator_bath,32,coherence,reference,1.70886,3.121e-05,
+oscillator_bath,32,coherence,reference,1.77215,3.185e-05,
+oscillator_bath,32,coherence,reference,1.83544,2.755e-05,
+oscillator_bath,32,coherence,reference,1.89873,2.127e-05,
+oscillator_bath,32,coherence,reference,1.96203,1.486e-05,
+oscillator_bath,32,coherence,reference,2.02532,9.32e-06,
+oscillator_bath,32,coherence,reference,2.08861,5.05e-06,
+oscillator_bath,32,coherence,reference,2.1519,2.06e-06,
+oscillator_bath,32,coherence,reference,2.21519,1.8e-07,
+oscillator_bath,32,coherence,reference,2.27848,-8.3e-07,
+oscillator_bath,32,coherence,reference,2.34177,-1.24e-06,
+oscillator_bath,32,coherence,reference,2.40506,-1.28e-06,
+oscillator_bath,32,coherence,reference,2.46835,-1.11e-06,
+oscillator_bath,32,coherence,reference,2.53165,-8.6e-07,
+oscillator_bath,32,coherence,reference,2.59494,-6e-07,
+oscillator_bath,32,coherence,reference,2.65823,-3.8e-07,
+oscillator_bath,32,coherence,reference,2.72152,-2.1e-07,
+oscillator_bath,32,coherence,reference,2.78481,-9e-08,
+oscillator_bath,32,coherence,reference,2.8481,-1e-08,
+oscillator_bath,32,coherence,reference,2.91139,3e-08,
+oscillator_bath,32,coherence,reference,2.97468,5e-08,
+oscillator_bath,32,coherence,reference,3.03797,5e-08,
+oscillator_bath,32,coherence,reference,3.10127,4e-08,
+oscillator_bath,32,coherence,reference,3.16456,3e-08,
+oscillator_bath,32,coherence,reference,3.22785,2e-08,
+oscillator_bath,32,coherence,reference,3.29114,2e-08,
+oscillator_bath,32,coherence,reference,3.35443,1e-08,
+oscillator_bath,32,coherence,reference,3.41772,0,
+oscillator_bath,32,coherence,reference,3.48101,0,
+oscillator_bath,32,coherence,reference,3.5443,-0,
+oscillator_bath,32,coherence,reference,3.60759,-0,
+oscillator_bath,32,coherence,reference,3.67089,-0,
+oscillator_bath,32,coherence,reference,3.73418,-0,
+oscillator_bath,32,coherence,reference,3.79747,-0,
+oscillator_bath,32,coherence,reference,3.86076,-0,
+oscillator_bath,32,coherence,reference,3.92405,-0,
+oscillator_bath,32,coherence,reference,3.98734,-0,
+oscillator_bath,32,coherence,reference,4.05063,-0,
+oscillator_bath,32,coherence,reference,4.11392,-0,
+oscillator_bath,32,coherence,reference,4.17722,0,
+oscillator_bath,32,coherence,reference,4.24051,0,
+oscillator_bath,32,coherence,reference,4.3038,0,
+oscillator_bath,32,coherence,reference,4.36709,0,
+oscillator_bath,32,coherence,reference,4.43038,0,
+oscillator_bath,32,coherence,reference,4.49367,0,
+oscillator_bath,32,coherence,reference,4.55696,0,
+oscillator_bath,32,coherence,reference,4.62025,0,
+oscillator_bath,32,coherence,reference,4.68354,0,
+oscillator_bath,32,coherence,reference,4.74684,0,
+oscillator_bath,32,coherence,reference,4.81013,-0,
+oscillator_bath,32,coherence,reference,4.87342,-0,
+oscillator_bath,32,coherence,reference,4.93671,-0,
+oscillator_bath,32,coherence,reference,5,-0,
+oscillator_bath,32,coherence,SLB M=2,0,-0.3191209,1.057358582e-15
+oscillator_bath,32,coherence,SLB M=2,0.0632911,-0.2203012883,0.001433854843
+oscillator_bath,32,coherence,SLB M=2,0.126582,-0.1361186796,0.002236756517
+oscillator_bath,32,coherence,SLB M=2,0.189873,-0.07191131435,0.002661315829
+oscillator_bath,32,coherence,SLB M=2,0.253165,-0.02758352495,0.00282487558
+oscillator_bath,32,coherence,SLB M=2,0.316456,-0.00019052155,0.002797081864
+oscillator_bath,32,coherence,SLB M=2,0.379747,0.01428548685,0.002632799695
+oscillator_bath,32,coherence,SLB M=2,0.443038,0.0198432844,0.00237999121
+oscillator_bath,32,coherence,SLB M=2,0.506329,0.0198897037,0.00207957769
+oscillator_bath,32,coherence,SLB M=2,0.56962,0.0170235205,0.00176420016
+oscillator_bath,32,coherence,SLB M=2,0.632911,0.01303897125,0.001457828277
+oscillator_bath,32,coherence,SLB M=2,0.696203,0.0090447206,0.00117636364
+oscillator_bath,32,coherence,SLB M=2,0.759494,0.0056264742,0.0009288516106
+oscillator_bath,32,coherence,SLB M=2,0.822785,0.003008969,0.0007189707192
+oscillator_bath,32,coherence,SLB M=2,0.886076,0.0011940084,0.0005465192652
+oscillator_bath,32,coherence,SLB M=2,0.949367,6.571305e-05,0.0004087457555
+oscillator_bath,32,coherence,SLB M=2,1.01266,-0.0005368898,0.0003014568484
+oscillator_bath,32,coherence,SLB M=2,1.07595,-0.0007750784,0.000219853709
+oscillator_bath,32,coherence,SLB M=2,1.13924,-0.0007868198,0.0001591227849
+oscillator_bath,32,coherence,SLB M=2,1.20253,-0.00067772695,0.0001148070288
+oscillator_bath,32,coherence,SLB M=2,1.26582,-0.00052100645,8.300740039e-05
+oscillator_bath,32,coherence,SLB M=2,1.32911,-0.0003621409,6.046566308e-05
+oscillator_bath,32,coherence,SLB M=2,1.39241,-0.0002253832,4.457065361e-05
+oscillator_bath,32,coherence,SLB M=2,1.4557,-0.0001202704,3.331938932e-05
+oscillator_bath,32,coherence,SLB M=2,1.51899,-4.719885e-05,2.524628632e-05
+oscillator_bath,32,coherence,SLB M=2,1.58228,-1.6913e-06,1.933254541e-05
+oscillator_bath,32,coherence,SLB M=2,1.64557,2.26351e-05,1.489776284e-05
+oscillator_bath,32,coherence,SLB M=2,1.70886,3.22388e-05,1.150394285e-05
+oscillator_bath,32,coherence,SLB M=2,1.77215,3.266975e-05,8.867356284e-06
+oscillator_bath,32,coherence,SLB M=2,1.83544,2.81912e-05,6.803815702e-06
+oscillator_bath,32,coherence,SLB M=2,1.89873,2.17658e-05,5.184816968e-06
+oscillator_bath,32,coherence,SLB M=2,1.96203,1.524015e-05,3.92002711e-06
+oscillator_bath,32,coherence,SLB M=2,2.02532,9.60325e-06,2.937153433e-06
+oscillator_bath,32,coherence,SLB M=2,2.08861,5.25015e-06,2.180384337e-06
+oscillator_bath,32,coherence,SLB M=2,2.1519,2.20285e-06,1.604955071e-06
+oscillator_bath,32,coherence,SLB M=2,2.21519,2.8425e-07,1.17142418e-06
+oscillator_bath,32,coherence,SLB M=2,2.27848,-7.6235e-07,8.4863294e-07
+oscillator_bath,32,coherence,SLB M=2,2.34177,-1.1988e-06,6.11367657e-07
+oscillator_bath,32,coherence,SLB M=2,2.40506,-1.25155e-06,4.392102294e-07
+oscillator_bath,32,coherence,SLB M=2,2.46835,-1.0949e-06,3.156885909e-07
+oscillator_bath,32,coherence,SLB M=2,2.53165,-8.52e-07,2.277749043e-07
+oscillator_bath,32,coherence,SLB M=2,2.59494,-5.992e-07,1.656306965e-07
+oscillator_bath,32,coherence,SLB M=2,2.65823,-3.781e-07,1.220033363e-07
+oscillator_bath,32,coherence,SLB M=2,2.72152,-2.0575e-07,9.086650156e-08
+oscillator_bath,32,coherence,SLB M=2,2.78481,-8.535e-08,6.881537093e-08
+oscillator_bath,32,coherence,SLB M=2,2.8481,-8.8e-09,5.254870916e-08
+oscillator_bath,32,coherence,SLB M=2,2.91139,3.23e-08,4.066915169e-08
+oscillator_bath,32,coherence,SLB M=2,2.97468,4.97e-08,3.120543053e-08
+oscillator_bath,32,coherence,SLB M=2,3.03797,5.155e-08,2.387356773e-08
+oscillator_bath,32,coherence,SLB M=2,3.10127,4.525e-08,1.861909918e-08
+oscillator_bath,32,coherence,SLB M=2,3.16456,3.485e-08,1.438793115e-08
+oscillator_bath,32,coherence,SLB M=2,3.22785,2.465e-08,1.088438557e-08
+oscillator_bath,32,coherence,SLB M=2,3.29114,1.58e-08,8.644863697e-09
+oscillator_bath,32,coherence,SLB M=2,3.35443,8.65e-09,7.065913648e-09
+oscillator_bath,32,coherence,SLB M=2,3.41772,3.6e-09,5.49462963e-09
+oscillator_bath,32,coherence,SLB M=2,3.48101,3.5e-10,3.526995675e-09
+oscillator_bath,32,coherence,SLB M=2,3.5443,-5e-10,2.403933126e-09
+oscillator_bath,32,coherence,SLB M=2,3.60759,-4e-10,1.964509222e-09
+oscillator_bath,32,coherence,SLB M=2,3.67089,-1e-10,9.974842727e-10
+oscillator_bath,32,coherence,SLB M=2,3.73418,0,0
+oscillator_bath,32,coherence,SLB M=2,3.79747,0,0
+oscillator_bath,32,coherence,SLB M=2,3.86076,0,0
+oscillator_bath,32,coherence,SLB M=2,3.92405,0,0
+oscillator_bath,32,coherence,SLB M=2,3.98734,0,0
+oscillator_bath,32,coherence,SLB M=2,4.05063,0,0
+oscillator_bath,32,coherence,SLB M=2,4.11392,0,0
+oscillator_bath,32,coherence,SLB M=2,4.17722,0,0
+oscillator_bath,32,coherence,SLB M=2,4.24051,0,0
+oscillator_bath,32,coherence,SLB M=2,4.3038,0,0
+oscillator_bath,32,coherence,SLB M=2,4.36709,0,0
+oscillator_bath,32,coherence,SLB M=2,4.43038,0,0
+oscillator_bath,32,coherence,SLB M=2,4.49367,0,0
+oscillator_bath,32,coherence,SLB M=2,4.55696,0,0
+oscillator_bath,32,coherence,SLB M=2,4.62025,0,0
+oscillator_bath,32,coherence,SLB M=2,4.68354,0,0
+oscillator_bath,32,coherence,SLB M=2,4.74684,0,0
+oscillator_bath,32,coherence,SLB M=2,4.81013,0,0
+oscillator_bath,32,coherence,SLB M=2,4.87342,0,0
+oscillator_bath,32,coherence,SLB M=2,4.93671,0,0
+oscillator_bath,32,coherence,SLB M=2,5,0,0
+oscillator_bath,32,coherence,SLB M=4,0,-0.3191209,1.057358582e-15
+oscillator_bath,32,coherence,SLB M=4,0.0632911,-0.2203959814,0.001013083479
+oscillator_bath,32,coherence,SLB M=4,0.126582,-0.1362512829,0.001586704845
+oscillator_bath,32,coherence,SLB M=4,0.189873,-0.0720447726,0.001892291381
+oscillator_bath,32,coherence,SLB M=4,0.253165,-0.02769762465,0.002005006059
+oscillator_bath,32,coherence,SLB M=4,0.316456,-0.0002769607,0.0019733325
+oscillator_bath,32,coherence,SLB M=4,0.379747,0.0142276394,0.001840207835
+oscillator_bath,32,coherence,SLB M=4,0.443038,0.01981090745,0.0016447716
+oscillator_bath,32,coherence,SLB M=4,0.506329,0.01987777315,0.001419856692
+oscillator_bath,32,coherence,SLB M=4,0.56962,0.01702644025,0.001190327959
+oscillator_bath,32,coherence,SLB M=4,0.632911,0.0130514249,0.0009730580704
+oscillator_bath,32,coherence,SLB M=4,0.696203,0.0090621892,0.0007780359611
+oscillator_bath,32,coherence,SLB M=4,0.759494,0.00564550395,0.0006099370437
+oscillator_bath,32,coherence,SLB M=4,0.822785,0.0030272174,0.0004697067971
+oscillator_bath,32,coherence,SLB M=4,0.886076,0.00121011765,0.0003559027284
+oscillator_bath,32,coherence,SLB M=4,0.949367,7.90884e-05,0.0002657461713
+oscillator_bath,32,coherence,SLB M=4,1.01266,-0.000526328,0.0001958610526
+oscillator_bath,32,coherence,SLB M=4,1.07595,-0.00076710545,0.0001427750466
+oscillator_bath,32,coherence,SLB M=4,1.13924,-0.0007810645,0.0001032115648
+oscillator_bath,32,coherence,SLB M=4,1.20253,-0.00067376835,7.425677271e-05
+oscillator_bath,32,coherence,SLB M=4,1.26582,-0.0005184339,5.342033083e-05
+oscillator_bath,32,coherence,SLB M=4,1.32911,-0.00036058325,3.86430629e-05
+oscillator_bath,32,coherence,SLB M=4,1.39241,-0.00022452575,2.826879085e-05
+oscillator_bath,32,coherence,SLB M=4,1.4557,-0.00011986265,2.100412038e-05
+oscillator_bath,32,coherence,SLB M=4,1.51899,-4.70538e-05,1.587615463e-05
+oscillator_bath,32,coherence,SLB M=4,1.58228,-1.68185e-06,1.218365212e-05
+oscillator_bath,32,coherence,SLB M=4,1.64557,2.2592e-05,9.451355862e-06
+oscillator_bath,32,coherence,SLB M=4,1.70886,3.21862e-05,7.369855999e-06
+oscillator_bath,32,coherence,SLB M=4,1.77215,3.2628e-05,5.747634952e-06
+oscillator_bath,32,coherence,SLB M=4,1.83544,2.81671e-05,4.464098956e-06
+oscillator_bath,32,coherence,SLB M=4,1.89873,2.17583e-05,3.443405628e-06
+oscillator_bath,32,coherence,SLB M=4,1.96203,1.52462e-05,2.633210693e-06
+oscillator_bath,32,coherence,SLB M=4,2.02532,9.61885e-06,1.994381852e-06
+oscillator_bath,32,coherence,SLB M=4,2.08861,5.27125e-06,1.49496708e-06
+oscillator_bath,32,coherence,SLB M=4,2.1519,2.22645e-06,1.110009687e-06
+oscillator_bath,32,coherence,SLB M=4,2.21519,3.077e-07,8.157191297e-07
+oscillator_bath,32,coherence,SLB M=4,2.27848,-7.411e-07,5.950421547e-07
+oscillator_bath,32,coherence,SLB M=4,2.34177,-1.17995e-06,4.318890346e-07
+oscillator_bath,32,coherence,SLB M=4,2.40506,-1.23535e-06,3.113834868e-07
+oscillator_bath,32,coherence,SLB M=4,2.46835,-1.08195e-06,2.242949814e-07
+oscillator_bath,32,coherence,SLB M=4,2.53165,-8.4125e-07,1.619105079e-07
+oscillator_bath,32,coherence,SLB M=4,2.59494,-5.9055e-07,1.176409558e-07
+oscillator_bath,32,coherence,SLB M=4,2.65823,-3.7185e-07,8.614629079e-08
+oscillator_bath,32,coherence,SLB M=4,2.72152,-2.016e-07,6.321726118e-08
+oscillator_bath,32,coherence,SLB M=4,2.78481,-8.19e-08,4.719669097e-08
+oscillator_bath,32,coherence,SLB M=4,2.8481,-6.6e-09,3.559176688e-08
+oscillator_bath,32,coherence,SLB M=4,2.91139,3.44e-08,2.71537591e-08
+oscillator_bath,32,coherence,SLB M=4,2.97468,5.115e-08,2.067157639e-08
+oscillator_bath,32,coherence,SLB M=4,3.03797,5.26e-08,1.57633249e-08
+oscillator_bath,32,coherence,SLB M=4,3.10127,4.555e-08,1.238809203e-08
+oscillator_bath,32,coherence,SLB M=4,3.16456,3.55e-08,9.444362334e-09
+oscillator_bath,32,coherence,SLB M=4,3.22785,2.545e-08,7.14512168e-09
+oscillator_bath,32,coherence,SLB M=4,3.29114,1.595e-08,6.106055977e-09
+oscillator_bath,32,coherence,SLB M=4,3.35443,9.05e-09,4.658973079e-09
+oscillator_bath,32,coherence,SLB M=4,3.41772,3.1e-09,4.636538303e-09
+oscillator_bath,32,coherence,SLB M=4,3.48101,1.5e-10,1.218574833e-09
+oscillator_bath,32,coherence,SLB M=4,3.5443,0,0
+oscillator_bath,32,coherence,SLB M=4,3.60759,0,0
+oscillator_bath,32,coherence,SLB M=4,3.67089,0,0
+oscillator_bath,32,coherence,SLB M=4,3.73418,0,0
+oscillator_bath,32,coherence,SLB M=4,3.79747,0,0
+oscillator_bath,32,coherence,SLB M=4,3.86076,0,0
+oscillator_bath,32,coherence,SLB M=4,3.92405,0,0
+oscillator_bath,32,coherence,SLB M=4,3.98734,0,0
+oscillator_bath,32,coherence,SLB M=4,4.05063,0,0
+oscillator_bath,32,coherence,SLB M=4,4.11392,0,0
+oscillator_bath,32,coherence,SLB M=4,4.17722,0,0
+oscillator_bath,32,coherence,SLB M=4,4.24051,0,0
+oscillator_bath,32,coherence,SLB M=4,4.3038,0,0
+oscillator_bath,32,coherence,SLB M=4,4.36709,0,0
+oscillator_bath,32,coherence,SLB M=4,4.43038,0,0
+oscillator_bath,32,coherence,SLB M=4,4.49367,0,0
+oscillator_bath,32,coherence,SLB M=4,4.55696,0,0
+oscillator_bath,32,coherence,SLB M=4,4.62025,0,0
+oscillator_bath,32,coherence,SLB M=4,4.68354,0,0
+oscillator_bath,32,coherence,SLB M=4,4.74684,0,0
+oscillator_bath,32,coherence,SLB M=4,4.81013,0,0
+oscillator_bath,32,coherence,SLB M=4,4.87342,0,0
+oscillator_bath,32,coherence,SLB M=4,4.93671,0,0
+oscillator_bath,32,coherence,SLB M=4,5,0,0
+oscillator_bath,32,coherence,SLB M=8,0,-0.3191209,1.057358582e-15
+oscillator_bath,32,coherence,SLB M=8,0.0632911,-0.2203922354,0.0006642125455
+oscillator_bath,32,coherence,SLB M=8,0.126582,-0.1362683952,0.001016419967
+oscillator_bath,32,coherence,SLB M=8,0.189873,-0.07209354105,0.001200376345
+oscillator_bath,32,coherence,SLB M=8,0.253165,-0.02777732705,0.001273061477
+oscillator_bath,32,coherence,SLB M=8,0.316456,-0.0003795705,0.00126264061
+oscillator_bath,32,coherence,SLB M=8,0.379747,0.0141131459,0.001190981197
+oscillator_bath,32,coherence,SLB M=8,0.443038,0.0196952037,0.001078562635
+oscillator_bath,32,coherence,SLB M=8,0.506329,0.01976918895,0.0009438092944
+oscillator_bath,32,coherence,SLB M=8,0.56962,0.01693024805,0.0008018015463
+oscillator_bath,32,coherence,SLB M=8,0.632911,0.0129700331,0.0006636769809
+oscillator_bath,32,coherence,SLB M=8,0.696203,0.00899582135,0.0005367611487
+oscillator_bath,32,coherence,SLB M=8,0.759494,0.00559298985,0.0004251269534
+oscillator_bath,32,coherence,SLB M=8,0.822785,0.00298667855,0.0003303469448
+oscillator_bath,32,coherence,SLB M=8,0.886076,0.0011794581,0.00025224215
+oscillator_bath,32,coherence,SLB M=8,0.949367,5.62886e-05,0.0001895344513
+oscillator_bath,32,coherence,SLB M=8,1.01266,-0.00054305675,0.0001403579609
+oscillator_bath,32,coherence,SLB M=8,1.07595,-0.0007792649,0.0001026215846
+oscillator_bath,32,coherence,SLB M=8,1.13924,-0.00078985925,7.42569824e-05
+oscillator_bath,32,coherence,SLB M=8,1.20253,-0.0006801347,5.335587649e-05
+oscillator_bath,32,coherence,SLB M=8,1.26582,-0.00052307015,3.824546967e-05
+oscillator_bath,32,coherence,SLB M=8,1.32911,-0.0003639967,2.75093142e-05
+oscillator_bath,32,coherence,SLB M=8,1.39241,-0.00022707555,1.99862645e-05
+oscillator_bath,32,coherence,SLB M=8,1.4557,-0.00012179735,1.474846383e-05
+oscillator_bath,32,coherence,SLB M=8,1.51899,-4.854525e-05,1.108651165e-05
+oscillator_bath,32,coherence,SLB M=8,1.58228,-2.84785e-06,8.477816034e-06
+oscillator_bath,32,coherence,SLB M=8,1.64557,2.166695e-05,6.565354415e-06
+oscillator_bath,32,coherence,SLB M=8,1.70886,3.14464e-05,5.118333688e-06
+oscillator_bath,32,coherence,SLB M=8,1.77215,3.20339e-05,3.993208907e-06
+oscillator_bath,32,coherence,SLB M=8,1.83544,2.768935e-05,3.104446006e-06
+oscillator_bath,32,coherence,SLB M=8,1.89873,2.13767e-05,2.39660776e-06
+oscillator_bath,32,coherence,SLB M=8,1.96203,1.494415e-05,1.83447945e-06
+oscillator_bath,32,coherence,SLB M=8,2.02532,9.3833e-06,1.390030226e-06
+oscillator_bath,32,coherence,SLB M=8,2.08861,5.09065e-06,1.042714412e-06
+oscillator_bath,32,coherence,SLB M=8,2.1519,2.09e-06,7.740249175e-07
+oscillator_bath,32,coherence,SLB M=8,2.21519,2.067e-07,5.691835906e-07
+oscillator_bath,32,coherence,SLB M=8,2.27848,-8.1385e-07,4.14705414e-07
+oscillator_bath,32,coherence,SLB M=8,2.34177,-1.2325e-06,2.9982365e-07
+oscillator_bath,32,coherence,SLB M=8,2.40506,-1.2724e-06,2.158592506e-07
+oscillator_bath,32,coherence,SLB M=8,2.46835,-1.10795e-06,1.54602091e-07
+oscillator_bath,32,coherence,SLB M=8,2.53165,-8.5935e-07,1.110211963e-07
+oscillator_bath,32,coherence,SLB M=8,2.59494,-6.029e-07,8.014804142e-08
+oscillator_bath,32,coherence,SLB M=8,2.65823,-3.796e-07,5.770171087e-08
+oscillator_bath,32,coherence,SLB M=8,2.72152,-2.071e-07,4.25988652e-08
+oscillator_bath,32,coherence,SLB M=8,2.78481,-8.535e-08,3.170018943e-08
+oscillator_bath,32,coherence,SLB M=8,2.8481,-8.35e-09,2.399282766e-08
+oscillator_bath,32,coherence,SLB M=8,2.91139,3.26e-08,1.791212497e-08
+oscillator_bath,32,coherence,SLB M=8,2.97468,4.975e-08,1.390699546e-08
+oscillator_bath,32,coherence,SLB M=8,3.03797,5.16e-08,1.08178152e-08
+oscillator_bath,32,coherence,SLB M=8,3.10127,4.525e-08,8.62026944e-09
+oscillator_bath,32,coherence,SLB M=8,3.16456,3.535e-08,6.715877834e-09
+oscillator_bath,32,coherence,SLB M=8,3.22785,2.5e-08,5.490970203e-09
+oscillator_bath,32,coherence,SLB M=8,3.29114,1.56e-08,5.174347239e-09
+oscillator_bath,32,coherence,SLB M=8,3.35443,9.35e-09,2.84922629e-09
+oscillator_bath,32,coherence,SLB M=8,3.41772,2.2e-09,4.152858191e-09
+oscillator_bath,32,coherence,SLB M=8,3.48101,5e-11,7.071067812e-10
+oscillator_bath,32,coherence,SLB M=8,3.5443,0,0
+oscillator_bath,32,coherence,SLB M=8,3.60759,0,0
+oscillator_bath,32,coherence,SLB M=8,3.67089,0,0
+oscillator_bath,32,coherence,SLB M=8,3.73418,0,0
+oscillator_bath,32,coherence,SLB M=8,3.79747,0,0
+oscillator_bath,32,coherence,SLB M=8,3.86076,0,0
+oscillator_bath,32,coherence,SLB M=8,3.92405,0,0
+oscillator_bath,32,coherence,SLB M=8,3.98734,0,0
+oscillator_bath,32,coherence,SLB M=8,4.05063,0,0
+oscillator_bath,32,coherence,SLB M=8,4.11392,0,0
+oscillator_bath,32,coherence,SLB M=8,4.17722,0,0
+oscillator_bath,32,coherence,SLB M=8,4.24051,0,0
+oscillator_bath,32,coherence,SLB M=8,4.3038,0,0
+oscillator_bath,32,coherence,SLB M=8,4.36709,0,0
+oscillator_bath,32,coherence,SLB M=8,4.43038,0,0
+oscillator_bath,32,coherence,SLB M=8,4.49367,0,0
+oscillator_bath,32,coherence,SLB M=8,4.55696,0,0
+oscillator_bath,32,coherence,SLB M=8,4.62025,0,0
+oscillator_bath,32,coherence,SLB M=8,4.68354,0,0
+oscillator_bath,32,coherence,SLB M=8,4.74684,0,0
+oscillator_bath,32,coherence,SLB M=8,4.81013,0,0
+oscillator_bath,32,coherence,SLB M=8,4.87342,0,0
+oscillator_bath,32,coherence,SLB M=8,4.93671,0,0
+oscillator_bath,32,coherence,SLB M=8,5,0,0
+oscillator_bath,32,coherence,SLB M=16,0,-0.3191209,1.057358582e-15
+oscillator_bath,32,coherence,SLB M=16,0.0632911,-0.2204150099,0.0004997638846
+oscillator_bath,32,coherence,SLB M=16,0.126582,-0.1363283406,0.0007858016313
+oscillator_bath,32,coherence,SLB M=16,0.189873,-0.0721930735,0.0009414399849
+oscillator_bath,32,coherence,SLB M=16,0.253165,-0.02790983925,0.001004227145
+oscillator_bath,32,coherence,SLB M=16,0.316456,-0.0005334468,0.0009972435861
+oscillator_bath,32,coherence,SLB M=16,0.379747,0.01395086375,0.0009398455199
+oscillator_bath,32,coherence,SLB M=16,0.443038,0.01953614905,0.0008496077187
+oscillator_bath,32,coherence,SLB M=16,0.506329,0.01962216995,0.0007417445406
+oscillator_bath,32,coherence,SLB M=16,0.56962,0.0168007747,0.0006284172963
+oscillator_bath,32,coherence,SLB M=16,0.632911,0.01286057625,0.0005184949773
+oscillator_bath,32,coherence,SLB M=16,0.696203,0.0089064672,0.000417772743
+oscillator_bath,32,coherence,SLB M=16,0.759494,0.0055222179,0.0003294630672
+oscillator_bath,32,coherence,SLB M=16,0.822785,0.0029320725,0.0002547870415
+oscillator_bath,32,coherence,SLB M=16,0.886076,0.00113826365,0.0001935641942
+oscillator_bath,32,coherence,SLB M=16,0.949367,2.57939e-05,0.0001447206155
+oscillator_bath,32,coherence,SLB M=16,1.01266,-0.00056529505,0.0001066989712
+oscillator_bath,32,coherence,SLB M=16,1.07595,-0.00079531475,7.775737448e-05
+oscillator_bath,32,coherence,SLB M=16,1.13924,-0.00080138355,5.617967972e-05
+oscillator_bath,32,coherence,SLB M=16,1.20253,-0.0006884134,4.039504902e-05
+oscillator_bath,32,coherence,SLB M=16,1.26582,-0.0005290556,2.904704657e-05
+oscillator_bath,32,coherence,SLB M=16,1.32911,-0.0003683711,2.100582015e-05
+oscillator_bath,32,coherence,SLB M=16,1.39241,-0.0002303159,1.536326779e-05
+oscillator_bath,32,coherence,SLB M=16,1.4557,-0.0001242326,1.141362728e-05
+oscillator_bath,32,coherence,SLB M=16,1.51899,-5.039765e-05,8.624054881e-06
+oscillator_bath,32,coherence,SLB M=16,1.58228,-4.2721e-06,6.614928266e-06
+oscillator_bath,32,coherence,SLB M=16,1.64557,2.0566e-05,5.126888523e-06
+oscillator_bath,32,coherence,SLB M=16,1.70886,3.059205e-05,3.993959295e-06
+oscillator_bath,32,coherence,SLB M=16,1.77215,3.13707e-05,3.111370218e-06
+oscillator_bath,32,coherence,SLB M=16,1.83544,2.71762e-05,2.413390526e-06
+oscillator_bath,32,coherence,SLB M=16,1.89873,2.098135e-05,1.860140935e-06
+oscillator_bath,32,coherence,SLB M=16,1.96203,1.464245e-05,1.421236809e-06
+oscillator_bath,32,coherence,SLB M=16,2.02532,9.15535e-06,1.075932167e-06
+oscillator_bath,32,coherence,SLB M=16,2.08861,4.9202e-06,8.064382638e-07
+oscillator_bath,32,coherence,SLB M=16,2.1519,1.9641e-06,5.988105379e-07
+oscillator_bath,32,coherence,SLB M=16,2.21519,1.148e-07,4.407040507e-07
+oscillator_bath,32,coherence,SLB M=16,2.27848,-8.8075e-07,3.220551741e-07
+oscillator_bath,32,coherence,SLB M=16,2.34177,-1.28055e-06,2.334968983e-07
+oscillator_bath,32,coherence,SLB M=16,2.40506,-1.30675e-06,1.684243787e-07
+oscillator_bath,32,coherence,SLB M=16,2.46835,-1.13245e-06,1.21867782e-07
+oscillator_bath,32,coherence,SLB M=16,2.53165,-8.766e-07,8.777792903e-08
+oscillator_bath,32,coherence,SLB M=16,2.59494,-6.154e-07,6.390822566e-08
+oscillator_bath,32,coherence,SLB M=16,2.65823,-3.89e-07,4.674317729e-08
+oscillator_bath,32,coherence,SLB M=16,2.72152,-2.1355e-07,3.434816563e-08
+oscillator_bath,32,coherence,SLB M=16,2.78481,-9.035e-08,2.558614378e-08
+oscillator_bath,32,coherence,SLB M=16,2.8481,-1.285e-08,1.965474612e-08
+oscillator_bath,32,coherence,SLB M=16,2.91139,2.96e-08,1.513224784e-08
+oscillator_bath,32,coherence,SLB M=16,2.97468,4.77e-08,1.105990995e-08
+oscillator_bath,32,coherence,SLB M=16,3.03797,4.99e-08,8.909934605e-09
+oscillator_bath,32,coherence,SLB M=16,3.10127,4.355e-08,6.938169136e-09
+oscillator_bath,32,coherence,SLB M=16,3.16456,3.39e-08,5.827503668e-09
+oscillator_bath,32,coherence,SLB M=16,3.22785,2.355e-08,4.900774218e-09
+oscillator_bath,32,coherence,SLB M=16,3.29114,1.52e-08,5.008535428e-09
+oscillator_bath,32,coherence,SLB M=16,3.35443,9.4e-09,2.380827946e-09
+oscillator_bath,32,coherence,SLB M=16,3.41772,1.45e-09,3.529844047e-09
+oscillator_bath,32,coherence,SLB M=16,3.48101,0,0
+oscillator_bath,32,coherence,SLB M=16,3.5443,0,0
+oscillator_bath,32,coherence,SLB M=16,3.60759,0,0
+oscillator_bath,32,coherence,SLB M=16,3.67089,0,0
+oscillator_bath,32,coherence,SLB M=16,3.73418,0,0
+oscillator_bath,32,coherence,SLB M=16,3.79747,0,0
+oscillator_bath,32,coherence,SLB M=16,3.86076,0,0
+oscillator_bath,32,coherence,SLB M=16,3.92405,0,0
+oscillator_bath,32,coherence,SLB M=16,3.98734,0,0
+oscillator_bath,32,coherence,SLB M=16,4.05063,0,0
+oscillator_bath,32,coherence,SLB M=16,4.11392,0,0
+oscillator_bath,32,coherence,SLB M=16,4.17722,0,0
+oscillator_bath,32,coherence,SLB M=16,4.24051,0,0
+oscillator_bath,32,coherence,SLB M=16,4.3038,0,0
+oscillator_bath,32,coherence,SLB M=16,4.36709,0,0
+oscillator_bath,32,coherence,SLB M=16,4.43038,0,0
+oscillator_bath,32,coherence,SLB M=16,4.49367,0,0
+oscillator_bath,32,coherence,SLB M=16,4.55696,0,0
+oscillator_bath,32,coherence,SLB M=16,4.62025,0,0
+oscillator_bath,32,coherence,SLB M=16,4.68354,0,0
+oscillator_bath,32,coherence,SLB M=16,4.74684,0,0
+oscillator_bath,32,coherence,SLB M=16,4.81013,0,0
+oscillator_bath,32,coherence,SLB M=16,4.87342,0,0
+oscillator_bath,32,coherence,SLB M=16,4.93671,0,0
+oscillator_bath,32,coherence,SLB M=16,5,0,0
+oscillator_bath,32,coherence,SLB M=32,0,-0.3191209,1.057358582e-15
+oscillator_bath,32,coherence,SLB M=32,0.0632911,-0.2203698475,0.0003147994027
+oscillator_bath,32,coherence,SLB M=32,0.126582,-0.1362464277,0.0004915818158
+oscillator_bath,32,coherence,SLB M=32,0.189873,-0.0720857158,0.0005939698012
+oscillator_bath,32,coherence,SLB M=32,0.253165,-0.02778879035,0.000643442532
+oscillator_bath,32,coherence,SLB M=32,0.316456,-0.00040913665,0.000649601383
+oscillator_bath,32,coherence,SLB M=32,0.379747,0.01407027975,0.0006213036369
+oscillator_bath,32,coherence,SLB M=32,0.443038,0.01964506345,0.0005684397455
+oscillator_bath,32,coherence,SLB M=32,0.506329,0.01971734925,0.0005008919326
+oscillator_bath,32,coherence,SLB M=32,0.56962,0.0168809546,0.0004273071734
+oscillator_bath,32,coherence,SLB M=32,0.632911,0.0129259637,0.0003543803828
+oscillator_bath,32,coherence,SLB M=32,0.696203,0.00895826175,0.0002866835177
+oscillator_bath,32,coherence,SLB M=32,0.759494,0.0055621858,0.0002268656672
+oscillator_bath,32,coherence,SLB M=32,0.822785,0.00296220685,0.0001760415661
+oscillator_bath,32,coherence,SLB M=32,0.886076,0.00116053655,0.000134233339
+oscillator_bath,32,coherence,SLB M=32,0.949367,4.19942e-05,0.0001007747222
+oscillator_bath,32,coherence,SLB M=32,1.01266,-0.00055364615,7.463235657e-05
+oscillator_bath,32,coherence,SLB M=32,1.07595,-0.00078698925,5.463939552e-05
+oscillator_bath,32,coherence,SLB M=32,1.13924,-0.0007954354,3.964482466e-05
+oscillator_bath,32,coherence,SLB M=32,1.20253,-0.00068413995,2.860059993e-05
+oscillator_bath,32,coherence,SLB M=32,1.26582,-0.0005259492,2.059845682e-05
+oscillator_bath,32,coherence,SLB M=32,1.32911,-0.0003660776,1.488547399e-05
+oscillator_bath,32,coherence,SLB M=32,1.39241,-0.00022859265,1.085112585e-05
+oscillator_bath,32,coherence,SLB M=32,1.4557,-0.000122916,8.016401717e-06
+oscillator_bath,32,coherence,SLB M=32,1.51899,-4.93779e-05,6.016167213e-06
+oscillator_bath,32,coherence,SLB M=32,1.58228,-3.47445e-06,4.583364358e-06
+oscillator_bath,32,coherence,SLB M=32,1.64557,2.11915e-05,3.533424144e-06
+oscillator_bath,32,coherence,SLB M=32,1.70886,3.10825e-05,2.742439172e-06
+oscillator_bath,32,coherence,SLB M=32,1.77215,3.17538e-05,2.133148653e-06
+oscillator_bath,32,coherence,SLB M=32,1.83544,2.74732e-05,1.654934075e-06
+oscillator_bath,32,coherence,SLB M=32,1.89873,2.121005e-05,1.277528038e-06
+oscillator_bath,32,coherence,SLB M=32,1.96203,1.48163e-05,9.78124197e-07
+oscillator_bath,32,coherence,SLB M=32,2.02532,9.2869e-06,7.427772074e-07
+oscillator_bath,32,coherence,SLB M=32,2.08861,5.01845e-06,5.58552596e-07
+oscillator_bath,32,coherence,SLB M=32,2.1519,2.0372e-06,4.16258955e-07
+oscillator_bath,32,coherence,SLB M=32,2.21519,1.685e-07,3.073059301e-07
+oscillator_bath,32,coherence,SLB M=32,2.27848,-8.408e-07,2.249296037e-07
+oscillator_bath,32,coherence,SLB M=32,2.34177,-1.251e-06,1.633690523e-07
+oscillator_bath,32,coherence,SLB M=32,2.40506,-1.2854e-06,1.183081744e-07
+oscillator_bath,32,coherence,SLB M=32,2.46835,-1.11665e-06,8.571471614e-08
+oscillator_bath,32,coherence,SLB M=32,2.53165,-8.656e-07,6.14370618e-08
+oscillator_bath,32,coherence,SLB M=32,2.59494,-6.07e-07,4.473259466e-08
+oscillator_bath,32,coherence,SLB M=32,2.65823,-3.826e-07,3.278129139e-08
+oscillator_bath,32,coherence,SLB M=32,2.72152,-2.0915e-07,2.424285628e-08
+oscillator_bath,32,coherence,SLB M=32,2.78481,-8.715e-08,1.830444656e-08
+oscillator_bath,32,coherence,SLB M=32,2.8481,-1.015e-08,1.354232153e-08
+oscillator_bath,32,coherence,SLB M=32,2.91139,3.18e-08,1.110751477e-08
+oscillator_bath,32,coherence,SLB M=32,2.97468,4.89e-08,8.254129468e-09
+oscillator_bath,32,coherence,SLB M=32,3.03797,5.105e-08,6.604209104e-09
+oscillator_bath,32,coherence,SLB M=32,3.10127,4.51e-08,5.490054965e-09
+oscillator_bath,32,coherence,SLB M=32,3.16456,3.515e-08,5.207020773e-09
+oscillator_bath,32,coherence,SLB M=32,3.22785,2.465e-08,5.00025125e-09
+oscillator_bath,32,coherence,SLB M=32,3.29114,1.645e-08,4.797141108e-09
+oscillator_bath,32,coherence,SLB M=32,3.35443,9.85e-09,1.218574833e-09
+oscillator_bath,32,coherence,SLB M=32,3.41772,5.5e-10,2.285523592e-09
+oscillator_bath,32,coherence,SLB M=32,3.48101,0,0
+oscillator_bath,32,coherence,SLB M=32,3.5443,0,0
+oscillator_bath,32,coherence,SLB M=32,3.60759,0,0
+oscillator_bath,32,coherence,SLB M=32,3.67089,0,0
+oscillator_bath,32,coherence,SLB M=32,3.73418,0,0
+oscillator_bath,32,coherence,SLB M=32,3.79747,0,0
+oscillator_bath,32,coherence,SLB M=32,3.86076,0,0
+oscillator_bath,32,coherence,SLB M=32,3.92405,0,0
+oscillator_bath,32,coherence,SLB M=32,3.98734,0,0
+oscillator_bath,32,coherence,SLB M=32,4.05063,0,0
+oscillator_bath,32,coherence,SLB M=32,4.11392,0,0
+oscillator_bath,32,coherence,SLB M=32,4.17722,0,0
+oscillator_bath,32,coherence,SLB M=32,4.24051,0,0
+oscillator_bath,32,coherence,SLB M=32,4.3038,0,0
+oscillator_bath,32,coherence,SLB M=32,4.36709,0,0
+oscillator_bath,32,coherence,SLB M=32,4.43038,0,0
+oscillator_bath,32,coherence,SLB M=32,4.49367,0,0
+oscillator_bath,32,coherence,SLB M=32,4.55696,0,0
+oscillator_bath,32,coherence,SLB M=32,4.62025,0,0
+oscillator_bath,32,coherence,SLB M=32,4.68354,0,0
+oscillator_bath,32,coherence,SLB M=32,4.74684,0,0
+oscillator_bath,32,coherence,SLB M=32,4.81013,0,0
+oscillator_bath,32,coherence,SLB M=32,4.87342,0,0
+oscillator_bath,32,coherence,SLB M=32,4.93671,0,0
+oscillator_bath,32,coherence,SLB M=32,5,0,0
+oscillator_bath,32,coherence,SLB M=64,0,-0.3191209,1.057358582e-15
+oscillator_bath,32,coherence,SLB M=64,0.0632911,-0.2203507134,0.0002287999404
+oscillator_bath,32,coherence,SLB M=64,0.126582,-0.1362041074,0.0003586621454
+oscillator_bath,32,coherence,SLB M=64,0.189873,-0.0720245088,0.000434374676
+oscillator_bath,32,coherence,SLB M=64,0.253165,-0.027716308,0.0004703295557
+oscillator_bath,32,coherence,SLB M=64,0.316456,-0.0003331473,0.0004735328821
+oscillator_bath,32,coherence,SLB M=64,0.379747,0.0141434876,0.0004511255679
+oscillator_bath,32,coherence,SLB M=64,0.443038,0.0197112429,0.0004110263282
+oscillator_bath,32,coherence,SLB M=64,0.506329,0.0197742163,0.0003608582758
+oscillator_bath,32,coherence,SLB M=64,0.56962,0.01692779425,0.0003070145657
+oscillator_bath,32,coherence,SLB M=64,0.632911,0.0129631608,0.0002542360627
+oscillator_bath,32,coherence,SLB M=64,0.696203,0.0089868564,0.0002056163578
+oscillator_bath,32,coherence,SLB M=64,0.759494,0.0055835323,0.0001628505345
+oscillator_bath,32,coherence,SLB M=64,0.822785,0.00297772595,0.0001265794226
+oscillator_bath,32,coherence,SLB M=64,0.886076,0.0011715563,9.672613965e-05
+oscillator_bath,32,coherence,SLB M=64,0.949367,4.966655e-05,7.278075659e-05
+oscillator_bath,32,coherence,SLB M=64,1.01266,-0.00054838155,5.400883597e-05
+oscillator_bath,32,coherence,SLB M=64,1.07595,-0.00078340375,3.960061569e-05
+oscillator_bath,32,coherence,SLB M=64,1.13924,-0.0007929887,2.875860793e-05
+oscillator_bath,32,coherence,SLB M=64,1.20253,-0.0006824477,2.075270628e-05
+oscillator_bath,32,coherence,SLB M=64,1.26582,-0.00052475085,1.494357934e-05
+oscillator_bath,32,coherence,SLB M=64,1.32911,-0.0003652008,1.079408205e-05
+oscillator_bath,32,coherence,SLB M=64,1.39241,-0.0002279277,7.86453599e-06
+oscillator_bath,32,coherence,SLB M=64,1.4557,-0.00012239575,5.806534911e-06
+oscillator_bath,32,coherence,SLB M=64,1.51899,-4.896195e-05,4.355421239e-06
+oscillator_bath,32,coherence,SLB M=64,1.58228,-3.1381e-06,3.316124212e-06
+oscillator_bath,32,coherence,SLB M=64,1.64557,2.146415e-05,2.554164847e-06
+oscillator_bath,32,coherence,SLB M=64,1.70886,3.130125e-05,1.981024286e-06
+oscillator_bath,32,coherence,SLB M=64,1.77215,3.192635e-05,1.538706687e-06
+oscillator_bath,32,coherence,SLB M=64,1.83544,2.760785e-05,1.192928442e-06
+oscillator_bath,32,coherence,SLB M=64,1.89873,2.131255e-05,9.199371824e-07
+oscillator_bath,32,coherence,SLB M=64,1.96203,1.489325e-05,7.039379095e-07
+oscillator_bath,32,coherence,SLB M=64,2.02532,9.343e-06,5.342472279e-07
+oscillator_bath,32,coherence,SLB M=64,2.08861,5.0591e-06,4.015762786e-07
+oscillator_bath,32,coherence,SLB M=64,2.1519,2.0659e-06,2.989583087e-07
+oscillator_bath,32,coherence,SLB M=64,2.21519,1.8905e-07,2.207219709e-07
+oscillator_bath,32,coherence,SLB M=64,2.27848,-8.2705e-07,1.619969523e-07
+oscillator_bath,32,coherence,SLB M=64,2.34177,-1.24175e-06,1.176334375e-07
+oscillator_bath,32,coherence,SLB M=64,2.40506,-1.27885e-06,8.504316078e-08
+oscillator_bath,32,coherence,SLB M=64,2.46835,-1.1116e-06,6.148448348e-08
+oscillator_bath,32,coherence,SLB M=64,2.53165,-8.622e-07,4.450916003e-08
+oscillator_bath,32,coherence,SLB M=64,2.59494,-6.045e-07,3.220147005e-08
+oscillator_bath,32,coherence,SLB M=64,2.65823,-3.8095e-07,2.363026549e-08
+oscillator_bath,32,coherence,SLB M=64,2.72152,-2.074e-07,1.762934967e-08
+oscillator_bath,32,coherence,SLB M=64,2.78481,-8.61e-08,1.317794716e-08
+oscillator_bath,32,coherence,SLB M=64,2.8481,-9.5e-09,9.962240268e-09
+oscillator_bath,32,coherence,SLB M=64,2.91139,3.22e-08,7.710855104e-09
+oscillator_bath,32,coherence,SLB M=64,2.97468,4.985e-08,6.218589412e-09
+oscillator_bath,32,coherence,SLB M=64,3.03797,5.15e-08,5.087179669e-09
+oscillator_bath,32,coherence,SLB M=64,3.10127,4.53e-08,5.003516351e-09
+oscillator_bath,32,coherence,SLB M=64,3.16456,3.535e-08,5.00025125e-09
+oscillator_bath,32,coherence,SLB M=64,3.22785,2.455e-08,4.992204979e-09
+oscillator_bath,32,coherence,SLB M=64,3.29114,1.725e-08,4.476347668e-09
+oscillator_bath,32,coherence,SLB M=64,3.35443,1e-08,4.477984297e-23
+oscillator_bath,32,coherence,SLB M=64,3.41772,1e-10,9.974842727e-10
+oscillator_bath,32,coherence,SLB M=64,3.48101,0,0
+oscillator_bath,32,coherence,SLB M=64,3.5443,0,0
+oscillator_bath,32,coherence,SLB M=64,3.60759,0,0
+oscillator_bath,32,coherence,SLB M=64,3.67089,0,0
+oscillator_bath,32,coherence,SLB M=64,3.73418,0,0
+oscillator_bath,32,coherence,SLB M=64,3.79747,0,0
+oscillator_bath,32,coherence,SLB M=64,3.86076,0,0
+oscillator_bath,32,coherence,SLB M=64,3.92405,0,0
+oscillator_bath,32,coherence,SLB M=64,3.98734,0,0
+oscillator_bath,32,coherence,SLB M=64,4.05063,0,0
+oscillator_bath,32,coherence,SLB M=64,4.11392,0,0
+oscillator_bath,32,coherence,SLB M=64,4.17722,0,0
+oscillator_bath,32,coherence,SLB M=64,4.24051,0,0
+oscillator_bath,32,coherence,SLB M=64,4.3038,0,0
+oscillator_bath,32,coherence,SLB M=64,4.36709,0,0
+oscillator_bath,32,coherence,SLB M=64,4.43038,0,0
+oscillator_bath,32,coherence,SLB M=64,4.49367,0,0
+oscillator_bath,32,coherence,SLB M=64,4.55696,0,0
+oscillator_bath,32,coherence,SLB M=64,4.62025,0,0
+oscillator_bath,32,coherence,SLB M=64,4.68354,0,0
+oscillator_bath,32,coherence,SLB M=64,4.74684,0,0
+oscillator_bath,32,coherence,SLB M=64,4.81013,0,0
+oscillator_bath,32,coherence,SLB M=64,4.87342,0,0
+oscillator_bath,32,coherence,SLB M=64,4.93671,0,0
+oscillator_bath,32,coherence,SLB M=64,5,0,0

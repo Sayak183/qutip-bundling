@@ -1,10 +1,10 @@
-﻿**********************
+**********************
 Windows PowerShell transcript start
 Start time: 20260720233004
-Username: ADHIKARI\sayak
-RunAs User: ADHIKARI\sayak
+Username: <redacted>
+RunAs User: <redacted>
 Configuration Name: 
-Machine: ADHIKARI (Microsoft Windows NT 10.0.26200.0)
+Machine: <redacted> (Microsoft Windows NT 10.0.26200.0)
 Host Application: C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe
 Process ID: 25200
 PSVersion: 5.1.26100.8894
@@ -17,7 +17,7 @@ PSRemotingProtocolVersion: 2.3
 SerializationVersion: 1.1.0.1
 **********************
 Transcript started, output file is convergence_spin32_scale4.txt
-PS C:\Users\sayak\Downloads\repo-split\qutip-bundling\benchmarks> python benchmark_convergence.py --only spin_chain --dims 32 --scale 4
+PS <repo>\benchmarks> python benchmark_convergence.py --only spin_chain --dims 32 --scale 4
 
 ### spin_chain dim 32: 128 realizations, 4 substeps ###
 
@@ -35,7 +35,7 @@ PS C:\Users\sayak\Downloads\repo-split\qutip-bundling\benchmarks> python benchma
     VERDICT: MARGINAL -- corrected bias clears 2x SEM at only 2 of 6 M values (max reduction 4.6x there). The reduction
 is real but the SLOPE is not quotable under the 2x-SEM/3-point rule.
     -> raise N_REALIZATIONS (try 512) and re-run before trusting the jackknife slope.
-PS C:\Users\sayak\Downloads\repo-split\qutip-bundling\benchmarks> Stop-Transcript
+PS <repo>\benchmarks> Stop-Transcript
 **********************
 Windows PowerShell transcript end
 End time: 20260721004312

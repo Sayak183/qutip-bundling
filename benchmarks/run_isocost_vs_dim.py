@@ -9,27 +9,27 @@ figure is drawn from the saved data by plot_isocost_vs_dim.py.
 At each Hilbert dimension (up to the exact-reference wall) it records:
 
   * the exact reference <H(t)> and its wall-clock cost;
-  * SLB: an ascending bundle-size sweep. For each M, N_RUNS_MAX independent
-    runs are drawn ONCE and their raw per-run <H(t)> samples are saved, along
-    with the per-run wall-clock. Saving the raw samples (not derived RMSEs) is
-    what makes the split powerful here: the plot script subsamples the runs, so
-    BOTH the accuracy target AND the averaging levels N are analysis-time
-    choices -- neither requires re-running this (slow) script.
+  * SLB: an ascending bundle-size sweep. For each M, enough independent runs
+    are drawn ONCE to cover the largest averaging level configured for that
+    system in isocost_config.SYSTEM_N_RUNS. Their raw per-run <H(t)> samples
+    are saved along with the per-run wall-clock. The plot script derives every
+    configured averaging level from those samples.
   * mcsolve: the raw S^2 fit. mcsolve's trajectory average is unbiased, so its
     RMSE is exactly S/sqrt(ntraj); we sample a few small ntraj (with repeats to
     smooth run-to-run noise) and save each repeat's RMSE and the per-trajectory
     time. The plot script solves ntraj* = (S/target)^2 for any target.
 
-The sweep stops early only once the RMSE evaluated at the FEWEST anticipated
-runs (SWEEP_MIN_RUNS, the harshest level, largest statistical floor) falls
-below SWEEP_STOP_RMSE; both are recorded in the metadata, and the plot script
-warns if asked for a level or target the sweep cannot support.
+The sweep stops early only once the RMSE evaluated at the FEWEST configured
+run count (the harshest level, largest statistical floor) falls below
+SWEEP_STOP_RMSE. The configured levels are recorded in the metadata, and the
+plot script rejects data that cannot support them.
 
 Uses the fine 80-point time grid (TLIST_FINE), matching the published Result 4
 and the other accuracy-style comparisons (Results 1 and 3).
 
 Writes, per system:  data/isocost_vs_dim_<system>.json
-Run:                 python run_isocost_vs_dim.py [--system ...] [--sizes ...]
+Run:                 python run_isocost_vs_dim.py (--system ... | --all)
+                     [--sizes ...]
                      (this is the slow benchmark)
 """
 
@@ -43,17 +43,17 @@ import qutip
 
 from common import (
     gamma, build_spin_chain, build_oscillator_bath, TLIST_FINE, SUBSTEPS,
-    FULL_TIME_BUDGET, MAX_FULL_DIM, MC_OPTIONS, tavg_rmse, run_metadata,
-    save_data,
+    DATA_DIR, FULL_TIME_BUDGET, MAX_FULL_DIM, MC_OPTIONS, tavg_rmse,
+    run_metadata, save_data,
 )
+from benchmark_cli import add_safety_arguments, preflight_run, selected_systems
+from isocost_config import run_counts
 from qutip_bundling import davies_operators, mesolve_ensemble
 from qutip_bundling.native_solver import rk4_mesolve
 
-N_RUNS_MAX = 16         # independent SLB runs drawn per M (levels subsample these)
-SWEEP_MIN_RUNS = 4      # harshest averaging level the sweep must support
-SWEEP_STOP_RMSE = 0.01  # stop the sweep once the SWEEP_MIN_RUNS-level RMSE is
-                        # below this floor (recorded in meta; must stay <= any
-                        # plot-side target)
+SWEEP_STOP_RMSE = 0.01  # stop once the smallest configured averaging level
+                        # reaches this floor (recorded in metadata; must stay
+                        # <= any plot-side target)
 M_GRID = [1, 2, 4, 8, 16, 32, 64, 128]          # SLB knob searched
 MC_FIT_GRID = [100, 200, 400]                   # mcsolve ntraj sampled to fit S
 MC_REPEATS = 4                                  # repeats per point -> smooth noise
@@ -75,11 +75,12 @@ SYSTEMS = {
 }
 
 
-def slb_sweep(H, rho0, c_ops, reference, n_l, substeps=SUBSTEPS):
-    """Ascending M sweep at N_RUNS_MAX runs each; raw samples saved per M.
+def slb_sweep(H, rho0, c_ops, reference, n_l, n_runs_max, sweep_min_runs,
+              substeps=SUBSTEPS):
+    """Ascending M sweep at n_runs_max runs each; raw samples saved per M.
 
-    [{M, per_run_cost, samples: (N_RUNS_MAX, n_times)}, ...]. Stops once the
-    SWEEP_MIN_RUNS-level RMSE reaches SWEEP_STOP_RMSE or M reaches n_l (grid
+    [{M, per_run_cost, samples: (n_runs_max, n_times)}, ...]. Stops once the
+    sweep_min_runs-level RMSE reaches SWEEP_STOP_RMSE or M reaches n_l (grid
     values are capped at n_l and deduplicated).
     """
     rows, seen = [], set()
@@ -90,11 +91,11 @@ def slb_sweep(H, rho0, c_ops, reference, n_l, substeps=SUBSTEPS):
         seen.add(m_eff)
         t0 = time.perf_counter()
         ens = mesolve_ensemble(H, rho0, TLIST_FINE, c_ops, M=m_eff, e_ops=[H],
-                               n_realizations=N_RUNS_MAX, rng=RNG_SWEEP,
+                               n_realizations=n_runs_max, rng=RNG_SWEEP,
                                backend="native", substeps=substeps)
-        per_run = (time.perf_counter() - t0) / N_RUNS_MAX
+        per_run = (time.perf_counter() - t0) / n_runs_max
         samples = np.real(ens.samples[:, 0, :])
-        rmse_min = tavg_rmse(samples[:SWEEP_MIN_RUNS], reference)
+        rmse_min = tavg_rmse(samples[:sweep_min_runs], reference)
         rmse_max = tavg_rmse(samples, reference)
         if (not np.isfinite(samples).all()
                 or float(np.max(np.abs(samples)))
@@ -106,8 +107,8 @@ def slb_sweep(H, rho0, c_ops, reference, n_l, substeps=SUBSTEPS):
             break
         rows.append({"M": m_eff, "per_run_cost": per_run,
                      "samples": np.round(samples, ROUND)})
-        print(f"      M={m_eff:4d}  RMSE(n={SWEEP_MIN_RUNS})={rmse_min:.3e}  "
-              f"RMSE(n={N_RUNS_MAX})={rmse_max:.3e}  per-run={per_run:.3g}s")
+        print(f"      M={m_eff:4d}  RMSE(n={sweep_min_runs})={rmse_min:.3e}  "
+              f"RMSE(n={n_runs_max})={rmse_max:.3e}  per-run={per_run:.3g}s")
         if rmse_min <= SWEEP_STOP_RMSE or m_eff >= n_l:
             break
     return rows
@@ -161,9 +162,14 @@ def mc_fit(H, psi0, c_ops, reference):
     return [r for r in rows if "_skipped" not in r], skipped
 
 
-def run(name, build, size_points):
+def run(name, build, size_points, n_runs_list):
+    n_runs_max = max(n_runs_list)
+    sweep_min_runs = min(n_runs_list)
     points = []
-    print(f"[{name}]  sweep floor RMSE = {SWEEP_STOP_RMSE} at n={SWEEP_MIN_RUNS} runs")
+    print(f"[{name}]  run-count levels = {n_runs_list}; generating "
+          f"{n_runs_max} samples per M")
+    print(f"[{name}]  sweep floor RMSE = {SWEEP_STOP_RMSE} at "
+          f"n={sweep_min_runs} runs")
     full_feasible = True
     for s, substeps in size_points:
         H, X, psi0 = build(s)
@@ -217,7 +223,10 @@ def run(name, build, size_points):
             "substeps": substeps, "reference_method": ref_method,
             "reference_selfcheck": ref_selfcheck,
             "reference": np.round(reference, ROUND),
-            "slb_sweep": slb_sweep(H, rho0, c_ops, reference, n_l, substeps),
+            "slb_sweep": slb_sweep(
+                H, rho0, c_ops, reference, n_l, n_runs_max,
+                sweep_min_runs, substeps,
+            ),
             "mc_fit": mc_rows, "mc_skipped": mc_skipped,
         })
 
@@ -225,8 +234,8 @@ def run(name, build, size_points):
         tlist=TLIST_FINE,
         system=name, sizes=[s for s, _ in size_points],
         substeps_by_size={str(s): ss for s, ss in size_points},
-        N_RUNS_MAX=N_RUNS_MAX,
-        SWEEP_MIN_RUNS=SWEEP_MIN_RUNS, SWEEP_STOP_RMSE=SWEEP_STOP_RMSE,
+        N_RUNS_LEVELS=n_runs_list, N_RUNS_MAX=n_runs_max,
+        SWEEP_MIN_RUNS=sweep_min_runs, SWEEP_STOP_RMSE=SWEEP_STOP_RMSE,
         M_GRID=M_GRID, MC_FIT_GRID=MC_FIT_GRID, MC_REPEATS=MC_REPEATS,
         rng_sweep=RNG_SWEEP,
     )
@@ -235,20 +244,38 @@ def run(name, build, size_points):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[1])
-    ap.add_argument("--system", default="all",
-                    choices=[*SYSTEMS, "all"],
-                    help="which system to run (default: all)")
+    add_safety_arguments(ap, SYSTEMS)
     ap.add_argument("--sizes", type=int, nargs="+", default=None,
-                    help="override the size list (smoke tests); the override "
-                         "is recorded in the data file's metadata")
+                    help="only these configured model sizes (these are not "
+                         "Hilbert dimensions)")
     args = ap.parse_args()
-    names = list(SYSTEMS) if args.system == "all" else [args.system]
+    names = selected_systems(args, SYSTEMS)
+    work = []
+    plans = []
     for name in names:
         build, size_points = SYSTEMS[name]
         if args.sizes:
+            available_sizes = {size for size, _ in size_points}
+            missing = sorted(set(args.sizes) - available_sizes)
+            if missing:
+                ap.error(
+                    f"{name} has no configured Result 4 model sizes {missing}; "
+                    f"available sizes are {sorted(available_sizes)}"
+                )
             keep = set(args.sizes)
             size_points = [(s, ss) for s, ss in size_points if s in keep]
-        run(name, build, size_points)
+        work.append((name, build, size_points, run_counts(name)))
+        plans.append((
+            f"Result 4: {name}, model sizes={[s for s, _ in size_points]}",
+            DATA_DIR / f"isocost_vs_dim_{name}.json",
+        ))
+
+    if not preflight_run(
+        plans, overwrite=args.overwrite, dry_run=args.dry_run
+    ):
+        return
+    for item in work:
+        run(*item)
 
 
 if __name__ == "__main__":
