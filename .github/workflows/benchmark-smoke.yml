@@ -1,0 +1,40 @@
+name: benchmark smoke
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "benchmarks/**"
+      - "README.md"
+      - "pyproject.toml"
+      - ".github/workflows/benchmark-smoke.yml"
+  pull_request:
+    paths:
+      - "benchmarks/**"
+      - "README.md"
+      - "pyproject.toml"
+      - ".github/workflows/benchmark-smoke.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: benchmark-smoke-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  benchmark-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - name: Install package and plotting dependencies
+        run: python -m pip install -e ".[examples]"
+      - name: Exercise the benchmark newcomer workflow
+        run: python benchmarks/smoke_test.py
