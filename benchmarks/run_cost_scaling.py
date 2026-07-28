@@ -333,7 +333,8 @@ def run(name, build, sizes, full_budget=FULL_TIME_BUDGET,
     meta = run_metadata(
         system=name, sizes=sizes, M_REP=M_REP, N_ACC=N_ACC,
         substeps=SUBSTEPS,
-        full_budget_used=full_budget, NATIVE_REF_SUBSTEPS=NATIVE_REF_SUBSTEPS,
+        full_budget_used=full_budget, native_ref_max_dim=native_ref_max,
+        NATIVE_REF_SUBSTEPS=NATIVE_REF_SUBSTEPS,
         M_SWEEP_GRID=M_SWEEP_GRID, SWEEP_STOP_RMSE=SWEEP_STOP_RMSE,
         rng_sweep=RNG_SWEEP, rng_timing=RNG_TIMING,
     )

@@ -27,6 +27,7 @@
    "M_REP": 8,
    "N_ACC": 16,
    "full_budget_used": 60.0,
+   "native_ref_max_dim": 128,
    "NATIVE_REF_SUBSTEPS": 8,
    "M_SWEEP_GRID": [
     1,

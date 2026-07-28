@@ -460,17 +460,32 @@ frontier (Result 3) sweeps the bias knob `M` for SLB against the noise knob
 > care about speed can jump to Result 2. The supporting checks behind every
 > claim are in §6.
 
-**A note on the dimension range.** The accuracy results (1, 3, 4) run to dim 64;
-only the cost scaling (Result 2) reaches dim 128. The reason is not a limit of
-SLB — Result 2 shows SLB itself running comfortably to dim 128 (and to 256 on
-the chain). It is a limit of what we can *check against*. Measuring accuracy
-needs an exact reference at every point, and past the memory wall (~dim 32) the
-only exact route is the native full-dissipator solve, which we certify through
-dim 64; Results 3 and 4 also need an `mcsolve` comparison, and past dim 64
-`mcsolve`'s trajectory count runs into months of compute. Result 2's cost
-curves carry no such constraint — timing a run needs no ground truth — so they
-alone extend further. In short, we report accuracy exactly as far as we can
-certify it honestly, and speed as far as SLB will run.
+**A note on the dimension range — memory wall versus time wall.** The committed
+Result 1, 3 and 4 datasets stop at dim 64, while Result 2 times SLB through dim
+256 on the chain and dim 128 on the oscillator. This is not an SLB dimension
+limit. Full `mesolve` first hits a **memory wall** around dim 32: constructing
+the $N^2\times N^2$ Liouvillian from hundreds or thousands of dissipators
+exhausts 32 GB even before useful propagation can begin.
+
+The native full-dissipator RK4 avoids that superoperator and keeps memory
+manageable, but then the limiting resource is **time**. In the committed Result
+2 data its exact-reference solve takes 1,304 s (about 22 minutes) for the
+dim-128 chain and 11,472 s (about 3.2 hours) for the dim-128 oscillator, before
+the additional convergence-check partner. Result 1 would then repeat the SLB
+solve 200 times at each of six bundle sizes. Results 3 and 4 are more strongly
+limited by their required `mcsolve` comparison: already at dim 64, Result 4
+projects about two hours of trajectories for the chain and about 67 days for
+the oscillator at the target accuracy. Extending those matched-accuracy
+comparisons to dim 128 would therefore be a trajectory-compute project, not a
+memory fix.
+
+Result 2 can extend because its primary fixed-$M$, construction, and native
+cost curves only time successful runs; they do not need `mcsolve`, and timing
+does not require ground truth. Its iso-accuracy subset does use the expensive
+native reference and is certified through dim 128 in the committed data; the
+chain's dim-256 point is timing-only. Thus dim 64 is a chosen practical scope
+for Result 1 and the fair-comparison wall for Results 3–4, not a hard ceiling of
+the SLB method or of every possible exact reference.
 
 ### Result 1 — accuracy versus the bundle size $M$
 
@@ -615,6 +630,11 @@ stability at the largest size reached; at the smaller sizes this over-resolves
 the dynamics, so those points are a mild upper bound on SLB's true cost — a
 conservative bias, never a flattering one. At that setting every curve reaches
 dim 128, a $16\times$ dimensional span, where the sweep's configured sizes end.
+The committed dimension-128 reference points were generated with
+`--native-ref-max 128`; `meta.params.native_ref_max_dim` records that override
+alongside the reference substeps. The default remains 64 because extending the
+reference is an hours-scale opt-in action, whereas the larger timing-only SLB
+points are inexpensive.
 The ladder's stiffness grows like $n^2$, so each further octave would demand
 roughly $4\times$ more substeps; the principled route to larger sizes is an
 implicit solver, not more RK4 steps (see the outlook). This same "stiffer than the physical system"
