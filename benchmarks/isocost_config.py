@@ -7,7 +7,7 @@ from those samples.
 """
 
 SYSTEM_N_RUNS = {
-    "spin_chain": [4, 8, 16],
+    "spin_chain": [4],
     "oscillator_bath": [16],
 }
 

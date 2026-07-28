@@ -370,7 +370,7 @@ density-matrix solves of $M$ operators each — a total of $M\times$
 | accuracy (Result 1) | system-dependent | 200 | $\pm1$ std band |
 | cost scaling (Result 2) | 8 (iso-accuracy sweeps `M`) | 1 (cost) / 16 (RMSE) | — |
 | frontier (Result 3) | 1–64, system/size-dependent | spin: 2 / 4 / 8; oscillator: 8 / 16 | $S/\sqrt{N_r}$ |
-| iso-cost vs dim (Result 4) | swept to target ($\le 128$) | spin: 4 / 8 / 16; oscillator: 16 | mcsolve via $S/\sqrt{\texttt{ntraj}}$ fit |
+| iso-cost vs dim (Result 4) | swept to target ($\le 128$) | spin: 4; oscillator: 16 | mcsolve via $S/\sqrt{\texttt{ntraj}}$ fit |
 
 **`mcsolve` has one level of sampling:** a single reported point is `ntraj`
 independent trajectories (swept over `[10, 50, 200, 1000]` in the frontier
@@ -455,7 +455,7 @@ frontier (Result 3) sweeps the bias knob `M` for SLB against the noise knob
 > (Result 1), **cheap and better-scaling than the exact solver** (Result 2),
 > **cheaper than `mcsolve` at matched accuracy** (Result 3) — never slower on
 > either system — and that advantage **widens with system size on both**
-> (Result 4): to $\sim\!46\times$ on the chain by dim 64, and into the
+> (Result 4): to $\sim\!99\times$ on the chain by dim 64, and into the
 > thousands on the operator-heavy oscillator. Readers who only
 > care about speed can jump to Result 2. The supporting checks behind every
 > claim are in §6.
@@ -795,20 +795,20 @@ only against the *exact* solver; Result 3 races SLB against `mcsolve` but at a
 *fixed* size. This figure runs the SLB-versus-`mcsolve` comparison **as a
 function of dimension**: at each $N$ it asks each method for the cheapest setting
 that reaches a fixed target accuracy ($\text{RMSE}=0.02$ against the exact solve)
-and plots that cost. The bottom panel is the payoff — the speedup
-(`mcsolve` cost / SLB cost) versus $N$: if it rises, SLB's advantage *widens* with
-system size.
+and plots that cost. Their vertical separation in the upper panel is the speedup
+(`mcsolve` cost / SLB cost). The lower panel checks the selected SLB operating
+point directly by decomposing its MSE into systematic bias² and statistical
+SEM² against the target MSE.
 
-**Two regimes, both widening.** On the spin chain SLB is *never slower* at
-matched accuracy, and — now that the curve reaches dim 64 — the advantage
-clearly **grows with system size** rather than plateauing. Up to dim 32 it is
-modest and somewhat irregular ($\sim\!2\text{--}17\times$, since SLB's own
-$M^\ast$ climbs $1\to8\to16\to32$ and eats part of the win); but from dim 32
-to 64 the curves separate sharply, because `mcsolve`'s per-trajectory cost
-rises steeply ($\sim\!3.5$ s each at dim 64) while $M^\ast$ saturates at 32.
+**Two regimes, both favorable.** On the spin chain SLB is *never slower* at
+matched accuracy. Its advantage is modest and somewhat irregular through dim
+32 ($\sim\!3.7\text{--}13\times$, since SLB's own $M^\ast$ climbs
+$2\to16\to16\to32$ and eats part of the win), then widens sharply at dim 64.
+There `mcsolve`'s per-trajectory cost rises to $\sim\!3.5$ s while the
+four-realization SLB ensemble remains practical even as $M^\ast$ reaches 64.
 At dim 64 `mcsolve` needs $\sim\!2{,}250$ trajectories ($\sim\!2$ hours) where
-a 16-run SLB estimate costs under three minutes — a **$\sim\!46\times$**
-speedup, versus $\sim\!11\times$ at dim 32.
+the SLB estimate costs about 79 seconds — a **$\sim\!99\times$** speedup,
+versus $\sim\!5\times$ at dim 32.
 
 On the oscillator the effect is dramatic at every size: `mcsolve` needs
 thousands of trajectories already at dim 8 and crosses "impractical"
@@ -830,15 +830,16 @@ so $S^2$ there rests on one measurement rather than a three-point fit —
 valid, since $S^2$ is a property of the system, but noisier. Capped points are
 lower bounds and therefore conservative.)*
 
-**SLB averaging levels are configured per system:** $N_r=4, 8, 16$ for the spin
-chain and $N_r=16$ for the oscillator in the committed figures. Each level
-re-optimizes `M` for the target: $M^\ast$ is the smallest bundle size on the
-grid $1, 2, 4, \ldots, 128$ whose $N_r$-run time-averaged RMSE first reaches
-$0.02$. On the spin chain, fewer runs are often *cheaper*, because they can be
-offset by a larger `M`: a few well-converged high-`M` runs can beat many low-`M`
-ones for a fixed target. Run-count levels are controlled in one place,
+**The SLB averaging level is configured per system:** $N_r=4$ for the spin
+chain and $N_r=16$ for the oscillator in the committed figures. Each fixed
+level re-optimizes `M` for the target: $M^\ast$ is the smallest bundle size on
+the grid $1, 2, 4, \ldots, 128$ whose $N_r$-run time-averaged RMSE first reaches
+$0.02$. The four-realization spin setting is the lowest-cost choice among the
+previously examined $N_r=4,8,16$ levels at every dimension; displaying that
+single curve removes the redundant bracket while retaining the cheapest
+measured operating point. Run counts are controlled in one place,
 `isocost_config.py`; the runner generates the largest configured count and the
-plotter refuses to label a level that the saved data cannot support.
+plotter refuses to label a count that the saved data cannot support.
 
 **Two modelling choices, stated plainly.** (1) The `mcsolve` cost is a
 *projection*, not a brute-force run to the threshold: because its trajectory
@@ -846,9 +847,9 @@ average is unbiased, its error is exactly $S/\sqrt{\texttt{ntraj}}$, so we sampl
 a few small `ntraj`, estimate $S$, and solve $\texttt{ntraj}^\ast=(S/\text{target})^2$.
 This is more reliable than a single noisy threshold crossing and needs no
 huge-`ntraj` runs — but it does assume `mcsolve` is unbiased (true here, with
-exact per-trajectory integration). (2) SLB is tuned on `M` at a fixed set of run
-counts, not fully co-optimized over $(M, N)$; the three levels bracket the
-operating point. As with Result 2's iso-accuracy curve, the whole figure is
+exact per-trajectory integration). (2) SLB is tuned on `M` at a fixed,
+system-specific run count, not fully co-optimized over $(M, N_r)$; that choice
+is explicit and held constant across dimensions. As with Result 2's iso-accuracy curve, the whole figure is
 computable only up to the exact-reference wall, since tuning either knob to a
 target needs the exact answer. (The run script saves the raw run samples and
 the $S^2$ fit, so both the target and the averaging levels are applied at
