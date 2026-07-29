@@ -8,3 +8,4 @@ dist/
 .venv/
 !benchmarks/*.png
 outputs/
+benchmarks/data/high_dim_reference_*.npz

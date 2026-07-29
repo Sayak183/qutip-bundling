@@ -2,17 +2,22 @@
 
 The regular cost-scaling runner writes the complete multi-dimension dataset.
 This focused runner lets us extend the deterministic reference wall without
-overwriting that established file.
+overwriting that established file.  It saves the complete primary density-
+matrix trajectory as compressed NPZ so new single-time observables can be
+calculated later without repeating the expensive propagation.
 
 Example
 -------
-    python benchmarks/run_high_dim_spin_reference.py --dim 128
+    python benchmarks/run_high_dim_spin_reference.py --dim 256
 """
 
 from __future__ import annotations
 
 import argparse
+import hashlib
+import os
 import time
+from pathlib import Path
 
 import numpy as np
 import qutip
@@ -35,7 +40,14 @@ DEFAULT_TOL = 1e-4
 DEFAULT_MAX_CORE_GIB = 8.0
 
 
-def _solve(H, rho0, c_ops, substeps: int) -> tuple[np.ndarray, float]:
+def _solve(
+    H,
+    rho0,
+    c_ops,
+    substeps: int,
+    *,
+    store_states: bool,
+) -> tuple[np.ndarray, np.ndarray | None, float]:
     started = time.perf_counter()
     result = rk4_mesolve(
         H,
@@ -44,9 +56,95 @@ def _solve(H, rho0, c_ops, substeps: int) -> tuple[np.ndarray, float]:
         c_ops=c_ops,
         e_ops=[H],
         substeps=substeps,
+        store_states=store_states,
     )
     elapsed = time.perf_counter() - started
-    return np.real(result.expect[0]), elapsed
+    states = None
+    if store_states:
+        states = np.stack(
+            [
+                np.asarray(state.full(), dtype=np.complex128)
+                for state in result.states
+            ],
+            axis=0,
+        )
+    return np.real(result.expect[0]), states, elapsed
+
+
+def _state_diagnostics(states: np.ndarray) -> dict:
+    adjoints = np.swapaxes(states.conj(), 1, 2)
+    traces = np.trace(states, axis1=1, axis2=2)
+    purities = np.real(
+        np.einsum("tij,tji->t", states, states, optimize=True)
+    )
+    return {
+        "max_hermiticity_error": float(np.max(np.abs(states - adjoints))),
+        "max_trace_drift": float(np.max(np.abs(traces - traces[0]))),
+        "trace_real": np.real(traces),
+        "trace_imag": np.imag(traces),
+        "purity": purities,
+    }
+
+
+def _state_comparison(
+    reference_states: np.ndarray,
+    partner_states: np.ndarray,
+) -> dict:
+    differences = partner_states - reference_states
+    flat = differences.reshape(differences.shape[0], -1)
+    frobenius = np.linalg.norm(flat, axis=1)
+    trace_distance = []
+    for difference in differences:
+        hermitian_difference = 0.5 * (
+            difference + difference.conj().T
+        )
+        eigenvalues = np.linalg.eigvalsh(hermitian_difference)
+        trace_distance.append(0.5 * float(np.sum(np.abs(eigenvalues))))
+    trace_distance = np.asarray(trace_distance, dtype=float)
+    return {
+        "frobenius_by_time": frobenius,
+        "trace_distance_by_time": trace_distance,
+        "max_frobenius_dev": float(np.max(frobenius)),
+        "max_trace_distance": float(np.max(trace_distance)),
+    }
+
+
+def _write_state_archive(
+    path: Path,
+    *,
+    times: np.ndarray,
+    states: np.ndarray,
+    dim: int,
+    n_sites: int,
+    substeps: int,
+) -> None:
+    """Atomically save reusable density matrices in a compact binary file."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_name(path.name + ".tmp")
+    try:
+        with open(temporary, "wb") as handle:
+            np.savez_compressed(
+                handle,
+                times=np.asarray(times, dtype=float),
+                states=np.asarray(states, dtype=np.complex128),
+                dim=np.asarray(dim, dtype=np.int64),
+                n_sites=np.asarray(n_sites, dtype=np.int64),
+                substeps=np.asarray(substeps, dtype=np.int64),
+            )
+            handle.flush()
+            os.fsync(handle.fileno())
+        temporary.replace(path)
+    finally:
+        if temporary.exists():
+            temporary.unlink()
+
+
+def _sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with open(path, "rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
 
 
 def main() -> None:
@@ -74,10 +172,14 @@ def main() -> None:
     if args.tol <= 0 or args.max_core_gib <= 0:
         parser.error("--tol and --max-core-gib must be positive")
 
-    output_name = f"high_dim_reference_spin_chain_dim{args.dim}.json"
+    stem = f"high_dim_reference_spin_chain_dim{args.dim}"
+    output_name = f"{stem}.json"
     output_path = DATA_DIR / output_name
-    if output_path.exists() and not args.overwrite:
-        parser.error(f"{output_path} already exists; pass --overwrite to replace it")
+    state_path = DATA_DIR / f"{stem}.npz"
+    existing = [path for path in (output_path, state_path) if path.exists()]
+    if existing and not args.overwrite:
+        paths = ", ".join(str(path) for path in existing)
+        parser.error(f"{paths} already exist; pass --overwrite to replace them")
 
     print(f"[preflight] counting Davies sectors for dim={args.dim}", flush=True)
     resources = probe_dimension(args.dim)
@@ -110,8 +212,31 @@ def main() -> None:
         f"substeps={args.substeps}",
         flush=True,
     )
-    reference, t_reference = _solve(H, rho0, c_ops, args.substeps)
+    reference, reference_states, t_reference = _solve(
+        H,
+        rho0,
+        c_ops,
+        args.substeps,
+        store_states=True,
+    )
+    if reference_states is None:
+        raise RuntimeError("primary solve did not return stored states")
     print(f"[run] primary finished in {t_reference:.2f} s", flush=True)
+
+    state_diagnostics = _state_diagnostics(reference_states)
+    _write_state_archive(
+        state_path,
+        times=TLIST,
+        states=reference_states,
+        dim=args.dim,
+        n_sites=n_sites,
+        substeps=args.substeps,
+    )
+    state_sha256 = _sha256(state_path)
+    print(
+        f"[run] reusable density matrices saved to {state_path}",
+        flush=True,
+    )
 
     direction = "down"
     partner_substeps = args.check_substeps
@@ -120,8 +245,13 @@ def main() -> None:
             f"[check] comparing against substeps={partner_substeps}",
             flush=True,
         )
-        partner, t_partner = _solve(H, rho0, c_ops, partner_substeps)
-        max_abs_dev = float(np.max(np.abs(partner - reference)))
+        partner, partner_states, t_partner = _solve(
+            H,
+            rho0,
+            c_ops,
+            partner_substeps,
+            store_states=True,
+        )
     except SolverInstabilityError:
         direction = "up"
         partner_substeps = 2 * args.substeps
@@ -130,12 +260,28 @@ def main() -> None:
             f"substeps={partner_substeps}",
             flush=True,
         )
-        partner, t_partner = _solve(H, rho0, c_ops, partner_substeps)
-        max_abs_dev = float(np.max(np.abs(partner - reference)))
+        partner, partner_states, t_partner = _solve(
+            H,
+            rho0,
+            c_ops,
+            partner_substeps,
+            store_states=True,
+        )
 
-    passed = bool(np.isfinite(max_abs_dev) and max_abs_dev <= args.tol)
+    if partner_states is None:
+        raise RuntimeError("comparison solve did not return stored states")
+    max_abs_dev = float(np.max(np.abs(partner - reference)))
+    state_comparison = _state_comparison(reference_states, partner_states)
+    max_trace_distance = state_comparison["max_trace_distance"]
+    passed = bool(
+        np.isfinite(max_abs_dev)
+        and max_abs_dev <= args.tol
+        and np.isfinite(max_trace_distance)
+        and max_trace_distance <= args.tol
+    )
     print(
         f"[check] max |delta <H>|={max_abs_dev:.3e}; "
+        f"max state trace distance={max_trace_distance:.3e}; "
         f"{'PASS' if passed else 'FAIL'} (tol={args.tol:g})",
         flush=True,
     )
@@ -160,10 +306,20 @@ def main() -> None:
             "reference_method": f"native_rk4_substeps{args.substeps}",
             "reference_energy": reference,
             "t_reference": t_reference,
+            "state_archive": {
+                "filename": state_path.name,
+                "format": "numpy_npz_compressed",
+                "array": "states",
+                "shape": list(reference_states.shape),
+                "dtype": str(reference_states.dtype),
+                "sha256": state_sha256,
+            },
+            "state_diagnostics": state_diagnostics,
             "selfcheck": {
                 "substeps_pair": sorted([args.substeps, partner_substeps]),
                 "direction": direction,
                 "max_abs_dev": max_abs_dev,
+                **state_comparison,
                 "tol": args.tol,
                 "passed": passed,
                 "t_partner": t_partner,
@@ -175,7 +331,10 @@ def main() -> None:
         raise SystemExit(
             "Reference was saved for diagnosis but failed certification."
         )
-    print(f"[done] certified reference saved to {output_path}", flush=True)
+    print(
+        f"[done] certified reference saved to {output_path} and {state_path}",
+        flush=True,
+    )
 
 
 if __name__ == "__main__":

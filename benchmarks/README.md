@@ -75,6 +75,50 @@ python run_frontier.py --system spin_chain --dims 64 --overwrite
 The real command is intentionally **not** a quick test: it is a heavy
 workstation run. There is no `--preset` option.
 
+## High-dimensional native references
+
+`run_high_dim_spin_reference.py` extends the deterministic spin-chain
+reference beyond the practical `qutip.mesolve` wall. It saves two companion
+files:
+
+- `data/high_dim_reference_spin_chain_dim<D>.json` contains provenance,
+  timings, energy, state diagnostics, and the convergence certification.
+- `data/high_dim_reference_spin_chain_dim<D>.npz` contains `times` and the
+  complete complex density-matrix array `states` with shape
+  `(n_times, D, D)`. The JSON records its SHA-256 checksum.
+
+The primary and comparison integrations are certified using both the energy
+difference and the trace distance between their full density matrices. NPZ
+archives are intentionally ignored by Git because large dimensions exceed
+normal repository file limits; copy them to persistent research storage.
+
+On a direct-SSH server using `tcsh`, prepare a separate checkout and start a
+dimension-256 run that survives logout with:
+
+```tcsh
+git clone https://github.com/Sayak183/qutip-bundling.git qutip-bundling-`hostname -s`
+cd qutip-bundling-`hostname -s`
+python3 -m venv .venv
+source .venv/bin/activate.csh
+python -m pip install --upgrade pip
+python -m pip install -e ".[test]"
+python -m pytest -q
+python benchmarks/probe_high_dim_spin.py --dims 128 256 512
+mkdir -p logs
+nohup .venv/bin/python benchmarks/run_high_dim_spin_reference.py --dim 256 \
+    >&! logs/dim256.log &
+```
+
+Monitor without stopping the calculation:
+
+```tcsh
+tail -f logs/dim256.log
+```
+
+The default 8 GiB preflight limit admits dimension 256 and deliberately
+refuses dimension 512. Raise `--max-core-gib` only after reviewing the probe
+on a machine with sufficient dedicated RAM.
+
 ## Other files
 
 - [`data/README.md`](data/README.md) is the canonical-data manifest. Current

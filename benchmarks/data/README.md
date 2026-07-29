@@ -20,6 +20,17 @@ an independent run with its own solver provenance and numerical checks.
 is a convenience view; JSON remains authoritative because it retains complete
 metadata and raw samples.
 
+## High-dimensional reference artifacts
+
+`high_dim_reference_spin_chain_dim<D>.json` records an isolated native-RK4
+reference and its full-state convergence certification. Its companion
+`high_dim_reference_spin_chain_dim<D>.npz` stores the reusable density-matrix
+trajectory. The JSON contains the NPZ filename, shape, dtype, and SHA-256
+checksum.
+
+NPZ archives are ignored by Git because the dimension-512 file can exceed
+GitHub's normal file limit. Preserve them in persistent research storage.
+
 ## Legacy data
 
 `legacy/` preserves superseded or incomplete runs for provenance. Its
