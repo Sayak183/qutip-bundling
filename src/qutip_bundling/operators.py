@@ -61,6 +61,10 @@ __all__ = [
 # Distributions for the random coefficients r_{m,alpha}.
 # All satisfy  E[r] = 0  and  E[r conj(r)] = 1  (eq. 8 of the paper).
 _DISTRIBUTIONS = ("phase", "pm1", "uniform")
+# Safety factor for the backward-error floor on projector blocks. Dense basis
+# transformations accumulate O(eps * N * ||X||) roundoff; the Frobenius norm
+# supplies a cheap conservative scale bound.
+_COUPLING_ROUNDOFF_FACTOR = 512.0
 
 
 # --------------------------------------------------------------------------
@@ -115,6 +119,17 @@ def _cluster_sorted(values: np.ndarray, tolerance: float) -> list[np.ndarray]:
             groups.append([index])
             first = value
     return [np.asarray(group, dtype=int) for group in groups]
+
+
+def _coupling_roundoff_floor(X_eig: np.ndarray) -> float:
+    """Smallest coupling block distinguishable from basis-change roundoff.
+
+    The expression is homogeneous in ``X``: rescaling the physical coupling
+    rescales the floor by the same amount, unlike a fixed absolute cutoff.
+    """
+    dimension = int(X_eig.shape[0])
+    scale = float(np.linalg.norm(X_eig, ord="fro"))
+    return _COUPLING_ROUNDOFF_FACTOR * np.finfo(float).eps * dimension * scale
 
 
 def davies_operators(
@@ -175,8 +190,11 @@ def davies_operators(
     coupling_threshold : float
         Prune an energy-eigenspace block ``Pi_e X Pi_e'`` when its Frobenius
         norm is below this, before equal-frequency blocks are summed. The
-        comparison is basis-invariant inside degenerate eigenspaces. Default
-        ``0.0`` keeps every block modulo a ``1e-14`` numerical floor.
+        comparison is basis-invariant inside degenerate eigenspaces.
+        ``0.0`` (default) keeps every numerically resolvable block: an
+        automatic, scale-covariant backward-error floor removes only
+        basis-transformation roundoff. A positive value applies the larger
+        of the requested physical cutoff and that numerical floor.
     lamb_shift_threshold : float or None
         Threshold passed to :func:`lamb_shift_hamiltonian` for dropping
         Lamb-shift terms. ``None`` (default) reuses ``threshold`` -- the
@@ -222,6 +240,8 @@ def davies_operators(
 
     H_arr = np.asarray(H.full())
     H_arr = 0.5 * (H_arr + H_arr.conj().T)
+    if coupling_threshold < 0:
+        raise ValueError("coupling_threshold must be non-negative.")
     evals, evecs = np.linalg.eigh(H_arr)
     X_eig = evecs.conj().T @ np.asarray(X.full()) @ evecs
 
@@ -238,12 +258,17 @@ def davies_operators(
     #    representation each block is just a submatrix of X_eig. Its
     #    Frobenius norm is invariant under basis rotations within either
     #    eigenspace and reduces to |<a|X|b>| for one-dimensional spaces.
-    block_floor = max(float(coupling_threshold), 1e-14)
+    # A fixed 1e-14 floor is not reproducible: LAPACK implementations put
+    # symmetry-forbidden zeros on different sides of that number. Use a
+    # scale-covariant backward-error bound instead, so those null blocks
+    # cannot become thousands of machine-dependent Davies sectors.
+    numerical_floor = _coupling_roundoff_floor(X_eig)
+    block_floor = max(float(coupling_threshold), numerical_floor)
     transitions: list[tuple[float, np.ndarray, np.ndarray, np.ndarray]] = []
     for a_group, a_indices in enumerate(energy_groups):
         for b_group, b_indices in enumerate(energy_groups):
             block = X_eig[np.ix_(a_indices, b_indices)]
-            if np.linalg.norm(block, ord="fro") < block_floor:
+            if np.linalg.norm(block, ord="fro") <= block_floor:
                 continue
             omega = float(energies[b_group] - energies[a_group])
             transitions.append((omega, a_indices, b_indices, block))

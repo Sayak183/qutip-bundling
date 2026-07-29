@@ -286,6 +286,7 @@ def run_metadata(tlist=TLIST, substeps=SUBSTEPS, **params):
         "davies": {
             "construction": "grouped_frequency_sectors",
             "degeneracy_tol": DAVIES_DEGENERACY_TOL,
+            "coupling_block_floor": "512 * eps * dim * frobenius_norm(X_in_energy_basis)",
         },
         "params": params,
     }

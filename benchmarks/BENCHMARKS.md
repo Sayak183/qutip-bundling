@@ -190,7 +190,10 @@ one per eigenvector pair. Keeping the sum inside $A(\omega)$ retains the cross
 terms required when energies or gaps are degenerate and makes the generator
 independent of the arbitrary eigenbasis chosen inside a degenerate eigenspace.
 The code groups numerical equalities within
-`DAVIES_DEGENERACY_TOL = 1e-10`.
+`DAVIES_DEGENERACY_TOL = 1e-10`. It also removes projector blocks at or below
+the scale-covariant backward-error floor
+$512\,\epsilon_{\rm mach}N\lVert X\rVert_F$, so exact symmetry zeros do not
+become machine-dependent operators.
 
 The sign $\omega=\epsilon'-\epsilon$ makes a downward transition positive.
 With the detailed-balance convention above, the Gibbs state is stationary.
@@ -202,7 +205,7 @@ The two systems feed *different* $(H_{\rm sys}, X)$ into this one recipe:
 - **System A** (§2.3): $X = \sum_i \sigma^x_i$. Its exact
   symmetries produce degenerate energy and frequency sectors, so grouping
   changes the construction materially. At four spins (dimension 16), the
-  basis-independent count is $N_L=15$, rather than the old 62–64
+  basis-independent count is $N_L=13$, rather than the old 62–64
   eigenvector-pair count.
 - **System B** (§2.4): $X = x\otimes I$. Its anharmonic spectrum has distinct
   relevant gaps, so grouping leaves the dimension-16 count unchanged at

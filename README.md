@@ -56,9 +56,11 @@ or [`benchmarks/BENCHMARKS.md`](benchmarks/BENCHMARKS.md) for the full study —
 both systems defined, accuracy versus $M$ (energy and coherence), cost scaling
 versus the exact solver, the accuracy-versus-cost frontier against `mcsolve`, and
 its iso-accuracy scaling with dimension — all reproducible with the scripts in
-that folder. The Davies construction itself accepts an optional
-`coupling_threshold` argument (see `davies_operators`) for pruning negligibly
-coupled operators at build time, independently of the bundling parameter $M$.
+that folder. The Davies construction automatically removes projector blocks
+that are indistinguishable from eigensolver roundoff using a scale-aware
+numerical floor. It also accepts an optional `coupling_threshold` argument
+(see `davies_operators`) for additional physical pruning at build time,
+independently of the bundling parameter $M$.
 
 ## Install
 
@@ -136,6 +138,11 @@ operators, not solver results:
 degenerate energy eigenspaces. The numerical equality tolerance is controlled
 by `degeneracy_tol=1e-10`; lower it when splittings below that scale are
 physically meaningful rather than diagonalization roundoff.
+Projector blocks at or below a scale-covariant backward-error floor are removed
+automatically. This prevents exact symmetry zeros from becoming
+machine-dependent Davies operators while preserving the same rule if the
+physical coupling operator is rescaled.
+
 
 Spectral inputs (`gamma`, `imag_gamma`) may be either a callable
 `f(omega) -> float` or an array aligned with the Bohr frequencies.

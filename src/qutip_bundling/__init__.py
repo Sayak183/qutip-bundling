@@ -30,7 +30,7 @@ from .operators import (
 )
 from .solvers import BundledResult, mesolve_ensemble, mesolve_jackknife
 
-__version__ = "0.6.3"
+__version__ = "0.6.4"
 
 __all__ = [
     # operator transforms (the method)

@@ -20,6 +20,10 @@ import time
 
 import numpy as np
 
+from qutip_bundling.operators import (
+    _cluster_sorted,
+    _coupling_roundoff_floor,
+)
 from common import (
     DAVIES_DEGENERACY_TOL,
     build_spin_chain,
@@ -30,28 +34,13 @@ from common import (
 COMPLEX_BYTES = np.dtype(np.complex128).itemsize
 
 
-def _cluster_sorted(values: np.ndarray, tolerance: float) -> list[np.ndarray]:
-    """Match the non-bridging clustering used by davies_operators."""
-    if len(values) == 0:
-        return []
-    groups: list[list[int]] = [[0]]
-    first = float(values[0])
-    for index in range(1, len(values)):
-        value = float(values[index])
-        if value - first <= tolerance:
-            groups[-1].append(index)
-        else:
-            groups.append([index])
-            first = value
-    return [np.asarray(group, dtype=int) for group in groups]
-
-
 def count_davies_sectors(H, X, tolerance: float) -> dict:
     """Count retained Davies sectors using the production grouping rules."""
     H_arr = np.asarray(H.full())
     H_arr = 0.5 * (H_arr + H_arr.conj().T)
     evals, evecs = np.linalg.eigh(H_arr)
     X_eig = evecs.conj().T @ np.asarray(X.full()) @ evecs
+    block_floor = _coupling_roundoff_floor(X_eig)
 
     energy_groups = _cluster_sorted(evals, tolerance)
     energies = np.asarray(
@@ -65,7 +54,7 @@ def count_davies_sectors(H, X, tolerance: float) -> dict:
             block_norm = float(
                 np.linalg.norm(X_eig[np.ix_(a_indices, b_indices)], ord="fro")
             )
-            if block_norm < 1e-14:
+            if block_norm <= block_floor:
                 continue
             transitions.append(
                 (float(energies[b_group] - energies[a_group]), block_norm)
@@ -92,6 +81,7 @@ def count_davies_sectors(H, X, tolerance: float) -> dict:
             retained += 1
 
     return {
+        "coupling_block_floor": block_floor,
         "n_energy_spaces": len(energy_groups),
         "n_nonzero_blocks": len(transitions),
         "n_l": retained,
@@ -156,13 +146,14 @@ def main() -> None:
 
     print(
         " dim  sites    N_L  energy spaces  blocks  "
-        "count time  c_ops GiB  native core GiB"
+        "block floor  count time  c_ops GiB  native core GiB"
     )
     for row in rows:
         print(
             f"{row['dim']:4d}  {row['n_sites']:5d}  {row['n_l']:5d}"
             f"  {row['n_energy_spaces']:13d}  "
             f"{row['n_nonzero_blocks']:6d}  "
+            f"{row['coupling_block_floor']:11.1e}  "
             f"{row['sector_count_s']:9.2f}s  "
             f"{row['collapse_list_gib']:9.2f}  "
             f"{row['native_core_gib']:15.2f}"

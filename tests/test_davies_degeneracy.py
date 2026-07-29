@@ -26,6 +26,27 @@ def dissipator(c_ops):
     return sum(qutip.lindblad_dissipator(c_op) for c_op in c_ops)
 
 
+def benchmark_spin_chain(n_sites):
+    J, h = 1.0, 0.6
+    sx, sz, identity = qutip.sigmax(), qutip.sigmaz(), qutip.qeye(2)
+
+    def op(single_site_op, site):
+        return qutip.tensor(
+            [
+                single_site_op if index == site else identity
+                for index in range(n_sites)
+            ]
+        )
+
+    H = sum(
+        -J * op(sz, site) * op(sz, site + 1)
+        for site in range(n_sites - 1)
+    )
+    H += sum(-h * op(sx, site) for site in range(n_sites))
+    X = sum(op(sx, site) for site in range(n_sites))
+    return H, X
+
+
 def test_harmonic_ladder_has_one_operator_per_bohr_frequency():
     """Equal ladder gaps must combine into a and a-dagger, not pairwise jumps."""
     dim = 5
@@ -103,23 +124,8 @@ def test_degenerate_projectors_are_covariant_under_subspace_rotations():
 def test_spin_chain_sectors_are_unique_and_gibbs_state_is_stationary():
     """Regression for the symmetry-degenerate benchmark spin chain."""
     n_sites = 4
-    J, h, kT = 1.0, 0.6, 0.5
-    sx, sz, identity = qutip.sigmax(), qutip.sigmaz(), qutip.qeye(2)
-
-    def op(single_site_op, site):
-        return qutip.tensor(
-            [
-                single_site_op if index == site else identity
-                for index in range(n_sites)
-            ]
-        )
-
-    H = sum(
-        -J * op(sz, site) * op(sz, site + 1)
-        for site in range(n_sites - 1)
-    )
-    H += sum(-h * op(sx, site) for site in range(n_sites))
-    X = sum(op(sx, site) for site in range(n_sites))
+    kT = 0.5
+    H, X = benchmark_spin_chain(n_sites)
 
     c_ops, (bare, omegas) = davies_operators(
         H, X, thermal_gamma(kT), return_bare=True
@@ -167,3 +173,55 @@ def test_negative_degeneracy_tolerance_is_rejected():
             lambda omega: 1.0,
             degeneracy_tol=-1.0,
         )
+
+
+@pytest.mark.parametrize(
+    ("n_sites", "expected_count"),
+    [(4, 13), (5, 21), (6, 31), (7, 43)],
+)
+def test_spin_chain_roundoff_floor_has_stable_sector_counts(
+    n_sites, expected_count
+):
+    H, X = benchmark_spin_chain(n_sites)
+    c_ops = davies_operators(H, X, lambda omega: 1.0)
+
+    assert len(c_ops) == expected_count
+
+
+def test_roundoff_floor_scales_with_physical_coupling():
+    H, X = benchmark_spin_chain(4)
+    scale = 1e-9
+
+    _, (bare, omegas) = davies_operators(
+        H, X, lambda omega: 1.0, return_bare=True
+    )
+    _, (scaled_bare, scaled_omegas) = davies_operators(
+        H, scale * X, lambda omega: 1.0, return_bare=True
+    )
+
+    np.testing.assert_allclose(scaled_omegas, omegas, atol=1e-12)
+    assert len(scaled_bare) == len(bare)
+    for original, scaled in zip(bare, scaled_bare):
+        np.testing.assert_allclose(
+            scaled.full(),
+            scale * original.full(),
+            rtol=1e-11,
+            atol=np.finfo(float).eps * scale,
+        )
+
+
+def test_negative_coupling_threshold_is_rejected():
+    with pytest.raises(ValueError, match="coupling_threshold"):
+        davies_operators(
+            qutip.num(2),
+            qutip.sigmax(),
+            lambda omega: 1.0,
+            coupling_threshold=-1.0,
+        )
+
+
+def test_zero_coupling_operator_produces_no_sectors():
+    H = qutip.num(3)
+    X = 0.0 * qutip.qeye(3)
+
+    assert davies_operators(H, X, lambda omega: 1.0) == []
