@@ -48,7 +48,13 @@ SUBSTEPS = 4                # RK4 substeps per TLIST step for SLB (native backen
                             # plot for a fair comparison against mcsolve's ntraj.
 
 FULL_TIME_BUDGET = 60.0     # stop full mesolve once one solve exceeds this
-MAX_FULL_DIM = 64           # never attempt full mesolve above this dimension
+MAX_FULL_DIM = 32           # never attempt full mesolve above this dimension;
+                            # corrected dim-64 spin took 11,160 s, so the
+                            # elapsed-time budget cannot protect that call
+                            # after it has already started
+MAX_NATIVE_REF_DIM = 128    # safe dense full-dissipator RK4 default; dim 128
+                            # is certified, dim 256 is an explicit long run,
+                            # and dim 512 exceeds this laptop's RAM
 TLIST = np.linspace(0.0, 5.0, 40)        # cost-scaling grid (Result 2)
 TLIST_FINE = np.linspace(0.0, 5.0, 80)   # finer grid used by the accuracy-style
                                          # comparisons (Results 1, 3, 4)
@@ -276,6 +282,7 @@ def run_metadata(tlist=TLIST, substeps=SUBSTEPS, **params):
         "substeps": substeps,
         "full_time_budget_s": FULL_TIME_BUDGET,
         "max_full_dim": MAX_FULL_DIM,
+        "max_native_ref_dim": MAX_NATIVE_REF_DIM,
         "davies": {
             "construction": "grouped_frequency_sectors",
             "degeneracy_tol": DAVIES_DEGENERACY_TOL,

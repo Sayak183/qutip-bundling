@@ -34,7 +34,7 @@ import qutip
 from common import (
     build_davies_operators,
     build_spin_chain, build_oscillator_bath, TLIST,
-    format_slb_settings, add_settings_footer,
+    MAX_FULL_DIM, format_slb_settings, add_settings_footer,
 )
 from qutip_bundling import mesolve_ensemble, mesolve_jackknife
 from qutip_bundling.native_solver import rk4_mesolve
@@ -63,7 +63,6 @@ SYSTEMS = [
                                                 (32, 16, 64)]),
 ]
 NATIVE_REF_SUBSTEPS_FACTOR = 2
-MAX_FULL_DIM_FALLBACK = 64
 
 
 def run(name, build, size, n_real=N_REALIZATIONS, substeps=SUBSTEPS):
@@ -73,7 +72,7 @@ def run(name, build, size, n_real=N_REALIZATIONS, substeps=SUBSTEPS):
     dim = H.shape[0]
     # reference: mesolve while feasible, else certified native full dissipator
     ref, ref_method = None, None
-    if dim <= MAX_FULL_DIM_FALLBACK:
+    if dim <= MAX_FULL_DIM:
         try:
             ref = np.real(qutip.mesolve(H, rho0, TLIST, c_ops=c_ops,
                                         e_ops=[H]).expect[0])

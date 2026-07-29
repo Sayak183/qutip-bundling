@@ -48,7 +48,8 @@ import qutip
 from common import (
     build_davies_operators,
     build_spin_chain, build_oscillator_bath, TLIST_FINE, SUBSTEPS,
-    DATA_DIR, MC_OPTIONS, tavg_bias_sem_rmse, run_metadata, save_data,
+    DATA_DIR, MAX_FULL_DIM, MC_OPTIONS, tavg_bias_sem_rmse,
+    run_metadata, save_data,
 )
 from benchmark_cli import add_safety_arguments, preflight_run, selected_systems
 from qutip_bundling import mesolve_ensemble
@@ -65,7 +66,6 @@ ROUND = 8                # decimals kept for saved curves
 # run_frontier computes every point ONCE, saving one file per dim
 # (frontier_<system>_dim<D>.json); plot_frontier picks a dim via PLOT_DIM.
 NATIVE_REF_SUBSTEPS_FACTOR = 2
-MAX_FULL_DIM_FALLBACK = 64
 
 # mcsolve cap: at large dim a single ntraj value can take hours. After the
 # first ntraj we measure the per-trajectory cost and SKIP any larger ntraj whose
@@ -148,7 +148,7 @@ def run(name, build, size, m_grid, ntraj_grid, n_runs_max, substeps):
     # reference: mesolve while feasible, else certified native full-dissipator
     ref_substeps = NATIVE_REF_SUBSTEPS_FACTOR * substeps
     ref_method, ref_selfcheck, reference = None, None, None
-    if dim <= MAX_FULL_DIM_FALLBACK:
+    if dim <= MAX_FULL_DIM:
         try:
             reference = np.real(qutip.mesolve(H, rho0, TLIST_FINE, c_ops=c_ops,
                                               e_ops=[H]).expect[0])

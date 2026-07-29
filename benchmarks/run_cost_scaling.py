@@ -42,7 +42,8 @@ import qutip
 from common import (
     build_davies_operators,
     build_spin_chain, build_oscillator_bath, TLIST, SUBSTEPS,
-    DATA_DIR, FULL_TIME_BUDGET, MAX_FULL_DIM, tavg_rmse_jackknife,
+    DATA_DIR, FULL_TIME_BUDGET, MAX_FULL_DIM, MAX_NATIVE_REF_DIM,
+    tavg_rmse_jackknife,
     run_metadata, save_data,
 )
 from benchmark_cli import add_safety_arguments, preflight_run, selected_systems
@@ -53,13 +54,6 @@ except ImportError:
     from qutip_bundling.native_solver import SolverInstabilityError
 from qutip_bundling.native_solver import rk4_mesolve
 
-NATIVE_REF_MAX_DIM = 64   # past the mesolve wall, obtain the exact reference
-                          # via the native full-dissipator RK4 instead (all N_L
-                          # operators, no superoperators: memory ~ the operator
-                          # list instead of qutip's kron blow-up). Used ONLY as
-                          # the accuracy reference -- the red cost curve stays
-                          # honest qutip-mesolve. Cross-validated against
-                          # mesolve at the last size where both exist.
 NATIVE_REF_SUBSTEPS = 2 * SUBSTEPS   # reference-grade integration margin
 NATIVE_REF_SELFCHECK_TOL = 1e-4      # a reference is only usable if HALVING its
                                      # substeps barely changes it. Where the
@@ -164,7 +158,7 @@ def sweep_m(H, rho0, c_ops, reference, n_l):
 
 
 def run(name, build, sizes, full_budget=FULL_TIME_BUDGET,
-        native_ref_max=NATIVE_REF_MAX_DIM):
+        native_ref_max=MAX_NATIVE_REF_DIM):
     points, full_feasible, wall_dim = [], True, None
     stiff_dim = None
     val_dims, val_devs = [], []   # per-dim native-vs-mesolve validation series
@@ -353,10 +347,11 @@ def main():
     ap.add_argument("--sizes", type=int, nargs="+", default=None,
                     help="model sizes to run instead of the configured list "
                          "(smoke tests; these are not Hilbert dimensions)")
-    ap.add_argument("--native-ref-max", type=int, default=NATIVE_REF_MAX_DIM,
+    ap.add_argument("--native-ref-max", type=int, default=MAX_NATIVE_REF_DIM,
                     help="largest dimension for the native full-dissipator "
                          "reference past the mesolve wall (reference only; "
-                         "128 costs ~an hour on the spin chain)")
+                         "the corrected spin dim-128 primary reference took "
+                         "~3.5 minutes on the measured laptop)")
     ap.add_argument("--slb-substeps", type=int, default=SUBSTEPS,
                     help="RK4 substeps for the SLB solves (default from "
                          "common.SUBSTEPS). The oscillator needs 16 to stay "

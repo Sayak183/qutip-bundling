@@ -1,0 +1,102 @@
+{
+ "meta": {
+  "timestamp": "2026-07-29T11:24:13+00:00",
+  "python": "3.13.9",
+  "numpy": "2.3.5",
+  "qutip": "5.3.0",
+  "qutip_bundling": "0.6.3",
+  "platform": "Windows-11-10.0.26200-SP0",
+  "tlist": {
+   "t0": 0.0,
+   "t1": 5.0,
+   "n": 40
+  },
+  "substeps": 8,
+  "full_time_budget_s": 60.0,
+  "max_full_dim": 64,
+  "davies": {
+   "construction": "grouped_frequency_sectors",
+   "degeneracy_tol": 1e-10
+  },
+  "params": {
+   "system": "spin_chain",
+   "purpose": "isolated_high_dimension_native_reference",
+   "dimension": 128,
+   "n_sites": 7
+  }
+ },
+ "resource_preflight": {
+  "dim": 128,
+  "n_sites": 7,
+  "n_energy_spaces": 128,
+  "n_nonzero_blocks": 2198,
+  "n_l": 325,
+  "system_build_s": 0.0024222999927587807,
+  "sector_count_s": 0.13508100001490675,
+  "dense_operator_mib": 0.25,
+  "collapse_list_gib": 0.079345703125,
+  "native_core_gib": 0.238037109375,
+  "notes": "native_core_gib counts the retained Qobj list plus native RK4's dense C and C-dagger arrays; solver temporaries and construction peak memory are additional"
+ },
+ "point": {
+  "dim": 128,
+  "n_sites": 7,
+  "n_l": 325,
+  "t_davies": 0.42058750000433065,
+  "reference_method": "native_rk4_substeps8",
+  "reference_energy": [
+   -6.0,
+   -6.0695908140899855,
+   -6.128891475769777,
+   -6.17978739310574,
+   -6.223760754895138,
+   -6.261988643799473,
+   -6.295414597854567,
+   -6.3248014230651926,
+   -6.350770622111341,
+   -6.373832163367483,
+   -6.3944072008277875,
+   -6.412845593285233,
+   -6.429439544789977,
+   -6.444434321718586,
+   -6.458036743952601,
+   -6.470421964671209,
+   -6.481738922145303,
+   -6.492114752066664,
+   -6.501658379661123,
+   -6.5104634597364885,
+   -6.51861079476938,
+   -6.526170332539415,
+   -6.53320282312923,
+   -6.539761198510986,
+   -6.545891725130764,
+   -6.551634969937061,
+   -6.557026612487906,
+   -6.562098129604242,
+   -6.566877374136357,
+   -6.571389065492012,
+   -6.575655206424479,
+   -6.57969543803324,
+   -6.583527342862885,
+   -6.587166704300927,
+   -6.590627729095681,
+   -6.593923238682644,
+   -6.5970648340742,
+   -6.60006303829607,
+   -6.602927419714653,
+   -6.605666699068372
+  ],
+  "t_reference": 208.2094211000076,
+  "selfcheck": {
+   "substeps_pair": [
+    4,
+    8
+   ],
+   "direction": "down",
+   "max_abs_dev": 8.01127697513948e-09,
+   "tol": 0.0001,
+   "passed": true,
+   "t_partner": 104.47792370000388
+  }
+ }
+}

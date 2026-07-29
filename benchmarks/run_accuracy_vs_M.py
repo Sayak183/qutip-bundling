@@ -42,7 +42,7 @@ import qutip
 from common import (
     build_davies_operators,
     build_spin_chain, build_oscillator_bath, TLIST_FINE, SUBSTEPS,
-    DATA_DIR, run_metadata, save_data,
+    DATA_DIR, MAX_FULL_DIM, run_metadata, save_data,
 )
 from benchmark_cli import add_safety_arguments, preflight_run, selected_systems
 from qutip_bundling import mesolve_ensemble
@@ -61,7 +61,6 @@ ROUND = 8               # decimals kept for saved curves
 # draw. substeps>4 flags a disclosed higher-resolution run (the oscillator's
 # stiff dim-64 needs 16).
 NATIVE_REF_SUBSTEPS_FACTOR = 2
-MAX_FULL_DIM_FALLBACK = 64
 
 SYSTEMS = {
     "spin_chain": (build_spin_chain, [
@@ -125,7 +124,7 @@ def run(name, build, size, m_ladder, substeps):
     # --- exact reference: mesolve while feasible, else certified native RK4 ---
     ref_substeps = NATIVE_REF_SUBSTEPS_FACTOR * substeps
     ref_method, ref_selfcheck, ref_states = None, None, None
-    if dim <= MAX_FULL_DIM_FALLBACK:
+    if dim <= MAX_FULL_DIM:
         try:
             t0 = time.perf_counter()
             ref_states = qutip.mesolve(H, rho0, TLIST_FINE, c_ops=c_ops,
