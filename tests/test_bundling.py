@@ -418,8 +418,8 @@ def test_symmetric_coupling_leaves_degenerate_steady_state_manifold():
     that symmetry's sectors decoupled, so the Lindbladian has a *degenerate*
     steady-state manifold (more than one stationary state) instead of a unique
     thermal state. Breaking the symmetry shrinks the manifold. This is a property
-    of the model and the chosen coupling, not a solver bug: the pairwise Davies
-    construction is correct either way -- there simply is no unique thermal state
+    of the model and the chosen coupling, not a solver bug: the grouped Davies
+    construction preserves that symmetry -- there simply is no unique thermal state
     to reach when the drive respects a conservation law of H.
     """
     n = 4

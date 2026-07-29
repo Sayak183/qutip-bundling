@@ -33,10 +33,11 @@ import numpy as np
 import qutip
 
 from common import (
-    gamma, build_spin_chain, build_oscillator_bath, TLIST,
+    build_davies_operators,
+    build_spin_chain, build_oscillator_bath, TLIST,
     format_slb_settings, add_settings_footer, plot_time_index, ERR_PLOT_TIME,
 )
-from qutip_bundling import davies_operators, mesolve_ensemble
+from qutip_bundling import mesolve_ensemble
 from qutip_bundling.native_solver import rk4_mesolve
 
 # ===========================================================================
@@ -58,7 +59,7 @@ SYSTEMS = [
 def run(name, build, size):
     H, X, psi0 = build(size)
     rho0 = qutip.ket2dm(psi0)
-    c_ops = davies_operators(H, X, gamma)
+    c_ops = build_davies_operators(H, X)
     dim = H.shape[0]
     n_l = len(c_ops)
 

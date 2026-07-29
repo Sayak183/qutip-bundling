@@ -42,13 +42,14 @@ import numpy as np
 import qutip
 
 from common import (
-    gamma, build_spin_chain, build_oscillator_bath, TLIST_FINE, SUBSTEPS,
+    build_davies_operators,
+    build_spin_chain, build_oscillator_bath, TLIST_FINE, SUBSTEPS,
     DATA_DIR, FULL_TIME_BUDGET, MAX_FULL_DIM, MC_OPTIONS, tavg_rmse,
     run_metadata, save_data,
 )
 from benchmark_cli import add_safety_arguments, preflight_run, selected_systems
 from isocost_config import run_counts
-from qutip_bundling import davies_operators, mesolve_ensemble
+from qutip_bundling import mesolve_ensemble
 from qutip_bundling.native_solver import rk4_mesolve
 
 SWEEP_STOP_RMSE = 0.01  # stop once the smallest configured averaging level
@@ -175,7 +176,7 @@ def run(name, build, size_points, n_runs_list):
         H, X, psi0 = build(s)
         rho0 = qutip.ket2dm(psi0)
         dim = H.shape[0]
-        c_ops = davies_operators(H, X, gamma)
+        c_ops = build_davies_operators(H, X)
         n_l = len(c_ops)
 
         # Reference: qutip mesolve while feasible, else the certified native

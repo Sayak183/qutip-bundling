@@ -33,7 +33,7 @@ import math
 import numpy as np
 
 from common import (
-    add_settings_footer, as_array, format_slb_settings, load_data,
+    DATA_DIR, add_settings_footer, as_array, format_slb_settings, load_data,
 )
 
 # --- CONFIGURATION (TOGGLES FOR DECOMPOSITION PLOT) ---
@@ -286,15 +286,19 @@ def main():
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
 
-    import glob, os, re
+    import re
+
     def _resolve(name):
         if PLOT_DIM is not None:
             return f"accuracy_vs_M_{name}_dim{PLOT_DIM}.json"
-        paths = glob.glob(f"data/accuracy_vs_M_{name}_dim*.json")
+        paths = list(DATA_DIR.glob(f"accuracy_vs_M_{name}_dim*.json"))
         if not paths:
             return f"accuracy_vs_M_{name}.json"
-        best = max(paths, key=lambda p: int(re.search(r"_dim(\d+)", p).group(1)))
-        return os.path.basename(best)
+        best = max(
+            paths,
+            key=lambda path: int(re.search(r"_dim(\d+)", path.name).group(1)),
+        )
+        return best.name
 
     for name in names:
         fname = _resolve(name)

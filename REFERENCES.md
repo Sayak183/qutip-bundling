@@ -35,8 +35,8 @@ details were checked against the publishers' records.
 
   The weak-coupling (Davies) derivation that produces one collapse operator per
   Bohr frequency of the system-bath coupling. `davies_operators` builds exactly
-  these; the operator count `N_L` growing with the number of transition pairs is
-  the cost SLB is designed to tame. See `CONVENTIONS.md` for the sign and
+  these; the number of populated frequency sectors can still grow toward the
+  number of transition pairs, and that operator count is the cost SLB tames. See `CONVENTIONS.md` for the sign and
   detailed-balance conventions used in this package.
 
 ## Standard reference text

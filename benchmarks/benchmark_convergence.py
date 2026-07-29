@@ -32,10 +32,11 @@ import numpy as np
 import qutip
 
 from common import (
-    gamma, build_spin_chain, build_oscillator_bath, TLIST,
+    build_davies_operators,
+    build_spin_chain, build_oscillator_bath, TLIST,
     format_slb_settings, add_settings_footer,
 )
-from qutip_bundling import davies_operators, mesolve_ensemble, mesolve_jackknife
+from qutip_bundling import mesolve_ensemble, mesolve_jackknife
 from qutip_bundling.native_solver import rk4_mesolve
 
 # ===========================================================================
@@ -68,7 +69,7 @@ MAX_FULL_DIM_FALLBACK = 64
 def run(name, build, size, n_real=N_REALIZATIONS, substeps=SUBSTEPS):
     H, X, psi0 = build(size)
     rho0 = qutip.ket2dm(psi0)
-    c_ops = davies_operators(H, X, gamma)
+    c_ops = build_davies_operators(H, X)
     dim = H.shape[0]
     # reference: mesolve while feasible, else certified native full dissipator
     ref, ref_method = None, None

@@ -127,10 +127,15 @@ operators, not solver results:
 
 | Function | Purpose |
 |---|---|
-| `davies_operators(H, X, gamma)` | **recommended for Davies/Bohr setups** -- build collapse operators from `H` and coupling op `X`, correct sign baked in |
+| `davies_operators(H, X, gamma)` | **recommended for Davies/Bohr setups** -- build projector-grouped `A(omega)` operators from `H` and `X`, with the correct sign and degeneracy handling baked in |
 | `build_collapse_ops(L_ops, omegas, gamma)` | bare `L_alpha` and the spectral function -> standard collapse operators `sqrt(gamma) * L_alpha` |
 | `bundle(c_ops, M, ...)` | **the method** -- any collapse-operator list -> `M` randomly bundled operators |
 | `lamb_shift_hamiltonian(L_ops, omegas, imag_gamma)` | bare `L_alpha` and `Im gamma` -> Lamb-shift Hamiltonian `H_LS = sum_alpha Im(gamma(omega_alpha)) * L_alpha^dag L_alpha` (built once) |
+
+`davies_operators` groups transitions by Bohr frequency using projectors onto
+degenerate energy eigenspaces. The numerical equality tolerance is controlled
+by `degeneracy_tol=1e-10`; lower it when splittings below that scale are
+physically meaningful rather than diagonalization roundoff.
 
 Spectral inputs (`gamma`, `imag_gamma`) may be either a callable
 `f(omega) -> float` or an array aligned with the Bohr frequencies.

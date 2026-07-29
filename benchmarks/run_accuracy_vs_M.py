@@ -40,11 +40,12 @@ import numpy as np
 import qutip
 
 from common import (
-    gamma, build_spin_chain, build_oscillator_bath, TLIST_FINE, SUBSTEPS,
+    build_davies_operators,
+    build_spin_chain, build_oscillator_bath, TLIST_FINE, SUBSTEPS,
     DATA_DIR, run_metadata, save_data,
 )
 from benchmark_cli import add_safety_arguments, preflight_run, selected_systems
-from qutip_bundling import davies_operators, mesolve_ensemble
+from qutip_bundling import mesolve_ensemble
 from qutip_bundling.native_solver import rk4_mesolve, SolverInstabilityError
 
 N_REALIZATIONS = 200    # realizations per M (fixed across the ladder: nothing
@@ -117,7 +118,7 @@ def run(name, build, size, m_ladder, substeps):
 
     # --- construction, timed on its own (this is NOT dynamics) ---
     t0 = time.perf_counter()
-    c_ops = davies_operators(H, X, gamma)
+    c_ops = build_davies_operators(H, X)
     t_davies = time.perf_counter() - t0
     n_l = len(c_ops)
 

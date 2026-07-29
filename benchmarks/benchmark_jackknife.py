@@ -39,12 +39,12 @@ from __future__ import annotations
 import math
 import numpy as np
 import qutip
-from qutip_bundling import davies_operators, mesolve_jackknife
+from qutip_bundling import mesolve_jackknife
 
 # Reuse the exact bath, builders, and time grid from the scaling benchmark so
 # the two scripts describe the same physics.
 from common import (
-    gamma,
+    build_davies_operators,
     build_spin_chain,
     build_oscillator_bath,
     TLIST,
@@ -105,7 +105,7 @@ def bias_at_size(name, build, size, rng):
     rho0 = qutip.ket2dm(psi0)
     dim = H.shape[0]
 
-    c_ops = davies_operators(H, X, gamma)
+    c_ops = build_davies_operators(H, X)
     n_L = len(c_ops)
 
     reference = np.real(

@@ -25,8 +25,7 @@ import time
 import numpy as np
 import qutip
 
-from common import gamma, build_oscillator_bath, TLIST
-from qutip_bundling import davies_operators
+from common import build_davies_operators, build_oscillator_bath, TLIST
 from qutip_bundling.native_solver import rk4_mesolve, SolverInstabilityError
 
 NATIVE_REF_TOL = 1e-4          # same tolerance the benchmark certifies against
@@ -82,7 +81,7 @@ def main():
         n_fock = FOCK[dim]
         H, X, psi0 = build_oscillator_bath(n_fock)
         rho0 = qutip.ket2dm(psi0)
-        c_ops = davies_operators(H, X, gamma)
+        c_ops = build_davies_operators(H, X)
         n_l = len(c_ops)
         first_ok = None
         for ss in args.substeps:

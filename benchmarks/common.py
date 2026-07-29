@@ -32,6 +32,11 @@ from pathlib import Path
 import numpy as np
 import qutip
 
+from qutip_bundling import (
+    __version__ as QUTIP_BUNDLING_VERSION,
+    davies_operators,
+)
+
 # ===========================================================================
 # GLOBAL RUN SETTINGS
 # ===========================================================================
@@ -59,12 +64,26 @@ MC_OPTIONS = {"progress_bar": False, "map": "serial",
 
 # Shared detailed-balance ohmic bath.
 ALPHA, KT, OMEGA_C = 0.3, 0.5, 8.0
+# Absolute energy tolerance used both for degenerate eigenspaces and
+# equal Bohr-frequency sectors. Keep this central so every benchmark
+# uses and records the same strict Davies construction.
+DAVIES_DEGENERACY_TOL = 1e-10
 
 
 def gamma(omega: float) -> float:
     if abs(omega) < 1e-10:
         return ALPHA * KT
     return ALPHA * omega * math.exp(-abs(omega) / OMEGA_C) / (1.0 - math.exp(-omega / KT))
+
+
+def build_davies_operators(H, X):
+    """Strict grouped-frequency Davies operators for every benchmark."""
+    return davies_operators(
+        H,
+        X,
+        gamma,
+        degeneracy_tol=DAVIES_DEGENERACY_TOL,
+    )
 
 
 # ===========================================================================
@@ -250,12 +269,17 @@ def run_metadata(tlist=TLIST, substeps=SUBSTEPS, **params):
         "python": platform.python_version(),
         "numpy": np.__version__,
         "qutip": qutip.__version__,
+        "qutip_bundling": QUTIP_BUNDLING_VERSION,
         "platform": platform.platform(),
         "tlist": {"t0": float(tlist[0]), "t1": float(tlist[-1]),
                   "n": int(len(tlist))},
         "substeps": substeps,
         "full_time_budget_s": FULL_TIME_BUDGET,
         "max_full_dim": MAX_FULL_DIM,
+        "davies": {
+            "construction": "grouped_frequency_sectors",
+            "degeneracy_tol": DAVIES_DEGENERACY_TOL,
+        },
         "params": params,
     }
 

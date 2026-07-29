@@ -14,7 +14,7 @@ import argparse
 import numpy as np
 import matplotlib.pyplot as plt
 from common import (
-    add_settings_footer, as_array, load_data,
+    DATA_DIR, add_settings_footer, as_array, load_data,
     MC_ATOL, MC_RTOL,
 )
 
@@ -292,15 +292,19 @@ def main():
     ap.add_argument("--system", default="all")
     args = ap.parse_args()
     names = DEFAULT_SYSTEMS if args.system == "all" else [args.system]
-    import glob, os, re as _re
+    import re as _re
+
     def _resolve(nm):
         if PLOT_DIM is not None:
             return f"frontier_{nm}_dim{PLOT_DIM}.json"
-        paths = glob.glob(f"data/frontier_{nm}_dim*.json")
+        paths = list(DATA_DIR.glob(f"frontier_{nm}_dim*.json"))
         if not paths:
             return f"frontier_{nm}.json"
-        best = max(paths, key=lambda p: int(_re.search(r"_dim(\d+)", p).group(1)))
-        return os.path.basename(best)
+        best = max(
+            paths,
+            key=lambda path: int(_re.search(r"_dim(\d+)", path.name).group(1)),
+        )
+        return best.name
 
     for name in names:
         fname = _resolve(name)
@@ -309,10 +313,12 @@ def main():
         figure(name, doc)
         print(f"  saved plot")
         # all-sizes strip: every per-dim file this system has, small to large
-        dim_paths = sorted(glob.glob(f"data/frontier_{name}_dim*.json"),
-                           key=lambda p2: int(_re.search(r"_dim(\d+)", p2).group(1)))
+        dim_paths = sorted(
+            DATA_DIR.glob(f"frontier_{name}_dim*.json"),
+            key=lambda path: int(_re.search(r"_dim(\d+)", path.name).group(1)),
+        )
         if len(dim_paths) >= 2:
-            docs = [load_data(os.path.basename(p2)) for p2 in dim_paths]
+            docs = [load_data(path.name) for path in dim_paths]
             sizes_figure(name, docs)
 
 if __name__ == "__main__":

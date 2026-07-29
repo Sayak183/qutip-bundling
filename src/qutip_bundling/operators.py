@@ -99,8 +99,24 @@ def random_phases(
 
 # --------------------------------------------------------------------------
 # 0) davies_operators -- build the collapse operators from scratch, the
-#    right way, with the sign convention baked in.
+#    strict secular way, with degeneracies and the sign convention handled.
 # --------------------------------------------------------------------------
+def _cluster_sorted(values: np.ndarray, tolerance: float) -> list[np.ndarray]:
+    """Cluster sorted real values without allowing tolerance-chain bridging."""
+    if len(values) == 0:
+        return []
+    groups: list[list[int]] = [[0]]
+    first = float(values[0])
+    for index in range(1, len(values)):
+        value = float(values[index])
+        if value - first <= tolerance:
+            groups[-1].append(index)
+        else:
+            groups.append([index])
+            first = value
+    return [np.asarray(group, dtype=int) for group in groups]
+
+
 def davies_operators(
     H: qutip.Qobj,
     X: qutip.Qobj,
@@ -110,30 +126,30 @@ def davies_operators(
     threshold: float = 0.0,
     coupling_threshold: float = 0.0,
     lamb_shift_threshold: float | None = None,
+    degeneracy_tol: float = 1e-10,
     return_bare: bool = False,
 ):
     """Build Davies/Bohr collapse operators directly from H and a coupling op.
 
     This is the recommended entry point. It diagonalizes the Hamiltonian,
-    forms the Bohr-frequency Lindblad operators, applies the spectral
-    weighting, and -- crucially -- uses the sign convention that makes the
-    system relax *toward* thermal equilibrium (downward in energy at low
-    temperature). Building the operators by hand and getting this sign
-    wrong makes the dynamics run backwards; this helper removes that trap.
+    constructs projectors onto its (possibly degenerate) energy eigenspaces,
+    groups all transitions with the same Bohr frequency, and applies the
+    spectral weighting. The grouped construction is invariant under arbitrary
+    rotations inside a degenerate eigenspace and retains the cross terms
+    required by the strict secular Davies generator.
 
     The construction (Davies weak-coupling / eq. 6 of the paper):
 
-        H |a> = E_a |a>
-        For each ordered pair (a, b):
-            omega = E_b - E_a                 # <-- sign convention
-            L = <a|X|b> * |a><b|
-            c = sqrt(gamma(omega)) * L
+        H = sum_e e * Pi_e
+        A(omega) = sum_(e' - e = omega) Pi_e X Pi_e'
+        c(omega) = sqrt(gamma(omega)) * A(omega)
 
-    With ``omega = E_b - E_a``, a transition from the higher level ``b`` to
-    the lower level ``a`` has ``omega > 0`` and (for a detailed-balance
-    ``gamma`` that is large at positive frequency) the larger rate, i.e.
-    energy is released to the bath. This matches the StochLind C++
-    convention and drives the system to the Gibbs state.
+    Thus a transition from the higher eigenspace ``e'`` to the lower
+    eigenspace ``e`` has ``omega = e' - e > 0`` and, for the detailed-balance
+    convention used by this package, the larger rate. Grouping is essential:
+    replacing ``D[A(omega)]`` by a sum of dissipators for individual matrix
+    elements drops interference terms and becomes basis-dependent whenever
+    energies or Bohr frequencies are degenerate.
 
     Parameters
     ----------
@@ -150,22 +166,17 @@ def davies_operators(
         strongly preferred here.
     imag_gamma : callable, float, or None
         If given, also return the Lamb-shift Hamiltonian
-        ``sum  imag_gamma(omega) * L^dag L`` built from the same bare
+        ``sum imag_gamma(omega) * A(omega)^dag A(omega)`` built from the bare
         operators. ``None`` (default) skips it.
     threshold : float
-        Drop operators whose weight ``sqrt(gamma) * |<a|X|b>|`` is below
-        this (the master keep gate; matches StochLind's
-        ``lInfnorm * sqrtG > sparcity``). Default ``0.0`` keeps everything.
+        Drop a grouped operator when
+        ``sqrt(gamma(omega)) * ||A(omega)||_F`` is below this. Default
+        ``0.0`` keeps every nonzero frequency sector.
     coupling_threshold : float
-        Prune Bohr pairs whose bare coupling element ``|<a|X|b>|`` is below
-        this *before* the spectral function is evaluated or any operator is
-        materialized. Because ``X`` is typically sparse in the energy
-        eigenbasis, this is where the build-time speedup comes from: the
-        construction iterates only the significant entries instead of all
-        ``N**2`` pairs. Default ``0.0`` keeps every pair (modulo the
-        long-standing ``1e-14`` numerical floor), so behavior is unchanged
-        unless you opt in. This is a different quantity from ``threshold``:
-        it acts on the coupling alone, not coupling times rate.
+        Prune an energy-eigenspace block ``Pi_e X Pi_e'`` when its Frobenius
+        norm is below this, before equal-frequency blocks are summed. The
+        comparison is basis-invariant inside degenerate eigenspaces. Default
+        ``0.0`` keeps every block modulo a ``1e-14`` numerical floor.
     lamb_shift_threshold : float or None
         Threshold passed to :func:`lamb_shift_hamiltonian` for dropping
         Lamb-shift terms. ``None`` (default) reuses ``threshold`` -- the
@@ -174,6 +185,13 @@ def davies_operators(
         operator ``threshold`` would otherwise silently prune Lamb-shift
         terms by an unrelated criterion. Set this explicitly (e.g. ``0.0``)
         to decouple the two.
+    degeneracy_tol : float
+        Absolute tolerance, in the energy units of ``H``, for identifying
+        degenerate eigenvalues and equal Bohr frequencies. The default
+        ``1e-10`` is intended to absorb diagonalization roundoff, not to
+        perform a partial-secular approximation for physically distinct
+        near-degenerate transitions. Set it smaller if the model contains
+        meaningful splittings below this scale.
     return_bare : bool
         If True, also return the bare operators and Bohr frequencies, so
         you can pass them to :func:`lamb_shift_hamiltonian` yourself or
@@ -199,55 +217,103 @@ def davies_operators(
             "frequencies are computed internally so an array cannot be "
             "aligned. Use build_collapse_ops if you already have arrays."
         )
+    if degeneracy_tol < 0:
+        raise ValueError("degeneracy_tol must be non-negative.")
 
     H_arr = np.asarray(H.full())
     H_arr = 0.5 * (H_arr + H_arr.conj().T)
     evals, evecs = np.linalg.eigh(H_arr)
     X_eig = evecs.conj().T @ np.asarray(X.full()) @ evecs
 
-    # 1) Coupling-element prune (StochLind's first and cheapest cut).
-    #    X is usually sparse in the energy eigenbasis, so select the
-    #    significant <a|X|b> first and iterate only those: O(N**2) -> O(nnz).
-    #    np.argwhere yields indices in row-major (a, b) order, identical to
-    #    the original double loop. The 1e-14 floor is the historical hard
-    #    cutoff; with coupling_threshold=0.0 the surviving set and order are
-    #    exactly what the original full loop produced.
-    amp_floor = 1e-14
-    coup_cut = coupling_threshold if coupling_threshold > amp_floor else amp_floor
-    pairs = np.argwhere(np.abs(X_eig) >= coup_cut)
-    a_idx = pairs[:, 0]
-    b_idx = pairs[:, 1]
-    amps = X_eig[a_idx, b_idx]
-    omega_all = evals[b_idx] - evals[a_idx]      # sign convention (see docstring)
+    # 1) Build numerical energy eigenspaces. Projector blocks, unlike
+    #    individual eigenvectors, are invariant under rotations inside an
+    #    exactly degenerate subspace.
+    energy_groups = _cluster_sorted(evals, degeneracy_tol)
+    energies = np.asarray(
+        [float(np.mean(evals[group])) for group in energy_groups],
+        dtype=float,
+    )
 
-    # 2) Spectral weighting, evaluated once over the survivors.
-    gammas = evaluate_spectral(gamma, omega_all, name="gamma")
+    # 2) Keep significant projector blocks Pi_e X Pi_e'. In the energy
+    #    representation each block is just a submatrix of X_eig. Its
+    #    Frobenius norm is invariant under basis rotations within either
+    #    eigenspace and reduces to |<a|X|b>| for one-dimensional spaces.
+    block_floor = max(float(coupling_threshold), 1e-14)
+    transitions: list[tuple[float, np.ndarray, np.ndarray, np.ndarray]] = []
+    for a_group, a_indices in enumerate(energy_groups):
+        for b_group, b_indices in enumerate(energy_groups):
+            block = X_eig[np.ix_(a_indices, b_indices)]
+            if np.linalg.norm(block, ord="fro") < block_floor:
+                continue
+            omega = float(energies[b_group] - energies[a_group])
+            transitions.append((omega, a_indices, b_indices, block))
+
+    # 3) Group all projector blocks with the same Bohr frequency. Requiring
+    #    the full sector span to fit within the tolerance avoids accidental
+    #    "chaining" of several genuinely distinct nearby frequencies.
+    transitions.sort(key=lambda item: item[0])
+    sectors: list[list[tuple[float, np.ndarray, np.ndarray, np.ndarray]]] = []
+    for transition in transitions:
+        if (
+            not sectors
+            or transition[0] - sectors[-1][0][0] > degeneracy_tol
+        ):
+            sectors.append([transition])
+        else:
+            sectors[-1].append(transition)
+
+    omega_all: list[float] = []
+    bare_norms: list[float] = []
+    for sector in sectors:
+        frequencies = [transition[0] for transition in sector]
+        omega = float(np.mean(frequencies))
+        if abs(omega) <= degeneracy_tol:
+            omega = 0.0
+        omega_all.append(omega)
+        # The projector blocks occupy orthogonal row/column subspaces, so
+        # their squared Frobenius norms add. Avoid retaining one dense N x N
+        # array per sector; that would double peak memory at large dimension.
+        bare_norms.append(math.sqrt(sum(
+            float(np.linalg.norm(transition[3], ord="fro")) ** 2
+            for transition in sector
+        )))
+
+    omega_all_arr = np.asarray(omega_all, dtype=float)
+
+    # 4) Evaluate one bath rate per frequency sector and apply the master
+    #    threshold to the complete grouped operator.
+    gammas = evaluate_spectral(gamma, omega_all_arr, name="gamma")
     if np.any(gammas < 0):
         raise ValueError("gamma must be non-negative.")
     sg_all = np.sqrt(gammas)
-    weights = sg_all * np.abs(amps)
-
-    # 3) Master weight gate (StochLind: lInfnorm * sqrtG > sparcity).
+    weights = sg_all * np.asarray(bare_norms, dtype=float)
     keep = (weights >= threshold) & (weights != 0.0)
 
     L_ops: list[qutip.Qobj] = []
     omegas: list[float] = []
     c_ops: list[qutip.Qobj] = []
-    for a, b, amp, omega, sg, k in zip(a_idx, b_idx, amps, omega_all, sg_all, keep):
+    for sector, omega, sg, k in zip(sectors, omega_all_arr, sg_all, keep):
         if not k:
             continue
-        P = np.outer(evecs[:, a], evecs[:, b].conj())
-        bare = qutip.Qobj(amp * P, dims=H.dims)
+        A_eig = np.zeros_like(X_eig)
+        for _, a_indices, b_indices, block in sector:
+            A_eig[np.ix_(a_indices, b_indices)] += block
+        A = evecs @ A_eig @ evecs.conj().T
+        bare = qutip.Qobj(A, dims=H.dims)
         L_ops.append(bare)
         omegas.append(float(omega))
         c_ops.append(float(sg) * bare)
 
-    omegas_arr = np.asarray(omegas)
+    omegas_arr = np.asarray(omegas, dtype=float)
     ls_threshold = threshold if lamb_shift_threshold is None else lamb_shift_threshold
     out: list = [c_ops]
     if imag_gamma is not None:
-        out.append(lamb_shift_hamiltonian(L_ops, omegas_arr, imag_gamma,
-                                           threshold=ls_threshold))
+        if L_ops:
+            out.append(lamb_shift_hamiltonian(
+                L_ops, omegas_arr, imag_gamma, threshold=ls_threshold
+            ))
+        else:
+            out.append(0 * H)
     if return_bare:
         out.append((L_ops, omegas_arr))
 
@@ -285,7 +351,7 @@ def build_collapse_ops(
     below ``threshold`` are dropped -- the analogue of the ``sparcity``
     cutoff in the C++ reference implementation, and the same quantity
     :func:`davies_operators` thresholds on (for a Davies operator
-    ``L = amp*|a><b|`` the trace norm ``||L||`` equals ``|amp|``, so a given
+    ``L = amp*|a><b|`` the Frobenius norm ``||L||_F`` equals ``|amp|``, so a given
     ``threshold`` selects the same operators through either entry point).
     Default ``threshold=0.0`` keeps everything.
 
@@ -325,8 +391,8 @@ def build_collapse_ops(
         # here as in davies_operators -- rate times coupling strength, the
         # single sparsity scalar of the StochLind C++ reference -- rather
         # than the rate alone. For a Davies operator L = amp*|a><b| the
-        # (trace) norm ||L|| equals |amp|, so the two entry points agree.
-        weight = float(sg) * L_ops[alpha].norm()
+        # Frobenius norm ||L||_F equals |amp|, so the entry points agree.
+        weight = float(sg) * L_ops[alpha].norm("fro")
         if weight < threshold or weight == 0.0:
             continue
         out.append(sg * L_ops[alpha])

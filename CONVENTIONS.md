@@ -36,33 +36,39 @@ the sign.
 A quick sanity check for any setup: start in an excited state at low
 temperature and confirm the energy goes **down**.
 
-## Degenerate Bohr frequencies (pairwise vs. grouped operators)
+## Degenerate energies and Bohr frequencies
 
-`davies_operators` builds **one collapse operator per ordered eigenstate
-pair** `(a, b)`. When the Bohr frequencies are non-degenerate this is
-exactly the Davies dissipator. When several transitions share the *same*
-Bohr frequency `omega`, the strict Davies/secular construction groups
-them into a single jump operator
+The strict Davies/secular construction uses spectral projectors of the full
+Hamiltonian,
 
-    A(omega) = sum_{E_b - E_a = omega}  <a|X|b> |a><b|
+    H = sum_e e Pi_e
 
-and uses `D[A(omega)]`. Because the dissipator is quadratic,
-`D[A(omega)]` is **not** the same as the sum of `D[|a><b|]` over the
-individual transitions -- the grouped form keeps cross terms
-`|a><b| rho |a'><b'|^dag` between degenerate transitions that the
-pairwise form drops. Exact degeneracy also makes the eigenvector basis
-within a degenerate subspace arbitrary, so the individual pairwise
-operators are basis-dependent while `A(omega)` is not.
+and forms **one grouped jump operator per distinct Bohr frequency**,
 
-In practice this matters only for systems with exact or near-exact
-degeneracy in their transition frequencies (high symmetry, or a nearly
-harmonic ladder where many transitions coincide). For a generic
-anharmonic spectrum the two constructions agree and the pairwise form
-used here is the right one. If you require the strict secular Davies
-result for a degenerate system, group your transitions by Bohr frequency
-before bundling (sum the bare `|a><b|` within each `omega` sector into a
-single operator, then pass those to `build_collapse_ops`/`bundle`).
-The bundling method itself is agnostic to which of the two you feed it.
+    A(omega) = sum_{e' - e = omega} Pi_e X Pi_e'.
+
+The dissipator contains `D[A(omega)]`. It must not be replaced by a sum of
+separate dissipators for the individual matrix elements inside the sum:
+because `D` is quadratic, that pairwise replacement drops cross terms between
+transitions with the same frequency. It also makes the result depend on the
+arbitrary eigenvectors returned inside a degenerate energy subspace.
+
+`davies_operators` now constructs the projectors first and groups all
+equal-frequency blocks before applying `gamma`. This is invariant under unitary
+rotations within every degenerate eigenspace and is the strict secular Davies
+generator for the single coupling operator `X`.
+
+Numerical diagonalization represents exact degeneracies with tiny roundoff
+splittings. `degeneracy_tol` (default `1e-10`, in the energy units of `H`) is
+used both to form energy eigenspaces and to group their Bohr frequencies. This
+tolerance is only a numerical equality test. It is **not** a partial-secular
+approximation: if your model contains physically meaningful splittings below
+`1e-10`, reduce the tolerance explicitly.
+
+For a non-degenerate anharmonic spectrum with distinct gaps, every sector may
+contain only one transition and the grouped result reduces to the familiar
+pair formula. For a harmonic ladder or a symmetry-degenerate spin system,
+several transitions combine into one `A(omega)` and the cross terms matter.
 
 ## Detailed balance of gamma
 

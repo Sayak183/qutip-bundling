@@ -131,12 +131,14 @@ easier to read.
 
 ## 2. The two test systems (fully specified)
 
-Both systems are weakly coupled to the **same** thermal bath and relax toward
-thermal equilibrium. In both, the collapse operators are built with
+Both systems are weakly coupled to the **same** thermal bath. Detailed balance
+makes the Gibbs state stationary; exact symmetries can prevent it from being the
+unique late-time state. In both, the collapse operators are built with
 `davies_operators(H, X, gamma)`, which diagonalizes the system Hamiltonian $H$,
-forms one Bohr-frequency operator $|a\rangle\langle b|$ per pair of energy
-levels $(a,b)$ with $\omega_{ab}=E_b-E_a$, and weights each by the bath response
-$\sqrt{\gamma(\omega_{ab})}$ at that transition frequency.
+forms the spectral projectors $\Pi_\epsilon$ of $H$, groups every transition
+block with the same Bohr frequency into
+$A(\omega)=\sum_{\epsilon'-\epsilon=\omega}\Pi_\epsilon X\Pi_{\epsilon'}$,
+and weights that complete sector by $\sqrt{\gamma(\omega)}$.
 
 ### 2.1 The bath (shared by both systems)
 
@@ -159,46 +161,54 @@ Reading the three factors:
   transitions that matter.
 - $1/(1-e^{-\omega/k_BT})$ — the thermal occupation factor at temperature
   $k_BT=0.5$. It enforces **detailed balance** (the KMS condition
-  $\gamma(-\omega)/\gamma(\omega)=e^{-\omega/k_BT}$), which is what guarantees
-  relaxation toward the Gibbs state rather than runaway heating. At $\omega\to0$
+  $\gamma(-\omega)/\gamma(\omega)=e^{-\omega/k_BT}$), which makes the Gibbs
+  state stationary; uniqueness additionally requires the coupling to connect all
+  symmetry sectors. At $\omega\to0$
   this factor gives the finite limit $\gamma(0)=\alpha\,k_BT$.
 
 So in one line: **an ohmic bath with an exponential cutoff, at temperature
 $k_BT=0.5$, satisfying detailed balance.**
 
-**Building the Lindblad operators.** Both systems turn $(H_{\rm sys}, X, \gamma)$
-into collapse operators by the same Davies (secular) recipe —
-`davies_operators(H, X, gamma)`. First diagonalize the system Hamiltonian,
+**Building the Lindblad operators.** Both systems turn
+$(H_{\rm sys}, X, \gamma)$ into collapse operators by the same strict Davies
+(secular) recipe. First resolve the Hamiltonian into projectors onto its
+distinct, possibly degenerate, energy eigenspaces,
 
-$$H_{\rm sys}\,|a\rangle = E_a\,|a\rangle .$$
+$$H_{\rm sys}=\sum_\epsilon \epsilon\,\Pi_\epsilon.$$
 
-Then every **ordered** pair of eigenstates $(a,b)$ whose coupling element
-$\langle a|X|b\rangle$ is non-zero contributes one Lindblad operator, tagged with
-the Bohr frequency of that transition:
+Then group every transition block with the same Bohr frequency:
 
-$$\omega_{ab} = E_b - E_a , \qquad
-  c_{ab} = \sqrt{\gamma(\omega_{ab})}\,\langle a|X|b\rangle\,|a\rangle\langle b| .$$
+$$
+\omega=\epsilon'-\epsilon,\qquad
+A(\omega)=\sum_{\epsilon'-\epsilon=\omega}
+\Pi_\epsilon X\Pi_{\epsilon'},\qquad
+c(\omega)=\sqrt{\gamma(\omega)}\,A(\omega).
+$$
 
-The number of such operators is $N_L$ — one per energy-conserving channel the
-coupling opens. The sign convention $\omega_{ab}=E_b-E_a$ is what makes the
-dynamics relax rather than heat up: a downward transition ($E_b>E_a$, so $b$ is
-the higher level) carries $\omega_{ab}>0$, where detailed balance makes
-$\gamma$ largest, so energy is preferentially emitted to the bath and the state
-flows toward $\rho_\infty\propto e^{-H_{\rm sys}/k_BT}$. (`davies_operators`
-bakes in this convention; building the operators by hand with the opposite sign
-runs the system uphill.)
+There is one collapse operator per **distinct populated frequency sector**, not
+one per eigenvector pair. Keeping the sum inside $A(\omega)$ retains the cross
+terms required when energies or gaps are degenerate and makes the generator
+independent of the arbitrary eigenbasis chosen inside a degenerate eigenspace.
+The code groups numerical equalities within
+`DAVIES_DEGENERACY_TOL = 1e-10`.
+
+The sign $\omega=\epsilon'-\epsilon$ makes a downward transition positive.
+With the detailed-balance convention above, the Gibbs state is stationary.
+It is the unique late-time state only when $(H_{\rm sys},X)$ is ergodic; an
+exact symmetry shared by both can preserve multiple stationary sectors.
 
 The two systems feed *different* $(H_{\rm sys}, X)$ into this one recipe:
 
-- **System A** (§2.3): $X = \sum_i \sigma^x_i$, the collective transverse
-  magnetization. Diagonalizing the 16-state chain and keeping every pair with
-  $\langle a|X|b\rangle\neq 0$ gives $N_L \approx 64$. (The exact count is mildly
-  sensitive to how the chain's symmetry degeneracies are resolved numerically —
-  62–64 depending on the linear-algebra backend — because within a degenerate
-  energy level the eigenbasis is not unique.)
-- **System B** (§2.4): $X = x\otimes I$, the oscillator position. The anharmonic
-  ladder is non-degenerate, so the count is exact and basis-independent:
-  $N_L = 128$.
+- **System A** (§2.3): $X = \sum_i \sigma^x_i$. Its exact
+  symmetries produce degenerate energy and frequency sectors, so grouping
+  changes the construction materially. At four spins (dimension 16), the
+  basis-independent count is $N_L=15$, rather than the old 62–64
+  eigenvector-pair count.
+- **System B** (§2.4): $X = x\otimes I$. Its anharmonic spectrum has distinct
+  relevant gaps, so grouping leaves the dimension-16 count unchanged at
+  $N_L=128$ and the dissipator agrees with the pairwise expression to numerical
+  roundoff.
+
 
 In code this is a single call per system:
 
@@ -237,11 +247,11 @@ the chain *via* this observable, driving transitions that relax its magnetizatio
 toward thermal equilibrium. This is a single *collective* coupling — all $n$ spins
 share **one** common bath through this global operator, rather than each spin
 relaxing into its own independent reservoir. The chain starts fully polarized,
-$|\psi_0\rangle = |{\uparrow\uparrow\cdots\uparrow}\rangle$. Starting from this pure,
-fully ordered state, the open evolution relaxes the chain to the thermal Gibbs
-state $\rho_\infty \propto e^{-H_{\rm sys}/k_BT}$ at the bath temperature
-$k_BT = 0.5$: the net magnetization decays, the initial coherence is lost, and
-energy flows out into the bath.
+$|\psi_0\rangle = |{\uparrow\uparrow\cdots\uparrow}\rangle$. Starting from this pure, fully ordered state, energy flows into the bath and
+the chain relaxes within the symmetry sectors populated initially. The Gibbs
+state $e^{-H_{\rm sys}/k_BT}/Z$ is stationary, but it is not the unique steady
+state because both $H_{\rm sys}$ and the collective $X$ preserve the chain's
+$\mathbb{Z}_2$ symmetry.
 
 ![System A schematic](system_a_schematic.png)
 
@@ -253,10 +263,10 @@ Because there is no separate bath Hilbert space in the Lindblad description, the
 **total object being evolved** is the master equation
 $\dot\rho = -i[H_{\rm sys},\rho] + \sum_a \mathcal{D}[c_a]\rho$, with the
 dissipators $c_a$ generated from $(H_{\rm sys}, X, \gamma)$ as in §2.1. The
-Hilbert dimension is $2^n$. The energy eigenbasis mixes all sites, so nearly
-every level pair contributes a Davies operator and $N_L$ climbs steeply with
-size — 4 operators at $n=2$, $\sim 64$ at $n=4$ (dim 16), $\sim 213$ at $n=5$ (dim 32),
-$\sim 2200$ at $n=7$ (dim 128). This rapid operator growth is SLB's natural home.
+Hilbert dimension is $2^n$. After strict frequency grouping, $N_L$ still grows
+with size but is basis-independent: 3 sectors at $n=2$, 15 at $n=4$
+(dim 16), 41 at $n=5$ (dim 32), 113 at $n=6$ (dim 64), and 325 at
+$n=7$ (dim 128). This remaining operator growth is the workload SLB bundles.
 
 ### 2.4 System B — anharmonic oscillator coupled to a spin
 

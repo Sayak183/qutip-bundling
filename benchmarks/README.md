@@ -89,6 +89,9 @@ workstation run. There is no `--preset` option.
 - `convergence_progress_*.json` files are saved inputs for those validation
   plots, not stray temporary files.
 - `export_csv.py` converts saved JSON results to tidy files under `data/csv/`.
+- [`benchmark_results.xlsx`](benchmark_results.xlsx) combines all canonical
+  Result 1-4 JSON/CSV outputs into formatted summary and dynamics sheets with
+  provenance, charts, and the dimension-64 spin-chain energy trace.
 - [`archive/`](archive/) contains redacted historical transcripts, internal
   patch notes, and superseded one-off inspection scripts.
 - Extra frontier PNGs ending in `_perUnit` or `_noEns_Single` are alternate

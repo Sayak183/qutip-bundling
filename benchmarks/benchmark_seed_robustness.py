@@ -29,7 +29,8 @@ import numpy as np
 import qutip
 
 from common import (
-    gamma, build_spin_chain, build_oscillator_bath, MC_OPTIONS,
+    build_davies_operators,
+    build_spin_chain, build_oscillator_bath, MC_OPTIONS,
     TLIST_FINE as TLIST,   # this check runs on the fine accuracy grid
     format_slb_settings, format_mcsolve_settings, add_settings_footer,
     plot_time_index,
@@ -50,7 +51,7 @@ def err_at_plot_time(values, reference):
 # seed-robustness only needs each mcsolve run's *average* over trajectories, so
 # drop keep_runs_results (with it on, mc.expect[0] is the 2D per-trajectory array).
 MC_OPTIONS = {k: v for k, v in MC_OPTIONS.items() if k != "keep_runs_results"}
-from qutip_bundling import davies_operators, mesolve_ensemble
+from qutip_bundling import mesolve_ensemble
 
 # ===========================================================================
 # CONFIG
@@ -95,7 +96,7 @@ def frontier_for_seed(H, rho0, psi0, c_ops, reference, seed):
 def run(name, build, size):
     H, X, psi0 = build(size)
     rho0 = qutip.ket2dm(psi0)
-    c_ops = davies_operators(H, X, gamma)
+    c_ops = build_davies_operators(H, X)
     dim = H.shape[0]
     reference = np.real(qutip.mesolve(H, rho0, TLIST, c_ops=c_ops, e_ops=[H]).expect[0])
 

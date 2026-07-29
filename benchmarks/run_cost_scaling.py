@@ -40,12 +40,13 @@ import numpy as np
 import qutip
 
 from common import (
-    gamma, build_spin_chain, build_oscillator_bath, TLIST, SUBSTEPS,
+    build_davies_operators,
+    build_spin_chain, build_oscillator_bath, TLIST, SUBSTEPS,
     DATA_DIR, FULL_TIME_BUDGET, MAX_FULL_DIM, tavg_rmse_jackknife,
     run_metadata, save_data,
 )
 from benchmark_cli import add_safety_arguments, preflight_run, selected_systems
-from qutip_bundling import davies_operators, mesolve_ensemble
+from qutip_bundling import mesolve_ensemble
 try:
     from qutip_bundling import SolverInstabilityError
 except ImportError:
@@ -176,7 +177,7 @@ def run(name, build, sizes, full_budget=FULL_TIME_BUDGET,
         # operators is a different cost from the dynamics, with its own
         # scaling; the plot shows it as its own curve.
         t0 = time.perf_counter()
-        c_ops = davies_operators(H, X, gamma)
+        c_ops = build_davies_operators(H, X)
         t_davies = time.perf_counter() - t0
         n_l = len(c_ops)
 

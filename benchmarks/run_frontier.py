@@ -46,11 +46,12 @@ import numpy as np
 import qutip
 
 from common import (
-    gamma, build_spin_chain, build_oscillator_bath, TLIST_FINE, SUBSTEPS,
+    build_davies_operators,
+    build_spin_chain, build_oscillator_bath, TLIST_FINE, SUBSTEPS,
     DATA_DIR, MC_OPTIONS, tavg_bias_sem_rmse, run_metadata, save_data,
 )
 from benchmark_cli import add_safety_arguments, preflight_run, selected_systems
-from qutip_bundling import davies_operators, mesolve_ensemble
+from qutip_bundling import mesolve_ensemble
 from qutip_bundling.native_solver import rk4_mesolve
 
 SUBSTEPS_TOL = 0.05      # warn if doubling substeps moves the bias > 5%
@@ -139,7 +140,7 @@ def _mcsolve_samples(H, psi0, c_ops, ntraj):
 def run(name, build, size, m_grid, ntraj_grid, n_runs_max, substeps):
     H, X, psi0 = build(size)
     rho0 = qutip.ket2dm(psi0)
-    c_ops = davies_operators(H, X, gamma)
+    c_ops = build_davies_operators(H, X)
     n_l = len(c_ops)
     dim = H.shape[0]
 

@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.6.3 — 2026-07-28
+- **Fixed:** `davies_operators` now implements the strict secular construction
+  for degenerate systems: it forms energy-eigenspace projectors and returns one
+  summed `A(omega)` per Bohr-frequency sector. The previous eigenstate-pair
+  decomposition dropped cross terms and depended on the numerical basis chosen
+  inside degenerate subspaces.
+- Added `degeneracy_tol` (default `1e-10`) for numerical energy/frequency
+  equality, with regression tests for basis covariance, Gibbs stationarity,
+  trace preservation, a harmonic ladder, and the benchmark spin chain.
+- **Benchmarks:** future JSON metadata records the grouped construction and its
+  tolerance. Existing spin-chain results generated with 0.6.2 must be
+  regenerated; the anharmonic oscillator dissipator is unchanged to roundoff.
+
 ## 0.6.2 — 2026-06-26
 - **Changed:** the native RK4 backend (`rk4_mesolve`) now raises
   `SolverInstabilityError` when the integration diverges to a non-finite
