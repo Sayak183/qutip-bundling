@@ -92,32 +92,56 @@ difference and the trace distance between their full density matrices. NPZ
 archives are intentionally ignored by Git because large dimensions exceed
 normal repository file limits; copy them to persistent research storage.
 
-On a direct-SSH server using `tcsh`, prepare a separate checkout and start a
-dimension-256 run that survives logout with:
+The committed dimension-128 and dimension-256 JSON artifacts can be plotted
+together with:
+
+```bash
+python benchmarks/plot_high_dim_spin_reference.py
+```
+
+The same data are summarized on the `High-dim Ref` sheet of
+`benchmark_results.xlsx`.
+
+### Running these on a cluster
+
+High-dimensional runs belong in a batch job. Prepare a separate checkout and
+verify the environment on the login node:
 
 ```tcsh
 git clone https://github.com/Sayak183/qutip-bundling.git qutip-bundling-`hostname -s`
 cd qutip-bundling-`hostname -s`
-python3 -m venv .venv
-source .venv/bin/activate.csh
-python -m pip install --upgrade pip
-python -m pip install -e ".[test]"
 python -m pytest -q
 python benchmarks/probe_high_dim_spin.py --dims 128 256 512
-mkdir -p logs
-nohup .venv/bin/python benchmarks/run_high_dim_spin_reference.py --dim 256 \
-    >&! logs/dim256.log &
 ```
 
-Monitor without stopping the calculation:
+Then submit the calculation itself through the scheduler — never run it on a
+login node, and do not detach it with `nohup`, which neither reserves the CPUs
+and memory it uses nor survives node maintenance:
 
 ```tcsh
-tail -f logs/dim256.log
+mkdir -p logs
+sbatch --job-name=qutip-d256 --time=08:00:00 \
+    --nodes=1 --ntasks=1 --cpus-per-task=8 --mem=32G \
+    --output=logs/dim256-%j.log --error=logs/dim256-%j.log \
+    --export=ALL,OMP_NUM_THREADS=8,OPENBLAS_NUM_THREADS=8,MKL_NUM_THREADS=8,NUMEXPR_NUM_THREADS=8 \
+    --wrap='python benchmarks/run_high_dim_spin_reference.py --dim 256'
 ```
 
-The default 8 GiB preflight limit admits dimension 256 and deliberately
-refuses dimension 512. Raise `--max-core-gib` only after reviewing the probe
-on a machine with sufficient dedicated RAM.
+Add your site's `--account`, `--partition`, and `--qos` as required. Monitor
+with `squeue -u $USER` and `tail -f logs/dim256-<jobid>.log`.
+
+**Comparing wall times.** Times measured in different jobs, or on a shared node
+under different load, are not comparable: the same certified dimension-256
+reference took 2,744 s as a standalone run and 86.6 s inside a sequential
+sweep on the same node. Any timing table meant to be read as a scaling result
+must come from one job on one node, pinned with `--nodelist` and a fixed thread
+count, and be labelled as a single shared-node sweep.
+
+With the reproducible Davies block floor, the probe estimates native-core
+storage of about 0.03, 0.17, 0.86, and 4.27 GiB for dimensions 128, 256, 512,
+and 1024. These estimates cover retained operator arrays, not all solver
+temporaries, and say nothing about wall time. Review both memory headroom and
+the requested batch time before raising `--max-core-gib`.
 
 ## Other files
 
@@ -134,8 +158,15 @@ on a machine with sufficient dedicated RAM.
   plots, not stray temporary files.
 - `export_csv.py` converts saved JSON results to tidy files under `data/csv/`.
 - [`benchmark_results.xlsx`](benchmark_results.xlsx) combines all canonical
-  Result 1-4 JSON/CSV outputs into formatted summary and dynamics sheets with
-  provenance, charts, and the dimension-64 spin-chain energy trace.
+  Result 1-4 JSON/CSV outputs with the certified high-dimensional references
+  into formatted summary and dynamics sheets with provenance and charts.
+- `build_high_dim_sheet.py` regenerates that workbook's `High-dim Ref` sheet
+  from the certified reference JSON files, leaving the other sheets untouched.
+  Re-run it after adding a dimension, so the sheet cannot drift from the data:
+
+  ```bash
+  python benchmarks/build_high_dim_sheet.py --run-note "one-sweep provenance"
+  ```
 - [`archive/`](archive/) contains redacted historical transcripts, internal
   patch notes, and superseded one-off inspection scripts.
 - Extra frontier PNGs ending in `_perUnit` or `_noEns_Single` are alternate

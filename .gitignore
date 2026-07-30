@@ -10,3 +10,9 @@ dist/
 outputs/
 benchmarks/data/high_dim_reference_*.npz
 .codex-remote-attachments/
+
+# Cluster checkout scratch: per-node environments, installers, and batch logs.
+# These live inside the working copy on Landau and must never be committed.
+.conda-env/
+Miniforge3.sh
+logs/

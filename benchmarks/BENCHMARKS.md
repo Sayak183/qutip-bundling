@@ -32,7 +32,8 @@ Everything below is produced by self-contained scripts in this folder:
   draws the frontier from it. The valid command for the heavy spin-chain
   dimension-64 run is
   `python run_frontier.py --system spin_chain --dims 64 --overwrite`
-  ($N_L=869$); preview it first with `--dry-run`.
+  ($N_L=113$ in the committed pre-0.6.4 data, 31 once regenerated -- see
+  the provenance note in §2.3); preview it first with `--dry-run`.
 - `run_isocost_vs_dim.py` + `plot_isocost_vs_dim.py` — iso-accuracy cost versus
   dimension (Result 4), split the same way: the run script writes
   `data/isocost_vs_dim_<system>.json` with the raw run samples and the mcsolve
@@ -266,10 +267,16 @@ Because there is no separate bath Hilbert space in the Lindblad description, the
 **total object being evolved** is the master equation
 $\dot\rho = -i[H_{\rm sys},\rho] + \sum_a \mathcal{D}[c_a]\rho$, with the
 dissipators $c_a$ generated from $(H_{\rm sys}, X, \gamma)$ as in §2.1. The
-Hilbert dimension is $2^n$. After strict frequency grouping, $N_L$ still grows
-with size but is basis-independent: 3 sectors at $n=2$, 15 at $n=4$
-(dim 16), 41 at $n=5$ (dim 32), 113 at $n=6$ (dim 64), and 325 at
-$n=7$ (dim 128). This remaining operator growth is the workload SLB bundles.
+Hilbert dimension is $2^n$. After strict frequency grouping and the
+reproducible block floor (§2.1), $N_L$ is basis-independent and takes the exact
+value $n^2-n+1$: 3 sectors at $n=2$, 13 at $n=4$ (dim 16), 21 at $n=5$
+(dim 32), 31 at $n=6$ (dim 64), 43 at $n=7$ (dim 128), and 57 at $n=8$
+(dim 256). Note what this says about System A: its collective $X$ and
+$\mathbb{Z}_2$ symmetry make $N_L$ grow only as $(\log_2 N)^2$ in the Hilbert
+dimension $N$, so the chain is the *mild* case for bundling — the operator
+count SLB has to absorb is modest even at dim 256. System B (§2.4), whose
+$N_L$ reaches 890 at dim 64, is where the operator workload actually grows
+with the Hilbert space.
 
 ### 2.4 System B — anharmonic oscillator coupled to a spin
 
@@ -532,7 +539,8 @@ which to draw. Past dim 32 `mesolve` can no longer build its superoperator
 here, so the reference at dim 64 is the certified native full-dissipator route
 (§2), and the oscillator's dim-64 point runs at 16 RK4 substeps — disclosed,
 because its stiffness demands it. The convergence laws survive the jump: on the
-chain at dim 64 ($N_L=869$) the energy bias still falls as $M^{-0.95}$ and the
+chain at dim 64 ($N_L=113$, the pre-0.6.4 count these runs used) the energy
+bias still falls as $M^{-0.95}$ and the
 statistical spread as $M^{-0.80}$, essentially unchanged from dim 16. On the
 oscillator the bias at large size sits below the sampling floor at every $M$,
 so it is reported as an upper bound rather than a fitted rate.
@@ -772,7 +780,8 @@ exceeds the samples saved in that dimension's JSON. Both methods run at
 disclosed integration resolution (§3.3) and share the same grid and reference.
 
 **The frontier at dim 64.** Run at the largest size the reference can certify
-($N_L=869$ on the chain, $1{,}172$ on the oscillator, the reference supplied by
+($N_L=113$ on the chain, $1{,}172$ on the oscillator -- both pre-0.6.4 counts,
+the reference supplied by
 the native full-dissipator route), the gap is unambiguous. On the chain SLB is
 cheaper at every matched accuracy, and *increasingly so the tighter the target*:
 $\sim\!1.8\times$ at RMSE $2.6\times10^{-1}$, $\sim\!5\times$ at

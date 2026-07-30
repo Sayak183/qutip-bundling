@@ -1,5 +1,62 @@
 # Changelog
 
+## Unreleased
+- **Performance:** `bundle_from_phases` builds its `M` bundles with a single
+  BLAS matrix product instead of a Python loop of `M * N_L` Qobj additions. The
+  operators are stacked once into an `(N_L, N*N)` array and every bundle comes
+  from one `(M, N_L) @ (N_L, N*N)` product. Output is identical to the explicit
+  summation (max deviation `8e-16`, machine epsilon), pinned by 17 new
+  regression tests. Measured on the spin chain at `M=8`: 3.9x at dim 16, 2.5x
+  at dim 32, 1.5x at dim 64 — the win is loop overhead, so it shrinks as
+  genuine arithmetic starts to dominate.
+- **Benchmarks:** the `run_*.py` data generators accept `--max-full-dim` to
+  raise the exact-`mesolve` dimension cap, which was previously a module
+  constant with no override; a run on a larger machine silently recorded no
+  exact reference above dimension 32. The effective value is stamped into the
+  run metadata.
+- **Benchmarks:** run metadata now records an `execution` block — hostname, CPU
+  count, thread environment variables, and the Slurm job, nodelist, and
+  partition when present. Wall-clock times are only comparable within one job
+  on one node, and this makes that checkable from the data instead of assumed.
+- **Benchmarks:** added `build_high_dim_sheet.py`, which regenerates the
+  `High-dim Ref` sheet of `benchmark_results.xlsx` from the certified reference
+  JSON files, and `plot_high_dim_spin_reference.py`, which draws the certified
+  references and their full-state convergence check. Both default to every
+  dimension present in `data/` rather than a hard-coded list.
+
+## 0.6.4 — 2026-07-29
+- **Fixed:** `davies_operators` now discards projector blocks below a
+  scale-covariant backward-error floor,
+  `512 * eps * dim * ||X||_F` in the energy eigenbasis, instead of an absolute
+  cutoff. A fixed floor was not reproducible: different LAPACK builds place
+  symmetry-forbidden zeros on either side of it, so the same physical system
+  produced different numbers of Davies operators on different machines.
+- **The dissipator is unchanged to double precision.** Against a reference that
+  keeps every numerically nonzero block, the floored construction differs by a
+  relative Frobenius norm of `1e-24` to `1e-33` in the full dissipator
+  superoperator, on both benchmark systems at every dimension tested — eight or
+  more orders of magnitude below machine epsilon. Applied to a density matrix
+  the difference is *exactly* zero: the perturbation is far too small to change
+  any floating-point sum. The discarded blocks have Frobenius norm ~`1e-11` or
+  below against a smallest retained block of ~`3e-2` (nine orders of
+  separation) and enter the dissipator quadratically. Accuracy-type results are
+  therefore unaffected.
+- **Behavior change:** operator *counts* drop substantially, because those
+  blocks were being promoted into whole spurious frequency sectors. For the
+  benchmark spin chain `N_L` is now exactly `n**2 - n + 1` in the number of
+  sites (13, 21, 31, 43, 57 at dimensions 16-256, against 15, 41, 113, 325, 839
+  before); for the oscillator it goes 128, 408, 890 at dimensions 16/32/64
+  against 128, 478, 1172.
+- **Benchmarks:** any measurement whose cost depends on `N_L` must be
+  regenerated — the exact-solver time `t_full` is roughly linear in the number
+  of collapse operators, so cost scaling (Result 2), iso-accuracy cost
+  (Result 4), and the cost axis of the frontier (Result 3) were measured
+  against an inflated baseline. Accuracy-versus-`M`, convergence, jackknife,
+  and seed-robustness data remain valid by the bit-identity above.
+- `coupling_threshold` is still applied as `max(coupling_threshold,
+  numerical_floor)`, so it can only prune more aggressively than the automatic
+  floor, never less.
+
 ## 0.6.3 — 2026-07-28
 - **Fixed:** `davies_operators` now implements the strict secular construction
   for degenerate systems: it forms energy-eigenspace projectors and returns one
