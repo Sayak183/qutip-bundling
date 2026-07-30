@@ -30,7 +30,7 @@ WHAT CHANGED
     sampling floor, so a rate is quoted only where >=3 points clear it by 2x.
 
 Install and read it through before committing:
-  cd C:\Users\sayak\Downloads\repo-split\qutip-bundling
+  cd <your qutip-bundling checkout>
   Expand-Archive $env:USERPROFILE\Downloads\prose-dim64-update.zip -DestinationPath . -Force
   git add -A
   git commit -m "docs: dim-64 results; chain speedup now grows with size; jackknife rate steepening"

@@ -17,7 +17,7 @@ What changed vs your working copy:
    (200 realizations, extended M ladder, spin chain to dim 256)
 
 Steps (PowerShell, in the clone):
-  cd C:\Users\sayak\Downloads\repo-split\qutip-bundling
+  cd <your qutip-bundling checkout>
   Expand-Archive $env:USERPROFILE\Downloads\restructure-v8-final.zip -DestinationPath . -Force
   Select-String -Path benchmarks\common.py -Pattern "SUBSTEPS = "     # must say 4
   cd benchmarks

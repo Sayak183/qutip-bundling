@@ -26,7 +26,7 @@ The Davies operators are 100% dense (energy-eigenbasis), so dense stacking is
 correct; no sparse path is needed for these systems.
 
 Steps:
-  cd C:\Users\sayak\Downloads\repo-split\qutip-bundling
+  cd <your qutip-bundling checkout>
   git switch bundle-vectorization   (create it if you haven't: git switch -c bundle-vectorization)
   Expand-Archive $env:USERPROFILE\Downloads\bundle-vectorization.zip -DestinationPath . -Force
   python -m pytest tests/ -q          (expect 73 passed)
