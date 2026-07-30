@@ -34,7 +34,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-examples = ["matplotlib>=3.5"]
+examples = ["matplotlib>=3.5", "openpyxl>=3.1"]
 test = ["pytest>=7.0"]
 
 [project.urls]
