@@ -9,3 +9,4 @@ dist/
 !benchmarks/*.png
 outputs/
 benchmarks/data/high_dim_reference_*.npz
+.codex-remote-attachments/
