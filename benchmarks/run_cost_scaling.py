@@ -46,7 +46,10 @@ from common import (
     tavg_rmse_jackknife,
     run_metadata, save_data,
 )
-from benchmark_cli import add_safety_arguments, preflight_run, selected_systems
+from benchmark_cli import (
+    add_max_full_dim_argument, add_safety_arguments, preflight_run,
+    selected_systems,
+)
 from qutip_bundling import mesolve_ensemble
 try:
     from qutip_bundling import SolverInstabilityError
@@ -326,6 +329,7 @@ def run(name, build, sizes, full_budget=FULL_TIME_BUDGET,
         })
 
     meta = run_metadata(
+        max_full_dim=MAX_FULL_DIM,
         system=name, sizes=sizes, M_REP=M_REP, N_ACC=N_ACC,
         substeps=SUBSTEPS,
         full_budget_used=full_budget, native_ref_max_dim=native_ref_max,
@@ -341,9 +345,10 @@ def run(name, build, sizes, full_budget=FULL_TIME_BUDGET,
 
 
 def main():
-    global NATIVE_REF_SUBSTEPS, SUBSTEPS
+    global NATIVE_REF_SUBSTEPS, SUBSTEPS, MAX_FULL_DIM
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[1])
     add_safety_arguments(ap, SYSTEMS)
+    add_max_full_dim_argument(ap, MAX_FULL_DIM)
     ap.add_argument("--sizes", type=int, nargs="+", default=None,
                     help="model sizes to run instead of the configured list "
                          "(smoke tests; these are not Hilbert dimensions)")
@@ -395,6 +400,11 @@ def main():
     ):
         return
 
+    if args.max_full_dim != MAX_FULL_DIM:
+        MAX_FULL_DIM = args.max_full_dim
+        print(f"[config] exact-mesolve dimension cap raised to "
+              f"{MAX_FULL_DIM} (one solve at this size cannot be "
+              f"interrupted by --full-budget once started)")
     if args.slb_substeps != SUBSTEPS:
         SUBSTEPS = args.slb_substeps
         print(f"[config] SLB substeps set to {SUBSTEPS} (uniform across "

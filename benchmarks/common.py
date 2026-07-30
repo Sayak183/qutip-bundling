@@ -26,7 +26,9 @@ from __future__ import annotations
 import datetime
 import json
 import math
+import os
 import platform
+import socket
 from pathlib import Path
 
 import numpy as np
@@ -266,9 +268,46 @@ def add_settings_footer(fig, *segments, y=-0.02, fontsize=9, wrap_chars=170):
 DATA_DIR = Path(__file__).resolve().parent / "data"
 
 
-def run_metadata(tlist=TLIST, substeps=SUBSTEPS, **params):
+def _execution_context():
+    """Host, scheduler, and thread settings that wall-clock times depend on.
+
+    Timings are only comparable when they come from the same machine under the
+    same threading. Recording that in the file itself means a table of times
+    can be checked for comparability instead of taken on trust: a shared-node
+    sweep and a standalone run of the same dimension have differed by more than
+    an order of magnitude here purely through node load.
+    """
+    thread_vars = ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS",
+                   "NUMEXPR_NUM_THREADS")
+    context = {
+        "hostname": socket.gethostname(),
+        "cpu_count": os.cpu_count(),
+        "threads": {name: os.environ[name]
+                    for name in thread_vars if name in os.environ},
+    }
+    # Slurm exports these only inside a batch allocation; their absence is
+    # itself informative (the run was not scheduled).
+    scheduler = {key: os.environ[env] for key, env in (
+        ("job_id", "SLURM_JOB_ID"),
+        ("job_name", "SLURM_JOB_NAME"),
+        ("nodelist", "SLURM_JOB_NODELIST"),
+        ("cpus_per_task", "SLURM_CPUS_PER_TASK"),
+        ("partition", "SLURM_JOB_PARTITION"),
+    ) if env in os.environ}
+    if scheduler:
+        context["slurm"] = scheduler
+    return context
+
+
+def run_metadata(tlist=TLIST, substeps=SUBSTEPS, max_full_dim=None, **params):
     """Metadata block stamped into every data file: enough to trace a figure
-    back to the exact run (and machine state) that produced its numbers."""
+    back to the exact run (and machine state) that produced its numbers.
+
+    ``max_full_dim`` records the cap actually in force for this run. Runners
+    that expose ``--max-full-dim`` must pass their effective value, otherwise
+    the metadata would advertise the module default while the run used
+    something else.
+    """
     return {
         "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(
             timespec="seconds"),
@@ -277,11 +316,12 @@ def run_metadata(tlist=TLIST, substeps=SUBSTEPS, **params):
         "qutip": qutip.__version__,
         "qutip_bundling": QUTIP_BUNDLING_VERSION,
         "platform": platform.platform(),
+        "execution": _execution_context(),
         "tlist": {"t0": float(tlist[0]), "t1": float(tlist[-1]),
                   "n": int(len(tlist))},
         "substeps": substeps,
         "full_time_budget_s": FULL_TIME_BUDGET,
-        "max_full_dim": MAX_FULL_DIM,
+        "max_full_dim": MAX_FULL_DIM if max_full_dim is None else int(max_full_dim),
         "max_native_ref_dim": MAX_NATIVE_REF_DIM,
         "davies": {
             "construction": "grouped_frequency_sectors",

@@ -47,7 +47,10 @@ from common import (
     DATA_DIR, FULL_TIME_BUDGET, MAX_FULL_DIM, MC_OPTIONS, tavg_rmse,
     run_metadata, save_data,
 )
-from benchmark_cli import add_safety_arguments, preflight_run, selected_systems
+from benchmark_cli import (
+    add_max_full_dim_argument, add_safety_arguments, preflight_run,
+    selected_systems,
+)
 from isocost_config import run_counts
 from qutip_bundling import mesolve_ensemble
 from qutip_bundling.native_solver import rk4_mesolve
@@ -232,7 +235,7 @@ def run(name, build, size_points, n_runs_list):
         })
 
     meta = run_metadata(
-        tlist=TLIST_FINE,
+        tlist=TLIST_FINE, max_full_dim=MAX_FULL_DIM,
         system=name, sizes=[s for s, _ in size_points],
         substeps_by_size={str(s): ss for s, ss in size_points},
         N_RUNS_LEVELS=n_runs_list, N_RUNS_MAX=n_runs_max,
@@ -244,12 +247,17 @@ def run(name, build, size_points, n_runs_list):
 
 
 def main():
+    global MAX_FULL_DIM
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[1])
     add_safety_arguments(ap, SYSTEMS)
+    add_max_full_dim_argument(ap, MAX_FULL_DIM)
     ap.add_argument("--sizes", type=int, nargs="+", default=None,
                     help="only these configured model sizes (these are not "
                          "Hilbert dimensions)")
     args = ap.parse_args()
+    if args.max_full_dim != MAX_FULL_DIM:
+        MAX_FULL_DIM = args.max_full_dim
+        print(f"[config] exact-mesolve dimension cap raised to {MAX_FULL_DIM}")
     names = selected_systems(args, SYSTEMS)
     work = []
     plans = []

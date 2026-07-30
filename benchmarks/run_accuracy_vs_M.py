@@ -44,7 +44,10 @@ from common import (
     build_spin_chain, build_oscillator_bath, TLIST_FINE, SUBSTEPS,
     DATA_DIR, MAX_FULL_DIM, run_metadata, save_data,
 )
-from benchmark_cli import add_safety_arguments, preflight_run, selected_systems
+from benchmark_cli import (
+    add_max_full_dim_argument, add_safety_arguments, preflight_run,
+    selected_systems,
+)
 from qutip_bundling import mesolve_ensemble
 from qutip_bundling.native_solver import rk4_mesolve, SolverInstabilityError
 
@@ -183,7 +186,7 @@ def run(name, build, size, m_ladder, substeps):
               f"= {dt:.2f} s")
 
     meta = run_metadata(
-        tlist=TLIST_FINE,
+        tlist=TLIST_FINE, max_full_dim=MAX_FULL_DIM,
         system=name, size=size, M_LADDER=m_ladder, substeps=substeps,
         N_REALIZATIONS=N_REALIZATIONS, rng=RNG,
     )
@@ -199,12 +202,17 @@ def run(name, build, size, m_ladder, substeps):
 
 
 def main():
+    global MAX_FULL_DIM
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[1])
     add_safety_arguments(ap, SYSTEMS)
+    add_max_full_dim_argument(ap, MAX_FULL_DIM)
     ap.add_argument("--dims", type=int, nargs="+", default=None,
                     help="only these Hilbert dims (default: all configured "
                          "sizes; each saved to its own file).")
     args = ap.parse_args()
+    if args.max_full_dim != MAX_FULL_DIM:
+        MAX_FULL_DIM = args.max_full_dim
+        print(f"[config] exact-mesolve dimension cap raised to {MAX_FULL_DIM}")
     names = selected_systems(args, SYSTEMS)
     work = []
     plans = []
