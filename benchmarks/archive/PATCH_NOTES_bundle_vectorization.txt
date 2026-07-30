@@ -1,0 +1,43 @@
+BUNDLE VECTORIZATION (src branch)
+===================================
+ONE source file changed + ONE new test. This is a src/ change, so it belongs
+on the bundle-vectorization branch you created, NOT on result2-split.
+
+WHAT: bundle_from_phases in src/qutip_bundling/operators.py rebuilt its M
+bundles with a Python loop of Qobj additions (M*N_L dense allocations, cost
+~ M*N_L*N^2 ~ N^4). Now the N_L operators are stacked once into an (N_L, N*N)
+array and every bundle is one BLAS matrix product (M,N_L)@(N_L,N*N). The inner
+work moves from the Python interpreter into BLAS.
+
+PROVEN IDENTICAL: max deviation old-vs-new = 8e-16 (machine epsilon) across
+dims/M. All 56 existing tests pass; 17 new regression tests pin the vectorized
+path against the explicit reference summation.
+
+MEASURED (bundle_from_phases, M=8, spin chain):
+  dim 16:  3.5 -> 0.9 ms  (3.9x)
+  dim 32: 14.7 -> 5.9 ms  (2.5x)
+  dim 64: 126 -> 85 ms    (1.5x)
+Note the win shrinks at large dim: there the cost is genuine arithmetic
+(2201 ops x 128^2 at dim 128), which is real FLOPs BLAS cannot skip. The loop
+OVERHEAD was the easy win; a further gain would need reducing the operator
+count itself (e.g. coupling_threshold pruning), a separate idea.
+
+The Davies operators are 100% dense (energy-eigenbasis), so dense stacking is
+correct; no sparse path is needed for these systems.
+
+Steps:
+  cd C:\Users\sayak\Downloads\repo-split\qutip-bundling
+  git switch bundle-vectorization   (create it if you haven't: git switch -c bundle-vectorization)
+  Expand-Archive $env:USERPROFILE\Downloads\bundle-vectorization.zip -DestinationPath . -Force
+  python -m pytest tests/ -q          (expect 73 passed)
+  git add -A
+  git commit -m "perf: vectorize bundle_from_phases (BLAS gemm); identical output, +regression tests"
+  git push -u origin bundle-vectorization
+
+BEFORE/AFTER FIGURE (optional, the nice thing to show Roi): with this branch
+checked out, re-run one Result 2 slice --
+  cd benchmarks ; $env:PYTHONPATH = "..\src"
+  python run_cost_scaling.py --system spin_chain
+  python plot_cost_scaling.py --system spin_chain
+The fixed-M curve's small-dim overhead flattens; the large-dim tail is
+unchanged (real FLOPs). Keep both figures to show the improvement.

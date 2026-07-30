@@ -12,6 +12,9 @@ Nothing in this directory is required to reproduce the published figures.
   internal notes for the dimension-64 prose update and the substeps-4 fix kit.
   Both were previously kept at the repository root; they describe one-off
   local procedures and are superseded by the maintained runner scripts.
+- `PATCH_NOTES_bundle_vectorization.txt` records the measured speedups behind
+  the BLAS rewrite of `bundle_from_phases`, kept for the timings; the change
+  itself now lives in `src/` with its own regression tests.
 
 The archive is kept for provenance. New users should start at
 [`../README.md`](../README.md).
