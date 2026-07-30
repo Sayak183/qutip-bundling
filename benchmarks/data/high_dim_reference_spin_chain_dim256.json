@@ -1,6 +1,6 @@
 {
  "meta": {
-  "timestamp": "2026-07-29T15:42:42+00:00",
+  "timestamp": "2026-07-29T19:09:24+00:00",
   "python": "3.11.15",
   "numpy": "2.4.6",
   "qutip": "5.3.0",
@@ -34,8 +34,8 @@
   "n_energy_spaces": 256,
   "n_nonzero_blocks": 3838,
   "n_l": 57,
-  "system_build_s": 0.00826343521475792,
-  "sector_count_s": 10.953691337257624,
+  "system_build_s": 0.005964841693639755,
+  "sector_count_s": 0.7072977796196938,
   "dense_operator_mib": 1.0,
   "collapse_list_gib": 0.0556640625,
   "native_core_gib": 0.1669921875,
@@ -45,7 +45,7 @@
   "dim": 256,
   "n_sites": 8,
   "n_l": 57,
-  "t_davies": 15.83937213011086,
+  "t_davies": 0.6517160553485155,
   "reference_method": "native_rk4_substeps8",
   "reference_energy": [
    -7.0,
@@ -89,7 +89,7 @@
    -7.6517667630232475,
    -7.654718388398406
   ],
-  "t_reference": 2744.363658513874,
+  "t_reference": 86.5676645245403,
   "state_archive": {
    "filename": "high_dim_reference_spin_chain_dim256.npz",
    "format": "numpy_npz_compressed",
@@ -327,7 +327,7 @@
    "max_trace_distance": 8.98886437888734e-06,
    "tol": 0.0001,
    "passed": true,
-   "t_partner": 2338.531088842079
+   "t_partner": 44.92556240782142
   }
  }
 }
