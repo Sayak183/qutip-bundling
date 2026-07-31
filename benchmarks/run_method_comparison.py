@@ -310,8 +310,10 @@ def main():
                 rng_slb=RNG_SLB,
                 mc_atol=MC_OPTIONS["atol"], mc_rtol=MC_OPTIONS["rtol"],
             )
+            # compact: these files carry raw per-realization sample arrays,
+            # where one-number-per-line indentation inflates them several-fold.
             save_data(f"method_comparison_{name}_dim{point['dim']}.json",
-                      meta, point=point)
+                      meta, compact=True, point=point)
 
 
 if __name__ == "__main__":
