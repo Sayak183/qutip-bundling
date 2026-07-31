@@ -31,6 +31,7 @@ RUNNERS = (
     "run_cost_scaling.py",
     "run_frontier.py",
     "run_isocost_vs_dim.py",
+    "run_method_comparison.py",
 )
 LINK_PATTERN = re.compile(r"!?\[[^\]]*]\(([^)]+)\)")
 

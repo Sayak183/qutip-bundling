@@ -41,6 +41,15 @@ They regenerate the corresponding tracked PNG files in this directory.
 | 2. Cost scaling | `run_cost_scaling.py` | `plot_cost_scaling.py` | `data/cost_scaling_<system>.json` |
 | 3. Accuracy/cost frontier | `run_frontier.py` | `plot_frontier.py` | `data/frontier_<system>_dim<D>.json` |
 | 4. Iso-accuracy cost | `run_isocost_vs_dim.py` | `plot_isocost_vs_dim.py` | `data/isocost_vs_dim_<system>.json` |
+| Four-method comparison | `run_method_comparison.py` | (plotter pending) | `data/method_comparison_<system>_dim<D>.json` |
+
+The four-method comparison puts native RK4, `mesolve`, `mcsolve`, and SLB on
+one footing at each dimension: same Hamiltonian, Davies construction, initial
+state, time grid, and observables, all scored against the same certified
+reference. `mcsolve` runs at a fixed `--ntraj` budget and reports whatever
+accuracy that buys. Because it compares wall-clock times across methods, every
+dimension must run inside a single job on a single node — see the caveat under
+"Running these on a cluster" below.
 
 ## Before generating new data
 

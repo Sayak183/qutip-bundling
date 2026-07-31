@@ -136,6 +136,146 @@ def build_oscillator_bath(n_fock: int, omega0=1.0, anh=0.1, spin_gap=1.0, coupli
 
 
 # ===========================================================================
+# OBSERVABLES
+# ===========================================================================
+# Every method in a comparison must be scored on the SAME operators, so they
+# are defined once here rather than per runner.
+#
+# <H> alone is not enough. It is built almost entirely from the diagonal of
+# rho, so a method can reproduce it while getting the coherences wrong, and on
+# System B the spin contributes under 4% of the total energy -- a large error
+# there is invisible in <H>. Each system therefore also carries an off-diagonal
+# probe and the individual terms of its own Hamiltonian.
+OSCILLATOR_PARAMS = dict(omega0=1.0, anh=0.1, spin_gap=1.0, coupling=0.3)
+SPIN_CHAIN_PARAMS = dict(J=1.0, h=0.6)
+
+
+def populated_coherence_op(H, ref_states):
+    """Hermitian coherence operator |a><b| + h.c. for the energy-eigenstate pair
+    (a, b) whose coherence is *most populated by the actual dynamics* (largest
+    |<a|rho(t)|b>| over the reference trajectory). This guarantees we track a
+    coherence the system genuinely develops -- picking by coupling strength can
+    land on a pair the dynamics never populates (value ~ machine zero), which is
+    uninformative. <H> is essentially diagonal, so this off-diagonal is exactly
+    what energy cannot see.
+
+    The pair is chosen from the REFERENCE and the resulting operator is then
+    handed to every method: if each method picked its own "largest" pair they
+    would be scored on different observables and their errors would not be
+    comparable.
+    """
+    Ha = 0.5 * (np.asarray(H.full()) + np.asarray(H.full()).conj().T)
+    evals, evecs = np.linalg.eigh(Ha)
+    R = evecs.conj().T  # rows are eigenvectors
+    best = (0, 1, -1.0)
+    for s in ref_states:
+        rho_e = R @ np.asarray(s.full()) @ R.conj().T
+        ab = np.abs(rho_e)
+        np.fill_diagonal(ab, 0.0)
+        i, j = np.unravel_index(int(np.argmax(ab)), ab.shape)
+        if ab[i, j] > best[2]:
+            best = (int(i), int(j), float(ab[i, j]))
+    a, b = best[0], best[1]
+    P = np.outer(evecs[:, a], evecs[:, b].conj())
+    C = qutip.Qobj(P + P.conj().T, dims=H.dims)
+    return C, (a, b), best[2]
+
+
+def spin_chain_observables(H):
+    """(labels, ops) for System A, excluding the coherence.
+
+    ``zz`` and ``sx`` are the two terms of H itself:
+        <H> = -J * <zz> - h * <sx>
+    Measuring them separately splits the energy into its interaction and field
+    halves. They move non-monotonically and partly cancel, so that structure is
+    invisible in <H>; their sum also reconstructs it as a free correctness
+    check. ``zz_per_bond`` is the same quantity normalised by the bond count,
+    which stays comparable across dimensions.
+    """
+    n_sites = len(H.dims[0])
+    sx, sz, identity = qutip.sigmax(), qutip.sigmaz(), qutip.qeye(2)
+
+    def op(single, site):
+        return qutip.tensor([single if k == site else identity
+                             for k in range(n_sites)])
+
+    zz = sum(op(sz, i) * op(sz, i + 1) for i in range(n_sites - 1))
+    sx_total = sum(op(sx, i) for i in range(n_sites))
+    n_bonds = max(n_sites - 1, 1)
+    return (
+        ["energy", "zz", "sx", "zz_per_bond"],
+        [H, zz, sx_total, zz / n_bonds],
+    )
+
+
+def oscillator_observables(H):
+    """(labels, ops) for System B, excluding the coherence.
+
+    The bath couples only through x (x) I, so it drains the oscillator
+    directly; ``sz`` moves solely through the internal coupling g and is the
+    delicate, second-hand quantity. ``n2`` and ``x_sx`` are the remaining terms
+    of H, so that
+        <H> = w0*(<n>+1/2) + chi*<n2> + (Delta/2)*<sz> + g*<x_sx>
+    reconstructs the energy exactly.
+    """
+    n_fock = H.dims[0][0]
+    a = qutip.destroy(n_fock)
+    num = a.dag() * a
+    x = (a + a.dag()) / math.sqrt(2.0)
+    Io, Is = qutip.qeye(n_fock), qutip.qeye(2)
+    sz, sx = qutip.sigmaz(), qutip.sigmax()
+    return (
+        ["energy", "n", "sz", "n2", "x_sx"],
+        [H, qutip.tensor(num, Is), qutip.tensor(Io, sz),
+         qutip.tensor(num * num, Is), qutip.tensor(x, sx)],
+    )
+
+
+def observable_set(system, H, ref_states=None):
+    """(labels, ops) for ``system``; adds the coherence when states are given.
+
+    Pass the reference states so the coherence operator is chosen once, from
+    the reference, and shared by every method.
+    """
+    if system == "spin_chain":
+        labels, ops = spin_chain_observables(H)
+    elif system == "oscillator_bath":
+        labels, ops = oscillator_observables(H)
+    else:
+        raise ValueError(f"unknown system {system!r}")
+
+    coherence_pair = None
+    if ref_states is not None:
+        C, pair, peak = populated_coherence_op(H, ref_states)
+        labels = labels + ["coherence"]
+        ops = ops + [C]
+        coherence_pair = {"levels": list(pair), "peak_abs_rho": peak}
+    return labels, ops, coherence_pair
+
+
+def reconstruct_energy(system, curves):
+    """Rebuild <H> from the individual Hamiltonian terms in ``curves``.
+
+    Returns None when the required terms are absent. Used as a self-check: the
+    residual against the measured energy must be at machine precision.
+    """
+    if system == "spin_chain":
+        if not {"zz", "sx"} <= curves.keys():
+            return None
+        p = SPIN_CHAIN_PARAMS
+        return -p["J"] * np.asarray(curves["zz"]) - p["h"] * np.asarray(curves["sx"])
+    if system == "oscillator_bath":
+        if not {"n", "n2", "sz", "x_sx"} <= curves.keys():
+            return None
+        p = OSCILLATOR_PARAMS
+        return (p["omega0"] * (np.asarray(curves["n"]) + 0.5)
+                + p["anh"] * np.asarray(curves["n2"])
+                + 0.5 * p["spin_gap"] * np.asarray(curves["sz"])
+                + p["coupling"] * np.asarray(curves["x_sx"]))
+    return None
+
+
+# ===========================================================================
 # ERROR METRIC (time-averaged RMSE and its jackknife uncertainty)
 # ===========================================================================
 # The mcsolve frontier (Result 3) and the substep integrator check report the

@@ -42,7 +42,7 @@ import qutip
 from common import (
     build_davies_operators,
     build_spin_chain, build_oscillator_bath, TLIST_FINE, SUBSTEPS,
-    DATA_DIR, MAX_FULL_DIM, run_metadata, save_data,
+    DATA_DIR, MAX_FULL_DIM, populated_coherence_op, run_metadata, save_data,
 )
 from benchmark_cli import (
     add_max_full_dim_argument, add_safety_arguments, preflight_run,
@@ -86,31 +86,6 @@ def capped_unique_m_values(requested, n_lindblad):
         if m_eff > 0 and m_eff not in values:
             values.append(m_eff)
     return values
-
-
-def populated_coherence_op(H, ref_states):
-    """Hermitian coherence operator |a><b| + h.c. for the energy-eigenstate pair
-    (a, b) whose coherence is *most populated by the actual dynamics* (largest
-    |<a|rho(t)|b>| over the reference trajectory). This guarantees we track a
-    coherence the system genuinely develops -- picking by coupling strength can
-    land on a pair the dynamics never populates (value ~ machine zero), which is
-    uninformative. <H> is essentially diagonal, so this off-diagonal is exactly
-    what energy cannot see."""
-    Ha = 0.5 * (np.asarray(H.full()) + np.asarray(H.full()).conj().T)
-    evals, evecs = np.linalg.eigh(Ha)
-    R = evecs.conj().T  # rows are eigenvectors
-    best = (0, 1, -1.0)
-    for s in ref_states:
-        rho_e = R @ np.asarray(s.full()) @ R.conj().T
-        ab = np.abs(rho_e)
-        np.fill_diagonal(ab, 0.0)
-        i, j = np.unravel_index(int(np.argmax(ab)), ab.shape)
-        if ab[i, j] > best[2]:
-            best = (int(i), int(j), float(ab[i, j]))
-    a, b = best[0], best[1]
-    P = np.outer(evecs[:, a], evecs[:, b].conj())
-    C = qutip.Qobj(P + P.conj().T, dims=H.dims)
-    return C, (a, b), best[2]
 
 
 def run(name, build, size, m_ladder, substeps):
