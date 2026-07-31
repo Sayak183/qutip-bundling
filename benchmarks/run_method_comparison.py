@@ -98,29 +98,41 @@ def certified_reference(H, rho0, c_ops, ref_substeps):
     return primary.states, t_reference, selfcheck
 
 
+def repeat_timed(call, repeats):
+    """Run ``call`` ``repeats`` times; return (median wall, all walls, result).
+
+    Wall-clock on a shared machine varies by tens of percent between runs even
+    on the same node, so a single measurement cannot resolve a ratio below
+    roughly 1.5x. The median is reported and every measurement kept, so a
+    figure can show the spread instead of implying a precision the timing does
+    not have. The computation is identical each time (fixed seeds), so only the
+    timing varies.
+    """
+    walls, result = [], None
+    for _ in range(max(int(repeats), 1)):
+        start = time.perf_counter()
+        result = call()
+        walls.append(time.perf_counter() - start)
+    return float(np.median(walls)), walls, result
+
+
 def run_native(H, rho0, c_ops, ops, substeps):
-    t0 = time.perf_counter()
-    res = rk4_mesolve(H, rho0, TLIST, c_ops=c_ops, e_ops=ops, substeps=substeps)
-    return time.perf_counter() - t0, res.expect
+    return rk4_mesolve(H, rho0, TLIST, c_ops=c_ops, e_ops=ops,
+                       substeps=substeps).expect
 
 
 def run_mesolve(H, rho0, c_ops, ops):
-    t0 = time.perf_counter()
-    res = qutip.mesolve(H, rho0, TLIST, c_ops=c_ops, e_ops=ops)
-    return time.perf_counter() - t0, res.expect
+    return qutip.mesolve(H, rho0, TLIST, c_ops=c_ops, e_ops=ops).expect
 
 
 def run_mcsolve(H, psi0, c_ops, ops, ntraj):
-    """Fixed-budget mcsolve. Returns (wall, mean curves, per-trajectory std).
+    """Fixed-budget mcsolve. Returns (mean curves, per-trajectory std).
 
     Trajectories are averaged here rather than saved: keeping every trajectory
     for every observable is what the fixed-budget design exists to avoid.
     """
-    t0 = time.perf_counter()
     res = qutip.mcsolve(H, psi0, TLIST, c_ops, e_ops=ops, ntraj=ntraj,
                         options=MC_OPTIONS)
-    wall = time.perf_counter() - t0
-
     # MC_OPTIONS sets keep_runs_results, so `expect` is per-trajectory with
     # shape (ntraj, n_times) rather than an average -- averaging it here is
     # what makes the saved curve a curve. run_frontier.py reads runs_expect
@@ -133,10 +145,10 @@ def run_mcsolve(H, psi0, c_ops, ops, ntraj):
     else:
         mean = [np.real(np.asarray(e)) for e in res.expect]
         std = [np.full_like(m, np.nan) for m in mean]
-    return wall, mean, std
+    return mean, std
 
 
-def run_slb(H, rho0, c_ops, ops, m_values, n_runs, substeps, n_l):
+def run_slb(H, rho0, c_ops, ops, m_values, n_runs, substeps, n_l, repeats):
     """Sweep M. Saves raw per-realization samples so the plot side can pick
     any accuracy target later without recomputing."""
     rows, seen = [], set()
@@ -146,11 +158,12 @@ def run_slb(H, rho0, c_ops, ops, m_values, n_runs, substeps, n_l):
             continue
         seen.add(m_eff)
         try:
-            t0 = time.perf_counter()
-            ens = mesolve_ensemble(H, rho0, TLIST, c_ops, M=m_eff, e_ops=ops,
-                                   n_realizations=n_runs, rng=RNG_SLB,
-                                   backend="native", substeps=substeps)
-            wall = time.perf_counter() - t0
+            wall, walls, ens = repeat_timed(
+                lambda: mesolve_ensemble(
+                    H, rho0, TLIST, c_ops, M=m_eff, e_ops=ops,
+                    n_realizations=n_runs, rng=RNG_SLB,
+                    backend="native", substeps=substeps),
+                repeats)
         except SolverInstabilityError as err:
             print(f"      M={m_eff:3d}  diverged: {err}")
             rows.append({"M": m_eff, "diverged": True})
@@ -160,6 +173,7 @@ def run_slb(H, rho0, c_ops, ops, m_values, n_runs, substeps, n_l):
             "M": m_eff,
             "n_runs": n_runs,
             "wall_s": wall,
+            "wall_s_repeats": walls,
             "samples": np.asarray(ens.samples),
         })
         print(f"      M={m_eff:3d}  {wall:8.2f} s")
@@ -202,16 +216,19 @@ def run(name, build, size, args):
     methods: dict = {}
 
     if "native" in args.methods:
-        wall, expect = run_native(H, rho0, c_ops, ops, args.slb_substeps)
-        methods["native"] = {"wall_s": wall,
+        wall, walls, expect = repeat_timed(
+            lambda: run_native(H, rho0, c_ops, ops, args.slb_substeps),
+            args.repeats)
+        methods["native"] = {"wall_s": wall, "wall_s_repeats": walls,
                              "curves": curves_dict(labels, expect)}
         print(f"    native   {wall:8.2f} s")
 
     if "mesolve" in args.methods:
         if dim <= args.max_full_dim:
             try:
-                wall, expect = run_mesolve(H, rho0, c_ops, ops)
-                methods["mesolve"] = {"wall_s": wall,
+                wall, walls, expect = repeat_timed(
+                    lambda: run_mesolve(H, rho0, c_ops, ops), args.repeats)
+                methods["mesolve"] = {"wall_s": wall, "wall_s_repeats": walls,
                                       "curves": curves_dict(labels, expect)}
                 print(f"    mesolve  {wall:8.2f} s")
             except MemoryError as err:
@@ -223,10 +240,12 @@ def run(name, build, size, args):
             print(f"    mesolve  skipped ({reason})")
 
     if "mcsolve" in args.methods:
-        wall, mean, std = run_mcsolve(H, psi0, c_ops, ops, args.ntraj)
+        wall, walls, (mean, std) = repeat_timed(
+            lambda: run_mcsolve(H, psi0, c_ops, ops, args.ntraj), args.repeats)
         methods["mcsolve"] = {
             "ntraj": args.ntraj,
             "wall_s": wall,
+            "wall_s_repeats": walls,
             "curves": dict(zip(labels, mean)),
             "traj_std": dict(zip(labels, std)),
         }
@@ -234,7 +253,8 @@ def run(name, build, size, args):
 
     if "slb" in args.methods:
         methods["slb"] = run_slb(H, rho0, c_ops, ops, args.m_grid,
-                                 args.n_runs, args.slb_substeps, n_l)
+                                 args.n_runs, args.slb_substeps, n_l,
+                                 args.repeats)
 
     return {
         "dim": dim,
@@ -273,6 +293,11 @@ def main():
                     help="bundle sizes swept for SLB")
     ap.add_argument("--n-runs", type=int, default=N_RUNS,
                     help="SLB realizations averaged per M")
+    ap.add_argument("--repeats", type=int, default=1,
+                    help="time every method this many times and record all "
+                         "measurements (default 1). Wall-clock varies by tens "
+                         "of percent between runs, so ratios below ~1.5x need "
+                         "repeats to be resolved. Multiplies the runtime.")
     ap.add_argument("--slb-substeps", type=int, default=SUBSTEPS,
                     help="RK4 substeps for SLB and the native solve")
     ap.add_argument("--ref-substeps", type=int, default=None,
@@ -305,6 +330,7 @@ def main():
                 max_full_dim=args.max_full_dim,
                 system=name, size=size, methods=args.methods,
                 M_GRID=args.m_grid, N_RUNS=args.n_runs, NTRAJ=args.ntraj,
+                repeats=args.repeats,
                 substeps=args.slb_substeps,
                 ref_substeps=args.ref_substeps or 2 * args.slb_substeps,
                 rng_slb=RNG_SLB,
