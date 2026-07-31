@@ -1,11 +1,28 @@
 {
  "meta": {
-  "timestamp": "2026-07-29T19:09:24+00:00",
+  "timestamp": "2026-07-31T14:25:58+00:00",
   "python": "3.11.15",
   "numpy": "2.4.6",
   "qutip": "5.3.0",
   "qutip_bundling": "0.6.4",
   "platform": "Linux-4.15.0-213-generic-x86_64-with-glibc2.27",
+  "execution": {
+   "hostname": "landau44",
+   "cpu_count": 72,
+   "threads": {
+    "OMP_NUM_THREADS": "8",
+    "OPENBLAS_NUM_THREADS": "8",
+    "MKL_NUM_THREADS": "8",
+    "NUMEXPR_NUM_THREADS": "8"
+   },
+   "slurm": {
+    "job_id": "19559570",
+    "job_name": "qutip-compare",
+    "nodelist": "landau44",
+    "cpus_per_task": "8",
+    "partition": "roibq"
+   }
+  },
   "tlist": {
    "t0": 0.0,
    "t1": 5.0,
@@ -34,8 +51,8 @@
   "n_energy_spaces": 256,
   "n_nonzero_blocks": 3838,
   "n_l": 57,
-  "system_build_s": 0.005964841693639755,
-  "sector_count_s": 0.7072977796196938,
+  "system_build_s": 0.0059660654515028,
+  "sector_count_s": 0.7295866757631302,
   "dense_operator_mib": 1.0,
   "collapse_list_gib": 0.0556640625,
   "native_core_gib": 0.1669921875,
@@ -45,7 +62,7 @@
   "dim": 256,
   "n_sites": 8,
   "n_l": 57,
-  "t_davies": 0.6517160553485155,
+  "t_davies": 0.7059583067893982,
   "reference_method": "native_rk4_substeps8",
   "reference_energy": [
    -7.0,
@@ -89,7 +106,7 @@
    -7.6517667630232475,
    -7.654718388398406
   ],
-  "t_reference": 86.5676645245403,
+  "t_reference": 115.42371322028339,
   "state_archive": {
    "filename": "high_dim_reference_spin_chain_dim256.npz",
    "format": "numpy_npz_compressed",
@@ -327,7 +344,7 @@
    "max_trace_distance": 8.98886437888734e-06,
    "tol": 0.0001,
    "passed": true,
-   "t_partner": 44.92556240782142
+   "t_partner": 57.27203190885484
   }
  }
 }
