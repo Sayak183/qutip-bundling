@@ -39,18 +39,32 @@ systems, closer to $N^{2}$ in the measured benchmarks).
 
 ## Benchmarks
 
-On a dissipative spin chain, full `mesolve` (paying for all $N_{L}$ Lindblad
-operators) becomes infeasible as the system grows, while bundling — using only
-$M$ of them — keeps going at a fraction of the cost:
+**When bundling helps.** The method replaces $N_{L}$ collapse operators with
+$M$ random bundles, so it can only pay when $M \ll N_{L}$. What matters is not
+the Hilbert dimension but how many Lindblad operators the model actually has at
+that dimension — and the two are not the same thing.
+
+The benchmark oscillator has $N_{L}=408$ at dimension 32. There, in a
+single-allocation comparison against the exact solver and `mcsolve`, bundling
+reaches $10^{-3}$ relative error about **27x cheaper than the exact
+full-dissipator solve**, and roughly 300x cheaper *and* 100x more accurate than
+`mcsolve` at 500 trajectories.
+
+The benchmark spin chain is the opposite case, and is included as a control.
+Its collective coupling and $\mathbb{Z}_2$ symmetry give
+$N_{L}=n^{2}-n+1$ in the number of sites — only 43 operators at dimension 128,
+growing polylogarithmically in the Hilbert dimension. With so few operators to
+bundle there is nothing to gain, and the exact full-dissipator solve is both
+cheaper and exact. Bundling is the right tool for the first kind of system, not
+the second.
 
 ![cost versus system size](benchmarks/benchmark_cost_scaling_spin_chain.png)
 
-Below the crossover the full solve is the better choice; above it, bundling is
-what lets the calculation finish. Against QuTiP's trajectory solver `mcsolve`,
-bundling matches or beats its accuracy per unit compute: on the spin chain it
-is never slower and typically a few-fold faster, and on the stiffer oscillator
-it is **orders of magnitude faster, widening with system size into the
-thousands**. See the
+Against the exact solver, the cost of building and propagating the full
+Liouvillian still grows steeply with dimension — `mesolve` on the chain goes
+from 5.4 s at dimension 32 to 224 s at dimension 64, a 41x jump for one
+doubling — which is what makes the density-matrix route worth optimizing at
+all. See the
 [`benchmark quick start`](benchmarks/README.md) to reproduce the figures safely,
 or [`benchmarks/BENCHMARKS.md`](benchmarks/BENCHMARKS.md) for the full study —
 both systems defined, accuracy versus $M$ (energy and coherence), cost scaling

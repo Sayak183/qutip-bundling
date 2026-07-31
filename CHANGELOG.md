@@ -1,6 +1,21 @@
 # Changelog
 
 ## Unreleased
+- **Benchmarks (result change):** a four-method comparison run in one Slurm
+  allocation (native RK4, `mesolve`, `mcsolve`, SLB; identical Hamiltonian,
+  Davies construction, initial state, time grid, and observables) shows the
+  bundling advantage is governed by `N_L`, not by Hilbert dimension. On the
+  oscillator (`N_L=408` at dimension 32) SLB reaches `1e-3` error ~27x cheaper
+  than the exact full-dissipator solve and ~300x cheaper than `mcsolve` at 500
+  trajectories, while being ~100x more accurate than it. On the spin chain
+  (`N_L=43` at dimension 128) it is **not** competitive: the exact solve costs
+  about the same as the cheapest useful bundle and is far more accurate. This
+  holds for single realizations as well as 16-run ensembles.
+  The previous README claim that bundling on the spin chain "is never slower
+  and typically a few-fold faster" than `mcsolve` rested on pre-0.6.4 data,
+  where that system's `N_L` was inflated to 113 and 325 by the roundoff-only
+  projector blocks the 0.6.4 floor removes. The chain is now documented as a
+  control for where the method does not help.
 - **Performance:** `bundle_from_phases` builds its `M` bundles with a single
   BLAS matrix product instead of a Python loop of `M * N_L` Qobj additions. The
   operators are stacked once into an `(N_L, N*N)` array and every bundle comes
