@@ -121,11 +121,17 @@ def run_mcsolve(H, psi0, c_ops, ops, ntraj):
                         options=MC_OPTIONS)
     wall = time.perf_counter() - t0
 
-    mean = [np.real(np.asarray(e)) for e in res.expect]
+    # MC_OPTIONS sets keep_runs_results, so `expect` is per-trajectory with
+    # shape (ntraj, n_times) rather than an average -- averaging it here is
+    # what makes the saved curve a curve. run_frontier.py reads runs_expect
+    # the same way.
     runs = getattr(res, "runs_expect", None)
     if runs is not None:
-        std = [np.real(np.asarray(r)).std(axis=0, ddof=1) for r in runs]
+        per_traj = [np.real(np.asarray(r)) for r in runs]
+        mean = [p.mean(axis=0) for p in per_traj]
+        std = [p.std(axis=0, ddof=1) for p in per_traj]
     else:
+        mean = [np.real(np.asarray(e)) for e in res.expect]
         std = [np.full_like(m, np.nan) for m in mean]
     return wall, mean, std
 
