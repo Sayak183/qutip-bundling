@@ -97,8 +97,34 @@ def build_davies_operators(H, X):
 # ===========================================================================
 # SYSTEM BUILDERS
 # ===========================================================================
-def build_spin_chain(n_sites: int, J: float = 1.0, h: float = 0.6):
-    """Dissipative transverse-field Ising chain."""
+MIXED_FIELD_G = 0.4        # longitudinal field of the non-integrable chain
+
+
+def build_spin_chain(n_sites: int, J: float = 1.0, h: float = 0.6,
+                     g: float = 0.0):
+    """Dissipative Ising chain in a transverse (and optionally longitudinal) field.
+
+        H = -J sum_i Z_i Z_i+1  -  h sum_i X_i  -  g sum_i Z_i
+
+    ``g=0`` is the transverse-field Ising model: **exactly solvable**. It maps
+    to free fermions, so its energies are sums of n independent mode energies
+    and enormous numbers of transitions share the same Bohr frequency. The
+    Davies construction groups those together, and the operator count collapses
+    to N_L = n^2 - n + 1 -- only 31 at dimension 64. There is almost nothing
+    left for bundling to compress, which is why this is the *control* system.
+
+    ``g>0`` breaks integrability. Bohr frequencies stop coinciding, grouping
+    merges almost nothing, and N_L climbs to about N^2/2 -- 2,017 at dimension
+    64 and 8,193 at 128. This is the generic case, and the one the method is
+    for. Measured counts at dimension 64: 31 at g=0 against 2,017 at g=0.4,
+    with the count saturating by g~0.01.
+
+    Do not use very small nonzero ``g``. Between roughly 1e-8 and 1e-4 the count
+    depends on where the splittings fall relative to ``degeneracy_tol``, and
+    more importantly the secular approximation behind the Davies construction
+    assumes splittings large compared with the bath coupling. Use ``g=0`` or
+    ``g >= 0.01``.
+    """
     sx, sz, I = qutip.sigmax(), qutip.sigmaz(), qutip.qeye(2)
 
     def op(o, i):
@@ -109,10 +135,18 @@ def build_spin_chain(n_sites: int, J: float = 1.0, h: float = 0.6):
         H += -J * op(sz, i) * op(sz, i + 1)
     for i in range(n_sites):
         H += -h * op(sx, i)
+    if g:
+        for i in range(n_sites):
+            H += -g * op(sz, i)
 
     X = sum(op(sx, i) for i in range(n_sites))
     psi0 = qutip.tensor([qutip.basis(2, 0)] * n_sites)
     return H, X, psi0
+
+
+def build_mixed_field_chain(n_sites: int):
+    """The same chain with the integrability-breaking longitudinal field on."""
+    return build_spin_chain(n_sites, g=MIXED_FIELD_G)
 
 
 def build_oscillator_bath(n_fock: int, omega0=1.0, anh=0.1, spin_gap=1.0, coupling=0.3):
@@ -201,10 +235,13 @@ def spin_chain_observables(H):
 
     zz = sum(op(sz, i) * op(sz, i + 1) for i in range(n_sites - 1))
     sx_total = sum(op(sx, i) for i in range(n_sites))
+    sz_total = sum(op(sz, i) for i in range(n_sites))
     n_bonds = max(n_sites - 1, 1)
+    # sz is the longitudinal magnetisation: the third term of H when g>0, and a
+    # physically meaningful order parameter either way.
     return (
-        ["energy", "zz", "sx", "zz_per_bond"],
-        [H, zz, sx_total, zz / n_bonds],
+        ["energy", "zz", "sx", "sz", "zz_per_bond"],
+        [H, zz, sx_total, sz_total, zz / n_bonds],
     )
 
 
@@ -237,7 +274,7 @@ def observable_set(system, H, ref_states=None):
     Pass the reference states so the coherence operator is chosen once, from
     the reference, and shared by every method.
     """
-    if system == "spin_chain":
+    if system in ("spin_chain", "mixed_chain"):
         labels, ops = spin_chain_observables(H)
     elif system == "oscillator_bath":
         labels, ops = oscillator_observables(H)
@@ -259,11 +296,17 @@ def reconstruct_energy(system, curves):
     Returns None when the required terms are absent. Used as a self-check: the
     residual against the measured energy must be at machine precision.
     """
-    if system == "spin_chain":
+    if system in ("spin_chain", "mixed_chain"):
         if not {"zz", "sx"} <= curves.keys():
             return None
         p = SPIN_CHAIN_PARAMS
-        return -p["J"] * np.asarray(curves["zz"]) - p["h"] * np.asarray(curves["sx"])
+        total = (-p["J"] * np.asarray(curves["zz"])
+                 - p["h"] * np.asarray(curves["sx"]))
+        if system == "mixed_chain":
+            if "sz" not in curves:
+                return None
+            total = total - MIXED_FIELD_G * np.asarray(curves["sz"])
+        return total
     if system == "oscillator_bath":
         if not {"n", "n2", "sz", "x_sx"} <= curves.keys():
             return None

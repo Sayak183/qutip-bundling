@@ -45,6 +45,7 @@ import qutip
 
 from common import (
     build_davies_operators, build_spin_chain, build_oscillator_bath,
+    build_mixed_field_chain,
     DATA_DIR, MAX_FULL_DIM, MC_OPTIONS, SUBSTEPS, TLIST,
     observable_set, reconstruct_energy, run_metadata, save_data,
 )
@@ -58,8 +59,9 @@ from qutip_bundling.native_solver import rk4_mesolve, SolverInstabilityError
 # Model sizes, not Hilbert dimensions. The spin chain doubles per site; the
 # oscillator's dimension is 2 * n_fock.
 SYSTEMS = {
-    "spin_chain":      (build_spin_chain,      [2, 3, 4, 5, 6]),
-    "oscillator_bath": (build_oscillator_bath, [4, 8, 16]),
+    "spin_chain":      (build_spin_chain,       [2, 3, 4, 5, 6]),
+    "mixed_chain":     (build_mixed_field_chain,[2, 3, 4, 5, 6, 7]),
+    "oscillator_bath": (build_oscillator_bath,  [4, 8, 16]),
 }
 
 M_GRID = [1, 2, 4, 8, 16, 32]   # bundle sizes swept for SLB
@@ -289,6 +291,25 @@ def run(name, build, size, args):
     print(f"[{name}] dim={dim}  N_L={n_l}  Davies {t_davies:.3f} s")
 
     ref_substeps = args.ref_substeps or 2 * args.slb_substeps
+    if args.no_reference:
+        # Reach mode. Past the exact solver's ceiling there is no reference to
+        # score against, so accuracy cannot be measured -- but feasibility and
+        # cost can, and self-consistency across M still says something: if the
+        # answer stops moving as M grows, it has converged even though nothing
+        # external confirms it.
+        labels, ops, coherence = observable_set(name, H, None)
+        print(f"  no reference (reach mode); observables: {labels}")
+        methods = {"slb": run_slb(H, rho0, c_ops, ops, args.m_grid,
+                                  args.n_runs, args.slb_substeps, n_l,
+                                  args.repeats)}
+        return {
+            "dim": dim, "size": size, "n_l": n_l, "t_davies": t_davies,
+            "observables": labels, "coherence": coherence,
+            "energy_reconstruction_residual": None,
+            "reference": None,
+            "methods": methods,
+        }
+
     reused = None
     if args.reuse_reference:
         n_sites = len(H.dims[0]) if name == "spin_chain" else 0
@@ -412,6 +433,14 @@ def main():
                     help="bundle sizes swept for SLB")
     ap.add_argument("--n-runs", type=int, default=N_RUNS,
                     help="SLB realizations averaged per M")
+    ap.add_argument("--no-reference", action="store_true",
+                    help="skip the exact reference entirely and run SLB only. "
+                         "For dimensions past the exact solver's ceiling, where "
+                         "no reference can be computed: accuracy is then "
+                         "unmeasurable, but feasibility, cost, and convergence "
+                         "in M are still recorded. Files written this way have "
+                         "reference=null and must not be used for error "
+                         "comparisons.")
     ap.add_argument("--reuse-reference", action="store_true",
                     help="load the certified reference from "
                          "data/high_dim_reference_*.{json,npz} instead of "
@@ -439,7 +468,11 @@ def main():
         sizes = args.sizes if args.sizes else configured
         work.append((name, build, sizes))
         for size in sizes:
-            dim = 2 ** size if name == "spin_chain" else 2 * size
+            # Ask the builder rather than mapping names to formulas: a new
+            # system whose name was not in the formula silently planned the
+            # wrong output file, so the overwrite guard protected a path that
+            # was never written.
+            dim = build(size)[0].shape[0]
             plans.append((
                 f"four-method comparison: {name}, size={size} (dim {dim})",
                 DATA_DIR / f"method_comparison_{name}_dim{dim}.json",
