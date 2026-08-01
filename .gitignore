@@ -16,3 +16,6 @@ benchmarks/data/high_dim_reference_*.npz
 .conda-env/
 Miniforge3.sh
 logs/
+
+# Shared AI working context - kept local until publication
+CONTEXT.md
