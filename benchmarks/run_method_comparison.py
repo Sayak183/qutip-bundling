@@ -36,6 +36,8 @@ Run:  python run_method_comparison.py (--system SYSTEM | --all) [--dims ...]
 from __future__ import annotations
 
 import argparse
+import hashlib
+import json
 import time
 
 import numpy as np
@@ -50,7 +52,7 @@ from benchmark_cli import (
     add_max_full_dim_argument, add_safety_arguments, preflight_run,
     selected_systems,
 )
-from qutip_bundling import mesolve_ensemble
+from qutip_bundling import mesolve_ensemble, mesolve_jackknife
 from qutip_bundling.native_solver import rk4_mesolve, SolverInstabilityError
 
 # Model sizes, not Hilbert dimensions. The spin chain doubles per site; the
@@ -96,6 +98,60 @@ def certified_reference(H, rho0, c_ops, ref_substeps):
         "passed": bool(np.isfinite(deviation) and deviation <= REF_SELFCHECK_TOL),
     }
     return primary.states, t_reference, selfcheck
+
+
+def stored_reference(system, dim, n_sites):
+    """Load an already-certified reference instead of recomputing it.
+
+    ``run_high_dim_spin_reference.py`` writes the full density-matrix
+    trajectory to an NPZ alongside its certification, so every observable is
+    derivable from it. Recomputing that costs ~4 h at dimension 1024 and
+    reproduces numbers we already have -- reuse is what makes the comparison
+    affordable at the dimensions the reference already reaches.
+
+    Returns (states, t_reference, selfcheck) or None when no usable archive
+    exists. Raises if an archive exists but cannot be trusted: a silently
+    mismatched reference would poison every error in the comparison.
+    """
+    if system != "spin_chain":
+        return None                      # only the chain has these archives
+    json_path = DATA_DIR / f"high_dim_reference_spin_chain_dim{dim}.json"
+    npz_path = json_path.with_suffix(".npz")
+    if not json_path.exists() or not npz_path.exists():
+        return None
+
+    document = json.loads(json_path.read_text(encoding="utf-8"))
+    point, meta = document["point"], document["meta"]
+    if not point["selfcheck"].get("passed", False):
+        raise ValueError(f"{json_path.name} is not a certified reference")
+
+    grid = meta["tlist"]
+    if (grid["n"] != len(TLIST)
+            or not np.isclose(grid["t0"], TLIST[0])
+            or not np.isclose(grid["t1"], TLIST[-1])):
+        raise ValueError(
+            f"{json_path.name} was computed on a different time grid "
+            f"(t0={grid['t0']}, t1={grid['t1']}, n={grid['n']}) than this "
+            f"comparison uses ({TLIST[0]}, {TLIST[-1]}, {len(TLIST)})."
+        )
+
+    archive = point.get("state_archive", {})
+    expected = archive.get("sha256")
+    if expected:
+        digest = hashlib.sha256(npz_path.read_bytes()).hexdigest()
+        if digest != expected:
+            raise ValueError(
+                f"{npz_path.name} does not match the SHA-256 recorded in "
+                f"{json_path.name}; the archive and its certification have "
+                f"diverged, so it cannot be used as a reference."
+            )
+
+    with np.load(npz_path) as data:
+        states_array = data["states"]
+    dims = [[2] * n_sites, [2] * n_sites]
+    states = [qutip.Qobj(states_array[i], dims=dims)
+              for i in range(states_array.shape[0])]
+    return states, float(point["t_reference"]), point["selfcheck"]
 
 
 def repeat_timed(call, repeats):
@@ -180,6 +236,47 @@ def run_slb(H, rho0, c_ops, ops, m_values, n_runs, substeps, n_l, repeats):
     return rows
 
 
+def run_jackknife(H, rho0, c_ops, ops, m_values, n_runs, substeps, n_l, repeats):
+    """Sweep M with the jackknife-2 estimator (eqs. 15-16).
+
+    Finite M leaves an O(1/M) bias because the dissipator noise enters the
+    density matrix nonlinearly. The jackknife combines the full bundle with its
+    two halves to cancel the leading term. Saving both the corrected and the
+    uncorrected samples is the point: the bias reduction is only visible as the
+    difference between them, measured against the same reference.
+
+    M must be even, so odd entries in the grid are skipped rather than silently
+    rounded.
+    """
+    rows, seen = [], set()
+    for m in m_values:
+        m_eff = min(int(m), n_l)
+        if m_eff in seen or m_eff < 2 or m_eff % 2:
+            continue
+        seen.add(m_eff)
+        try:
+            wall, walls, jack = repeat_timed(
+                lambda: mesolve_jackknife(
+                    H, rho0, TLIST, c_ops, M=m_eff, e_ops=ops,
+                    n_realizations=n_runs, rng=RNG_SLB,
+                    backend="native", substeps=substeps),
+                repeats)
+        except SolverInstabilityError as err:
+            print(f"      M={m_eff:3d}  diverged: {err}")
+            rows.append({"M": m_eff, "diverged": True})
+            continue
+        rows.append({
+            "M": m_eff,
+            "n_runs": n_runs,
+            "wall_s": wall,
+            "wall_s_repeats": walls,
+            "samples": np.asarray(jack.samples),                     # corrected
+            "direct_samples": np.asarray(jack.extra["direct_samples"]),
+        })
+        print(f"      M={m_eff:3d}  {wall:8.2f} s  (jackknife)")
+    return rows
+
+
 def run(name, build, size, args):
     H, X, psi0 = build(size)
     rho0 = qutip.ket2dm(psi0)
@@ -192,14 +289,26 @@ def run(name, build, size, args):
     print(f"[{name}] dim={dim}  N_L={n_l}  Davies {t_davies:.3f} s")
 
     ref_substeps = args.ref_substeps or 2 * args.slb_substeps
-    states, t_reference, selfcheck = certified_reference(
-        H, rho0, c_ops, ref_substeps)
+    reused = None
+    if args.reuse_reference:
+        n_sites = len(H.dims[0]) if name == "spin_chain" else 0
+        reused = stored_reference(name, dim, n_sites)
+        if reused is None:
+            print(f"  no stored reference for {name} dim {dim}; computing one")
+    if reused is not None:
+        states, t_reference, selfcheck = reused
+        print(f"  reference reused from the certified archive "
+              f"({t_reference:.1f} s as originally measured)")
+    else:
+        states, t_reference, selfcheck = certified_reference(
+            H, rho0, c_ops, ref_substeps)
     if not selfcheck["passed"]:
         print(f"  reference self-check FAILED (dev {selfcheck['max_abs_dev']:.2e})"
               f" -- skipping this dimension")
         return None
-    print(f"  reference certified ({t_reference:.2f} s, "
-          f"substeps {ref_substeps}, dev {selfcheck['max_abs_dev']:.2e})")
+    if reused is None:
+        print(f"  reference certified ({t_reference:.2f} s, "
+              f"substeps {ref_substeps}, dev {selfcheck['max_abs_dev']:.2e})")
 
     # Observables are fixed here, from the reference, and shared by every
     # method for the rest of this dimension.
@@ -256,6 +365,11 @@ def run(name, build, size, args):
                                  args.n_runs, args.slb_substeps, n_l,
                                  args.repeats)
 
+    if "jackknife" in args.methods:
+        methods["jackknife"] = run_jackknife(
+            H, rho0, c_ops, ops, args.m_grid, args.n_runs,
+            args.slb_substeps, n_l, args.repeats)
+
     return {
         "dim": dim,
         "size": size,
@@ -266,6 +380,7 @@ def run(name, build, size, args):
         "energy_reconstruction_residual": energy_check,
         "reference": {
             "method": f"native_rk4_substeps{ref_substeps}",
+            "reused_from_archive": bool(reused is not None),
             "wall_s": t_reference,
             "selfcheck": selfcheck,
             "curves": reference,
@@ -283,8 +398,12 @@ def main():
                          "(these are not Hilbert dimensions)")
     ap.add_argument("--methods", nargs="+", default=["native", "mesolve",
                                                      "mcsolve", "slb"],
-                    choices=["native", "mesolve", "mcsolve", "slb"],
-                    help="subset of methods to run")
+                    choices=["native", "mesolve", "mcsolve", "slb",
+                             "jackknife"],
+                    help="subset of methods to run. 'jackknife' is the "
+                         "bias-corrected variant of 'slb' and is not included "
+                         "by default, since it costs three solves per "
+                         "realization instead of one.")
     ap.add_argument("--ntraj", type=int, default=NTRAJ,
                     help=f"fixed mcsolve trajectory budget (default {NTRAJ}). "
                          f"Accuracy is whatever this buys; it is reported, not "
@@ -293,6 +412,14 @@ def main():
                     help="bundle sizes swept for SLB")
     ap.add_argument("--n-runs", type=int, default=N_RUNS,
                     help="SLB realizations averaged per M")
+    ap.add_argument("--reuse-reference", action="store_true",
+                    help="load the certified reference from "
+                         "data/high_dim_reference_*.{json,npz} instead of "
+                         "recomputing it (spin chain only; the archive stores "
+                         "the full density trajectory, so every observable is "
+                         "derivable). Recomputing costs ~4 h at dimension 1024 "
+                         "and reproduces numbers already in hand. The archive's "
+                         "SHA-256 and time grid are verified before use.")
     ap.add_argument("--repeats", type=int, default=1,
                     help="time every method this many times and record all "
                          "measurements (default 1). Wall-clock varies by tens "
@@ -330,7 +457,7 @@ def main():
                 max_full_dim=args.max_full_dim,
                 system=name, size=size, methods=args.methods,
                 M_GRID=args.m_grid, N_RUNS=args.n_runs, NTRAJ=args.ntraj,
-                repeats=args.repeats,
+                repeats=args.repeats, reused_reference=args.reuse_reference,
                 substeps=args.slb_substeps,
                 ref_substeps=args.ref_substeps or 2 * args.slb_substeps,
                 rng_slb=RNG_SLB,

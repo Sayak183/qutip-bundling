@@ -51,6 +51,8 @@ METHOD_STYLE = {
     "mesolve": dict(color="#0072B2", marker="D", label="qutip mesolve (exact)"),
     "mcsolve": dict(color="#D55E00", marker="^", label="qutip mcsolve"),
     "slb":     dict(color="#009E73", marker="o", label="SLB (this package)"),
+    "jackknife": dict(color="#CC79A7", marker="v",
+                      label="SLB + jackknife-2 (bias corrected)"),
 }
 
 
@@ -109,13 +111,37 @@ def method_errors(point: dict, observable: str):
         note = f"ntraj={entry['ntraj']}" if name == "mcsolve" else None
         rows.append((name, float(entry["wall_s"]), error, note))
 
-    for row in point["methods"].get("slb", []):
+    for family in ("slb", "jackknife"):
+        for row in point["methods"].get(family, []):
+            if row.get("diverged"):
+                continue
+            samples = np.asarray(row["samples"], dtype=float)[:, index, :]
+            rows.append((family, float(row["wall_s"]),
+                         tavg_rmse(samples, reference), f"M={row['M']}"))
+    return rows
+
+
+def bias_comparison(point, observable):
+    """[(M, uncorrected |bias|, jackknife |bias|), ...] for one observable.
+
+    Both are measured against the same reference from the same draws, so the
+    difference isolates what the correction actually removes. Returns [] when
+    the jackknife was not run.
+    """
+    index = point["observables"].index(observable)
+    reference = mean_curve(point["reference"]["curves"][observable])
+    out = []
+    for row in point["methods"].get("jackknife", []):
         if row.get("diverged"):
             continue
-        samples = np.asarray(row["samples"], dtype=float)[:, index, :]
-        rows.append(("slb", float(row["wall_s"]),
-                     tavg_rmse(samples, reference), f"M={row['M']}"))
-    return rows
+        corrected = np.asarray(row["samples"], dtype=float)[:, index, :]
+        direct = np.asarray(row["direct_samples"], dtype=float)[:, index, :]
+        out.append((
+            row["M"],
+            float(np.mean(np.abs(direct.mean(axis=0) - reference))),
+            float(np.mean(np.abs(corrected.mean(axis=0) - reference))),
+        ))
+    return sorted(out)
 
 
 def figure_accuracy_vs_cost(system, points, observable):
@@ -127,20 +153,23 @@ def figure_accuracy_vs_cost(system, points, observable):
     seen_methods = set()
     for alpha, dim in zip(alphas, dims):
         rows = method_errors(points[dim], observable)
-        slb = sorted([r for r in rows if r[0] == "slb"], key=lambda r: r[1])
-        if slb:
-            style = METHOD_STYLE["slb"]
-            ax.plot([r[1] for r in slb], [r[2] for r in slb],
+        for family in ("slb", "jackknife"):
+            curve = sorted([r for r in rows if r[0] == family], key=lambda r: r[1])
+            if not curve:
+                continue
+            style = METHOD_STYLE[family]
+            ax.plot([r[1] for r in curve], [r[2] for r in curve],
                     color=style["color"], marker=style["marker"],
                     alpha=alpha, linewidth=1.6, markersize=5,
-                    label=style["label"] if "slb" not in seen_methods else None)
-            seen_methods.add("slb")
-            # Mark the dimension on the cheapest SLB point.
-            ax.annotate(f"d={dim}", (slb[0][1], slb[0][2]),
-                        textcoords="offset points", xytext=(-4, 6),
-                        fontsize=8, color=style["color"], alpha=alpha)
+                    label=style["label"] if family not in seen_methods else None)
+            seen_methods.add(family)
+            if family == "slb":
+                # Mark the dimension on the cheapest SLB point.
+                ax.annotate(f"d={dim}", (curve[0][1], curve[0][2]),
+                            textcoords="offset points", xytext=(-4, 6),
+                            fontsize=8, color=style["color"], alpha=alpha)
         for name, wall, error, note in rows:
-            if name == "slb":
+            if name in ("slb", "jackknife"):
                 continue
             style = METHOD_STYLE[name]
             ax.plot([wall], [error], color=style["color"], marker=style["marker"],
