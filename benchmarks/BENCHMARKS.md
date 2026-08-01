@@ -80,20 +80,49 @@ The supporting checks (`benchmark_convergence.py`,
 
 ---
 
-## 1. The core idea, and the two methods being compared
+## 1. The core idea, and when it applies
 
-A Lindblad master equation with many collapse operators is expensive. The
-dissipator costs one matrix product per operator, and the number of operators
-$N_L$ usually grows like $N^2$ in the Hilbert-space dimension $N$, so a full
-solve scales as roughly $O(N^5)$ per step. **SLB** replaces the $N_L$ operators
-with $M$ random *bundled* combinations whose dissipator equals the full one in
-expectation; with $M$ held fixed as the system grows, the per-step cost drops to
-$O(N^3)$.
+A Lindblad master equation with many collapse operators is expensive: the
+dissipator costs one matrix product per operator, so a full solve scales as
+roughly $O(N_L N^3)$ per step in the Hilbert-space dimension $N$. **SLB**
+replaces the $N_L$ operators with $M$ random *bundled* combinations whose
+dissipator equals the full one in expectation, dropping the per-step cost to
+$O(M N^3)$.
 
-There are two stochastic methods on the table, and the single most important
-thing to understand up front is that **they randomize different things.** This
-is why their costs and errors behave so differently, and why the comparison has
-to be empirical.
+That statement already contains the criterion this whole page is organised
+around:
+
+> **Bundling can only pay when $M \ll N_L$.**
+
+The quantity that decides whether the method helps is therefore $N_L$ — **not**
+the Hilbert-space dimension. Those two are often conflated, because for many
+models $N_L$ does grow with $N$, but they are independent, and the two systems
+benchmarked here were chosen to sit on opposite sides of that line:
+
+| | System A — spin chain (§2.3) | System B — oscillator (§2.4) |
+|---|---|---|
+| $N_L$ at dim 64 | 31 | 890 |
+| $N_L$ at dim 512 | 73 | — (stiffness limit, §6) |
+| growth in $N$ | $n^2-n+1$ in sites, i.e. $\sim(\log_2 N)^2$ | grows with $N$ |
+| bundling helps? | **no** — nothing to bundle | **yes**, decisively |
+
+System A's collective coupling $X=\sum_i\sigma^x_i$ and its $\mathbb{Z}_2$
+symmetry collapse the Bohr spectrum so hard that a 512-dimensional chain has
+only 73 distinct frequency sectors. Bundling 73 operators into $M=32$ saves
+little, and the measurements in §9 confirm it: at dimension 512 bundling is
+2.2x cheaper than the exact solve at a 7% error. System B, at 890 operators and
+dimension 64, is 54x cheaper at 0.006% error. Same code, same solver, same
+observables — the difference is the operator count.
+
+**System A is therefore presented here as a control**, showing where the method
+does not help, and System B as the demonstration. A reader wanting to know
+whether bundling will help *their* model should count its Lindblad operators
+first; §5 gives the measured relationship.
+
+There are also two stochastic methods on the table, and the single most
+important thing to understand up front is that **they randomize different
+things.** This is why their costs and errors behave so differently, and why the
+comparison has to be empirical.
 
 **`mcsolve` randomizes the state.** It *unravels* the master equation into
 random pure-state trajectories. One trajectory is a wavefunction
