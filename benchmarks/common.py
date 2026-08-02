@@ -552,11 +552,15 @@ def save_data(filename, meta, compact=False, **payload):
 
 
 def load_data(filename):
-    """Read data/<filename>; raises with a pointer to the run script if absent."""
+    """Read data/<filename>; checks data/legacy/<filename> if absent."""
     path = DATA_DIR / filename
     if not path.exists():
-        raise FileNotFoundError(
-            f"{path} not found - generate it first with the matching run_*.py")
+        legacy_path = DATA_DIR / "legacy" / filename
+        if legacy_path.exists():
+            path = legacy_path
+        else:
+            raise FileNotFoundError(
+                f"{path} not found - generate it first with the matching run_*.py")
     with open(path, encoding="utf-8") as fh:
         return json.load(fh)
 

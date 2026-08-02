@@ -428,7 +428,9 @@ def build_collapse_ops(
 # 2) bundle
 # --------------------------------------------------------------------------
 def bundle_from_phases(
-    c_ops: Sequence[qutip.Qobj], phases: np.ndarray
+    c_ops: Sequence[qutip.Qobj],
+    phases: np.ndarray,
+    max_memory_bytes: float = 256 * 1024 * 1024,
 ) -> list[qutip.Qobj]:
     """Build bundled operators from an explicit phase matrix.
 
@@ -437,6 +439,12 @@ def bundle_from_phases(
     Low-level routine -- :func:`bundle` is the convenient front end. This
     is exposed because the jackknife estimator needs to reuse the *same*
     random draws for sub-bundles.
+
+    Memory Guard / Streaming:
+    If assembling all N_L operators into a single (N_L, N^2) array exceeds
+    ``max_memory_bytes`` (default 256 MB), the stack is assembled and multiplied
+    in streaming chunks of size ``chunk_size``. This reduces peak memory usage
+    from O(N_L * N^2) to O(chunk_size * N^2) while retaining BLAS acceleration.
     """
     c_ops = list(c_ops)
     if len(c_ops) == 0:
@@ -448,22 +456,30 @@ def bundle_from_phases(
         )
 
     M = phases.shape[0]
+    N_L = len(c_ops)
     inv_sqrt_m = 1.0 / math.sqrt(M)
 
-    # Vectorized assembly. The previous implementation summed the N_L operators
-    # into each bundle with a Python loop of Qobj additions -- M*N_L dense
-    # allocations, cost ~ M*N_L*N^2 ~ N^4 once N_L ~ N^2, which dominated large-N
-    # SLB solves. Here the operators are stacked once into a single (N_L, N*N)
-    # array and every bundle is formed by one matrix product:
-    #     bundles[m] = inv_sqrt_m * sum_alpha phases[m, alpha] * c_ops[alpha]
-    # i.e. (M, N_L) @ (N_L, N*N) -> (M, N*N), a single BLAS gemm. Numerically
-    # identical to the loop (same terms, same order up to floating-point
-    # summation), but the inner work moves from the Python interpreter into BLAS.
     ref0 = c_ops[0]
     dims, shape = ref0.dims, ref0.shape
-    stack = np.stack([np.asarray(op.full(), dtype=complex).ravel()
-                      for op in c_ops])          # (N_L, N*N)
-    combined = (inv_sqrt_m * phases.astype(complex)) @ stack   # (M, N*N)
+    n_prod = shape[0] * shape[1]
+    bytes_per_op = n_prod * 16  # 16 bytes per complex128
+    chunk_size = max(1, int(max_memory_bytes // bytes_per_op)) if bytes_per_op > 0 else N_L
+
+    scaled_phases = inv_sqrt_m * phases.astype(complex)
+
+    if chunk_size >= N_L:
+        # Full vectorized assembly in a single BLAS gemm
+        stack = np.stack([np.asarray(op.full(), dtype=complex).ravel() for op in c_ops]) # (N_L, N*N)
+        combined = scaled_phases @ stack # (M, N*N)
+    else:
+        # Streaming chunked assembly to bound peak memory to max_memory_bytes
+        combined = np.zeros((M, n_prod), dtype=complex)
+        for start in range(0, N_L, chunk_size):
+            end = min(start + chunk_size, N_L)
+            chunk_stack = np.stack([np.asarray(op.full(), dtype=complex).ravel()
+                                    for op in c_ops[start:end]])
+            combined += scaled_phases[:, start:end] @ chunk_stack
+
     return [qutip.Qobj(combined[m].reshape(shape), dims=dims) for m in range(M)]
 
 

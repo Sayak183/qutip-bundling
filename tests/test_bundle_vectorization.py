@@ -51,3 +51,15 @@ def test_normalization_scales_as_inv_sqrt_m():
         phases = np.ones((M, 1))
         out = bundle_from_phases([c], phases)
         assert np.max(np.abs(out[0].full() - c.full() / math.sqrt(M))) < 1e-12
+
+
+def test_chunked_streaming_matches_full():
+    """Streaming with small max_memory_bytes must equal full BLAS assembly."""
+    c_ops = _random_ops(n_l=30, dim=4, seed=42)
+    phases = random_phases(n_bundles=4, n_ops=30, rng=123)
+    full_res = bundle_from_phases(c_ops, phases, max_memory_bytes=1e9)
+    chunked_res = bundle_from_phases(c_ops, phases, max_memory_bytes=10) # forced small chunking
+    assert len(full_res) == len(chunked_res) == 4
+    for a, b in zip(full_res, chunked_res):
+        assert np.max(np.abs(a.full() - b.full())) < 1e-12
+
