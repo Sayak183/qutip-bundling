@@ -92,7 +92,33 @@ $O(M N^3)$.
 That statement contains the two conditions that decide whether bundling is effective:
 
 1. **Computational Cost Reduction:** Bundling can only pay when $M \ll N_L$. The operator count $N_L$ — **not** the Hilbert-space dimension alone — governs the per-step speedup.
-2. **Accuracy Prefactor:** The single-realization accuracy depends on the **locality (bandwidth) of the collapse operators in the system energy eigenbasis**. Local/ladder transitions (narrow bandwidth) yield high accuracy ($10^{-5}$ relative error), whereas dense all-to-all energy couplings yield moderate accuracy (~$95\%$).
+2. **Accuracy Prefactor:** The single-realization accuracy correlates with the
+   **locality (bandwidth) of the collapse operators in the system energy
+   eigenbasis**. Local/ladder transitions (narrow bandwidth) accompany high
+   accuracy ($10^{-5}$ relative error); dense all-to-all energy couplings
+   accompany moderate accuracy (~$95\%$).
+
+   *Bandwidth* here is the mean transition distance
+   $ar{d} = \sum_lpha \sum_{ij} |i-j|\,|\langle i|c_lpha|j
+angle|^2
+   ig/ N \sum_lpha \sum_{ij} |\langle i|c_lpha|j
+angle|^2$, with
+   $|i
+angle$ the eigenvectors of $H$ ordered by energy. It is computed by
+   `probe_oq4_accuracy.py`; quote the definition alongside any number, because
+   other reasonable definitions give different absolute values (the ranking
+   between systems is robust, the scale is not).
+
+   **This is a correlation with a plausible mechanism, not a validated law.**
+   Two things it does not yet account for. Within the oscillator the
+   relationship is clean -- halving the bandwidth divides the error by ~5, i.e.
+   error $\propto ar{d}^{\,2.4}$ -- but *within* the two chains the trend
+   reverses: bandwidth falls from 32.1% to 26.4% across dims 16-64 while the
+   error rises from $3.9	imes10^{-2}$ to $5.4	imes10^{-2}$. And extrapolating
+   the oscillator's power law to the chains predicts $\sim\!9	imes10^{-4}$
+   against a measured $3.6	imes10^{-2}$, short by a factor of 40. Bandwidth
+   separates the two *families*; it does not yet explain the trend inside a
+   family or the size of the gap between them.
 
 The three systems benchmarked here isolate these two conditions:
 
@@ -108,7 +134,7 @@ The three systems benchmarked here isolate these two conditions:
 
 System A's collective coupling and free-fermion integrability collapse its Bohr spectrum so that a 512-dimensional chain has only 73 operators: there is nothing left to bundle. System B breaks integrability and climbs to 8,193 operators at dim 128, producing a 547x speedup, but its dense coupling matrix spreads stochastic noise across distant energy levels. System C has both a large operator count ($N_L=890$) and a narrow tridiagonal transition bandwidth in Fock space ($\Delta n = \pm 1$), giving both a 54x speedup and $99.9999\%$ accuracy.
 
-A reader evaluating bundling for their own system should check two things: **$N_L$ must be large compared to $M$ for speedups**, and **collapse operators with local/ladder transition structure in the energy eigenbasis guarantee top-tier accuracy**.
+A reader evaluating bundling for their own system should check two things: **$N_L$ must be large compared to $M$ for speedups**, and **collapse operators with local/ladder transition structure in the energy eigenbasis are associated with the best accuracy observed here**. The first is a cost identity and holds by construction; the second is an empirical correlation across three systems, so treat it as a guide for what to measure rather than a guarantee.
 
 There are also two stochastic methods on the table, and the single most
 important thing to understand up front is that **they randomize different
@@ -224,7 +250,7 @@ exact symmetry shared by both can preserve multiple stationary sectors.
 The three systems feed *different* $(H_{\rm sys}, X)$ into this one recipe:
 
 - **System A** (§2.3): Integrable Ising chain ($g=0$), $X = \sum_i \sigma^x_i$. Its free-fermion integrability and $\mathbb{Z}_2$ symmetry collapse the Bohr spectrum. At 6 spins (dim 64), $N_L = 31$ ($N_L = n^2-n+1$).
-- **System B** (§2.3): Mixed-field Ising chain ($g=0.4$), $X = \sum_i \sigma^x_i$. The longitudinal field breaks integrability, preventing frequency collapse and raising $N_L$ to 2,017 at dim 64 and 8,193 at dim 128. Its transition matrices in the energy eigenbasis are dense (bandwidth ~16%).
+- **System B** (§2.3): Mixed-field Ising chain ($g=0.4$), $X = \sum_i \sigma^x_i$. The longitudinal field breaks integrability, preventing frequency collapse and raising $N_L$ to 2,017 at dim 64 and 8,193 at dim 128. Its transition matrices in the energy eigenbasis are dense (bandwidth ~16% under the `probe_oq4_accuracy.py` normalisation; ~26-32% under the mean-distance definition given in §1 -- quote which one you mean).
 - **System C** (§2.4): Anharmonic oscillator + spin, $X = x \otimes I$. Its collapse operators act through position $x \propto (a + a^\dagger)$, which is strictly tridiagonal in Fock space. $N_L = 890$ at dim 64, and its transition bandwidth is narrow (~3.1% – 4.4% of the spectrum).
 
 In code these are built via dedicated functions in `common.py`:
@@ -467,7 +493,7 @@ frontier (Result 3) sweeps the bias knob `M` for SLB against the noise knob
 > **Read in order, the benchmark results build one argument:**
 > 1. **The Four-Method Comparison (§5.1):** Across all three systems, SLB matches or exceeds the exact solver accuracy at a fraction of the cost, while `mcsolve` scales poorly under large operator counts ($N_L$).
 > 2. **Memory & Stiffness Walls (§5.2):** `mesolve` hits a hard 32 GB memory wall at dim 128 for the chain and dim 64 for the oscillator; the oscillator hits a fixed-step RK4 stiffness ceiling at dim 256.
-> 3. **Accuracy vs $M$ (§5.3):** Error scales as $1/M$ with a prefactor dictated by operator transition bandwidth.
+> 3. **Accuracy vs $M$ (§5.3):** Error falls with $M$, with a prefactor that correlates with operator transition bandwidth (see the caveats in §1 -- the correlation is not yet a quantitative law).
 > 4. **Cost Scaling (§5.4):** Speedups over the exact solver scale efficiently up to 547x on operator-heavy non-integrable models.
 
 ### 5.1 The Four-Method Headline Comparison
