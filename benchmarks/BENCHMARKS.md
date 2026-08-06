@@ -558,12 +558,34 @@ To evaluate SLB under rigorous, identical conditions, `run_method_comparison.py`
 3. **`mcsolve`:** QuTiP's Monte-Carlo trajectory solver ($N_{\text{traj}} = 500$).
 4. **SLB:** Stochastically bundled dissipators ($M=16, 32$, 16 realizations).
 
-![Method comparison spin chain](benchmark_comparison_dynamics_spin_chain.png)
-![Method comparison oscillator bath](benchmark_comparison_dynamics_oscillator_bath.png)
+**Accuracy against cost.** Each method is a point in the (wall-clock, error)
+plane, so "which method reaches this accuracy for the least compute" is read
+off directly; lower-left is better. SLB traces a curve as $M$ grows, `mcsolve`
+is a single fixed-budget point, and the exact solvers sit at their own cost
+with error at the integrator floor. Shade darkens with dimension.
+
+![Accuracy versus cost, oscillator, energy](benchmark_comparison_oscillator_bath_energy.png)
+![Accuracy versus cost, mixed chain, energy](benchmark_comparison_mixed_chain_energy.png)
+![Accuracy versus cost, TFIM chain, energy](benchmark_comparison_spin_chain_energy.png)
+
+**Read these alongside the same plots for the dominant coherence.** From the
+identical runs, SLB's accuracy advantage over `mcsolve` is ~488x on the energy
+but only ~7x on the coherence. Energy is built almost entirely from the
+diagonal of $ho$; quoting it alone would overstate the advantage roughly
+seventyfold.
+
+![Accuracy versus cost, oscillator, coherence](benchmark_comparison_oscillator_bath_coherence.png)
+![Accuracy versus cost, mixed chain, coherence](benchmark_comparison_mixed_chain_coherence.png)
+
+**The dynamics themselves**, against the certified reference:
+
+![Dynamics, TFIM chain](benchmark_comparison_dynamics_spin_chain.png)
+![Dynamics, mixed chain](benchmark_comparison_dynamics_mixed_chain.png)
+![Dynamics, oscillator](benchmark_comparison_dynamics_oscillator_bath.png)
 
 #### Headline Findings Across Systems:
 - **Oscillator Bath (dim 64, $N_L=890$):** SLB achieves **$6 \times 10^{-6}$ relative error** (99.9999% accurate) while running **54x faster than exact** and **300x faster than `mcsolve`**. `mcsolve` at 500 trajectories is 100x *less* accurate than SLB because evaluating 890 collapse jump probabilities per step exhausts compute.
-- **Mixed Spin Chain (dim 128, $N_L=8,193$):** SLB runs **547x faster than exact solve** (4.46s vs 2,442s), with an accuracy of ~92% ($8.7 \times 10^{-2}$ relative error). `mcsolve` takes 4,372s (59x *slower* than exact) due to its $N_L=8,193$ jump testing overhead.
+- **Mixed Spin Chain (dim 128, $N_L=8,193$):** SLB runs **547x faster than the exact solve** (4.46 s against 2,442 s) at ~92% accuracy ($8.7	imes10^{-2}$ relative error). `mcsolve` was **not run at this size**: at dim 64 ($N_L=2,017$) it already took **4,372 s against 74 s for the exact solve, i.e. 59x *slower* than solving exactly**, because every jump must test all $N_L$ collapse operators. Extrapolating that to $N_L=8,193$ exceeded the job budget, so the dim-128 comparison is SLB against the exact solver only.
 - **Integrable Spin Chain (dim 64, $N_L=31$):** Serves as Control 1. Davies grouping collapses operators to 31, so the exact solve costs the same as bundling ($M=16$). Bundling provides no advantage when $N_L$ is small.
 
 ### 5.2 Memory and Stiffness Walls
@@ -574,7 +596,17 @@ The solvers encounter two distinct, physical walls:
    - **Dimension Wall (Chain):** At dim 128, the chain's dense Liouvillian requires $> 32\text{ GB}$, triggering Out-Of-Memory (OOM).
    - **Operator Count Wall (Oscillator):** At dim 64, the oscillator's Liouvillian matrix is small (268 MB), but summing 890 superoperator matrices during construction exhausts 32 GB RAM.
 2. **The Oscillator Stiffness Ceiling:**
-   - At dim 256, the oscillator's $\chi n^2$ anharmonicity requires $> 128$ RK4 substeps per step for numerical stability, making fixed-step RK4 propagation computationally prohibitive (~3.5 days).
+   - The anharmonicity $\chi n^2$ grows with the Fock cutoff, and the substeps needed for
+     stability roughly double per dimension doubling: 32 suffices at dim 64, 64 at dim 128,
+     128 at dim 256.
+   - **What stops the study at dim 128 is certification, not propagation.** A dim-256
+     reference at 128 substeps does run -- it completed in ~2.4 days (job 19559986). But
+     certifying it requires agreement with a second run at a different resolution, and the
+     cheap downward comparison at 64 substeps is itself unstable there. Checking upward
+     instead costs ~2x the primary, putting a *certified* dim-256 oscillator reference at
+     roughly a week. The propagation is affordable; the proof that it has converged is not.
+   - `certified_reference` now escalates the check upward rather than discarding a good
+     reference when the halved comparison diverges.
 
 ---
 

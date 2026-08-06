@@ -45,7 +45,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
 
 
-SYSTEMS = ("spin_chain", "oscillator_bath")
+SYSTEMS = ("spin_chain", "mixed_chain", "oscillator_bath")
 METHOD_STYLE = {
     "native":  dict(color="#333333", marker="s", label="native RK4 (full dissipator)"),
     "mesolve": dict(color="#0072B2", marker="D", label="qutip mesolve (exact)"),
