@@ -70,10 +70,13 @@ The supporting checks (`benchmark_convergence.py`,
 
 **Results**
 - [5. Results](#5-results)
-  - [Result 1 — accuracy versus the bundle size $M$](#result-1--accuracy-versus-the-bundle-size-m)
-  - [Result 2 — cost scaling versus the exact solver](#result-2--cost-scaling-versus-the-exact-solver)
-  - [Result 3 — accuracy-versus-cost frontier against `mcsolve`](#result-3--accuracy-versus-cost-frontier-against-mcsolve)
-  - [Result 4 — iso-accuracy cost versus dimension](#result-4--iso-accuracy-cost-versus-dimension)
+  - [5.1 The four-method headline comparison](#51-the-four-method-headline-comparison)
+  - [5.2 Memory and stiffness walls](#52-memory-and-stiffness-walls)
+  - [5.3 Earlier results (Results 1-4) — provenance warning](#53-earlier-results-results-1-4--provenance-warning)
+    - [Result 1 — accuracy versus the bundle size $M$](#result-1--accuracy-versus-the-bundle-size-m)
+    - [Result 2 — cost scaling versus the exact solver](#result-2--cost-scaling-versus-the-exact-solver)
+    - [Result 3 — accuracy-versus-cost frontier against `mcsolve`](#result-3--accuracy-versus-cost-frontier-against-mcsolve) *(superseded)*
+    - [Result 4 — iso-accuracy cost versus dimension](#result-4--iso-accuracy-cost-versus-dimension) *(superseded)*
 
 **Reference**
 - [6. Validation and robustness](#6-validation-and-robustness)
@@ -546,8 +549,7 @@ frontier (Result 3) sweeps the bias knob `M` for SLB against the noise knob
 > **Read in order, the benchmark results build one argument:**
 > 1. **The Four-Method Comparison (§5.1):** Across all three systems, SLB matches or exceeds the exact solver accuracy at a fraction of the cost, while `mcsolve` scales poorly under large operator counts ($N_L$).
 > 2. **Memory & Stiffness Walls (§5.2):** `mesolve` hits a hard 32 GB memory wall at dim 128 for the chain and dim 64 for the oscillator; the oscillator hits a fixed-step RK4 stiffness ceiling at dim 256.
-> 3. **Accuracy vs $M$ (§5.3):** Error falls with $M$, with a prefactor that correlates with operator transition bandwidth (see the caveats in §1 -- the correlation is not yet a quantitative law).
-> 4. **Cost Scaling (§5.4):** Speedups over the exact solver scale efficiently up to 547x on operator-heavy non-integrable models.
+> 3. **Earlier results (§5.3):** Results 1-4 from before the Davies correction, retained for their methodology and trends. Their accuracy conclusions stand; their cost numbers were measured against inflated operator counts and do not. Results 3 and 4 are superseded by §5.1.
 
 ### 5.1 The Four-Method Headline Comparison
 
@@ -571,7 +573,8 @@ with error at the integrator floor. Shade darkens with dimension.
 **Read these alongside the same plots for the dominant coherence.** From the
 identical runs, SLB's accuracy advantage over `mcsolve` is ~488x on the energy
 but only ~7x on the coherence. Energy is built almost entirely from the
-diagonal of $ho$; quoting it alone would overstate the advantage roughly
+diagonal of $
+ho$; quoting it alone would overstate the advantage roughly
 seventyfold.
 
 ![Accuracy versus cost, oscillator, coherence](benchmark_comparison_oscillator_bath_coherence.png)
@@ -610,7 +613,34 @@ The solvers encounter two distinct, physical walls:
 
 ---
 
-### Result 1 — accuracy versus the bundle size $M$
+
+### 5.3 Earlier results (Results 1-4) — provenance warning
+
+> **The four results below were computed before the Davies construction was
+> corrected**, and are retained for their methodology and for the trends they
+> establish, not for their absolute numbers.
+>
+> Their spin-chain inputs live in `data/legacy/` and carry the inflated
+> operator counts described in §2.3 (113 and 325 where the corrected
+> construction gives 31 and 43). Their oscillator inputs date from 17-22 July,
+> before both 0.6.3 and 0.6.4, where `N_L` was 1,172 at dim 64 against 890
+> today.
+>
+> **What survives:** anything about *accuracy*. The 0.6.4 floor removes only
+> operators whose contribution to the dissipator is `1e-24` relative or smaller,
+> so the dynamics, the convergence laws in $M$, and the error decompositions are
+> unaffected (verified: the dissipator is identical to double precision).
+>
+> **What does not survive:** anything about *cost*. The exact solver pays per
+> collapse operator, so an inflated `N_L` inflates its measured time and
+> therefore SLB's apparent advantage — by roughly 30% on the oscillator, and
+> more on the chain.
+>
+> **§5.1 supersedes Results 3 and 4** with corrected data measured in a single
+> allocation. Where the two disagree, §5.1 is the one to believe. Results 1 and
+> 2 have no corrected replacement yet.
+
+#### Result 1 — accuracy versus the bundle size $M$
 
 ![spin chain accuracy](benchmark_accuracy_spin_chain.png)
 ![oscillator accuracy](benchmark_accuracy_oscillator_bath.png)
@@ -698,7 +728,7 @@ floor.
 ![spin chain size invariance](accuracy_vs_M_invariance_spin_chain.png)
 ![oscillator size invariance](accuracy_vs_M_invariance_oscillator_bath.png)
 
-### Result 2 — cost scaling versus the exact solver
+#### Result 2 — cost scaling versus the exact solver
 
 ![spin chain cost scaling](benchmark_cost_scaling_spin_chain.png)
 ![oscillator cost scaling](benchmark_cost_scaling_oscillator_bath.png)
@@ -858,7 +888,11 @@ These runs use a small fixed substep count (given in the caption) inside the
 stable range. If the integration ever blows up to a non-finite state, the solver
 raises `SolverInstabilityError` instead of silently returning a corrupted result.
 
-### Result 3 — accuracy-versus-cost frontier against `mcsolve`
+#### Result 3 — accuracy-versus-cost frontier against `mcsolve`
+
+> **Superseded by §5.1**, which measures the same comparison with the
+> corrected construction, all four methods, and one allocation. Kept for the
+> per-size frontier presentation, which §5.1 does not reproduce.
 
 The frontier is drawn at every measured size, smallest to largest, so the size
 trend is visible directly — on the chain the SLB curves pull away from
@@ -930,7 +964,11 @@ seconds, while `mcsolve` after a thousand trajectories is still near $10^{-1}$ �
 two to three orders of magnitude less accurate at higher cost. That stiff,
 operator-heavy regime is what SLB is built for.
 
-### Result 4 — iso-accuracy cost versus dimension
+#### Result 4 — iso-accuracy cost versus dimension
+
+> **Superseded by §5.1.** Its central question -- how the cost of matching a
+> fixed accuracy scales with dimension -- is answered there directly, and with
+> operator counts that match the shipped code.
 
 ![spin chain iso-cost](benchmark_isocost_vs_dim_spin_chain.png)
 ![oscillator iso-cost](benchmark_isocost_vs_dim_oscillator_bath.png)
