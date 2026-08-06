@@ -56,11 +56,12 @@ The supporting checks (`benchmark_convergence.py`,
 
 **Setup**
 - [1. The core idea, and the two methods being compared](#1-the-core-idea-and-the-two-methods-being-compared)
-- [2. The two test systems (fully specified)](#2-the-two-test-systems-fully-specified)
-  - [2.1 The bath (shared by both systems)](#21-the-bath-shared-by-both-systems)
+- [2. The three test systems (fully specified)](#2-the-three-test-systems-fully-specified)
+  - [2.1 The bath (shared by all three systems)](#21-the-bath-shared-by-all-three-systems)
   - [2.2 Is this weak coupling? Yes — in both senses.](#22-is-this-weak-coupling-yes--in-both-senses)
-  - [2.3 System A — dissipative transverse-field Ising chain](#23-system-a--dissipative-transverse-field-ising-chain)
-  - [2.4 System B — anharmonic oscillator coupled to a spin](#24-system-b--anharmonic-oscillator-coupled-to-a-spin)
+  - [2.3 Systems A & B — transverse-field and mixed-field Ising chains](#23-system-a--b--transverse-field-g0-and-mixed-field-g04-ising-chains)
+  - [2.4 System C — anharmonic oscillator coupled to a spin](#24-system-c--anharmonic-oscillator-coupled-to-a-spin)
+  - [2.5 What each system is for](#25-what-each-system-is-for)
 - [3. What we measure, and how the error is reported](#3-what-we-measure-and-how-the-error-is-reported)
   - [3.1 Error: a time-resolved band, and the single numbers from it](#31-error-a-time-resolved-band-and-the-single-numbers-from-it)
   - [3.2 How much sampling each method does](#32-how-much-sampling-each-method-does)
@@ -176,9 +177,9 @@ easier to read.
 
 ---
 
-## 2. The two test systems (fully specified)
+## 2. The three test systems (fully specified)
 
-Both systems are weakly coupled to the **same** thermal bath. Detailed balance
+All three systems are weakly coupled to the **same** thermal bath. Detailed balance
 makes the Gibbs state stationary; exact symmetries can prevent it from being the
 unique late-time state. In both, the collapse operators are built with
 `davies_operators(H, X, gamma)`, which diagonalizes the system Hamiltonian $H$,
@@ -187,7 +188,13 @@ block with the same Bohr frequency into
 $A(\omega)=\sum_{\epsilon'-\epsilon=\omega}\Pi_\epsilon X\Pi_{\epsilon'}$,
 and weights that complete sector by $\sqrt{\gamma(\omega)}$.
 
-### 2.1 The bath (shared by both systems)
+The three share a bath, a construction, and an observable set, and differ
+only in $(H_{
+m sys}, X)$. That is deliberate: it makes them a controlled
+comparison rather than three unrelated demonstrations. §2.5 states what each
+one is for.
+
+### 2.1 The bath (shared by all three systems)
 
 The bath is specified entirely by one spectral function — the rate at which the
 bath exchanges energy quantum $\omega$ with the system:
@@ -289,7 +296,12 @@ $$
 - **System A ($g=0.0$):** The transverse-field Ising model is **integrable**. It maps to free fermions, so its energy levels are sums of $n$ independent single-particle mode energies. Enormous numbers of transitions share identical Bohr frequencies, collapsing $N_L$ under Davies grouping to $n^2-n+1$ (31 at dim 64, 43 at dim 128).
 - **System B ($g=0.4$):** Adding the longitudinal field $g=0.4$ **breaks integrability**. Bohr frequencies no longer coincide, grouping merges almost nothing, and $N_L$ scales as $\sim N^2 / 2$ (2,017 at dim 64, 8,193 at dim 128).
 
-In both chains, the bath couples through $X = \sum_i \sigma^x_i$, and the chain starts fully polarized, $|\psi_0\rangle = |{\uparrow\uparrow\cdots\uparrow}\rangle$. Expressed in the energy eigenbasis, $X$ produces dense transitions spanning ~16% of the energy spectrum.
+In both chains, the bath couples through $X = \sum_i \sigma^x_i$, and the chain starts fully polarized, $|\psi_0\rangle = |{\uparrow\uparrow\cdots\uparrow}\rangle$. Expressed in the energy eigenbasis, $X$ produces **dense** transitions: it
+connects levels far apart in energy rather than only neighbouring ones. Under
+the mean-transition-distance definition of §1 this is ~26-32% of the spectrum
+for both chains, essentially independent of $g$ — breaking integrability
+multiplies the operator *count* without making the individual operators any
+more local.
 
 ![System A schematic](system_a_schematic.png)
 
@@ -303,19 +315,24 @@ The **system Hamiltonian** is
 
 $$
 H_{\rm sys} = \omega_0\left(n+\tfrac12\right) + \chi n^2
-              + \tfrac{\Delta}{2}\sigma_z + g(x\otimes\sigma_x)
+              + \tfrac{\Delta}{2}\sigma_z + g_{\rm int}(x\otimes\sigma_x)
 $$
 
 with $\omega_0=1.0$, anharmonicity $\chi=0.1$, spin gap $\Delta=1.0$, and an
-internal oscillator–spin coupling $g=0.3$. Here $n=a^\dagger a$ is the number
+internal oscillator–spin coupling $g_{
+m int}=0.3$ (`coupling` in the code;
+written $g_{
+m int}$ here because $g$ already denotes the chains'
+longitudinal field in §2.3 — they are unrelated). Here $n=a^\dagger a$ is the number
 operator and $x=(a+a^\dagger)/\sqrt2$ the position. The four terms are: the bare
 oscillator, its anharmonicity, the spin's energy splitting, and a coherent
 oscillator–spin coupling.
 
-![System B schematic](system_b_schematic.png)
+![System C schematic](system_b_schematic.png)
 
-System B: an anharmonic oscillator whose energy gaps widen up the ladder,
-coupled to a two-level spin by an internal coherent coupling $g$. A single
+System C: an anharmonic oscillator whose energy gaps widen up the ladder,
+coupled to a two-level spin by an internal coherent coupling $g_{
+m int}$. A single
 ohmic bath couples to the oscillator position $X = x\otimes I$ only, so the
 spin relaxes solely indirectly through $g$. The oscillator starts in its top
 Fock level.
@@ -327,14 +344,50 @@ It is a single shared bath — $X = x\otimes I$ acts only on the oscillator, so 
 oscillator and spin couple to **one** common reservoir (the spin has no separate
 bath of its own). Because $X$ touches only the oscillator, the bath never damps the
 spin directly; dissipation reaches the spin only indirectly, through the internal
-coherent coupling $g(x\otimes\sigma_x)$. The system starts in the oscillator's
+coherent coupling $g_{
+m int}(x\otimes\sigma_x)$. The system starts in the oscillator's
 top Fock state with the spin down. As above, the total evolved object is the Lindblad master
 equation with dissipators built from $(H_{\rm sys}, X, \gamma)$ as in §2.1 ($N_L = 128$ at dim 16). Note the two
-distinct "couplings": $g=0.3$ is an **internal coherent** coupling inside
+distinct "couplings": $g_{
+m int}=0.3$ is an **internal coherent** coupling inside
 $H_{\rm sys}$, whereas $\alpha=0.3$ is the **system–bath** coupling carried by
 $\gamma$ through $X$ — they are different physics that happen to share a value.
 The size is set by the Fock truncation. This system is close to the
 molecular/vibronic problems the method was developed for.
+
+### 2.5 What each system is for
+
+The three are not three demonstrations. They vary two properties independently,
+so the benchmark can say which one matters:
+
+| | operator count $N_L$ | operator locality | outcome |
+|---|---|---|---|
+| **A** — TFIM chain ($g=0$) | small (31 at dim 64) | dense (~27%) | no speedup available |
+| **B** — mixed chain ($g=0.4$) | large (2,017 at dim 64) | dense (~26%) | 547x cheaper, ~95% accurate |
+| **C** — oscillator | large (890 at dim 64) | local (~3%) | 54x cheaper, 99.9999% accurate |
+
+**A versus B** isolates the operator count. Same lattice, same coupling
+operator, same initial state; the only change is a longitudinal field that
+breaks integrability. `N_L` rises 65-fold and a speedup appears where there was
+none — so the *cost* benefit is governed by `N_L`, as §1 claims.
+
+**B versus C** isolates the operator structure. Both have thousands of
+operators, so both are cheap. But B's transitions are dense in energy and C's
+are tridiagonal, and their accuracies differ by four orders of magnitude — so
+the *accuracy* is not governed by `N_L`. Without B, that would be invisible,
+and the natural reading of A-versus-C would be that a large `N_L` buys both
+benefits at once. It does not.
+
+**System B is therefore not a failure.** A 547x speedup at ~5% error is a
+useful operating point — for parameter sweeps, screening, or qualitative
+dynamics — and it is a *different point on the cost-accuracy curve*, not a
+broken result. What it rules out is the simpler claim we would otherwise have
+made.
+
+A reader with their own model can place it on this table by computing two
+numbers before running anything: `len(davies_operators(H, X, gamma))` and the
+mean transition distance defined in §1.
+
 
 ---
 
