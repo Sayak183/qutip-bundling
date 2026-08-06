@@ -78,23 +78,55 @@ def curves_dict(labels, expect):
 
 
 def certified_reference(H, rho0, c_ops, ref_substeps):
-    """Native full-dissipator RK4 states plus a halved-substep certification.
+    """Native full-dissipator RK4 states plus a resolution certification.
 
     Returns (states, t_reference, selfcheck) or raises if it cannot be
     certified -- an uncertified reference is worse than none, because every
     error in the comparison is measured against it.
+
+    Certification compares the primary against a *different* resolution and
+    requires the two to agree. The cheap comparison is downward, at half the
+    substeps, and that is tried first.
+
+    But a halved run is not guaranteed stable just because the primary is. On
+    the stiff oscillator, dimension 256 ran fine at 128 substeps while the
+    64-substep partner diverged -- and the naive version threw the primary away
+    with it, discarding 2.4 days of completed work. So a diverging downward
+    partner is not a failure of the reference: it means the *check* was
+    under-resolved, and the check is escalated upward instead. Upward costs
+    about twice the primary rather than half, which is the price of certifying
+    a reference that sits near the stability edge.
     """
     t0 = time.perf_counter()
     primary = rk4_mesolve(H, rho0, TLIST, c_ops=c_ops, e_ops=[H],
                           substeps=ref_substeps, store_states=True)
     t_reference = time.perf_counter() - t0
+    reference_curve = np.real(primary.expect[0])
 
-    partner = rk4_mesolve(H, rho0, TLIST, c_ops=c_ops, e_ops=[H],
-                          substeps=max(ref_substeps // 2, 1))
-    deviation = float(np.max(np.abs(np.real(primary.expect[0])
-                                    - np.real(partner.expect[0]))))
+    def compare(substeps):
+        partner = rk4_mesolve(H, rho0, TLIST, c_ops=c_ops, e_ops=[H],
+                              substeps=substeps)
+        return float(np.max(np.abs(reference_curve
+                                   - np.real(partner.expect[0]))))
+
+    down = max(ref_substeps // 2, 1)
+    direction, partner_substeps = "down", down
+    try:
+        deviation = compare(down)
+        if not np.isfinite(deviation):
+            raise SolverInstabilityError("non-finite deviation")
+    except SolverInstabilityError as err:
+        print(f"  downward check at substeps={down} is itself unstable "
+              f"({err.args[0][:60]}...); escalating the check upward to "
+              f"{2 * ref_substeps}")
+        direction, partner_substeps = "up", 2 * ref_substeps
+        deviation = compare(partner_substeps)
+
+    lo, hi = sorted((partner_substeps, ref_substeps))
     selfcheck = {
-        "substeps_pair": [max(ref_substeps // 2, 1), ref_substeps],
+        "substeps_pair": [lo, hi],
+        "direction": direction,
+        "primary_substeps": ref_substeps,
         "max_abs_dev": deviation,
         "tol": REF_SELFCHECK_TOL,
         "passed": bool(np.isfinite(deviation) and deviation <= REF_SELFCHECK_TOL),
