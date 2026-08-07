@@ -41,7 +41,8 @@ import qutip
 
 from common import (
     build_davies_operators,
-    build_spin_chain, build_oscillator_bath, TLIST, SUBSTEPS,
+    build_spin_chain, build_oscillator_bath, build_mixed_field_chain,
+    TLIST, SUBSTEPS,
     DATA_DIR, FULL_TIME_BUDGET, MAX_FULL_DIM, MAX_NATIVE_REF_DIM,
     tavg_rmse_jackknife,
     run_metadata, save_data,
@@ -101,6 +102,9 @@ RNG_TIMING = 0          # seed for the single-realization timing solve
 SYSTEMS = {
     "spin_chain":      (build_spin_chain,      [2, 3, 4, 5, 6, 7, 8]),  # dims 4..256
     "oscillator_bath": (build_oscillator_bath, [4, 8, 16, 32, 64]),  # dims 8..128
+    # Capped at dim 128: the mixed chain has 32,637 operators at dim 256, where
+    # its certified reference alone runs ~28 h.
+    "mixed_chain":     (build_mixed_field_chain, [2, 3, 4, 5, 6, 7]),  # dims 4..128
 }
 
 

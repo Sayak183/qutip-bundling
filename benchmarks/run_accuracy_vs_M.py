@@ -41,7 +41,8 @@ import qutip
 
 from common import (
     build_davies_operators,
-    build_spin_chain, build_oscillator_bath, TLIST_FINE, SUBSTEPS,
+    build_spin_chain, build_oscillator_bath, build_mixed_field_chain,
+    TLIST_FINE, SUBSTEPS,
     DATA_DIR, MAX_FULL_DIM, populated_coherence_op, run_metadata, save_data,
 )
 from benchmark_cli import (
@@ -67,6 +68,13 @@ NATIVE_REF_SUBSTEPS_FACTOR = 2
 
 SYSTEMS = {
     "spin_chain": (build_spin_chain, [
+        (4, [2, 4, 8, 16, 32, 64], 4),
+        (5, [2, 4, 8, 16, 32, 64], 4),
+        (6, [2, 4, 8, 16, 32, 64], 4),
+    ]),
+    # Same sizes as the TFIM chain so the two are directly comparable: they
+    # differ only by the longitudinal field.
+    "mixed_chain": (build_mixed_field_chain, [
         (4, [2, 4, 8, 16, 32, 64], 4),
         (5, [2, 4, 8, 16, 32, 64], 4),
         (6, [2, 4, 8, 16, 32, 64], 4),
