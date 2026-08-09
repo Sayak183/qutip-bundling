@@ -96,38 +96,14 @@ $O(M N^3)$.
 
 That statement contains the two conditions that decide whether bundling is effective:
 
-1. **Computational Cost Reduction:** Bundling can only pay when $M \ll N_L$. The operator count $N_L$ — **not** the Hilbert-space dimension alone — governs the per-step speedup.
-2. **Accuracy prefactor.** How accurate a *single* realization is at a given
-   $M$ correlates with how **local** the collapse operators are in the energy
-   eigenbasis — operators connecting neighbouring levels carry far smaller
-   errors than operators connecting distant ones. See below.
-
-**Measuring locality.** Order the eigenvectors $|i\rangle$ of $H$ by energy and
-take the mean transition distance, in units of the dimension:
-
-$$
-\bar{d} = \frac{1}{N} \frac{\sum_{\alpha}\sum_{ij} |i-j| \, |\langle i|c_\alpha|j\rangle|^2}{\sum_{\alpha}\sum_{ij} |\langle i|c_\alpha|j\rangle|^2}
-$$
-
-Measured at dimension 64: **27% for System A, 26% for System B, 3.1% for
-System C.** (`probe_oq4_accuracy.py` reports a differently normalised
-bandwidth. The ranking between systems is robust; the absolute scale is
-definition dependent, so state which one you mean.)
-
-**This is a correlation with a plausible mechanism, not a validated law**, and
-§5 should be read with that in mind. Within System C the relation is clean:
-halving $\bar{d}$ divides the error by about five, i.e. error $\propto
-\bar{d}^{2.4}$. Two things it does not explain. Within the chains the trend
-*reverses* — $\bar{d}$ falls from 32% to 26% across dimensions 16–64 while the
-error rises from $3.9 \times 10^{-2}$ to $5.4 \times 10^{-2}$. And
-extrapolating System C's power law to the chains predicts $9 \times 10^{-4}$
-against a measured $3.6 \times 10^{-2}$, short by a factor of 40. Locality
-separates the two *families*; it does not account for the trend inside a
-family, nor the size of the gap between them.
-
-**It sets a prefactor, not a floor.** A broad-bandwidth system still converges:
-System B reaches $2.4 \times 10^{-3}$ at $M=128$ (Result 1). It needs a larger
-$M$ to get there, which eats into — but does not erase — the speedup.
+1. **Cost.** Bundling can only pay when $M \ll N_L$. The operator count
+   $N_L$ — **not** the Hilbert-space dimension — governs the speedup.
+2. **Accuracy.** At a given $M$, accuracy depends on how *local* the collapse
+   operators are in the energy eigenbasis: operators connecting neighbouring
+   levels give far smaller errors than operators connecting distant ones.
+   Measured locality at dimension 64 is 27%, 26% and 3.1% for the three systems
+   below — see §2.5 for the definition and the caveats. This is an empirical
+   correlation across three systems, not a derived law.
 
 The three systems benchmarked here isolate these two conditions:
 
@@ -391,6 +367,24 @@ useful operating point — for parameter sweeps, screening, or qualitative
 dynamics — and it is a *different point on the cost-accuracy curve*, not a
 broken result. What it rules out is the simpler claim we would otherwise have
 made.
+
+**Measuring locality.** Order the eigenvectors $|i\rangle$ of $H$ by energy and
+take the mean transition distance, in units of the dimension:
+
+$$
+\bar{d} = \frac{1}{N} \frac{\sum_{\alpha}\sum_{ij} |i-j| \, |\langle i|c_\alpha|j\rangle|^2}{\sum_{\alpha}\sum_{ij} |\langle i|c_\alpha|j\rangle|^2}
+$$
+
+At dimension 64 this gives 27% (A), 26% (B) and 3.1% (C). `probe_oq4_accuracy.py`
+normalises differently, so state which definition you mean — the ranking is
+robust, the absolute scale is not.
+
+**Treat it as a guide, not a law.** It separates the two *families* cleanly, and
+within System C halving $\bar{d}$ divides the error by about five. But it does
+not explain everything: within the chains $\bar{d}$ falls with dimension while
+the error rises, and System C's fitted power law under-predicts the chains'
+error by a factor of 40. It also sets a prefactor rather than a floor — System B
+still reaches $2.4\times10^{-3}$, it just needs $M=128$ to get there.
 
 A reader with their own model can place it on this table by computing two
 numbers before running anything: `len(davies_operators(H, X, gamma))` and the
