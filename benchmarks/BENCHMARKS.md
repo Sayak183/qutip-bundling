@@ -1107,6 +1107,22 @@ re-running the benchmark.)
 
 The checks that answer the obvious doubts.
 
+> **Provenance, and why it does not undermine this section.** These validation
+> figures were computed before the 0.6.4 Davies correction, from the
+> `convergence_progress_*.json` files. Unlike §5, that does **not** put their
+> conclusions in question: every claim here is about *convergence rates and
+> accuracy* — how the bias falls with $M$, whether the jackknife steepens that
+> rate, whether results move under a different seed or a finer integrator — and
+> the 0.6.4 floor leaves the dissipator unchanged to double precision (it
+> removes only operators contributing $10^{-24}$ relative or less, verified
+> directly). Rates measured on an identical dissipator are identical.
+>
+> What *would* be affected is any cost statement, and this section makes none.
+>
+> Two real gaps remain: the mixed-field chain is not covered here at all, and
+> the `mcsolve` fairness note below refers to Result 3, which §5.1 supersedes.
+> Both are omissions rather than errors.
+
 **Convergence at the predicted rates, and the jackknife correction.** The
 uncorrected bias should fall as $M^{-1}$ and the statistical spread as
 $M^{-1/2}$ — both visible in every panel of the strips below (green and blue
@@ -1190,8 +1206,16 @@ foundations, and the QuTiP solvers benchmarked against — is collected in
 Absolute times depend on the machine, core count, and BLAS build — treat them as
 relative comparisons. A few notes:
 
-- `mcsolve` parallelizes trajectories across cores; Result 3 pins it
-  single-threaded to match SLB. State the core count when reporting.
+- `mcsolve` parallelizes trajectories across cores; both Result 3 and the
+  four-method comparison (§5.1) pin it single-threaded to match SLB's serial
+  loop. State the core count when reporting.
+- **Wall-clock is only comparable within one job on one node.** The same
+  certified dimension-256 reference took 2,744 s standalone and 86.6 s inside
+  a sequential sweep on the same machine, and repeat measurements on a shared
+  node vary by tens of percent — so ratios below ~1.5x are not resolved
+  without repeats. Every run records its hostname and Slurm job id in the
+  metadata; `plot_method_comparison.py` refuses to draw a cost axis across
+  files that disagree.
 - The first solve of any method pays one-time import/compile costs; discard a
   warm-up run for careful timing.
 - Within each figure the system size, time grid, tolerances, and reference are
