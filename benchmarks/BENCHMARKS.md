@@ -63,9 +63,10 @@ The supporting checks (`benchmark_convergence.py`,
   - [2.4 System C — anharmonic oscillator coupled to a spin](#24-system-c--anharmonic-oscillator-coupled-to-a-spin)
   - [2.5 What each system is for](#25-what-each-system-is-for)
 - [3. What we measure, and how the error is reported](#3-what-we-measure-and-how-the-error-is-reported)
-  - [3.1 Error: a time-resolved band, and the single numbers from it](#31-error-a-time-resolved-band-and-the-single-numbers-from-it)
-  - [3.2 How much sampling each method does](#32-how-much-sampling-each-method-does)
-  - [3.3 Integrators: matched where it is possible, disclosed where it is not](#33-integrators-matched-where-it-is-possible-disclosed-where-it-is-not)
+  - [3.1 Which observables, and why not just the energy](#31-which-observables-and-why-not-just-the-energy)
+  - [3.2 Error: a time-resolved band, and the single numbers from it](#32-error-a-time-resolved-band-and-the-single-numbers-from-it)
+  - [3.3 How much sampling each method does](#33-how-much-sampling-each-method-does)
+  - [3.4 Integrators: matched where it is possible, disclosed where it is not](#34-integrators-matched-where-it-is-possible-disclosed-where-it-is-not)
 - [4. How `mcsolve`'s error works, versus SLB's](#4-how-mcsolves-error-works-versus-slbs)
 
 **Results**
@@ -396,7 +397,71 @@ mean transition distance defined in §1.
 
 ## 3. What we measure, and how the error is reported
 
-### 3.1 Error: a time-resolved band, and the single numbers from it
+### 3.1 Which observables, and why not just the energy
+
+An observable here is a number extracted from the state at each time,
+$\langle A\rangle(t)=\mathrm{Tr}(A\rho(t))$, giving one curve to compare against
+the reference. Choosing them is not incidental: it *defines* what "accurate"
+means in every number on this page.
+
+**Energy alone is not enough, and the size of the difference is easy to
+underestimate.** $\langle H\rangle$ is built almost entirely from the
+**diagonal** of $\rho$ — the populations. The **off-diagonal** entries, the
+coherences, are what an environment destroys first and have no classical
+counterpart. A method can track the populations well while getting the
+coherences badly wrong, and the energy curve will not show it.
+
+Measured on identical runs, SLB's accuracy advantage over `mcsolve` is
+**~488x on the energy and ~7x on the dominant coherence**. Quoting the energy
+alone would overstate it roughly seventyfold. Every accuracy claim on this page
+should be read as observable-specific.
+
+**The rule used to pick them.** Where the Hamiltonian is a sum of terms with
+coefficients, $H=\sum_k \lambda_k O_k$, each $O_k$ is measured separately. Two
+things follow. They reconstruct the energy exactly,
+$\langle H\rangle=\sum_k\lambda_k\langle O_k\rangle$, which is checked on every
+run and holds to machine precision — residual $9\times10^{-16}$ on the chains
+and $2\times10^{-15}$ on the oscillator, a free correctness test on the whole
+pipeline. And each is a susceptibility $\partial\langle H\rangle/\partial
+\lambda_k$, so they are the quantities that already have names for these models.
+
+| | chains (A, B) | oscillator (C) |
+|---|---|---|
+| bulk | $\langle H\rangle$ | $\langle H\rangle$ |
+| off-diagonal probe | dominant coherence | dominant coherence |
+| directly driven | $\sum_i\langle\sigma^z_i\sigma^z_{i+1}\rangle$ (neighbour alignment) | $\langle n\rangle$ (occupation) |
+| the subtle one | $\sum_i\langle\sigma^x_i\rangle$ — also the bath coupling operator | $\langle\sigma^z\rangle$ — the bath never touches the spin directly |
+| remaining $H$ terms | $\sum_i\langle\sigma^z_i\rangle$ (System B only) | $\langle n^2\rangle$, $\langle x\otimes\sigma^x\rangle$ |
+| size-normalised | $\sum\langle\sigma^z\sigma^z\rangle/(n-1)$ | — |
+
+For System C, $\langle\sigma^z\rangle$ is the delicate one: the bath couples
+only through $X=x\otimes I$, so the spin moves *solely* through the internal
+coupling $g_{\rm int}$. It also carries under 4% of the total energy, so a large
+error in it barely disturbs $\langle H\rangle$ — exactly the blind spot the
+extra observables exist to cover.
+
+**The coherence operator is chosen, not guessed.** `common.populated_coherence_op`
+scans the reference trajectory, rotates $\rho$ into the energy eigenbasis, zeroes
+the diagonal, and takes the eigenstate pair $(a,b)$ with the largest
+$|\rho_{ab}|$ at any time; the observable is $|a\rangle\langle b|+\mathrm{h.c.}$
+Hand-picking a pair risks measuring one the dynamics never populates, where every
+method passes trivially. **The pair is fixed once, from the reference, and the
+same operator is given to every method** — if each chose its own "largest" pair
+they would be scored on different quantities and the errors would not be
+comparable.
+
+**A constraint worth stating for anyone extending this.** Trajectory methods
+reconstruct $\rho$ as an *average over samples*, so they can only measure
+quantities **linear in $\rho$**. Purity $\mathrm{Tr}(\rho^2)$, von Neumann and
+entanglement entropies are nonlinear and cannot be obtained by averaging
+trajectory results — the average of $\mathrm{Tr}(\rho_k^2)$ is not
+$\mathrm{Tr}(\bar\rho^2)$. Density-matrix methods, bundling included, have no
+such restriction, which is a genuine advantage of that route. Observables must
+also be Hermitian, or the solvers silently discard an imaginary part, and they
+must be declared **before** the run, because `mcsolve` cannot store full states
+at these sizes and must be told in advance what to record.
+
+### 3.2 Error: a time-resolved band, and the single numbers from it
 
 The quantity of interest is how well the bundled $\langle H(t)\rangle$ (and, in
 Result 1, a coherence) tracks the exact reference. The accuracy and coherence
@@ -442,7 +507,7 @@ output points; the accuracy-style Results 1, 3, and 4 use 80. In either grid,
 $t=2.5$ is the mid-relaxation sample, where the energy has substantially
 decayed but not yet saturated.)
 
-### 3.2 How much sampling each method does
+### 3.3 How much sampling each method does
 
 The two methods' "sample counts" are not the same kind of thing, so here they
 are explicitly.
@@ -477,7 +542,7 @@ spread $S/\sqrt{\texttt{ntraj}}$ — the same quantity SLB's bar measures over i
 runs, so the two methods are treated identically, one estimate per point (no
 extra repeats of one method but not the other).
 
-### 3.3 Integrators: matched where it is possible, disclosed where it is not
+### 3.4 Integrators: matched where it is possible, disclosed where it is not
 
 The full `mesolve` reference and `mcsolve` both use QuTiP's **adaptive**
 integrator at stated tolerances (`atol=1e-8`, `rtol=1e-6`): they choose their
