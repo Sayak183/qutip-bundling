@@ -72,7 +72,7 @@ The supporting checks (`benchmark_convergence.py`,
 - [5. Results](#5-results)
   - [5.1 The four-method headline comparison](#51-the-four-method-headline-comparison)
   - [5.2 Memory and stiffness walls](#52-memory-and-stiffness-walls)
-  - [5.3 Earlier results (Results 1-4) — provenance warning](#53-earlier-results-results-1-4--provenance-warning)
+  - [5.3 Results 1 and 2, and two superseded results](#53-results-1-and-2-and-two-superseded-results)
     - [Result 1 — accuracy versus the bundle size $M$](#result-1--accuracy-versus-the-bundle-size-m)
     - [Result 2 — cost scaling versus the exact solver](#result-2--cost-scaling-versus-the-exact-solver)
     - [Result 3 — accuracy-versus-cost frontier against `mcsolve`](#result-3--accuracy-versus-cost-frontier-against-mcsolve) *(superseded)*
@@ -549,7 +549,7 @@ frontier (Result 3) sweeps the bias knob `M` for SLB against the noise knob
 > **Read in order, the benchmark results build one argument:**
 > 1. **The Four-Method Comparison (§5.1):** Across all three systems, SLB matches or exceeds the exact solver accuracy at a fraction of the cost, while `mcsolve` scales poorly under large operator counts ($N_L$).
 > 2. **Memory & Stiffness Walls (§5.2):** `mesolve` hits a hard 32 GB memory wall at dim 128 for the chain and dim 64 for the oscillator; the oscillator hits a fixed-step RK4 stiffness ceiling at dim 256.
-> 3. **Earlier results (§5.3):** Results 1-4 from before the Davies correction, retained for their methodology and trends. Their accuracy conclusions stand; their cost numbers were measured against inflated operator counts and do not. Results 3 and 4 are superseded by §5.1.
+> 3. **Results 1 and 2 (§5.3):** accuracy versus bundle size, and cost scaling with dimension, regenerated under 0.6.4 for all three systems. On the mixed chain SLB at matched accuracy scales as $N^{1.8}$ against $N^{2.9}$ for the exact solver and $N^{4.4}$ for `mesolve`, so the advantage widens with size. Results 3 and 4 are superseded by §5.1 and were not regenerated.
 
 ### 5.1 The Four-Method Headline Comparison
 
@@ -614,31 +614,28 @@ The solvers encounter two distinct, physical walls:
 ---
 
 
-### 5.3 Earlier results (Results 1-4) — provenance warning
+### 5.3 Results 1 and 2, and two superseded results
 
-> **The four results below were computed before the Davies construction was
-> corrected**, and are retained for their methodology and for the trends they
-> establish, not for their absolute numbers.
->
-> Their spin-chain inputs live in `data/legacy/` and carry the inflated
-> operator counts described in §2.3 (113 and 325 where the corrected
-> construction gives 31 and 43). Their oscillator inputs date from 17-22 July,
-> before both 0.6.3 and 0.6.4, where `N_L` was 1,172 at dim 64 against 890
-> today.
->
-> **What survives:** anything about *accuracy*. The 0.6.4 floor removes only
-> operators whose contribution to the dissipator is `1e-24` relative or smaller,
-> so the dynamics, the convergence laws in $M$, and the error decompositions are
-> unaffected (verified: the dissipator is identical to double precision).
->
-> **What does not survive:** anything about *cost*. The exact solver pays per
-> collapse operator, so an inflated `N_L` inflates its measured time and
-> therefore SLB's apparent advantage — by roughly 30% on the oscillator, and
-> more on the chain.
->
-> **§5.1 supersedes Results 3 and 4** with corrected data measured in a single
-> allocation. Where the two disagree, §5.1 is the one to believe. Results 1 and
-> 2 have no corrected replacement yet.
+Results 1 and 2 were **regenerated under 0.6.4** for all three systems (Slurm
+19585257 and 19585795): accuracy versus bundle size at dims 16/32/64, and cost
+scaling with dimension. Their operator counts match the shipped code.
+
+Result 2 caps the mixed chain at dim 64. At dim 128 its exact reference takes
+**20.4 hours** with 8,193 operators, and certifying it against a second
+resolution more than 17 hours on top — so the *exact* answer costs over a day
+at a size where a single bundled solve costs seconds. §5.1 covers that
+dimension with both the exact solver and SLB.
+
+> **Results 3 and 4 below are superseded and were not regenerated.** They rest
+> on pre-0.6.4 data — the chain's inputs are in `data/legacy/` with the inflated
+> counts of §2.3, the oscillator's date from 17-22 July with `N_L=1,172` at dim
+> 64 against 890 today. Their *accuracy* conclusions survive (the 0.6.4 floor
+> removes only operators contributing `1e-24` relative or less, so the
+> dissipator is unchanged to double precision), but their *cost* conclusions do
+> not: the exact solver pays per operator, so an inflated `N_L` inflates its
+> measured time and SLB's apparent advantage with it. §5.1 answers the same
+> questions with corrected data measured in one allocation, and is the version
+> to cite.
 
 #### Result 1 — accuracy versus the bundle size $M$
 

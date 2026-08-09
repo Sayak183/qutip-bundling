@@ -68,7 +68,7 @@ def _timing_caption(doc):
 
 
 def _size_str(name, dim):
-    if name == "spin_chain":
+    if name in ("spin_chain", "mixed_chain"):
         return f"{int(round(math.log2(dim)))} spins, dim {dim}"
     if name == "oscillator_bath":
         return f"Fock cutoff {dim // 2}, dim {dim}"
@@ -109,6 +109,7 @@ def accuracy_figure(plt, name, doc, tlist, reference, curves,
     # ---------------------------------------------------------
     M_TO_PLOT = {
         "spin_chain": [8, 16, 32, 64],
+        "mixed_chain": [8, 16, 32, 64],
         "oscillator_bath": [2, 8]
     }
     system_m_list = M_TO_PLOT.get(name)
@@ -277,9 +278,9 @@ def decomposition_figure(plt, name, doc, tlist):
 def main():
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[1])
     ap.add_argument("--system", default="all",
-                    choices=["spin_chain", "oscillator_bath", "all"])
+                    choices=["spin_chain", "mixed_chain", "oscillator_bath", "all"])
     args = ap.parse_args()
-    names = (["spin_chain", "oscillator_bath"] if args.system == "all"
+    names = (["spin_chain", "mixed_chain", "oscillator_bath"] if args.system == "all"
              else [args.system])
 
     import matplotlib

@@ -23,7 +23,9 @@ from common import add_settings_footer, as_array, load_data
 # tighter 0.005 target keeps the iso curve meaningful -- every dimension's
 # committed sweep already contains an M that reaches it.
 TARGET_VAL = 0.02
-TARGET_BY_SYSTEM = {"spin_chain": 0.02, "oscillator_bath": 0.005}
+# The mixed chain shares the chain target: same observable, same scale.
+TARGET_BY_SYSTEM = {"spin_chain": 0.02, "mixed_chain": 0.02,
+                    "oscillator_bath": 0.005}
 
 # Which estimate's error defines M*?
 #   "ensemble" : error of the N_ACC-run AVERAGE  -> sqrt(bias^2 + SEM^2).
@@ -333,10 +335,12 @@ def figure(name, doc, target, est_type, err_type):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--system", default="all", choices=["spin_chain", "oscillator_bath", "all"])
+    ap.add_argument("--system", default="all",
+                    choices=["spin_chain", "mixed_chain", "oscillator_bath", "all"])
     args = ap.parse_args()
     
-    names = ["spin_chain", "oscillator_bath"] if args.system == "all" else [args.system]
+    names = ([  "spin_chain", "mixed_chain", "oscillator_bath"]
+             if args.system == "all" else [args.system])
     for name in names:
         doc = load_data(f"cost_scaling_{name}.json")
         target = TARGET_BY_SYSTEM.get(name, TARGET_VAL)
