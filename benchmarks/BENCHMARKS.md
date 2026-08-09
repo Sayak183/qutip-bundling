@@ -105,19 +105,23 @@ That statement contains the two conditions that decide whether bundling is effec
    below — see §2.5 for the definition and the caveats. This is an empirical
    correlation across three systems, not a derived law.
 
-The three systems benchmarked here isolate these two conditions:
+The three systems benchmarked here isolate these two conditions. In the
+locality row, the percentage is the average energy-level separation a collapse
+operator connects, as a fraction of the whole spectrum: **3% means an operator
+essentially only couples neighbouring levels, 27% means it couples levels a
+quarter of the spectrum apart.** The definition is in §2.5.
 
 | Metric / Property | System A — Spin Chain ($g=0$, §2.3) | System B — Mixed Chain ($g=0.4$, §2.3) | System C — Oscillator (§2.4) |
 |---|---|---|---|
 | Model | Transverse-field Ising ($J=1, h=0.6$) | Mixed-field Ising ($g=0.4$) | Anharmonic oscillator + spin |
 | Coupling $X$ | $\sum_i \sigma_x^i$ (collective) | $\sum_i \sigma_x^i$ (collective) | $x \otimes I$ (position) |
 | $N_L$ at dim 64 | 31 (collapses due to integrability) | 2,017 ($\sim N^2 / 2$) | 890 ($\sim N^2$) |
-| Transition locality $\bar d$ (dim 64) | 27% (broad) | 26% (broad) | **3.1% (narrow, tridiagonal)** |
+| How far operators reach, $\bar d$ (dim 64) | 27% of the spectrum | 26% | **3.1% — neighbours only** |
 | Cost versus the exact solve | **none** (1.0x at dim 64) | **547x cheaper** (dim 128) | **54x cheaper** (dim 64) |
 | Relative error, one run at $M=16$ (dim 64) | $3.6\times10^{-2}$ | $5.4\times10^{-2}$ | $\mathbf{6.0\times10^{-6}}$ |
-| Role in Benchmark | **Control 1** (integrable, few ops) | **Control 2** (many ops, broad bandwidth) | **Headline Demonstration** (many ops, narrow bandwidth) |
+| Role here | **Control 1** — too few operators to bundle | **Control 2** — many operators, but each reaches far | **Demonstration** — many operators, each local |
 
-System A's collective coupling and free-fermion integrability collapse its Bohr spectrum, so a 512-dimensional chain carries only 73 operators: there is nothing left to bundle, and the exact solve is the better choice at every size measured. System B breaks integrability and climbs to 8,193 operators at dimension 128, which buys a 547x speedup — but its coupling operator connects distant energy levels, so a single realization at $M=16$ carries percent-level error. System C has both a large operator count ($N_L=890$) and strictly tridiagonal transitions in Fock space ($\Delta n=\pm1$), and is the only system here that is cheap *and* accurate at small $M$.
+System A's collective coupling and free-fermion integrability collapse its Bohr spectrum, so a 512-dimensional chain carries only 73 operators: there is nothing left to bundle, and the exact solve is the better choice at every size measured. System B breaks integrability and climbs to 8,193 operators at dimension 128, which buys a 547x speedup — but its coupling operator connects distant energy levels rather than neighbouring ones, so a single realization at $M=16$ carries percent-level error. System C has both a large operator count ($N_L=890$) and strictly tridiagonal transitions in Fock space ($\Delta n=\pm1$), and is the only system here that is cheap *and* accurate at small $M$.
 
 A reader evaluating bundling for their own system should check two things: **$N_L$ must be large compared to $M$ for speedups**, and **collapse operators with local/ladder transition structure in the energy eigenbasis are associated with the best accuracy observed here**. The first is a cost identity and holds by construction; the second is an empirical correlation across three systems, so treat it as a guide for what to measure rather than a guarantee.
 
@@ -344,10 +348,10 @@ molecular/vibronic problems the method was developed for.
 The three are not three demonstrations. They vary two properties independently,
 so the benchmark can say which one matters:
 
-| | operator count $N_L$ | operator locality | outcome |
+| | operator count $N_L$ | how far each operator reaches | outcome |
 |---|---|---|---|
-| **A** — TFIM chain ($g=0$) | small (31 at dim 64) | dense (~27%) | no speedup available |
-| **B** — mixed chain ($g=0.4$) | large (2,017 at dim 64) | dense (~26%) | 547x cheaper, ~95% accurate |
+| **A** — TFIM chain ($g=0$) | small (31 at dim 64) | reaches far ($\bar d\approx27\%$) | no speedup available |
+| **B** — mixed chain ($g=0.4$) | large (2,017 at dim 64) | reaches far ($\bar d\approx26\%$) | 547x cheaper, error $5.4\times10^{-2}$ |
 | **C** — oscillator | large (890 at dim 64) | local ($\bar d\approx3\%$) | 54x cheaper, error $6.0\times10^{-6}$ |
 
 **A versus B** isolates the operator count. Same lattice, same coupling
