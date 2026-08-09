@@ -121,7 +121,24 @@ quarter of the spectrum apart.** The definition is in §2.5.
 | Relative error, one run at $M=16$ (dim 64) | $3.6\times10^{-2}$ | $5.4\times10^{-2}$ | $\mathbf{6.0\times10^{-6}}$ |
 | Role here | **Control 1** — too few operators to bundle | **Control 2** — many operators, but each reaches far | **Demonstration** — many operators, each local |
 
-System A's collective coupling and free-fermion integrability collapse its Bohr spectrum, so a 512-dimensional chain carries only 73 operators: there is nothing left to bundle, and the exact solve is the better choice at every size measured. System B breaks integrability and climbs to 8,193 operators at dimension 128, which buys a 547x speedup — but its coupling operator connects distant energy levels rather than neighbouring ones, so a single realization at $M=16$ carries percent-level error. System C has both a large operator count ($N_L=890$) and strictly tridiagonal transitions in Fock space ($\Delta n=\pm1$), and is the only system here that is cheap *and* accurate at small $M$.
+**System A** is a special case. Its bath couples to every spin in the same way,
+and the model itself is exactly solvable, which makes its energy gaps repeat
+over and over. The Davies construction merges every transition that shares a
+gap into a single operator, so even a 512-dimensional chain ends up with just
+73 of them. Bundling works by shrinking a long list of operators; with a list
+this short there is nothing to shrink, and solving exactly is the better choice
+at every size measured.
+
+**System B** is the same chain with one extra field term, which destroys that
+special structure. The gaps stop repeating, almost nothing merges, and the
+count climbs to 8,193 at dimension 128 — enough to make bundling **547x
+cheaper** than solving exactly. But its operators connect energy levels far
+apart rather than neighbouring ones, and a single run at $M=16$ lands at
+percent-level error.
+
+**System C** has both properties at once: many operators (890 at dimension 64)
+*and* operators that only connect neighbouring rungs of its ladder. It is the
+only system here that is cheap **and** accurate at small $M$.
 
 A reader evaluating bundling for their own system should check two things: **$N_L$ must be large compared to $M$ for speedups**, and **collapse operators with local/ladder transition structure in the energy eigenbasis are associated with the best accuracy observed here**. The first is a cost identity and holds by construction; the second is an empirical correlation across three systems, so treat it as a guide for what to measure rather than a guarantee.
 
