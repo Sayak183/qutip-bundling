@@ -140,7 +140,48 @@ percent-level error.
 *and* operators that only connect neighbouring rungs of its ladder. It is the
 only system here that is cheap **and** accurate at small $M$.
 
-A reader evaluating bundling for their own system should check two things: **$N_L$ must be large compared to $M$ for speedups**, and **collapse operators with local/ladder transition structure in the energy eigenbasis are associated with the best accuracy observed here**. The first is a cost identity and holds by construction; the second is an empirical correlation across three systems, so treat it as a guide for what to measure rather than a guarantee.
+### Will bundling help *your* system?
+
+Two checks, both cheap, both before you run anything expensive.
+
+**1. Count the collapse operators.**
+
+```python
+from qutip_bundling import davies_operators
+n_l = len(davies_operators(H, X, gamma))
+```
+
+Bundling replaces $N_L$ operators with $M$, so the best speedup available is
+about $N_L/M$. If $N_L$ is a few dozen, there is nothing to win — the exact
+solve is cheaper and exact. If it is in the hundreds or thousands, the saving
+is real. This part is arithmetic, not a claim: it holds by construction.
+
+Be aware that $N_L$ is **not** predictable from the Hilbert dimension. Symmetry
+and integrability can collapse it by orders of magnitude, as they do in System
+A. Count it; do not estimate it.
+
+**2. Ask how far each operator reaches.** Diagonalise $H$, write the collapse
+operators in that basis, and look at how far from the diagonal their weight
+sits ($\bar d$, §2.5). Operators confined near the diagonal — a ladder, a
+cascade, anything where the bath moves the system one level at a time —
+accompany the smallest errors here by four orders of magnitude. Operators
+spread across the spectrum accompany percent-level error at the same $M$.
+
+This second check is an **empirical correlation across three systems, not a
+derived law**, and §2.5 says exactly where it fails. Treat it as a guide to
+what to measure, not a guarantee.
+
+**What to do with the answer.**
+
+| $N_L$ | operator reach | what to expect |
+|---|---|---|
+| small (tens) | either | use the exact solver; bundling has nothing to compress |
+| large | local | the best case — large speedup at small $M$ (System C) |
+| large | far-reaching | still a large speedup, but you will need a larger $M$ for a given accuracy (System B) |
+
+And if you cannot even build the operator list — thousands of dense operators
+at large dimension — that is the regime bundling exists for, though you will
+then have no exact reference to check against.
 
 There are also two stochastic methods on the table, and the single most
 important thing to understand up front is that **they randomize different
@@ -184,20 +225,82 @@ easier to read.
 
 ## 2. The three test systems (fully specified)
 
-All three systems are weakly coupled to the **same** thermal bath. Detailed balance
-makes the Gibbs state stationary; exact symmetries can prevent it from being the
-unique late-time state. In both, the collapse operators are built with
-`davies_operators(H, X, gamma)`, which diagonalizes the system Hamiltonian $H$,
-forms the spectral projectors $\Pi_\epsilon$ of $H$, groups every transition
-block with the same Bohr frequency into
-$A(\omega)=\sum_{\epsilon'-\epsilon=\omega}\Pi_\epsilon X\Pi_{\epsilon'}$,
-and weights that complete sector by $\sqrt{\gamma(\omega)}$.
+### 2.0 The physical picture, before any equations
 
-The three share a bath, a construction, and an observable set, and differ
-only in $(H_{
-m sys}, X)$. That is deliberate: it makes them a controlled
-comparison rather than three unrelated demonstrations. §2.5 states what each
-one is for.
+Every system here is the same kind of object: a **small quantum system** in
+contact with a **large environment**, held at a fixed temperature.
+
+**The system** is what we simulate — a row of spins, or a vibrating mode with a
+spin attached. It is small enough to write down completely.
+
+**The bath** is everything else: the phonons of a surrounding crystal, the
+photons of a cavity, the solvent a molecule sits in. It is far too large to
+simulate, and we never do. Instead it is *summed over* and replaced by its
+effect on the system — draining energy away and destroying quantum coherence.
+Its entire influence is captured by one function, $\gamma(\omega)$, giving how
+readily the bath absorbs or emits an energy quantum $\omega$ (§2.1).
+
+**The coupling operator $X$** is the part that decides *what the environment can
+see*. A bath does not touch a system everywhere at once; it couples to one
+physical property. For a molecule jostled by a solvent, that property is
+position. For a spin in a fluctuating magnetic field, it is a spin component.
+Choosing $X$ is choosing which handle the environment has.
+
+**What "weak coupling" buys.** When the system–bath coupling is weak, the
+environment can be eliminated exactly to leading order, leaving a closed
+equation for the system alone — the Lindblad master equation. The price is a
+set of **collapse operators**: each one is a channel through which the bath can
+move the system between its energy levels.
+
+#### How the collapse operators are built (the "construction")
+
+Throughout this page, *construction* means the recipe that turns a Hamiltonian
+and a coupling operator into that list of collapse operators. All three systems
+use the same one, `davies_operators(H, X, gamma)`:
+
+1. **Find the energy levels.** Diagonalise $H$.
+2. **Look at every pair of levels.** A pair separated by energy $\omega$ is a
+   possible transition, and $X$ says how strongly the bath drives it.
+3. **Group transitions that share a gap.** This is the important step. The bath
+   responds to a *frequency*, not to a pair of labels — if two different pairs
+   of levels happen to be separated by the same $\omega$, the environment
+   cannot tell them apart, so they are one channel, not two. All blocks with
+   the same $\omega$ are summed into a single operator $A(\omega)$.
+4. **Weight by the bath.** Multiply by $\sqrt{\gamma(\omega)}$: how fast the
+   bath actually drives that frequency.
+
+The number of collapse operators, $N_L$, is therefore **the number of distinct
+energy gaps that the coupling operator can drive** — not the number of levels,
+and not the dimension. That is why it varies so wildly between the systems
+below, and it is the single quantity that decides whether bundling helps.
+
+#### Two terms used below
+
+**Exact symmetry.** An operation that leaves the Hamiltonian completely
+unchanged. System A, for instance, is unchanged if you flip *every* spin about
+the $x$ axis at once ($\mathbb{Z}_2$ symmetry). Symmetries have two
+consequences here: they force some transitions to vanish and make others share
+a gap, shrinking $N_L$; and they can split the state space into sectors the
+dynamics never mixes, so the system remembers which sector it started in. That
+is why detailed balance makes the thermal (Gibbs) state stationary, but does
+not always make it the *unique* late-time state.
+
+**Integrability, and "free fermions".** A model is integrable when it can be
+transformed into something non-interacting. System A can: a standard change of
+variables turns the interacting spin chain into a gas of independent
+particles. Because the particles do not interact, the total energies are simply
+*sums of $n$ independent single-particle energies* — and sums built from the
+same small pool of numbers produce the same differences over and over. Its gaps
+repeat massively, step 3 above merges them, and $N_L$ collapses. Adding one
+extra field term (System B) breaks the transformation, the gaps stop repeating,
+and $N_L$ grows by orders of magnitude. Nothing else about the chain changes.
+
+---
+
+All three systems are weakly coupled to the **same** thermal bath, use the
+**same** construction, and are scored on the **same** observables. They differ
+only in $(H_{\rm sys}, X)$ — which makes them a controlled comparison rather
+than three unrelated demonstrations. §2.5 states what each one is for.
 
 ### 2.1 The bath (shared by all three systems)
 
@@ -289,6 +392,16 @@ c_ops = davies_operators(H, X, gamma)        # the collapse operators, length N_
 
 ### 2.3 System A & B — transverse-field ($g=0$) and mixed-field ($g=0.4$) Ising chains
 
+**Physically:** a row of $n$ tiny magnets. Neighbours prefer to point the same
+way (the $ZZ$ term), while a magnetic field along $x$ tries to tip them all
+sideways (the $X$ term). System B adds a second field along $z$.
+
+The bath couples through $X=\sum_i\sigma^x_i$ — the environment pushes on
+*every* spin identically, along $x$. It cannot address one spin: picture the
+whole chain sitting in a single fluctuating field, rather than each magnet
+having its own noise source. The chain starts fully polarised and relaxes
+towards thermal equilibrium.
+
 The **system Hamiltonian** for $n$ spins is
 
 $$
@@ -315,6 +428,21 @@ polarized at $t = 0$, coupled through the global operator
 $X = \sum_i \sigma^x_i$ to a single collective ohmic bath.
 
 ### 2.4 System C — anharmonic oscillator coupled to a spin
+
+**Physically:** a single vibrating mode — think of one bond in a molecule —
+with a two-level system attached. The vibration's energy ladder is
+*anharmonic*: its rungs are not evenly spaced but widen going up, much as a
+real bond stiffens as it stretches.
+
+The bath couples through the oscillator's **position**, $X = x\otimes I$: a
+surrounding solvent or lattice jostles the bond and damps its motion. Two
+consequences matter for everything below. First, position only connects
+*adjacent* rungs of the ladder ($n\to n\pm1$), so the environment can only walk
+the oscillator down one step at a time — this is the "local" transition
+structure of §1. Second, the bath never touches the spin at all; the spin feels
+dissipation only second-hand, through its coherent coupling to the oscillator.
+
+The oscillator starts at the top of its ladder and cascades down.
 
 The **system Hamiltonian** is
 
