@@ -97,33 +97,42 @@ $O(M N^3)$.
 That statement contains the two conditions that decide whether bundling is effective:
 
 1. **Computational Cost Reduction:** Bundling can only pay when $M \ll N_L$. The operator count $N_L$ — **not** the Hilbert-space dimension alone — governs the per-step speedup.
-2. **Accuracy Prefactor:** The single-realization accuracy correlates with the
-   **locality (bandwidth) of the collapse operators in the system energy
-   eigenbasis**. Local/ladder transitions (narrow bandwidth) accompany high
-   accuracy ($10^{-5}$ relative error); dense all-to-all energy couplings
-   accompany moderate accuracy (~$95\%$).
+2. **Accuracy prefactor.** How accurate a *single* realization is at a given
+   $M$ correlates with the **locality of the collapse operators in the energy
+   eigenbasis**: operators that connect neighbouring levels accompany far
+   smaller errors than operators that connect distant ones.
 
-   *Bandwidth* here is the mean transition distance
-   $ar{d} = \sum_lpha \sum_{ij} |i-j|\,|\langle i|c_lpha|j
-angle|^2
-   ig/ N \sum_lpha \sum_{ij} |\langle i|c_lpha|j
-angle|^2$, with
-   $|i
-angle$ the eigenvectors of $H$ ordered by energy. It is computed by
-   `probe_oq4_accuracy.py`; quote the definition alongside any number, because
-   other reasonable definitions give different absolute values (the ranking
-   between systems is robust, the scale is not).
+   Quantify locality as the mean transition distance, in units of the
+   dimension,
 
-   **This is a correlation with a plausible mechanism, not a validated law.**
-   Two things it does not yet account for. Within the oscillator the
-   relationship is clean -- halving the bandwidth divides the error by ~5, i.e.
-   error $\propto ar{d}^{\,2.4}$ -- but *within* the two chains the trend
-   reverses: bandwidth falls from 32.1% to 26.4% across dims 16-64 while the
-   error rises from $3.9	imes10^{-2}$ to $5.4	imes10^{-2}$. And extrapolating
-   the oscillator's power law to the chains predicts $\sim\!9	imes10^{-4}$
-   against a measured $3.6	imes10^{-2}$, short by a factor of 40. Bandwidth
-   separates the two *families*; it does not yet explain the trend inside a
-   family or the size of the gap between them.
+   $$
+   \bar d \;=\; \frac{1}{N}\,
+   \frac{\sum_\alpha \sum_{ij} |i-j|\;\bigl|\langle i|c_\alpha|j\rangle\bigr|^2}
+        {\sum_\alpha \sum_{ij} \bigl|\langle i|c_\alpha|j\rangle\bigr|^2},
+   $$
+
+   with $|i\rangle$ the eigenvectors of $H$ ordered by energy. Measured at
+   dimension 64: **27% for System A, 26% for System B, 3.1% for System C.**
+   (`probe_oq4_accuracy.py` reports a differently normalised bandwidth; the
+   ranking between systems is robust, the absolute scale is definition
+   dependent, so quote which one you mean.)
+
+   **This is a correlation with a plausible mechanism, not a validated law**,
+   and §5 should be read with that in mind. Within System C the relation is
+   clean — halving $\bar d$ divides the error by about five, i.e.
+   $\text{error}\propto \bar d^{\,2.4}$. Two things it does not explain. Within
+   the chains the trend *reverses*: $\bar d$ falls from 32% to 26% across
+   dimensions 16–64 while the error rises from $3.9\times10^{-2}$ to
+   $5.4\times10^{-2}$. And extrapolating System C's power law to the chains
+   predicts $\sim\!9\times10^{-4}$ against a measured $3.6\times10^{-2}$, short
+   by a factor of 40. Locality separates the two *families*; it does not
+   account for the trend inside a family, nor for the size of the gap between
+   them.
+
+   Note also that this is a statement about a *prefactor*, not a floor. A
+   broad-bandwidth system still converges: System B reaches $2.4\times10^{-3}$
+   at $M=128$ (Result 1). It simply needs a larger $M$ to get there, which eats
+   into — but does not erase — the speedup.
 
 The three systems benchmarked here isolate these two conditions:
 
@@ -132,12 +141,12 @@ The three systems benchmarked here isolate these two conditions:
 | Model | Transverse-field Ising ($J=1, h=0.6$) | Mixed-field Ising ($g=0.4$) | Anharmonic oscillator + spin |
 | Coupling $X$ | $\sum_i \sigma_x^i$ (collective) | $\sum_i \sigma_x^i$ (collective) | $x \otimes I$ (position) |
 | $N_L$ at dim 64 | 31 (collapses due to integrability) | 2,017 ($\sim N^2 / 2$) | 890 ($\sim N^2$) |
-| Operator Bandwidth | ~16.7% of spectrum (broad) | ~15.8% of spectrum (broad) | **3.1% – 4.4% of spectrum (narrow)** |
-| Cost Win vs Exact | **None** (1.0x at dim 64) | **547x cheaper** at dim 128 | **54x cheaper** at dim 64 |
-| Relative Accuracy | ~93% – 96% | ~91% – 95% | **99.9999% ($6\times 10^{-6}$ error)** |
+| Transition locality $\bar d$ (dim 64) | 27% (broad) | 26% (broad) | **3.1% (narrow, tridiagonal)** |
+| Cost versus the exact solve | **none** (1.0x at dim 64) | **547x cheaper** (dim 128) | **54x cheaper** (dim 64) |
+| Relative error, one run at $M=16$ (dim 64) | $3.6\times10^{-2}$ | $5.4\times10^{-2}$ | $\mathbf{6.0\times10^{-6}}$ |
 | Role in Benchmark | **Control 1** (integrable, few ops) | **Control 2** (many ops, broad bandwidth) | **Headline Demonstration** (many ops, narrow bandwidth) |
 
-System A's collective coupling and free-fermion integrability collapse its Bohr spectrum so that a 512-dimensional chain has only 73 operators: there is nothing left to bundle. System B breaks integrability and climbs to 8,193 operators at dim 128, producing a 547x speedup, but its dense coupling matrix spreads stochastic noise across distant energy levels. System C has both a large operator count ($N_L=890$) and a narrow tridiagonal transition bandwidth in Fock space ($\Delta n = \pm 1$), giving both a 54x speedup and $99.9999\%$ accuracy.
+System A's collective coupling and free-fermion integrability collapse its Bohr spectrum, so a 512-dimensional chain carries only 73 operators: there is nothing left to bundle, and the exact solve is the better choice at every size measured. System B breaks integrability and climbs to 8,193 operators at dimension 128, which buys a 547x speedup — but its coupling operator connects distant energy levels, so a single realization at $M=16$ carries percent-level error. System C has both a large operator count ($N_L=890$) and strictly tridiagonal transitions in Fock space ($\Delta n=\pm1$), and is the only system here that is cheap *and* accurate at small $M$.
 
 A reader evaluating bundling for their own system should check two things: **$N_L$ must be large compared to $M$ for speedups**, and **collapse operators with local/ladder transition structure in the energy eigenbasis are associated with the best accuracy observed here**. The first is a cost identity and holds by construction; the second is an empirical correlation across three systems, so treat it as a guide for what to measure rather than a guarantee.
 
@@ -368,7 +377,7 @@ so the benchmark can say which one matters:
 |---|---|---|---|
 | **A** — TFIM chain ($g=0$) | small (31 at dim 64) | dense (~27%) | no speedup available |
 | **B** — mixed chain ($g=0.4$) | large (2,017 at dim 64) | dense (~26%) | 547x cheaper, ~95% accurate |
-| **C** — oscillator | large (890 at dim 64) | local (~3%) | 54x cheaper, 99.9999% accurate |
+| **C** — oscillator | large (890 at dim 64) | local ($\bar d\approx3\%$) | 54x cheaper, error $6.0\times10^{-6}$ |
 
 **A versus B** isolates the operator count. Same lattice, same coupling
 operator, same initial state; the only change is a longitudinal field that
@@ -652,8 +661,8 @@ seventyfold.
 ![Dynamics, oscillator](benchmark_comparison_dynamics_oscillator_bath.png)
 
 #### Headline Findings Across Systems:
-- **Oscillator Bath (dim 64, $N_L=890$):** SLB achieves **$6 \times 10^{-6}$ relative error** (99.9999% accurate) while running **54x faster than exact** and **300x faster than `mcsolve`**. `mcsolve` at 500 trajectories is 100x *less* accurate than SLB because evaluating 890 collapse jump probabilities per step exhausts compute.
-- **Mixed Spin Chain (dim 128, $N_L=8,193$):** SLB runs **547x faster than the exact solve** (4.46 s against 2,442 s) at ~92% accuracy ($8.7	imes10^{-2}$ relative error). `mcsolve` was **not run at this size**: at dim 64 ($N_L=2,017$) it already took **4,372 s against 74 s for the exact solve, i.e. 59x *slower* than solving exactly**, because every jump must test all $N_L$ collapse operators. Extrapolating that to $N_L=8,193$ exceeded the job budget, so the dim-128 comparison is SLB against the exact solver only.
+- **Oscillator (dim 64, $N_L=890$):** one SLB realization at $M=16$ costs 2.26 s and reaches $6.0\times10^{-6}$ relative error, against 121 s for the exact full-dissipator solve (**54x cheaper**) and 7,118 s for `mcsolve` at 500 trajectories (**3,100x cheaper**, and **490x more accurate**). `mcsolve` is slow here because every jump must evaluate all 890 jump probabilities.
+- **Mixed Spin Chain (dim 128, $N_L=8,193$):** SLB runs **547x faster than the exact solve** (4.46 s against 2,442 s) at ~92% accuracy ($8.7\times10^{-2}$ relative error). `mcsolve` was **not run at this size**: at dim 64 ($N_L=2,017$) it already took **4,372 s against 74 s for the exact solve, i.e. 59x *slower* than solving exactly**, because every jump must test all $N_L$ collapse operators. Extrapolating that to $N_L=8,193$ exceeded the job budget, so the dim-128 comparison is SLB against the exact solver only.
 - **Integrable Spin Chain (dim 64, $N_L=31$):** Serves as Control 1. Davies grouping collapses operators to 31, so the exact solve costs the same as bundling ($M=16$). Bundling provides no advantage when $N_L$ is small.
 
 ### 5.2 Memory and Stiffness Walls
