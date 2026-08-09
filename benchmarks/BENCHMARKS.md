@@ -98,41 +98,36 @@ That statement contains the two conditions that decide whether bundling is effec
 
 1. **Computational Cost Reduction:** Bundling can only pay when $M \ll N_L$. The operator count $N_L$ — **not** the Hilbert-space dimension alone — governs the per-step speedup.
 2. **Accuracy prefactor.** How accurate a *single* realization is at a given
-   $M$ correlates with the **locality of the collapse operators in the energy
-   eigenbasis**: operators that connect neighbouring levels accompany far
-   smaller errors than operators that connect distant ones.
+   $M$ correlates with how **local** the collapse operators are in the energy
+   eigenbasis — operators connecting neighbouring levels carry far smaller
+   errors than operators connecting distant ones. See below.
 
-   Quantify locality as the mean transition distance, in units of the
-   dimension,
+**Measuring locality.** Order the eigenvectors $|i\rangle$ of $H$ by energy and
+take the mean transition distance, in units of the dimension:
 
-   $$
-   \bar d \;=\; \frac{1}{N}\,
-   \frac{\sum_\alpha \sum_{ij} |i-j|\;\bigl|\langle i|c_\alpha|j\rangle\bigr|^2}
-        {\sum_\alpha \sum_{ij} \bigl|\langle i|c_\alpha|j\rangle\bigr|^2},
-   $$
+$$
+\bar{d} = \frac{1}{N} \frac{\sum_{\alpha}\sum_{ij} |i-j| \, |\langle i|c_\alpha|j\rangle|^2}{\sum_{\alpha}\sum_{ij} |\langle i|c_\alpha|j\rangle|^2}
+$$
 
-   with $|i\rangle$ the eigenvectors of $H$ ordered by energy. Measured at
-   dimension 64: **27% for System A, 26% for System B, 3.1% for System C.**
-   (`probe_oq4_accuracy.py` reports a differently normalised bandwidth; the
-   ranking between systems is robust, the absolute scale is definition
-   dependent, so quote which one you mean.)
+Measured at dimension 64: **27% for System A, 26% for System B, 3.1% for
+System C.** (`probe_oq4_accuracy.py` reports a differently normalised
+bandwidth. The ranking between systems is robust; the absolute scale is
+definition dependent, so state which one you mean.)
 
-   **This is a correlation with a plausible mechanism, not a validated law**,
-   and §5 should be read with that in mind. Within System C the relation is
-   clean — halving $\bar d$ divides the error by about five, i.e.
-   $\text{error}\propto \bar d^{\,2.4}$. Two things it does not explain. Within
-   the chains the trend *reverses*: $\bar d$ falls from 32% to 26% across
-   dimensions 16–64 while the error rises from $3.9\times10^{-2}$ to
-   $5.4\times10^{-2}$. And extrapolating System C's power law to the chains
-   predicts $\sim\!9\times10^{-4}$ against a measured $3.6\times10^{-2}$, short
-   by a factor of 40. Locality separates the two *families*; it does not
-   account for the trend inside a family, nor for the size of the gap between
-   them.
+**This is a correlation with a plausible mechanism, not a validated law**, and
+§5 should be read with that in mind. Within System C the relation is clean:
+halving $\bar{d}$ divides the error by about five, i.e. error $\propto
+\bar{d}^{2.4}$. Two things it does not explain. Within the chains the trend
+*reverses* — $\bar{d}$ falls from 32% to 26% across dimensions 16–64 while the
+error rises from $3.9 \times 10^{-2}$ to $5.4 \times 10^{-2}$. And
+extrapolating System C's power law to the chains predicts $9 \times 10^{-4}$
+against a measured $3.6 \times 10^{-2}$, short by a factor of 40. Locality
+separates the two *families*; it does not account for the trend inside a
+family, nor the size of the gap between them.
 
-   Note also that this is a statement about a *prefactor*, not a floor. A
-   broad-bandwidth system still converges: System B reaches $2.4\times10^{-3}$
-   at $M=128$ (Result 1). It simply needs a larger $M$ to get there, which eats
-   into — but does not erase — the speedup.
+**It sets a prefactor, not a floor.** A broad-bandwidth system still converges:
+System B reaches $2.4 \times 10^{-3}$ at $M=128$ (Result 1). It needs a larger
+$M$ to get there, which eats into — but does not erase — the speedup.
 
 The three systems benchmarked here isolate these two conditions:
 
