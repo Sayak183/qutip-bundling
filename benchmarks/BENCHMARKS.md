@@ -692,19 +692,50 @@ the same as B's. Locality does not distinguish A from B; $N_L$ does (13 against
 121). And $N_L$ does not distinguish B from C (121 against 128); locality does.
 That is precisely why three systems are needed and two would not do.
 
-#### Why locality plausibly helps accuracy
+#### Where the error actually comes from
 
-Bundling replaces $N_L$ collapse operators by $M$ random mixtures of them. The
-mean is exactly right by construction; the error is the *spread* around it. In
-System C every collapse operator deposits its weight on the same narrow band, so
-a random mixture is still a near-neighbour operator, and the sampling noise from
-different terms lands on the same few matrix entries, where it partly cancels.
-In System B the operators deposit weight all over the matrix, so a random
-mixture scatters noise into entries nothing else touches, and nothing cancels.
+It is tempting to say locality helps because the sampling noise "cancels" where
+the operators overlap. That is not what happens, and the measurement says so:
+in System C the true dissipator's weight sits at mean $|a-b| = 0.39$ while the
+*error's* weight sits at 2.80. The error does not land on top of the true answer
+and cancel it — it lands somewhere else entirely. It is simply much smaller.
 
-That is a picture, not a derivation, and §2.5 says where it breaks down — most
-importantly, within the chains $\bar d$ *falls* with dimension while the error
-rises. Measure it on your own model; do not trust it to extrapolate.
+Here is the actual mechanism. Write out one bundled dissipator. Since
+$R = M^{-1/2}\sum_\alpha r_\alpha c_\alpha$ with random signs $r_\alpha$,
+
+$$
+R \rho R^\dagger = \frac{1}{M}\sum_{\alpha}c_\alpha \rho c_\alpha^\dagger
++ \frac{1}{M}\sum_{\alpha\neq\beta} r_\alpha r_\beta \, c_\alpha \rho c_\beta^\dagger
+$$
+
+The first sum is the true dissipator. **The second sum is the entire error.**
+Its average over the random signs is zero — that is why the method is unbiased —
+but at finite $M$ it survives at order $M^{-1/2}$.
+
+So the question is not "how local are the operators" but **how much cross-term
+weight is there to average away**. Measured on an evolved state at dimension 16:
+
+| | pairs with a non-vanishing cross term | total cross weight ÷ true dissipator |
+|---|---|---|
+| **A** | 100% | 1.9x |
+| **B** | 56% | **4.2x** |
+| **C** | 11% | **0.6x** |
+
+System C has seven times less to cancel than System B. That is the whole
+difference, and it tracks the error directly: at $M=8$ a single bundled
+dissipator is off by 17% in System C and by 144% in System B.
+
+**Locality is *why* C's cross terms vanish.** $c_\alpha \rho c_\beta^\dagger$
+takes the system down one specific rung, across $\rho$, and back up a different
+specific rung. In a ladder those rungs usually do not line up, so the product is
+exactly zero — 89% of pairs die this way. In System B every operator reaches
+across the spectrum, so almost any pair finds a path through $\rho$ and survives.
+
+That makes $\bar d$ a *proxy* for the thing that matters, not the thing itself.
+It is cheaper to compute, which is why §1 recommends it, but if you want the
+quantity that actually controls the error, measure the cross-term ratio —
+`explain_structure.py` prints it. §2.5 records where $\bar d$ alone misleads:
+within the chains it falls with dimension while the error rises.
 
 
 

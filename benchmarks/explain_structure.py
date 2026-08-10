@@ -32,6 +32,7 @@ import argparse
 import itertools
 
 import numpy as np
+import qutip
 
 from common import (
     build_spin_chain,
@@ -159,7 +160,42 @@ def free_fermion_check(H, n_sites):
     return np.array(eps), float(np.abs(rebuilt - excitation).max())
 
 
-def report(label, H, X, show, n_sites=None):
+def cross_term_census(H, psi0, c_ops, t_evolve=1.0, n_steps=20):
+    r"""How much spurious weight bundling has to average away.
+
+    Bundling replaces the collapse operators by M random mixtures. Expanding
+    one mixture's dissipator gives back the true terms c_a rho c_a^dag, plus
+    every CROSS term c_a rho c_b^dag with a != b. Those cross terms are the
+    entire error: their expectation over the random signs is zero, but at
+    finite M they survive at order 1/sqrt(M).
+
+    So the quantity that controls the error is not N_L, and not the geometry
+    directly -- it is how much cross-term weight exists to be cancelled,
+    measured against the true dissipator. Returns
+    (live_fraction, cross_over_true), both computed on a physically relevant
+    state rather than an arbitrary one: rho is evolved under the exact
+    dynamics before measuring.
+    """
+    energies, vectors = np.linalg.eigh(H.full())
+    ops = np.array([vectors.conj().T @ c.full() @ vectors for c in c_ops])
+    n = len(ops)
+
+    times = np.linspace(0.0, t_evolve, n_steps)
+    evolved = qutip.mesolve(H, qutip.ket2dm(psi0), times,
+                            c_ops=c_ops, e_ops=[]).states[-1]
+    rho = vectors.conj().T @ evolved.full() @ vectors
+
+    # ||c_a rho c_b^dag|| for every ordered pair
+    products = np.einsum("aij,jk,blk->abil", ops, rho, ops.conj())
+    norms = np.linalg.norm(products, axis=(2, 3))
+    true = np.diag(norms).copy()
+    cross = norms - np.diag(true)
+
+    live = int((cross > 1e-10 * true.max()).sum())
+    return live / max(n * (n - 1), 1), float(cross.sum() / true.sum())
+
+
+def report(label, H, X, psi0, show, n_sites=None):
     dim = H.shape[0]
     c_ops = build_davies_operators(H, X)
     pairs, gaps, connected, n_l = gap_census(H, X)
@@ -196,6 +232,16 @@ def report(label, H, X, show, n_sites=None):
             print("    the decomposition fails"
                   f"   <-- NO: genuinely {dim} independent numbers")
 
+    if psi0 is not None:
+        live, ratio = cross_term_census(H, psi0, c_ops)
+        print(f"\n  cross terms bundling must average away "
+              f"(the whole source of its error):")
+        print(f"    {100 * live:5.1f}% of operator pairs produce a "
+              f"non-vanishing cross term")
+        print(f"    their total weight is {ratio:.1f}x the true dissipator"
+              + ("   <-- little to cancel" if ratio < 1.5 else
+                 "   <-- far more to cancel"))
+
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[1])
@@ -212,17 +258,17 @@ def main():
     args = parser.parse_args()
 
     if "A" in args.systems:
-        H, X, _ = build_spin_chain(args.n_sites, g=0.0)
+        H, X, psi0 = build_spin_chain(args.n_sites, g=0.0)
         report(f"System A: integrable Ising chain, n={args.n_sites}, "
-               f"X = sum_i sigma^x_i", H, X, args.show, n_sites=args.n_sites)
+               f"X = sum_i sigma^x_i", H, X, psi0, args.show, n_sites=args.n_sites)
     if "B" in args.systems:
-        H, X, _ = build_mixed_field_chain(args.n_sites)
+        H, X, psi0 = build_mixed_field_chain(args.n_sites)
         report(f"System B: mixed-field Ising chain, n={args.n_sites}, "
-               f"X = sum_i sigma^x_i", H, X, args.show, n_sites=args.n_sites)
+               f"X = sum_i sigma^x_i", H, X, psi0, args.show, n_sites=args.n_sites)
     if "C" in args.systems:
-        H, X, _ = build_oscillator_bath(args.osc_levels)
+        H, X, psi0 = build_oscillator_bath(args.osc_levels)
         report(f"System C: anharmonic oscillator + spin, "
-               f"{args.osc_levels} levels, X = x (x) I", H, X, args.show)
+               f"{args.osc_levels} levels, X = x (x) I", H, X, psi0, args.show)
 
 
 if __name__ == "__main__":
