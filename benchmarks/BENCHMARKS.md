@@ -731,11 +731,38 @@ specific rung. In a ladder those rungs usually do not line up, so the product is
 exactly zero — 89% of pairs die this way. In System B every operator reaches
 across the spectrum, so almost any pair finds a path through $\rho$ and survives.
 
-That makes $\bar d$ a *proxy* for the thing that matters, not the thing itself.
-It is cheaper to compute, which is why §1 recommends it, but if you want the
-quantity that actually controls the error, measure the cross-term ratio —
-`explain_structure.py` prints it. §2.5 records where $\bar d$ alone misleads:
-within the chains it falls with dimension while the error rises.
+That makes $\bar d$ a *proxy* for something more basic: $\bar d$ describes the
+geometry, the cross-term ratio describes the error itself. But being the
+algebraically correct quantity does not make it a predictor, and it was tested
+against the two failures that disqualified $\bar d$ (§2.5). It fixes one and not
+the other.
+
+**It fixes the direction.** Fitting error against ratio *within* each system, at
+matched $M$, every exponent is positive — oscillator $+0.91$ (stable across
+$M=8,16,32$), mixed chain $+0.46$ to $+0.73$, TFIM chain $+2.0$ to $+2.6$. The
+ratio never points the wrong way. $\bar d$ did: it falls with dimension in the
+chains while the error rises.
+
+**It does not fix the magnitude.** Fit the oscillator alone and extrapolate to
+the mixed chain at dimension 64 and it under-predicts by 46–56x depending on
+$M$ — no better than $\bar d$'s 40x. A single power law across all nine points
+gives error $\sim$ ratio$^{1.9}$ with $R^2 \approx 0.89$–$0.95$, but that fit is
+carried almost entirely by the enormous gap between the oscillator and the
+chains, not by resolution within either.
+
+**And it inverts A against B.** At $M=8$, dimension 64, System A has the smaller
+ratio (2.82 against 8.57) and the *larger* error ($1.3\times10^{-1}$ against
+$1.0\times10^{-1}$). Whatever separates those two, this is not it.
+
+So: the cross-term ratio is the exact algebraic origin of the error, is a
+strictly better within-system diagnostic than $\bar d$, and is still not a
+quantitative predictor across systems. **Open Question 4 stays open.**
+`explain_structure.py` prints the ratio; §1 continues to recommend $\bar d$ for
+the cheap family-level sort, which is all either quantity has earned.
+
+One clean by-product of the same sweep: the error falls as $1/M$, not
+$1/\sqrt{M}$. Doubling $M$ halves it, measured consistently at 1.87x–2.04x per
+doubling across every system and dimension in the table.
 
 
 
