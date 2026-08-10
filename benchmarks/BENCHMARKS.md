@@ -1048,6 +1048,43 @@ with error at the integrator floor. Shade darkens with dimension.
 ![Accuracy versus cost, mixed chain, energy](benchmark_comparison_mixed_chain_energy.png)
 ![Accuracy versus cost, TFIM chain, energy](benchmark_comparison_spin_chain_energy.png)
 
+**What one point on the cost axis means.** Every wall-clock here is the *total*
+for that method's whole ensemble on a single core: all 500 `mcsolve`
+trajectories, all 16 SLB realizations, one deterministic solve. Both stochastic
+methods parallelize trivially over their samples, so the figures carry a second
+panel giving wall-clock divided by sample count — the limit of one core per
+sample. The exact solvers have one sample and do not move between panels.
+
+**The two stochastic methods need very different sample counts, and this is the
+whole comparison.** `mcsolve`'s error is Monte-Carlo fluctuation, falling as
+$1/\sqrt{N_{\rm traj}}$: at the oscillator, dimension 64, one trajectory gives
+$6.7\times10^{-2}$ against $2.9\times10^{-3}$ for all 500 — a factor of 23,
+against $\sqrt{500}=22$. It genuinely needs every trajectory. SLB's error at
+fixed $M$ is dominated instead by the $O(1/M)$ *bias*, which averaging cannot
+remove, so one realization lands within 1.3x of sixteen
+($6.0\times10^{-6}$ against $4.7\times10^{-6}$). One realization is already the
+answer.
+
+| oscillator, dim 64 | samples it needs | cost of that | error |
+|---|---|---|---|
+| SLB, $M=16$ | **1** realization | 2.3 s | $6.0\times10^{-6}$ |
+| `mcsolve` | **500** trajectories | 7,118 s serial, 14.2 s on 500 cores | $2.9\times10^{-3}$ |
+
+So parallelism does not close the gap. Given unlimited cores `mcsolve` finishes
+in 14.2 s at $2.9\times10^{-3}$, while SLB finishes in 2.3 s at
+$6.0\times10^{-6}$ — still 6x faster and 490x more accurate. You cannot
+parallelize away a $1/\sqrt{N}$ error; you can only pay for it.
+
+**On the choice of exact baseline.** The speedups below are quoted against the
+package's own native RK4 with the full dissipator, not against `mesolve`. That
+matters: the two exact solvers disagree by up to two orders of magnitude on the
+same problem — 219.6 s against 0.99 s on the TFIM chain at dimension 64, 179.3 s
+against 23.2 s on the oscillator at dimension 32 — because `mesolve` builds the
+full $N^2\times N^2$ Liouvillian. Quoting a speedup against `mesolve` would
+partly measure that construction rather than bundling. Native RK4 shares SLB's
+integrator and code path, so the only difference between them is $N_L \to M$,
+which is the quantity under test.
+
 **Read these alongside the same plots for the dominant coherence.** From the
 identical runs, SLB's accuracy advantage over `mcsolve` is ~488x on the energy
 but only ~7x on the coherence. Energy is built almost entirely from the
@@ -1065,7 +1102,7 @@ seventyfold.
 
 #### Headline Findings Across Systems:
 - **Oscillator (dim 64, $N_L=890$):** one SLB realization at $M=16$ costs 2.26 s and reaches $6.0\times10^{-6}$ relative error, against 121 s for the exact full-dissipator solve (**54x cheaper**) and 7,118 s for `mcsolve` at 500 trajectories (**3,100x cheaper**, and **490x more accurate**). `mcsolve` is slow here because every jump must evaluate all 890 jump probabilities.
-- **Mixed Spin Chain (dim 128, $N_L=8,193$):** SLB runs **547x faster than the exact solve** (4.46 s against 2,442 s) at ~92% accuracy ($8.7\times10^{-2}$ relative error). `mcsolve` was **not run at this size**: at dim 64 ($N_L=2,017$) it already took **4,372 s against 74 s for the exact solve, i.e. 59x *slower* than solving exactly**, because every jump must test all $N_L$ collapse operators. Extrapolating that to $N_L=8,193$ exceeded the job budget, so the dim-128 comparison is SLB against the exact solver only.
+- **Mixed Spin Chain (dim 128, $N_L=8,193$):** one SLB realization at $M=16$ runs **547x faster than the exact solve** (4.46 s against 2,442 s; 34x faster counting all 16 realizations serially) at ~92% accuracy ($8.7\times10^{-2}$ relative error). `mcsolve` was **not run at this size**: at dim 64 ($N_L=2,017$) it already took **4,372 s against 74 s for the exact solve, i.e. 59x *slower* than solving exactly**, because every jump must test all $N_L$ collapse operators. Extrapolating that to $N_L=8,193$ exceeded the job budget, so the dim-128 comparison is SLB against the exact solver only.
 - **Integrable Spin Chain (dim 64, $N_L=31$):** Serves as Control 1. Davies grouping collapses operators to 31, so the exact solve costs the same as bundling ($M=16$). Bundling provides no advantage when $N_L$ is small.
 
 ### 5.2 Memory and Stiffness Walls

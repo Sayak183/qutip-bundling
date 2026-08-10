@@ -91,10 +91,18 @@ def mean_curve(values) -> np.ndarray:
 
 
 def method_errors(point: dict, observable: str):
-    """[(method_label, wall_seconds, error, annotation), ...] for one observable.
+    """[(method, wall_seconds, error, annotation, n_samples), ...].
 
     SLB contributes one entry per bundle size; every other method contributes
     at most one.
+
+    ``n_samples`` is how many independent samples the wall-clock covers: 500
+    trajectories for `mcsolve`, ``n_runs`` realizations for SLB, and 1 for the
+    deterministic solvers. It is what makes the parallel-limit axis possible --
+    both stochastic methods are embarrassingly parallel over their samples, so
+    ``wall_s / n_samples`` is the time each would take given one core per
+    sample, while ``wall_s`` is the time on a single core. The honest speedup
+    lies between the two and depends on the core count available.
     """
     index = point["observables"].index(observable)
     reference = mean_curve(point["reference"]["curves"][observable])
@@ -108,8 +116,9 @@ def method_errors(point: dict, observable: str):
         # A single deterministic curve: no ensemble, so the RMSE reduces to the
         # time-averaged absolute deviation from the reference.
         error = float(np.mean(np.abs(curve - reference)))
-        note = f"ntraj={entry['ntraj']}" if name == "mcsolve" else None
-        rows.append((name, float(entry["wall_s"]), error, note))
+        samples = int(entry.get("ntraj", 1))
+        note = f"ntraj={samples}" if name == "mcsolve" else None
+        rows.append((name, float(entry["wall_s"]), error, note, samples))
 
     for family in ("slb", "jackknife"):
         for row in point["methods"].get(family, []):
@@ -117,7 +126,8 @@ def method_errors(point: dict, observable: str):
                 continue
             samples = np.asarray(row["samples"], dtype=float)[:, index, :]
             rows.append((family, float(row["wall_s"]),
-                         tavg_rmse(samples, reference), f"M={row['M']}"))
+                         tavg_rmse(samples, reference), f"M={row['M']}",
+                         int(row.get("n_runs", samples.shape[0]))))
     return rows
 
 
@@ -144,47 +154,94 @@ def bias_comparison(point, observable):
     return sorted(out)
 
 
-def figure_accuracy_vs_cost(system, points, observable):
-    fig, ax = plt.subplots(figsize=(7.2, 5.2), constrained_layout=True)
-    dims = sorted(points)
-    # One shade per dimension, one colour+marker per method.
-    alphas = np.linspace(0.45, 1.0, len(dims))
+EXACT_METHODS = ("native", "mesolve")
 
-    seen_methods = set()
+
+def _draw_cost_panel(ax, points, observable, per_sample: bool):
+    """One accuracy-versus-cost panel.
+
+    ``per_sample`` divides each wall-clock by the number of independent samples
+    it covers, which is the limit of one core per sample. The deterministic
+    solvers have one sample, so they do not move between the two panels -- only
+    the stochastic methods do, and that difference IS the parallel headroom.
+    """
+    dims = sorted(points)
+    alphas = np.linspace(0.45, 1.0, len(dims))
+    seen = set()
+
+    def cost(wall, samples):
+        return wall / samples if per_sample else wall
+
     for alpha, dim in zip(alphas, dims):
         rows = method_errors(points[dim], observable)
+
         for family in ("slb", "jackknife"):
-            curve = sorted([r for r in rows if r[0] == family], key=lambda r: r[1])
+            curve = sorted([r for r in rows if r[0] == family],
+                           key=lambda r: cost(r[1], r[4]))
             if not curve:
                 continue
             style = METHOD_STYLE[family]
-            ax.plot([r[1] for r in curve], [r[2] for r in curve],
+            ax.plot([cost(r[1], r[4]) for r in curve], [r[2] for r in curve],
                     color=style["color"], marker=style["marker"],
                     alpha=alpha, linewidth=1.6, markersize=5,
-                    label=style["label"] if family not in seen_methods else None)
-            seen_methods.add(family)
+                    label=style["label"] if family not in seen else None)
+            seen.add(family)
             if family == "slb":
-                # Mark the dimension on the cheapest SLB point.
-                ax.annotate(f"d={dim}", (curve[0][1], curve[0][2]),
+                ax.annotate(f"d={dim}", (cost(curve[0][1], curve[0][4]), curve[0][2]),
                             textcoords="offset points", xytext=(-4, 6),
                             fontsize=8, color=style["color"], alpha=alpha)
-        for name, wall, error, note in rows:
+
+        for name, wall, error, _note, samples in rows:
             if name in ("slb", "jackknife"):
                 continue
             style = METHOD_STYLE[name]
-            ax.plot([wall], [error], color=style["color"], marker=style["marker"],
+            x = cost(wall, samples)
+            # Every method carries its dimension. Without this the exact
+            # solvers are unlabelled points sitting four decades below SLB,
+            # which reads as SLB being the worst method rather than as the
+            # only approximate one on that part of the axis.
+            ax.plot([x], [error], color=style["color"], marker=style["marker"],
                     alpha=alpha, markersize=8, linestyle="none",
-                    label=style["label"] if name not in seen_methods else None)
-            seen_methods.add(name)
+                    markerfacecolor="none" if name in EXACT_METHODS else style["color"],
+                    markeredgewidth=1.8,
+                    label=style["label"] if name not in seen else None)
+            ax.annotate(f"d={dim}", (x, error), textcoords="offset points",
+                        xytext=(5, -10), fontsize=7, color=style["color"],
+                        alpha=alpha)
+            seen.add(name)
 
     ax.set_xscale("log")
     ax.set_yscale("log")
-    ax.set_xlabel("wall-clock seconds (lower is better)")
-    ax.set_ylabel(f"time-averaged error in {observable}")
-    ax.set_title(f"{system}: accuracy versus cost -- {observable}\n"
-                 f"lower-left is better; shade darkens with dimension")
+    ax.set_xlabel("seconds per sample (one core per sample)" if per_sample
+                  else "wall-clock seconds, single core")
     ax.grid(True, which="both", alpha=0.25)
-    ax.legend(fontsize=8, loc="best")
+    return seen
+
+
+def figure_accuracy_vs_cost(system, points, observable):
+    """Two panels: the single-core total, and the one-core-per-sample limit.
+
+    Both stochastic methods parallelize trivially over their samples, so a
+    single serial number overstates the gap between them by exactly the ratio
+    of their sample counts. Drawing both ends makes the range explicit instead
+    of quietly picking the flattering one.
+    """
+    fig, axes = plt.subplots(1, 2, figsize=(12.4, 5.4), constrained_layout=True,
+                             sharey=True)
+    _draw_cost_panel(axes[0], points, observable, per_sample=False)
+    _draw_cost_panel(axes[1], points, observable, per_sample=True)
+
+    axes[0].set_ylabel(f"time-averaged error in {observable}")
+    axes[0].set_title("single core: total wall-clock", fontsize=10)
+    axes[1].set_title("one core per sample: wall-clock / samples", fontsize=10)
+
+    handles, labels = axes[0].get_legend_handles_labels()
+    axes[1].legend(handles, labels, fontsize=8, loc="best")
+    fig.suptitle(
+        f"{system}: accuracy versus cost -- {observable}\n"
+        f"lower-left is better; shade darkens with dimension; "
+        f"open markers are exact solvers (error = integrator floor)",
+        fontsize=12)
     return fig
 
 
