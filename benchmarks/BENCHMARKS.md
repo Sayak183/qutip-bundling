@@ -468,10 +468,8 @@ H_{\rm sys} = \omega_0\left(n+\tfrac12\right) + \chi n^2
 $$
 
 with $\omega_0=1.0$, anharmonicity $\chi=0.1$, spin gap $\Delta=1.0$, and an
-internal oscillator–spin coupling $g_{
-m int}=0.3$ (`coupling` in the code;
-written $g_{
-m int}$ here because $g$ already denotes the chains'
+internal oscillator–spin coupling $g_{\rm int}=0.3$ (`coupling` in the code;
+written $g_{\rm int}$ here because $g$ already denotes the chains'
 longitudinal field in §2.3 — they are unrelated). Here $n=a^\dagger a$ is the number
 operator and $x=(a+a^\dagger)/\sqrt2$ the position. The four terms are: the bare
 oscillator, its anharmonicity, the spin's energy splitting, and a coherent
@@ -480,8 +478,7 @@ oscillator–spin coupling.
 ![System C schematic](system_b_schematic.png)
 
 System C: an anharmonic oscillator whose energy gaps widen up the ladder,
-coupled to a two-level spin by an internal coherent coupling $g_{
-m int}$. A single
+coupled to a two-level spin by an internal coherent coupling $g_{\rm int}$. A single
 ohmic bath couples to the oscillator position $X = x\otimes I$ only, so the
 spin relaxes solely indirectly through $g$. The oscillator starts in its top
 Fock level.
@@ -493,12 +490,10 @@ It is a single shared bath — $X = x\otimes I$ acts only on the oscillator, so 
 oscillator and spin couple to **one** common reservoir (the spin has no separate
 bath of its own). Because $X$ touches only the oscillator, the bath never damps the
 spin directly; dissipation reaches the spin only indirectly, through the internal
-coherent coupling $g_{
-m int}(x\otimes\sigma_x)$. The system starts in the oscillator's
+coherent coupling $g_{\rm int}(x\otimes\sigma_x)$. The system starts in the oscillator's
 top Fock state with the spin down. As above, the total evolved object is the Lindblad master
 equation with dissipators built from $(H_{\rm sys}, X, \gamma)$ as in §2.1 ($N_L = 128$ at dim 16). Note the two
-distinct "couplings": $g_{
-m int}=0.3$ is an **internal coherent** coupling inside
+distinct "couplings": $g_{\rm int}=0.3$ is an **internal coherent** coupling inside
 $H_{\rm sys}$, whereas $\alpha=0.3$ is the **system–bath** coupling carried by
 $\gamma$ through $X$ — they are different physics that happen to share a value.
 The size is set by the Fock truncation. This system is close to the
@@ -772,67 +767,112 @@ doubling across every system and dimension in the table.
 
 ### 3.1 Which observables, and why not just the energy
 
-An observable here is a number extracted from the state at each time,
-$\langle A\rangle(t)=\mathrm{Tr}(A\rho(t))$, giving one curve to compare against
-the reference. Choosing them is not incidental: it *defines* what "accurate"
-means in every number on this page.
+An **observable** is anything you can measure from the state. Pick an operator
+$A$; at each time it gives one number, $\langle A\rangle(t)=\mathrm{Tr}(A\rho(t))$,
+and over the run that traces a curve. Every accuracy figure on this page is a
+comparison of two such curves — one from the method being tested, one from the
+exact reference.
 
-**Energy alone is not enough, and the size of the difference is easy to
-underestimate.** $\langle H\rangle$ is built almost entirely from the
-**diagonal** of $\rho$ — the populations. The **off-diagonal** entries, the
-coherences, are what an environment destroys first and have no classical
-counterpart. A method can track the populations well while getting the
-coherences badly wrong, and the energy curve will not show it.
+Which quantities you pick is not a side detail. **It decides what "accurate"
+means.**
 
-Measured on identical runs, SLB's accuracy advantage over `mcsolve` is
-**~488x on the energy and ~7x on the dominant coherence**. Quoting the energy
-alone would overstate it roughly seventyfold. Every accuracy claim on this page
-should be read as observable-specific.
+#### Why the energy alone is not enough
 
-**The rule used to pick them.** Where the Hamiltonian is a sum of terms with
-coefficients, $H=\sum_k \lambda_k O_k$, each $O_k$ is measured separately. Two
-things follow. They reconstruct the energy exactly,
-$\langle H\rangle=\sum_k\lambda_k\langle O_k\rangle$, which is checked on every
-run and holds to machine precision — residual $9\times10^{-16}$ on the chains
-and $2\times10^{-15}$ on the oscillator, a free correctness test on the whole
-pipeline. And each is a susceptibility $\partial\langle H\rangle/\partial
-\lambda_k$, so they are the quantities that already have names for these models.
+The state $\rho$ is a matrix, and its two halves mean different things:
+
+- the **diagonal**, $\rho_{aa}$ — how much of the state sits in energy level
+  $a$. These are the *populations*.
+- the **off-diagonal**, $\rho_{ab}$ — how strongly levels $a$ and $b$ are still
+  in step with each other. These are the *coherences*. They have no classical
+  counterpart, and they are the first thing an environment destroys.
+
+$\langle H\rangle$ is built almost entirely from the diagonal. So a method can
+get the populations right, get the coherences badly wrong, and the energy curve
+will still look fine.
+
+That is not a small effect here. On identical runs, SLB beats `mcsolve` by
+**488x on the energy** but only **7x on the dominant coherence**. Quote the
+energy alone and you overstate the advantage roughly seventyfold.
+
+**Read every accuracy claim on this page as being about one specific
+observable.**
+
+#### How the observables were chosen
+
+The Hamiltonian is a sum of terms, $H=\sum_k \lambda_k O_k$. Each term $O_k$ is
+measured on its own. Two things come for free:
+
+1. **They have to add back up to the energy.** The identity
+   $\langle H\rangle=\sum_k\lambda_k\langle O_k\rangle$ is checked on every run and holds to machine precision —
+   residual $9\times10^{-16}$ on the chains, $2\times10^{-15}$ on the
+   oscillator. That is a correctness test on the whole pipeline, at no extra
+   cost.
+2. **Each one already has a name.** $O_k$ is the susceptibility
+   $\partial\langle H\rangle/\partial\lambda_k$, so these are quantities people
+   already quote for these models, not probes invented for this benchmark.
 
 | | chains (A, B) | oscillator (C) |
 |---|---|---|
-| bulk | $\langle H\rangle$ | $\langle H\rangle$ |
-| off-diagonal probe | dominant coherence | dominant coherence |
-| directly driven | $\sum_i\langle\sigma^z_i\sigma^z_{i+1}\rangle$ (neighbour alignment) | $\langle n\rangle$ (occupation) |
-| the subtle one | $\sum_i\langle\sigma^x_i\rangle$ — also the bath coupling operator | $\langle\sigma^z\rangle$ — the bath never touches the spin directly |
+| the bulk number | $\langle H\rangle$ | $\langle H\rangle$ |
+| the quantum part | dominant coherence | dominant coherence |
+| what the bath drives | $\sum_i\langle\sigma^z_i\sigma^z_{i+1}\rangle$ — neighbour alignment | $\langle n\rangle$ — how far up the ladder |
+| the hard one | $\sum_i\langle\sigma^x_i\rangle$ — this *is* the bath coupling operator | $\langle\sigma^z\rangle$ — the bath never touches the spin |
 | remaining $H$ terms | $\sum_i\langle\sigma^z_i\rangle$ (System B only) | $\langle n^2\rangle$, $\langle x\otimes\sigma^x\rangle$ |
-| size-normalised | $\sum\langle\sigma^z\sigma^z\rangle/(n-1)$ | — |
+| per-site version | $\sum\langle\sigma^z\sigma^z\rangle/(n-1)$ | — |
 
-For System C, $\langle\sigma^z\rangle$ is the delicate one: the bath couples
-only through $X=x\otimes I$, so the spin moves *solely* through the internal
-coupling $g_{\rm int}$. It also carries under 4% of the total energy, so a large
-error in it barely disturbs $\langle H\rangle$ — exactly the blind spot the
-extra observables exist to cover.
+**Why $\langle\sigma^z\rangle$ is the delicate one.** In System C the bath
+couples only through $X=x\otimes I$, so it never acts on the spin at all. The
+spin moves *solely* because it is coupled to the oscillator internally. On top
+of that it carries under 4% of the total energy, so it can be badly wrong while
+$\langle H\rangle$ barely flinches. That blind spot is exactly why the extra
+observables are there.
 
-**The coherence operator is chosen, not guessed.** `common.populated_coherence_op`
-scans the reference trajectory, rotates $\rho$ into the energy eigenbasis, zeroes
-the diagonal, and takes the eigenstate pair $(a,b)$ with the largest
-$|\rho_{ab}|$ at any time; the observable is $|a\rangle\langle b|+\mathrm{h.c.}$
-Hand-picking a pair risks measuring one the dynamics never populates, where every
-method passes trivially. **The pair is fixed once, from the reference, and the
-same operator is given to every method** — if each chose its own "largest" pair
-they would be scored on different quantities and the errors would not be
-comparable.
+#### The coherence is chosen from evidence, not by hand
 
-**A constraint worth stating for anyone extending this.** Trajectory methods
-reconstruct $\rho$ as an *average over samples*, so they can only measure
-quantities **linear in $\rho$**. Purity $\mathrm{Tr}(\rho^2)$, von Neumann and
-entanglement entropies are nonlinear and cannot be obtained by averaging
-trajectory results — the average of $\mathrm{Tr}(\rho_k^2)$ is not
-$\mathrm{Tr}(\bar\rho^2)$. Density-matrix methods, bundling included, have no
-such restriction, which is a genuine advantage of that route. Observables must
-also be Hermitian, or the solvers silently discard an imaginary part, and they
-must be declared **before** the run, because `mcsolve` cannot store full states
-at these sizes and must be told in advance what to record.
+At dimension 16 there are 120 possible level pairs $(a,b)$, and only one of them
+becomes the coherence observable. The choice matters enormously, because **most
+pairs are dead**. Running the exact dynamics and recording the largest
+$|\rho_{ab}|$ each pair ever reaches:
+
+| pair | largest $|\rho_{ab}|$ over the whole run |
+|---|---|
+| $(0,1)$ | $3.9\times10^{-1}$ |
+| $(1,3)$ | $2.2\times10^{-1}$ |
+| $(0,3)$ | $2.0\times10^{-1}$ |
+| … | |
+| $(10,14)$ | $2.9\times10^{-18}$ |
+
+Top to bottom spans **17 orders of magnitude**, and **76 of the 120 pairs never
+reach even 1%** of the largest. The dynamics simply never creates coherence
+between those levels.
+
+Pick one of those by hand and the exact answer is zero, SLB returns zero,
+`mcsolve` returns zero, and a broken method returns zero too. Every method
+passes and nothing has been measured.
+
+So `common.populated_coherence_op` picks by evidence instead: it scans the
+reference trajectory, rotates $\rho$ into the energy eigenbasis, blanks the
+diagonal, and takes the pair whose $|\rho_{ab}|$ is largest at any time. The
+observable is $|a\rangle\langle b|+\mathrm{h.c.}$
+
+**The pair is fixed once, from the reference, and handed to every method.** If
+each method found its own largest pair, SLB would report its error on one pair
+and `mcsolve` on another — two numbers about two different quantities, which
+cannot be put side by side in a table.
+
+#### One limit worth knowing if you extend this
+
+Trajectory methods rebuild $\rho$ as an *average over samples*, so they can only
+report quantities that are **linear in $\rho$**. Purity $\mathrm{Tr}(\rho^2)$
+and the von Neumann and entanglement entropies are not: averaging
+$\mathrm{Tr}(\rho_k^2)$ over trajectories does not give $\mathrm{Tr}(\bar\rho^2)$.
+Density-matrix methods, bundling included, carry no such restriction, and that
+is a genuine advantage of that route.
+
+Two smaller rules. Observables must be Hermitian, or the solvers quietly discard
+an imaginary part. And they must be declared *before* the run, because `mcsolve`
+cannot store full states at these sizes and has to be told up front what to
+record.
 
 ### 3.2 Error: a time-resolved band, and the single numbers from it
 
@@ -1011,8 +1051,7 @@ with error at the integrator floor. Shade darkens with dimension.
 **Read these alongside the same plots for the dominant coherence.** From the
 identical runs, SLB's accuracy advantage over `mcsolve` is ~488x on the energy
 but only ~7x on the coherence. Energy is built almost entirely from the
-diagonal of $
-ho$; quoting it alone would overstate the advantage roughly
+diagonal of $\rho$; quoting it alone would overstate the advantage roughly
 seventyfold.
 
 ![Accuracy versus cost, oscillator, coherence](benchmark_comparison_oscillator_bath_coherence.png)

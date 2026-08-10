@@ -34,6 +34,7 @@ RUNNERS = (
     "run_method_comparison.py",
 )
 LINK_PATTERN = re.compile(r"!?\[[^\]]*]\(([^)]+)\)")
+INLINE_CODE_PATTERN = re.compile(r"`[^`]*`")
 
 
 def run_script(
@@ -119,6 +120,58 @@ def validate_local_links() -> int:
     return checked
 
 
+def validate_markdown_integrity() -> int:
+    r"""Catch silent LaTeX damage in the Markdown.
+
+    Passing LaTeX through a non-raw Python string or a shell heredoc eats the
+    backslash and leaves the control character it named: ``\r`` becomes a
+    carriage return, ``\t`` a tab, ``\a`` a bell. None of these are visible in
+    an editor, so the damage survives repeated passes over the file -- five
+    corrupted ``\rm`` and one ``\rho`` went unnoticed for weeks.
+
+    Also flags inline math split across a line break, which GitHub does not
+    render, and display math indented out of column zero, which it also does
+    not render.
+    """
+    problems: list[str] = []
+    checked = 0
+
+    for markdown_file in [REPO_ROOT / "README.md", *sorted(BENCHMARK_DIR.rglob("*.md"))]:
+        raw = markdown_file.read_bytes()
+        text = markdown_file.read_text(encoding="utf-8")
+        name = markdown_file.relative_to(REPO_ROOT)
+        checked += 1
+
+        lone_cr = sum(1 for k in range(len(raw))
+                      if raw[k:k + 1] == b"\r" and raw[k + 1:k + 2] != b"\n")
+        if lone_cr:
+            problems.append(f"{name}: {lone_cr} lone CR byte(s) -- an eaten LaTeX backslash")
+
+        stray = {c for c in text if ord(c) < 32 and c not in "\n\t"}
+        if stray:
+            problems.append(f"{name}: control characters {sorted(hex(ord(c)) for c in stray)}")
+
+        # `$USER`, `$1` and the like are shell, not math: strip code spans and
+        # skip fenced blocks before counting delimiters.
+        in_fence = False
+        for number, line in enumerate(text.split("\n"), start=1):
+            if line.lstrip().startswith("```"):
+                in_fence = not in_fence
+                continue
+            if in_fence:
+                continue
+            if line.strip() == "$$" and line != "$$":
+                problems.append(f"{name}:{number}: display math indented out of column 0")
+                continue
+            prose = INLINE_CODE_PATTERN.sub("", line)
+            if prose.count("$") % 2 and prose.strip() != "$$":
+                problems.append(f"{name}:{number}: inline math split across a line break")
+
+    if problems:
+        raise RuntimeError("Markdown integrity problems:\n  " + "\n  ".join(problems))
+    return checked
+
+
 def json_hashes(root: Path) -> dict[Path, str]:
     """Return SHA-256 hashes for JSON files below *root*."""
     return {
@@ -183,11 +236,13 @@ def exercise_commands(scratch_dir: Path) -> None:
 def main() -> None:
     json_count, csv_count = validate_saved_data()
     link_count = validate_local_links()
+    markdown_count = validate_markdown_integrity()
     with tempfile.TemporaryDirectory(prefix="qutip-bundling-smoke-") as temp_dir:
         exercise_commands(Path(temp_dir))
     print(
         "Benchmark smoke test passed: "
         f"{json_count} JSON, {csv_count} CSV, {link_count} local links, "
+        f"{markdown_count} Markdown files clean, "
         f"{len(PLOT_COMMANDS)} plot commands, {len(RUNNERS)} protected runners."
     )
 
