@@ -55,13 +55,16 @@ The supporting checks (`benchmark_convergence.py`,
 ## Contents
 
 **Setup**
-- [1. The core idea, and the two methods being compared](#1-the-core-idea-and-the-two-methods-being-compared)
+- [1. The core idea, and when it applies](#1-the-core-idea-and-when-it-applies)
+  - [Will bundling help *your* system?](#will-bundling-help-your-system)
 - [2. The three test systems (fully specified)](#2-the-three-test-systems-fully-specified)
+  - [2.0 The physical picture, before any equations](#20-the-physical-picture-before-any-equations)
   - [2.1 The bath (shared by all three systems)](#21-the-bath-shared-by-all-three-systems)
   - [2.2 Is this weak coupling? Yes — in both senses.](#22-is-this-weak-coupling-yes--in-both-senses)
   - [2.3 Systems A & B — transverse-field and mixed-field Ising chains](#23-system-a--b--transverse-field-g0-and-mixed-field-g04-ising-chains)
   - [2.4 System C — anharmonic oscillator coupled to a spin](#24-system-c--anharmonic-oscillator-coupled-to-a-spin)
   - [2.5 What each system is for](#25-what-each-system-is-for)
+  - [2.6 Worked example: where these numbers actually come from](#26-worked-example-where-these-numbers-actually-come-from)
 - [3. What we measure, and how the error is reported](#3-what-we-measure-and-how-the-error-is-reported)
   - [3.1 Which observables, and why not just the energy](#31-which-observables-and-why-not-just-the-energy)
   - [3.2 Error: a time-resolved band, and the single numbers from it](#32-error-a-time-resolved-band-and-the-single-numbers-from-it)
@@ -183,6 +186,15 @@ And if you cannot even build the operator list — thousands of dense operators
 at large dimension — that is the regime bundling exists for, though you will
 then have no exact reference to check against.
 
+Both checks run on all three systems with one command, and the script is short
+enough to copy and point at your own $(H, X)$:
+
+```bash
+python benchmarks/explain_structure.py
+```
+
+§2.6 walks through its output and explains where each number comes from.
+
 There are also two stochastic methods on the table, and the single most
 important thing to understand up front is that **they randomize different
 things.** This is why their costs and errors behave so differently, and why the
@@ -294,6 +306,10 @@ same small pool of numbers produce the same differences over and over. Its gaps
 repeat massively, step 3 above merges them, and $N_L$ collapses. Adding one
 extra field term (System B) breaks the transformation, the gaps stop repeating,
 and $N_L$ grows by orders of magnitude. Nothing else about the chain changes.
+
+Both terms are demonstrated on the actual spectra in **§2.6** — including an
+explicit check that System A's 16 energies are the subset sums of 4 numbers, to
+machine precision, and System B's are not.
 
 ---
 
@@ -537,7 +553,159 @@ still reaches $2.4\times10^{-3}$, it just needs $M=128$ to get there.
 
 A reader with their own model can place it on this table by computing two
 numbers before running anything: `len(davies_operators(H, X, gamma))` and the
-mean transition distance defined in §1.
+mean transition distance defined in §1. `explain_structure.py` computes both,
+and §2.6 walks through what they mean on these three systems.
+
+### 2.6 Worked example: where these numbers actually come from
+
+Everything below is printed by `python explain_structure.py`, which runs the
+two checks of §1 on all three systems. It is also the template for running them
+on your own model.
+
+#### Free particles: 16 energies that are really 4 numbers
+
+Take System A at $n=4$ spins, dimension 16. Diagonalise it, measure every level
+from the ground state, and walk up the list. Whenever a level is *not* already
+the sum of modes found earlier, call it a new mode:
+
+```
+modes found, eps_k = [0.1727 1.6227 2.4586 3.0087]
+every level reproduced, largest error 6.2e-15   <-- YES: the spectrum is 4 numbers, not 16
+```
+
+Four modes appear, and then **every one of the 16 levels is a subset sum of
+those four**, to machine precision. Not approximately — exactly. The same works
+at $n=8$ (256 levels from 8 numbers). No fitting is involved: the modes are read
+straight off the spectrum, and if the model were not free the search would
+simply fail, as it does for System B.
+
+That is the whole content of "free fermions". A change of variables
+(Jordan–Wigner) turns the interacting chain into $n$ independent modes, each
+either empty or occupied, so
+
+$$
+E = E_0 + \sum_{k=1}^{n} n_k\,\varepsilon_k , \qquad n_k \in \{0,1\}
+$$
+
+**Now the consequence.** A Bohr frequency is a *difference* of two such sums, so
+every occupation number contributes $-1$, $0$, or $+1$:
+
+$$
+\omega = \sum_{k=1}^{n} s_k\,\varepsilon_k , \qquad s_k \in \{-1,0,+1\}
+$$
+
+There are $d^2 = 4^n$ ordered level pairs but at most $3^n$ possible values of
+$\omega$. The bound is saturated in practice: at $n=3$, 64 pairs give exactly
+$27 = 3^3$ distinct gaps; at $n=4$, 256 pairs give exactly $81 = 3^4$. The ratio
+$(4/3)^n$ grows without bound, so the collision rate gets *worse* with size —
+which for this construction means better.
+
+**Physically:** the excitations of the ordered chain are domain walls, the
+boundaries between an up-pointing region and a down-pointing one. In System A
+these walls travel along the chain and pass straight through each other. Two
+walls cost exactly what one wall plus one wall costs, which is why the energies
+add. Turning on the longitudinal field $g$ makes the two orientations
+energetically inequivalent, so separating a pair of walls costs energy
+proportional to their separation — the walls are *confined*. Two walls now cost
+more than twice one wall, the energies stop adding, and the spectrum becomes 16
+genuinely independent numbers. That single change is the difference between
+$N_L = 31$ and $N_L = 2{,}017$ at dimension 64.
+
+#### The symmetry, and what it removes
+
+Let $P = \prod_i \sigma^x_i$ — flip every spin at once. Numerically:
+
+| | $\lVert [H,P] \rVert$ |
+|---|---|
+| System A ($g=0$) | $0$ (exactly) |
+| System B ($g=0.4$) | $2.4$ |
+
+$P^2 = \mathbb{1}$, so its eigenvalues are $\pm1$ and every eigenstate of System
+A carries a definite **parity**. The coupling operator $X = \sum_i \sigma^x_i$
+commutes with $P$ as well, so $\langle a|X|b\rangle$ is *exactly zero* whenever
+$a$ and $b$ have opposite parity. Half the matrix is gone before any frequency
+grouping happens. That shows up directly in the census below, as the fraction of
+level pairs $X$ can connect at all.
+
+#### The census, side by side (all at dimension 16)
+
+| | pairs $X$ can connect | distinct gaps among them ($N_L$) | transitions per operator |
+|---|---|---|---|
+| **A** ($n=4$, $g=0$) | 62 of 256 (24%) | **13** | 4.8 |
+| **B** ($n=4$, $g=0.4$) | 136 of 256 (53%) | **121** | 1.1 |
+| **C** (8 levels + spin) | 128 of 256 (50%) | **128** | 1.0 |
+
+Read across System A's row: symmetry throws away three quarters of the pairs,
+then degeneracy merges the survivors nearly 5:1. Systems B and C get neither
+discount — 1.1 and 1.0 transitions per operator means grouping does essentially
+nothing. This is the *only* reason A is cheap to solve exactly, and it is a
+property of the model, not of the dimension.
+
+#### What the collapse operators look like
+
+Sum $|\langle a|c_\alpha|b\rangle|^2$ over every collapse operator and print it
+as a map over the energy eigenbasis — lowest level top-left, `@` strongest:
+
+```
+System B (dim 16, N_L=121)          System C (dim 16, N_L=128)
+
+-# - . :# .: . .                     ..  ..  ..
+.# . . .. @. = .                    .  :.  ..  ..
+  - : .  .  . =                     .  .:  ..  ..
+.. . . :. .. : -                     ..  -.  ..  ..
+  . . .  :  + .                      ..  .-  ..  ..
+.. . . :. -. . .                    .  ..  =.  ..  .
+  . . .  .  - *                     .  ..  .+  ..  .
+.. . . .. .: . %                     ..  ..  +.  ..
+.. . . .. .. . .                     ..  ..  .*  ..
+  . . .  :  : .                        ..  ..  #.  .
+.. . . .. .. . .                       ..  ..  .%  .
+.. . . .. .- . *                         ..  ..  %.
+  . . .  .  . .                           .  ..  .@
+.. . . .. .. : :                           ..  ..  @
+  . . .  .  . -                             .  ..  :
+.. . . .. .. . #                             ..  ..
+
+d_bar = 5.13 levels                 d_bar = 1.97 levels
+```
+
+**System C is a staircase.** The bath couples through position
+$x \propto a + a^\dagger$, which by construction has matrix elements only
+between adjacent Fock states, $n \to n\pm1$. Anharmonicity mixes the states a
+little, but the ladder survives: the weight sits on a narrow band hugging the
+diagonal, and the bath drains the oscillator **one rung at a time**. The band
+sits two indices out rather than one only because each oscillator level carries
+the spin's two states with it — the physical step is still one rung.
+
+**System B is scattered.** $X = \sum_i \sigma^x_i$ is local *on the lattice*,
+but the energy eigenstates of a non-integrable chain are superpositions spread
+over the whole chain, so in the energy basis a single spin flip connects levels
+far apart in energy. One bath event can take the system from near the bottom of
+the spectrum to near the middle. There is no ladder to walk.
+
+$\bar d$ puts one number on that difference: the strength-weighted mean of
+$|a-b|$. C sits at 1.97 out of a possible 15; B at 5.13, close to the 5.3 you
+would get by scattering weight uniformly at random.
+
+Note what this does **not** separate. System A's $\bar d$ is 4.98 — statistically
+the same as B's. Locality does not distinguish A from B; $N_L$ does (13 against
+121). And $N_L$ does not distinguish B from C (121 against 128); locality does.
+That is precisely why three systems are needed and two would not do.
+
+#### Why locality plausibly helps accuracy
+
+Bundling replaces $N_L$ collapse operators by $M$ random mixtures of them. The
+mean is exactly right by construction; the error is the *spread* around it. In
+System C every collapse operator deposits its weight on the same narrow band, so
+a random mixture is still a near-neighbour operator, and the sampling noise from
+different terms lands on the same few matrix entries, where it partly cancels.
+In System B the operators deposit weight all over the matrix, so a random
+mixture scatters noise into entries nothing else touches, and nothing cancels.
+
+That is a picture, not a derivation, and §2.5 says where it breaks down — most
+importantly, within the chains $\bar d$ *falls* with dimension while the error
+rises. Measure it on your own model; do not trust it to extrapolate.
+
 
 
 ---
