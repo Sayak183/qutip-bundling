@@ -553,76 +553,14 @@ and §2.6 walks through what they mean on these three systems.
 
 ### 2.6 Worked example: where these numbers actually come from
 
-Everything below is printed by `python explain_structure.py`, which runs the
-two checks of §1 on all three systems. It is also the template for running them
-on your own model.
+The script `explain_structure.py` unpacks exactly *why* System A compresses to so few operators, while Systems B and C do not. 
 
-#### Free particles: 16 energies that are really 4 numbers
+Taking System A (dimension 16) as an example, its spectrum has two properties that massively reduce $N_L$:
 
-Take System A at $n=4$ spins, dimension 16. Diagonalise it, measure every level
-from the ground state, and walk up the list. Whenever a level is *not* already
-the sum of modes found earlier, call it a new mode:
+1. **Free Fermion Structure (Degeneracy):** All 16 energy levels are exact subset sums of just 4 underlying single-particle modes. As a result, the energy gaps between levels "collide" massively. Instead of 256 unique transition frequencies, there are at most $3^4 = 81$.
+2. **Parity Symmetry:** The system and coupling operator $X$ both commute with the global spin flip parity operator $P = \prod \sigma^x_i$. This means $X$ cannot connect states of opposite parity, instantly zeroing out 76% of all possible transitions before grouping even starts.
 
-```
-modes found, eps_k = [0.1727 1.6227 2.4586 3.0087]
-every level reproduced, largest error 6.2e-15   <-- YES: the spectrum is 4 numbers, not 16
-```
-
-Four modes appear, and then **every one of the 16 levels is a subset sum of
-those four**, to machine precision. Not approximately — exactly. The same works
-at $n=8$ (256 levels from 8 numbers). No fitting is involved: the modes are read
-straight off the spectrum, and if the model were not free the search would
-simply fail, as it does for System B.
-
-That is the whole content of "free fermions". A change of variables
-(Jordan–Wigner) turns the interacting chain into $n$ independent modes, each
-either empty or occupied, so
-
-$$
-E = E_0 + \sum_{k=1}^{n} n_k\,\varepsilon_k , \qquad n_k \in \{0,1\}
-$$
-
-**Now the consequence.** A Bohr frequency is a *difference* of two such sums, so
-every occupation number contributes $-1$, $0$, or $+1$:
-
-$$
-\omega = \sum_{k=1}^{n} s_k\,\varepsilon_k , \qquad s_k \in \{-1,0,+1\}
-$$
-
-There are $d^2 = 4^n$ ordered level pairs but at most $3^n$ possible values of
-$\omega$. The bound is saturated in practice: at $n=3$, 64 pairs give exactly
-$27 = 3^3$ distinct gaps; at $n=4$, 256 pairs give exactly $81 = 3^4$. The ratio
-$(4/3)^n$ grows without bound, so the collision rate gets *worse* with size —
-which for this construction means better.
-
-**Physically:** the excitations of the ordered chain are domain walls, the
-boundaries between an up-pointing region and a down-pointing one. In System A
-these walls travel along the chain and pass straight through each other. Two
-walls cost exactly what one wall plus one wall costs, which is why the energies
-add. Turning on the longitudinal field $g$ makes the two orientations
-energetically inequivalent, so separating a pair of walls costs energy
-proportional to their separation — the walls are *confined*. Two walls now cost
-more than twice one wall, the energies stop adding, and the spectrum becomes 16
-genuinely independent numbers. That single change is the difference between
-$N_L = 31$ and $N_L = 2{,}017$ at dimension 64.
-
-#### The symmetry, and what it removes
-
-Let $P = \prod_i \sigma^x_i$ — flip every spin at once. Numerically:
-
-| | $\lVert [H,P] \rVert$ |
-|---|---|
-| System A ($g=0$) | $0$ (exactly) |
-| System B ($g=0.4$) | $2.4$ |
-
-$P^2 = \mathbb{1}$, so its eigenvalues are $\pm1$ and every eigenstate of System
-A carries a definite **parity**. The coupling operator $X = \sum_i \sigma^x_i$
-commutes with $P$ as well, so $\langle a|X|b\rangle$ is *exactly zero* whenever
-$a$ and $b$ have opposite parity. Half the matrix is gone before any frequency
-grouping happens. That shows up directly in the census below, as the fraction of
-level pairs $X$ can connect at all.
-
-#### The census, side by side (all at dimension 16)
+**The Census at Dimension 16:**
 
 | | pairs $X$ can connect | distinct gaps among them ($N_L$) | transitions per operator |
 |---|---|---|---|
@@ -630,11 +568,7 @@ level pairs $X$ can connect at all.
 | **B** ($n=4$, $g=0.4$) | 136 of 256 (53%) | **121** | 1.1 |
 | **C** (8 levels + spin) | 128 of 256 (50%) | **128** | 1.0 |
 
-Read across System A's row: symmetry throws away three quarters of the pairs,
-then degeneracy merges the survivors nearly 5:1. Systems B and C get neither
-discount — 1.1 and 1.0 transitions per operator means grouping does essentially
-nothing. This is the *only* reason A is cheap to solve exactly, and it is a
-property of the model, not of the dimension.
+Symmetry and degeneracy combine to shrink System A's $N_L$ drastically. Systems B and C enjoy no such structural discounts (averaging $\sim$1 transition per operator), proving that extreme operator compression is a property of specific physical models, not a general feature of the dimension.
 
 #### What the collapse operators look like
 
