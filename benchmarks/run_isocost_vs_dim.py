@@ -43,7 +43,8 @@ import qutip
 
 from common import (
     build_davies_operators,
-    build_spin_chain, build_oscillator_bath, TLIST_FINE, SUBSTEPS,
+    build_spin_chain, build_oscillator_bath, build_mixed_field_chain,
+    TLIST_FINE, SUBSTEPS,
     DATA_DIR, FULL_TIME_BUDGET, MAX_FULL_DIM, MC_OPTIONS, tavg_rmse,
     run_metadata, save_data,
 )
@@ -74,6 +75,13 @@ MC_TIME_BUDGET_S = 3600.0   # per-dimension mcsolve budget (see mc_fit)
 SYSTEMS = {
     "spin_chain":      (build_spin_chain,      [(2, 4), (3, 4), (4, 4),
                                                 (5, 4), (6, 4)]),   # dims 4..64
+    # System B: same sizes as the TFIM chain, so the pair differs only by the
+    # longitudinal field, exactly as in Results 1 and 3. Its N_L reaches 2,017
+    # at dim 64, which is where the iso-accuracy question actually has teeth --
+    # without it Result 4 compares only the two systems where N_L is either
+    # tiny (TFIM) or ladder-structured (oscillator).
+    "mixed_chain":     (build_mixed_field_chain, [(2, 4), (3, 4), (4, 4),
+                                                  (5, 4), (6, 4)]), # dims 4..64
     "oscillator_bath": (build_oscillator_bath, [(4, 4), (8, 4), (16, 4),
                                                 (32, 16)]),         # dims 8..64
 }

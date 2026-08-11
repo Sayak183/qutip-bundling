@@ -8,6 +8,10 @@ from those samples.
 
 SYSTEM_N_RUNS = {
     "spin_chain": [4],
+    # System B carries the same averaging level as the oscillator so the two
+    # large-N_L systems are compared at equal statistical footing; the TFIM
+    # chain keeps 4 because its N_L caps M at 31 and the sweep ends early.
+    "mixed_chain": [16],
     "oscillator_bath": [16],
 }
 
