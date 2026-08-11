@@ -1003,30 +1003,19 @@ method:
 > `N_L`: the old data allowed `M` up to 113, the corrected construction caps it
 > at 31.
 
-### Result 1 — accuracy versus the bundle size $M$
+### Result 1 — convergence dynamics versus the bundle size $M$
 
-![spin chain accuracy](benchmark_accuracy_spin_chain.png)
-![oscillator accuracy](benchmark_accuracy_oscillator_bath.png)
+To see exactly *how* SLB converges to the exact solution as the bundle size $M$ grows, we can plot the time-evolution of several observables for each system. The dashed black line is the exact reference dynamics, and the colored lines are SLB at $M \in \{1, 2, 4, 8, 16, 32\}$, darkening as $M$ increases.
 
-These plot $\langle H(t)\rangle$ against the exact reference (black) as the
-system relaxes, with a $\pm1$-std band over realizations. As `M` grows the
-bundled mean tightens onto the reference and the band narrows — the
-approximation is a dial, not a fixed compromise. The two systems differ in how
-fast they converge in `M`: the oscillator already sits essentially on the
-reference at `M=2`, while the chain shows a visible bias and spread at `M=2`
-that shrink as `M` grows. Convergence speed is set by the spread of the
-individual operator contributions, not by dimension alone, so it is worth
-checking on your own system.
+![System A convergence](convergence_dynamics_spin_chain.png)
+![System B convergence](convergence_dynamics_mixed_chain.png)
+![System C convergence](convergence_dynamics_oscillator_bath.png)
 
-**Beyond energy: a coherence.** Energy is nearly diagonal in the energy
-eigenbasis, so matching $\langle H\rangle$ says little about off-diagonal
-structure. SLB also tracks the most-populated energy-eigenstate coherence
-$|a\rangle\langle b|+\text{h.c.}$ with the same convergence in `M` — the bundled
-mean converges onto the exact off-diagonal dynamics as `M` grows, confirming SLB
-reproduces the full density matrix, not merely its diagonal.
+These plot $\langle O(t)\rangle$ against the exact reference as the system relaxes. As $M$ grows, the bundled mean tightens onto the reference—the approximation is a dial, not a fixed compromise. 
 
-![spin chain coherence](benchmark_coherence_spin_chain.png)
-![oscillator coherence](benchmark_coherence_oscillator_bath.png)
+The systems differ dramatically in how fast they converge. The oscillator (System C) and mixed chain (System B) sit essentially on the reference at $M=8$, while the TFIM chain (System A) still shows visible deviation even at $M=16$. Convergence speed is set by the spread of the individual operator contributions and cross-terms, not by dimension alone, so it is worth checking on your own system.
+
+**Beyond energy: capturing coherence.** Energy is nearly diagonal in the energy eigenbasis, so matching $\langle H\rangle$ says little about off-diagonal structure. Notice the `coherence` panels: SLB tracks the magnitude of the off-diagonal density matrix elements with the same convergence in $M$. This confirms SLB reproduces the full density matrix, not merely its diagonal.
 
 **Sizes.** Every result in this section is available at Hilbert dimensions 16,
 32 and 64 on both systems, computed once per size and stored separately
