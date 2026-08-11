@@ -592,27 +592,48 @@ This proves a key point: **Extreme operator compression is a lucky feature of sp
 Sum $|\langle a|c_\alpha|b\rangle|^2$ over every collapse operator and print it
 as a map over the energy eigenbasis — lowest level top-left, `@` strongest:
 
+**System B (dim 16, N_L=121)**
+```text
+  -# - . :# .: . .
+  .# . . .. @. = .
+    - : .  .  . = 
+  .. . . :. .. : -
+    . . .  :  + . 
+  .. . . :. -. . .
+    . . .  .  - * 
+  .. . . .. .: . %
+  .. . . .. .. . .
+    . . .  :  : . 
+  .. . . .. .. . .
+  .. . . .. .- . *
+    . . .  .  . . 
+  .. . . .. .. : :
+    . . .  .  . - 
+  .. . . .. .. . #
+
+d_bar = 5.13 levels
 ```
-System B (dim 16, N_L=121)          System C (dim 16, N_L=128)
 
--# - . :# .: . .                     ..  ..  ..
-.# . . .. @. = .                    .  :.  ..  ..
-  - : .  .  . =                     .  .:  ..  ..
-.. . . :. .. : -                     ..  -.  ..  ..
-  . . .  :  + .                      ..  .-  ..  ..
-.. . . :. -. . .                    .  ..  =.  ..  .
-  . . .  .  - *                     .  ..  .+  ..  .
-.. . . .. .: . %                     ..  ..  +.  ..
-.. . . .. .. . .                     ..  ..  .*  ..
-  . . .  :  : .                        ..  ..  #.  .
-.. . . .. .. . .                       ..  ..  .%  .
-.. . . .. .- . *                         ..  ..  %.
-  . . .  .  . .                           .  ..  .@
-.. . . .. .. : :                           ..  ..  @
-  . . .  .  . -                             .  ..  :
-.. . . .. .. . #                             ..  ..
+**System C (dim 16, N_L=128)**
+```text
+   ..  ..  ..     
+  .  :.  ..  ..   
+  .  .:  ..  ..   
+   ..  -.  ..  .. 
+   ..  .-  ..  .. 
+  .  ..  =.  ..  .
+  .  ..  .+  ..  .
+   ..  ..  +.  .. 
+   ..  ..  .*  .. 
+     ..  ..  #.  .
+     ..  ..  .%  .
+       ..  ..  %. 
+        .  ..  .@ 
+         ..  ..  @
+          .  ..  :
+           ..  .. 
 
-d_bar = 5.13 levels                 d_bar = 1.97 levels
+d_bar = 1.97 levels
 ```
 
 **System C is a staircase.** The bath couples through position
