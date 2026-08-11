@@ -551,24 +551,41 @@ numbers before running anything: `len(davies_operators(H, X, gamma))` and the
 mean transition distance defined in §1. `explain_structure.py` computes both,
 and §2.6 walks through what they mean on these three systems.
 
-### 2.6 Worked example: where these numbers actually come from
+### 2.6 Worked example: Why do some systems compress so well?
 
-The script `explain_structure.py` unpacks exactly *why* System A compresses to so few operators, while Systems B and C do not. 
+In the tables above, you might notice that **System A** (the simple spin chain) ends up with a remarkably small number of Lindblad operators ($N_L = 13$ at dimension 16), while **System B** (the mixed chain) and **System C** (the oscillator) do not. 
 
-Taking System A (dimension 16) as an example, its spectrum has two properties that massively reduce $N_L$:
+Why does the Davies method compress System A so effectively, but leave the others mostly alone? The script `explain_structure.py` breaks this down. There are two physical reasons:
 
-1. **Free Fermion Structure (Degeneracy):** All 16 energy levels are exact subset sums of just 4 underlying single-particle modes. As a result, the energy gaps between levels "collide" massively. Instead of 256 unique transition frequencies, there are at most $3^4 = 81$.
-2. **Parity Symmetry:** The system and coupling operator $X$ both commute with the global spin flip parity operator $P = \prod \sigma^x_i$. This means $X$ cannot connect states of opposite parity, instantly zeroing out 76% of all possible transitions before grouping even starts.
+#### 1. The Energy Gaps "Collide" (Degeneracy)
+The Davies method groups transitions together if they share the *exact same energy gap* (the difference in energy between the starting state and the ending state). 
 
-**The Census at Dimension 16:**
+Imagine a system where the energy levels are completely messy. If you calculate the gap between any two levels, you'll get a unique number every time. No two gaps will be identical, so no grouping can happen. This is exactly what happens in System B and System C.
 
-| | pairs $X$ can connect | distinct gaps among them ($N_L$) | transitions per operator |
+System A is special. It is a "free" model, meaning its excitations (like flipping a spin) don't interfere with each other. If flipping one spin costs 2 units of energy, and flipping another costs 3 units, then flipping *both* costs exactly 5 units. Because the energies add together perfectly, the energy gaps between different levels start to repeat over and over again. 
+
+For a 4-spin chain (16 energy levels), there are 256 possible transitions. But because the energies add up perfectly, there are only 81 unique energy gaps. The gaps "collide," allowing the Davies method to pack many transitions into a single operator.
+
+#### 2. The "Parity" Rule (Symmetry)
+System A has a perfect symmetry: if you flip all the spins at once, the system's physics remain exactly the same. Because of this, every quantum state in the system is stamped with a built-in "parity" (think of it as being either "Even" or "Odd").
+
+The coupling operator that connects the system to the bath ($X$) obeys this symmetry too. The rules of quantum mechanics dictate that $X$ is completely forbidden from causing a jump between an "Even" state and an "Odd" state. 
+
+This simple rule instantly crosses out 76% of all the possible transitions on the board, before we even start grouping them by energy.
+
+#### The Final Breakdown (Dimension 16)
+
+Here is how those two rules play out in practice:
+
+| | Allowed Transitions | Unique Energy Gaps ($N_L$) | Transitions packed into one operator |
 |---|---|---|---|
-| **A** ($n=4$, $g=0$) | 62 of 256 (24%) | **13** | 4.8 |
-| **B** ($n=4$, $g=0.4$) | 136 of 256 (53%) | **121** | 1.1 |
-| **C** (8 levels + spin) | 128 of 256 (50%) | **128** | 1.0 |
+| **System A** (Perfect symmetry, perfect adding) | 62 of 256 (24%) | **13** | 4.8 |
+| **System B** (Broken symmetry, messy adding) | 136 of 256 (53%) | **121** | 1.1 |
+| **System C** (No symmetry, messy adding) | 128 of 256 (50%) | **128** | 1.0 |
 
-Symmetry and degeneracy combine to shrink System A's $N_L$ drastically. Systems B and C enjoy no such structural discounts (averaging $\sim$1 transition per operator), proving that extreme operator compression is a property of specific physical models, not a general feature of the dimension.
+As you can see, System A gets a massive discount because of its symmetrical and "free" nature. Systems B and C do not have these clean physical properties, so their transitions don't group together. 
+
+This proves a key point: **Extreme operator compression is a lucky feature of specific, clean physical models (like System A), not a guarantee for all systems.**
 
 #### What the collapse operators look like
 
