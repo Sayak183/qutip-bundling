@@ -624,8 +624,7 @@ It is tempting to think locality works because sampling noise "cancels out." It 
 Write out one bundled dissipator $R = M^{-1/2}\sum_\alpha r_\alpha c_\alpha$ with random signs $r_\alpha$:
 
 $$
-R \rho R^\dagger = \frac{1}{M}\sum_{\alpha}c_\alpha \rho c_\alpha^\dagger
-+ \frac{1}{M}\sum_{\alpha\neq\beta} r_\alpha r_\beta \, c_\alpha \rho c_\beta^\dagger
+R \rho R^\dagger = \frac{1}{M}\sum_{\alpha}c_\alpha \rho c_\alpha^\dagger + \frac{1}{M}\sum_{\alpha\neq\beta} r_\alpha r_\beta \, c_\alpha \rho c_\beta^\dagger
 $$
 
 The first sum is the exact dissipator. **The second sum is the entire error.** Its average is zero, but at finite $M$ it survives. 
