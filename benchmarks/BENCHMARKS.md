@@ -619,75 +619,36 @@ That is precisely why three systems are needed and two would not do.
 
 #### Where the error actually comes from
 
-It is tempting to say locality helps because the sampling noise "cancels" where
-the operators overlap. That is not what happens, and the measurement says so:
-in System C the true dissipator's weight sits at mean $|a-b| = 0.39$ while the
-*error's* weight sits at 2.80. The error does not land on top of the true answer
-and cancel it — it lands somewhere else entirely. It is simply much smaller.
+It is tempting to think locality works because sampling noise "cancels out." It doesn't. 
 
-Here is the actual mechanism. Write out one bundled dissipator. Since
-$R = M^{-1/2}\sum_\alpha r_\alpha c_\alpha$ with random signs $r_\alpha$,
+Write out one bundled dissipator $R = M^{-1/2}\sum_\alpha r_\alpha c_\alpha$ with random signs $r_\alpha$:
 
 $$
 R \rho R^\dagger = \frac{1}{M}\sum_{\alpha}c_\alpha \rho c_\alpha^\dagger
 + \frac{1}{M}\sum_{\alpha\neq\beta} r_\alpha r_\beta \, c_\alpha \rho c_\beta^\dagger
 $$
 
-The first sum is the true dissipator. **The second sum is the entire error.**
-Its average over the random signs is zero — that is why the method is unbiased —
-but at finite $M$ it survives at order $M^{-1/2}$.
+The first sum is the exact dissipator. **The second sum is the entire error.** Its average is zero, but at finite $M$ it survives. 
 
-So the question is not "how local are the operators" but **how much cross-term
-weight is there to average away**. Measured on an evolved state at dimension 16:
+The question isn't "how local are the operators," but **how many cross-terms survive to create noise?**
 
-| | pairs with a non-vanishing cross term | total cross weight ÷ true dissipator |
+| | non-vanishing cross terms | total cross weight ÷ true dissipator |
 |---|---|---|
 | **A** | 100% | 1.9x |
 | **B** | 56% | **4.2x** |
 | **C** | 11% | **0.6x** |
 
-System C has seven times less to cancel than System B. That is the whole
-difference, and it tracks the error directly: at $M=8$ a single bundled
-dissipator is off by 17% in System C and by 144% in System B.
+**Locality is simply *why* C's cross terms vanish.** Because C is a ladder, taking a step down ($c_\alpha$) and a step back up ($c_\beta^\dagger$) rarely lines up, so 89% of the products evaluate to exactly zero. System B is scattered, so almost every path survives.
 
-**Locality is *why* C's cross terms vanish.** $c_\alpha \rho c_\beta^\dagger$
-takes the system down one specific rung, across $\rho$, and back up a different
-specific rung. In a ladder those rungs usually do not line up, so the product is
-exactly zero — 89% of pairs die this way. In System B every operator reaches
-across the spectrum, so almost any pair finds a path through $\rho$ and survives.
+**Is this ratio a better predictor than $\bar d$?**
+Yes, but it is still not a universal law. 
+- **It fixes the direction:** Within each system, a higher ratio correctly predicts higher error (which $\bar d$ failed to do).
+- **It fails across systems:** It massively under-predicts the gap between the oscillator and the chains.
+- **It gets A vs B backwards:** At dimension 64, System A has a much smaller ratio than B, but larger error. 
 
-That makes $\bar d$ a *proxy* for something more basic: $\bar d$ describes the
-geometry, the cross-term ratio describes the error itself. But being the
-algebraically correct quantity does not make it a predictor, and it was tested
-against the two failures that disqualified $\bar d$ (§2.5). It fixes one and not
-the other.
+The cross-term ratio is the exact algebraic origin of the error, but it still cannot quantitatively predict error across different systems. **Open Question 4 stays open.** 
 
-**It fixes the direction.** Fitting error against ratio *within* each system, at
-matched $M$, every exponent is positive — oscillator $+0.91$ (stable across
-$M=8,16,32$), mixed chain $+0.46$ to $+0.73$, TFIM chain $+2.0$ to $+2.6$. The
-ratio never points the wrong way. $\bar d$ did: it falls with dimension in the
-chains while the error rises.
-
-**It does not fix the magnitude.** Fit the oscillator alone and extrapolate to
-the mixed chain at dimension 64 and it under-predicts by 46–56x depending on
-$M$ — no better than $\bar d$'s 40x. A single power law across all nine points
-gives error $\sim \text{ratio}^{1.9}$ with $R^2 \approx 0.89$ to $0.95$, but that fit is
-carried almost entirely by the enormous gap between the oscillator and the
-chains, not by resolution within either.
-
-**And it inverts A against B.** At $M=8$, dimension 64, System A has the smaller
-ratio (2.82 against 8.57) and the *larger* error ($1.3\times10^{-1}$ against
-$1.0\times10^{-1}$). Whatever separates those two, this is not it.
-
-So: the cross-term ratio is the exact algebraic origin of the error, is a
-strictly better within-system diagnostic than $\bar d$, and is still not a
-quantitative predictor across systems. **Open Question 4 stays open.**
-`explain_structure.py` prints the ratio; §1 continues to recommend $\bar d$ for
-the cheap family-level sort, which is all either quantity has earned.
-
-One clean by-product of the same sweep: the error falls as $1/M$, not
-$1/\sqrt{M}$. Doubling $M$ halves it, measured consistently at 1.87x–2.04x per
-doubling across every system and dimension in the table.
+*(Note: The sweeps consistently confirm that empirical error falls cleanly as $1/M$, not $1/\sqrt{M}$. Doubling $M$ halves the error across every system.)*
 
 
 
