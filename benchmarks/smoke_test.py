@@ -35,6 +35,8 @@ RUNNERS = (
 )
 LINK_PATTERN = re.compile(r"!?\[[^\]]*]\(([^)]+)\)")
 INLINE_CODE_PATTERN = re.compile(r"`[^`]*`")
+MATH_IN_LINK_PATTERN = re.compile(r"\[[^\]]*\$[^$\]]{1,60}\$[^\]]*]\(")
+MATH_IN_EMPHASIS_PATTERN = re.compile(r"(?<![*\w])\*[^*\n]*\$[^$*\n]{1,60}\$[^*\n]*\*(?!\*)")
 
 
 def run_script(
@@ -120,6 +122,34 @@ def validate_local_links() -> int:
     return checked
 
 
+def unrenderable_math(prose: str) -> list[str]:
+    r"""Inline math GitHub silently leaves as literal ``$...$``.
+
+    Checked against the published page: of 590 expressions in BENCHMARKS.md,
+    571 rendered and 19 did not, and every failure fell into one of the three
+    cases below. GitHub needs the opening ``$`` preceded by whitespace or
+    start-of-line, and it does not render math inside link text or emphasis.
+    ``fixed-$M$``, ``RMSE$(t)$`` and ``$10^{-3}$-$10^{-4}$`` are the shapes
+    that actually occurred.
+
+    Delimiters are PAIRED by scanning rather than matched by a regex: a naive
+    pattern pairs one expression's closing ``$`` with the next one's opening
+    ``$`` and reports six times as many problems as exist.
+    """
+    found: list[str] = []
+    positions = [i for i, c in enumerate(prose) if c == "$"]
+    for open_at, close_at in zip(positions[0::2], positions[1::2]):
+        before = prose[open_at - 1] if open_at else " "
+        if before.isalnum() or before in "-–—_":
+            found.append("math will not render, opening $ is glued to "
+                         f"{before!r}: {prose[max(0, open_at - 20):close_at + 1].strip()!r}")
+    for pattern, why in ((MATH_IN_LINK_PATTERN, "math inside link text will not render"),
+                         (MATH_IN_EMPHASIS_PATTERN, "math inside emphasis will not render")):
+        for match in pattern.finditer(prose):
+            found.append(f"{why}: {match.group(0)[:60]!r}")
+    return found
+
+
 def validate_markdown_integrity() -> int:
     r"""Catch silent LaTeX damage in the Markdown.
 
@@ -151,8 +181,8 @@ def validate_markdown_integrity() -> int:
         if stray:
             problems.append(f"{name}: control characters {sorted(hex(ord(c)) for c in stray)}")
 
-        # `$USER`, `$1` and the like are shell, not math: strip code spans and
-        # skip fenced blocks before counting delimiters.
+        # `$USER`, `$1` and the like are shell, not math: blank out code spans
+        # and skip fenced blocks before looking at delimiters.
         in_fence = False
         for number, line in enumerate(text.split("\n"), start=1):
             if line.lstrip().startswith("```"):
@@ -163,9 +193,12 @@ def validate_markdown_integrity() -> int:
             if line.strip() == "$$" and line != "$$":
                 problems.append(f"{name}:{number}: display math indented out of column 0")
                 continue
-            prose = INLINE_CODE_PATTERN.sub("", line)
+            prose = INLINE_CODE_PATTERN.sub(lambda m: " " * len(m.group(0)), line)
             if prose.count("$") % 2 and prose.strip() != "$$":
                 problems.append(f"{name}:{number}: inline math split across a line break")
+                continue
+            problems.extend(f"{name}:{number}: {why}"
+                            for why in unrenderable_math(prose))
 
     if problems:
         raise RuntimeError("Markdown integrity problems:\n  " + "\n  ".join(problems))

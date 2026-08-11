@@ -77,7 +77,7 @@ The supporting checks (`benchmark_convergence.py`,
   - [5.1 The four-method headline comparison](#51-the-four-method-headline-comparison)
   - [5.2 Memory and stiffness walls](#52-memory-and-stiffness-walls)
   - [5.3 Provenance of Results 1-4](#53-provenance-of-results-1-4)
-  - [Result 1 — accuracy versus the bundle size $M$](#result-1--accuracy-versus-the-bundle-size-m)
+  - [Result 1 — accuracy versus the bundle size M](#result-1--accuracy-versus-the-bundle-size-m)
   - [Result 2 — cost scaling versus the exact solver](#result-2--cost-scaling-versus-the-exact-solver)
   - [Result 3 — accuracy-versus-cost frontier against `mcsolve`](#result-3--accuracy-versus-cost-frontier-against-mcsolve)
   - [Result 4 — iso-accuracy cost versus dimension](#result-4--iso-accuracy-cost-versus-dimension)
@@ -301,7 +301,7 @@ not always make it the *unique* late-time state.
 transformed into something non-interacting. System A can: a standard change of
 variables turns the interacting spin chain into a gas of independent
 particles. Because the particles do not interact, the total energies are simply
-*sums of $n$ independent single-particle energies* — and sums built from the
+*sums of n independent single-particle energies* — and sums built from the
 same small pool of numbers produce the same differences over and over. Its gaps
 repeat massively, step 3 above merges them, and $N_L$ collapses. Adding one
 extra field term (System B) breaks the transformation, the gaps stop repeating,
@@ -741,7 +741,7 @@ chains while the error rises.
 **It does not fix the magnitude.** Fit the oscillator alone and extrapolate to
 the mixed chain at dimension 64 and it under-predicts by 46–56x depending on
 $M$ — no better than $\bar d$'s 40x. A single power law across all nine points
-gives error $\sim$ ratio$^{1.9}$ with $R^2 \approx 0.89$–$0.95$, but that fit is
+gives error $\sim \text{ratio}^{1.9}$ with $R^2 \approx 0.89$ to $0.95$, but that fit is
 carried almost entirely by the enormous gap between the oscillator and the
 chains, not by resolution within either.
 
@@ -1005,7 +1005,7 @@ governed by the tolerances).
 **SLB: a bias *and* a fluctuation — two knobs.** The randomness sits in the
 dissipator, and $\rho$ is a *nonlinear* function of the generator, so even
 though the bundled dissipator is unbiased, pushing its noise through the
-nonlinear evolution leaves a **finite-$M$ bias** of order $1/M$ in the state.
+nonlinear evolution leaves a **finite $M$ bias** of order $1/M$ in the state.
 On top of that sits a run-to-run **fluctuation** that averages down over
 realizations. So:
 
@@ -1214,7 +1214,7 @@ decomposition below is where the oscillator's behaviour becomes legible.
 
 **The anatomy of the error at its worst moment.** The time traces above show
 *that* the estimate converges; this figure shows *how*. For each observable,
-$t^\ast$ is the instant where the smallest-$M$ estimate's RMSE$(t)$ peaks — the
+$t^\ast$ is the instant where the smallest $M$ estimate's $\mathrm{RMSE}(t)$ peaks — the
 hardest moment of the dynamics — and is then held fixed for every $M$. At that
 one instant the error splits into its two parts: the **bias**
 $|\text{mean}(t^\ast)-\text{ref}(t^\ast)|$ and the **fluctuation** (the std over
@@ -1223,7 +1223,7 @@ the sampling is tuned — so the trends are purely the effect of $M$: the bias
 should fall like $1/M$ (the bundling systematic) and the fluctuation like
 $1/\sqrt{M}$ (the bundling noise). On the chain the energy shows exactly this
 ($M^{-1.2}$ and $M^{-0.5}$ fitted). One honest caveat: once the true bias drops
-below the statistical floor of the run-mean (SEM $=$ fluctuation$/\sqrt{200}$),
+below the statistical floor of the run-mean (SEM $=$ fluctuation $/\sqrt{200}$),
 the *measured* bias flattens into that noise — visible for the coherence at
 large $M$, where the fitted bias slope is shallower for exactly this reason.
 
@@ -1272,8 +1272,8 @@ reference, so they extend well past the wall — on the oscillator all the way t
 dim 128, a $16\times$ span in dimension.
 
 One caveat on the SLB slopes, stated plainly because a fitted exponent invites
-it: **the fixed-$M$ and iso curves are clean power laws on the chain but not on
-the oscillator.** On the chain the fixed-$M$ cost fits $N^{2.0}$ over dim
+it: **the fixed $M$ and iso curves are clean power laws on the chain but not on
+the oscillator.** On the chain the fixed $M$ cost fits $N^{2.0}$ over dim
 4–256 with monotone per-step ratios, close to the $O(N^3)$-per-solve floor once
 overhead is amortized — a quotable scaling law. On the oscillator the same
 curve fits $N^{1.4}$, but the per-doubling cost ratios are *not* monotone (a
@@ -1292,7 +1292,7 @@ operators — no bundling, no stochastic sampling, and no superoperators, so
 memory stays proportional to the operator list rather than exploding. It is here
 for one methodological purpose: **to supply the accuracy reference past the
 point where `mesolve` can no longer provide one.** Wherever both routes run they
-agree to $10^{-10}$–$10^{-8}$ (stated in the figure footer, recorded per
+agree to $10^{-10}$ to $10^{-8}$ (stated in the figure footer, recorded per
 dimension in the data), and where the native route is used alone it is re-run at
 half its substeps and rejected if halving moves the answer appreciably. That it
 also scales better than `mesolve` ($N^{3.3}$ / $N^{3.2}$) is worth noting but is
@@ -1344,13 +1344,13 @@ curve is the honest one — read on.
 **Fixed $M$ is cheap, but its accuracy decays with size.** At a
 fixed bundle count the RMSE against the exact solve *grows* with $N$: $N_L$ grows
 with the system, so a fixed number of bundles resolves the dissipator less
-finely (the recorded sweep shows the fixed-$M$ RMSE climbing through the
+finely (the recorded sweep shows the fixed $M$ RMSE climbing through the
 target as $N$ grows — the $M^\ast$ annotations on the iso-accuracy curve are
 that mechanism made visible). The MSE-budget bars under the cost panel show
 *why* the iso curve has the slope it does: at every $M^\ast$ the error is
 bias-dominated (statistical noise is a single-digit share by dim 16), so the
 slope is the bundling physics — $M^\ast$ must grow to cut bias — and more
-sampling cannot flatten it. A pure fixed-$M$ speed plot compares at a *moving*
+sampling cannot flatten it. A pure fixed $M$ speed plot compares at a *moving*
 accuracy, which invites the obvious objection: fast is meaningless if the error
 blows up with $N$.
 
@@ -1371,7 +1371,7 @@ cross-validated against `mesolve` at the last size where both exist (agreement
 at the $10^{-10}$ level; recorded in the data). Only the *reference* uses this
 route — the red cost curve remains genuine `qutip.mesolve`. The dashed red
 guide continues the exact solver past its feasibility wall at its own fitted
-slope: measured against it, SLB's fixed-$M$ point at the largest
+slope: measured against it, SLB's fixed $M$ point at the largest
 dimension shown is cheaper by four to five orders of magnitude (chain, dim
 256: an extrapolated $\sim\!3$ weeks versus a measured minute) — this, not
 the sub-wall region where both methods are cheap, is the figure's claim. The required
@@ -1379,7 +1379,7 @@ $M^\ast$ grows with $N$ but *sublinearly*: measured on the chain across six
 dimensions (4 to 128, the last two reached via the native reference), the
 ladder runs $4\to16\to32\to32\to64\to64$ — close to $M^\ast\sim\sqrt{N}$, and
 far short of the $M^\ast\propto N$ that would cost SLB a full power of $N$.
-This is what keeps the chain's iso-accuracy slope near $N^{2.4}$ rather than $N^4$, so this curve is steeper than fixed-$M$:
+This is what keeps the chain's iso-accuracy slope near $N^{2.4}$ rather than $N^4$, so this curve is steeper than fixed $M$:
 holding accuracy costs about one extra power of $N$. But it still sits far below
 the exact solver, so SLB's advantage survives the honest accounting. It is
 computable only up to the reference wall, since tuning $M^\ast$ needs the exact
@@ -1389,7 +1389,7 @@ ladder above, and a tighter $0.005$ on the oscillator, whose bias is small
 enough that the looser target was met with a single bundle at most sizes and so
 measured nothing. At $0.005$ the oscillator ladder is $8/4/4/2$ across dim
 16–128 — nearly flat, consistent with a system whose bundling bias barely
-grows with size, and the reason its iso and fixed-$M$ curves sit close
+grows with size, and the reason its iso and fixed $M$ curves sit close
 together rather than the iso curve rising above.)
 
 On the oscillator's iso curve the dim-8 point is drawn as a hollow marker: at
@@ -1482,7 +1482,7 @@ On the spin chain the two are competitive at the loosest, cheapest end, and
 while `mcsolve`'s is floored by trajectory variance — visible as its wide error
 bars, which the RMSE counts and SLB's low variance avoids. By the tight end SLB
 reaches a given accuracy at a fraction of `mcsolve`'s cost. On the oscillator the
-gap is large from the start: SLB reaches RMSE around $10^{-3}$–$10^{-4}$ in a few
+gap is large from the start: SLB reaches RMSE around $10^{-3}$ to $10^{-4}$ in a few
 seconds, while `mcsolve` after a thousand trajectories is still near $10^{-1}$ —
 two to three orders of magnitude less accurate at higher cost. That stiff,
 operator-heavy regime is what SLB is built for.
