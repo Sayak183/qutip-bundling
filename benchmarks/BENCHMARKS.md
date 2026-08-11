@@ -589,52 +589,10 @@ This proves a key point: **Extreme operator compression is a lucky feature of sp
 
 #### What the collapse operators look like
 
-Sum $|\langle a|c_\alpha|b\rangle|^2$ over every collapse operator and print it
-as a map over the energy eigenbasis — lowest level top-left, `@` strongest:
+To see *why* System C works and System B fails, we can plot the total transition weight (how strongly the bath moves population between energy levels) as a heatmap over the 16x16 energy basis:
 
-**System B (dim 16, N_L=121)**
-```text
-  -# - . :# .: . .
-  .# . . .. @. = .
-    - : .  .  . = 
-  .. . . :. .. : -
-    . . .  :  + . 
-  .. . . :. -. . .
-    . . .  .  - * 
-  .. . . .. .: . %
-  .. . . .. .. . .
-    . . .  :  : . 
-  .. . . .. .. . .
-  .. . . .. .- . *
-    . . .  .  . . 
-  .. . . .. .. : :
-    . . .  .  . - 
-  .. . . .. .. . #
-
-d_bar = 5.13 levels
-```
-
-**System C (dim 16, N_L=128)**
-```text
-   ..  ..  ..     
-  .  :.  ..  ..   
-  .  .:  ..  ..   
-   ..  -.  ..  .. 
-   ..  .-  ..  .. 
-  .  ..  =.  ..  .
-  .  ..  .+  ..  .
-   ..  ..  +.  .. 
-   ..  ..  .*  .. 
-     ..  ..  #.  .
-     ..  ..  .%  .
-       ..  ..  %. 
-        .  ..  .@ 
-         ..  ..  @
-          .  ..  :
-           ..  .. 
-
-d_bar = 1.97 levels
-```
+![System B Matrix](matrix_system_b.png)
+![System C Matrix](matrix_system_c.png)
 
 **System C is a staircase.** The bath couples through position
 $x \propto a + a^\dagger$, which by construction has matrix elements only
