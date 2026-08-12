@@ -1,21 +1,19 @@
-﻿"""
+"""
 plot_accuracy_vs_M.py
 =====================
 
 ANALYSIS/FIGURE HALF of the accuracy-versus-bundle-size benchmark (Result 1).
-Reads the data written by run_accuracy_vs_M.py and draws three figures per
-system; runs in seconds.
+Reads the data written by run_accuracy_vs_M.py and draws figures per system:
 
   benchmark_accuracy_<s>.png     <H(t)> vs time: exact reference, SLB mean per
                                  M with a +/-1 std band.
   benchmark_coherence_<s>.png    the same for the dominant coherence <C(t)>.
-  benchmark_error_decomposition_<s>.png   NEW -- the anatomy of the error at
-                                 its worst moment. For each observable, t* is
-                                 the time where the smallest-M estimate's
-                                 RMSE(t) peaks; holding that same instant for
-                                 every M, the figure plots the BIAS
-                                 |mean(t*) - ref(t*)|, the SEM, the total
-                                 RMSE, and the Std Dev vs M.
+  benchmark_error_decomposition_<s>.png   the anatomy of the error at its worst
+                                 moment. For each observable, t* is the time
+                                 where the smallest-M estimate's RMSE(t) peaks;
+                                 holding that same instant for every M, the
+                                 figure plots the BIAS |mean(t*) - ref(t*)|,
+                                 the SEM, the total RMSE, and the Std Dev vs M.
 
 All derived quantities (means, bands, t*, bias, fluctuation, slopes) come from
 the saved raw realizations -- nothing here re-runs any dynamics. Captions also
@@ -29,6 +27,7 @@ from __future__ import annotations
 
 import argparse
 import math
+import warnings
 
 import numpy as np
 
@@ -57,6 +56,56 @@ PLOT_DIM = None
 # non-default setting.
 USE_SINGLE_RUN_RMSE = True
 # ------------------------------------------------------
+
+# Observable LaTeX labels for each system, keyed by the string labels from
+# common.observable_set. Falls back to the raw label if not found.
+OBS_MATH = {
+    "energy":       r"\langle H\rangle",
+    "zz":           r"\langle \sigma^z\sigma^z \rangle",
+    "sx":           r"\langle \sigma^x \rangle",
+    "sz":           r"\langle \sigma^z \rangle",
+    "zz_per_bond":  r"\langle \sigma^z\sigma^z \rangle / \mathrm{bond}",
+    "n":            r"\langle n \rangle",
+    "n2":           r"\langle n^2 \rangle",
+    "x_sx":         r"\langle x \, \sigma^x \rangle",
+    "coherence":    None,  # filled dynamically from the pair indices
+}
+
+
+# ---------------------------------------------------------------------------
+# Old-format detection and migration
+# ---------------------------------------------------------------------------
+
+def _is_old_format(doc):
+    """True if doc uses the pre-all-observable format (samples_energy key)."""
+    if "slb_sweep" not in doc or not doc["slb_sweep"]:
+        return False
+    return "samples_energy" in doc["slb_sweep"][0]
+
+
+def _migrate_old_format(doc):
+    """Convert old two-observable format to the new dict-keyed format in place."""
+    warnings.warn(
+        f"accuracy_vs_M data file uses old format (samples_energy/samples_coherence). "
+        f"Migrating in memory — regenerate data with the updated run_accuracy_vs_M.py "
+        f"for full observable coverage.",
+        stacklevel=3,
+    )
+    ia, ib = doc.get("coherence_pair", [0, 1])
+    doc["observables"] = ["energy", "coherence"]
+    doc["coherence"] = {"levels": [ia, ib],
+                        "peak_abs_rho": doc.get("coherence_peak", 0.0)}
+    doc["reference"] = {
+        "energy": doc.pop("reference_energy"),
+        "coherence": doc.pop("reference_coherence"),
+    }
+    for row in doc["slb_sweep"]:
+        row["samples"] = {
+            "energy": row.pop("samples_energy"),
+            "coherence": row.pop("samples_coherence"),
+        }
+    return doc
+
 
 def _timing_caption(doc):
     n_real = doc["meta"]["params"]["N_REALIZATIONS"]
@@ -88,11 +137,21 @@ def _reference_label(doc):
     return "full Lindblad reference"
 
 
-def _curves(doc, key):
+def _obs_math(label, doc):
+    """LaTeX string for an observable label."""
+    if label == "coherence":
+        coh = doc.get("coherence") or {}
+        levels = coh.get("levels", doc.get("coherence_pair", [0, 1]))
+        ia, ib = levels
+        return rf"\langle C_{{{ia},{ib}}}\rangle"
+    return OBS_MATH.get(label, rf"\mathrm{{{label}}}")
+
+
+def _curves(doc, label):
     """{M: (mean, std)} for one observable from the raw realizations."""
     out = {}
     for row in doc["slb_sweep"]:
-        s = np.asarray(row[key], dtype=float)
+        s = np.asarray(row["samples"][label], dtype=float)
         out[row["M"]] = (s.mean(axis=0), s.std(axis=0, ddof=1))
     return out
 
@@ -155,11 +214,11 @@ def accuracy_figure(plt, name, doc, tlist, reference, curves,
     print(f"  saved benchmark_{fname_suffix}_{name}.png")
 
 
-def peak_error_anatomy(doc, key, ref):
+def peak_error_anatomy(doc, label, ref):
     """(t_star_index, m_values, bias(t*) per M, fluctuation(t*) per M)."""
     rows = sorted(doc["slb_sweep"], key=lambda r: r["M"])
-    n = np.asarray(rows[0][key], dtype=float).shape[0]
-    s0 = np.asarray(rows[0][key], dtype=float)
+    s0 = np.asarray(rows[0]["samples"][label], dtype=float)
+    n = s0.shape[0]
     bias0 = np.abs(s0.mean(axis=0) - ref)
     fluct0 = s0.std(axis=0, ddof=1)
     sem0 = fluct0 / np.sqrt(n)
@@ -173,7 +232,7 @@ def peak_error_anatomy(doc, key, ref):
     
     m_values, bias, fluct = [], [], []
     for row in rows:
-        s = np.asarray(row[key], dtype=float)
+        s = np.asarray(row["samples"][label], dtype=float)
         m_values.append(row["M"])
         bias.append(abs(float(s.mean(axis=0)[t_star]) - float(ref[t_star])))
         fluct.append(float(s.std(axis=0, ddof=1)[t_star]))
@@ -208,31 +267,34 @@ def decomposition_figure(plt, name, doc, tlist):
     """Bias, SEM, RMSE, and Std Dev vs M at the peak-error instant, per observable."""
     meta = doc["meta"]["params"]
     n_real = meta["N_REALIZATIONS"]
-    ia, ib = doc["coherence_pair"]
-    panels = [
-        ("samples_energy", as_array(doc["reference_energy"]),
-         r"\langle H\rangle", "energy"),
-        ("samples_coherence", as_array(doc["reference_coherence"]),
-         rf"\langle C_{{{ia},{ib}}}\rangle", "coherence"),
-    ]
-    fig, axes = plt.subplots(1, 2, figsize=(12.0, 5.2))
-    t_stars = []
-    for ax, (key, ref, obs_math, obs_name) in zip(axes, panels):
-        t_star, m, bias, fluct = peak_error_anatomy(doc, key, ref)
-        t_stars.append(tlist[t_star])
-        
+    observables = doc["observables"]
+    reference = doc["reference"]
+    n_obs = len(observables)
+
+    # Layout: 2 columns, as many rows as needed
+    n_cols = min(n_obs, 2)
+    n_rows = math.ceil(n_obs / n_cols)
+    fig, axes = plt.subplots(n_rows, n_cols,
+                             figsize=(6.0 * n_cols, 5.0 * n_rows),
+                             squeeze=False)
+
+    t_stars = {}
+    for idx, label in enumerate(observables):
+        ax = axes[idx // n_cols, idx % n_cols]
+        ref = as_array(reference[label])
+        t_star, m, bias, fluct = peak_error_anatomy(doc, label, ref)
+        t_stars[label] = tlist[t_star]
+
         # Calculate SEM and requested RMSE
         sem = fluct / np.sqrt(n_real)
-        
+
         if USE_SINGLE_RUN_RMSE:
             rmse = np.sqrt(bias**2 + fluct**2)
             rmse_label_prefix = "single-run RMSE"
-            footer_math = "RMSE\u00b2 = bias\u00b2 + StdDev\u00b2; expected: bias \u221d 1/M, StdDev \u221d 1/\u221aM"
         else:
             rmse = np.sqrt(bias**2 + sem**2)
             rmse_label_prefix = "total RMSE (ensemble)"
-            footer_math = "RMSE\u00b2 = bias\u00b2 + SEM\u00b2; expected: bias \u221d 1/M, SEM \u221d 1/\u221aM"
-        
+
         # Conditionally plot based on toggles
         if PLOT_RMSE:
             ax.loglog(m, rmse, "v-", color="black", lw=2.0, ms=6, zorder=4,
@@ -247,18 +309,31 @@ def decomposition_figure(plt, name, doc, tlist):
         if PLOT_STD:
             ax.loglog(m, fluct, "d-", color="tab:green", lw=1.8, ms=6, zorder=1,
                       label=_fit_label("Std Dev (fluctuation)", m, fluct))
-                  
+
+        obs_math_str = _obs_math(label, doc)
         ax.set_xlabel("bundle size $M$")
-        ax.set_title(rf"${obs_math}$ at $t^*={tlist[t_star]:.2f}$"
-                     rf"  ({obs_name} peak error)")
+        ax.set_title(rf"${obs_math_str}$ at $t^*={tlist[t_star]:.2f}$"
+                     rf"  ({label} peak error)")
         ax.grid(True, which="both", alpha=0.3)
-        ax.legend(fontsize=8, frameon=False)
-        
-    axes[0].set_ylabel("error at $t^*$")
+        ax.legend(fontsize=7, frameon=False)
+
+    # y-axis label on leftmost column only
+    for row in range(n_rows):
+        axes[row, 0].set_ylabel("error at $t^*$")
+
+    # Hide unused subplots
+    for idx in range(n_obs, n_rows * n_cols):
+        axes[idx // n_cols, idx % n_cols].set_visible(False)
+
     fig.suptitle(rf"{name} ({_size_str(name, doc['dim'])}, $N_L$={doc['n_l']}): "
                  rf"error anatomy at the worst moment, fixed sampling")
     fig.tight_layout()
-    
+
+    if USE_SINGLE_RUN_RMSE:
+        footer_math = "RMSE\u00b2 = bias\u00b2 + StdDev\u00b2; expected: bias \u221d 1/M, StdDev \u221d 1/\u221aM"
+    else:
+        footer_math = "RMSE\u00b2 = bias\u00b2 + SEM\u00b2; expected: bias \u221d 1/M, SEM \u221d 1/\u221aM"
+
     add_settings_footer(
         fig,
         f"t* = argmax of RMSE(t) of the smallest-M estimate, held for all M; "
@@ -266,13 +341,14 @@ def decomposition_figure(plt, name, doc, tlist):
         f"{footer_math}; {doc['meta']['substeps']} RK4 substep(s)/step",
         _timing_caption(doc),
     )
-    
+
     suffix = "" if USE_SINGLE_RUN_RMSE else "_ensRMSE"
     fig.savefig(f"benchmark_error_decomposition_{name}{suffix}.png", dpi=130,
                 bbox_inches="tight")
     plt.close(fig)
+    t_star_summary = ", ".join(f"{k}={v:.2f}" for k, v in t_stars.items())
     print(f"  saved benchmark_error_decomposition_{name}{suffix}.png  "
-          f"(t* energy={t_stars[0]:.2f}, coherence={t_stars[1]:.2f})")
+          f"(t* {t_star_summary})")
 
 
 def main():
@@ -304,24 +380,38 @@ def main():
     for name in names:
         fname = _resolve(name)
         doc = load_data(fname)
-        print(f"[{name}] plotting {fname} (dim {doc.get('dim','?')})")
+
+        # Backward compatibility: detect and migrate old two-observable format
+        if _is_old_format(doc):
+            doc = _migrate_old_format(doc)
+
+        print(f"[{name}] plotting {fname} (dim {doc.get('dim','?')}, "
+              f"observables: {doc.get('observables', '?')})")
         t = doc["meta"]["tlist"]
         tlist = np.linspace(t["t0"], t["t1"], t["n"])
-        ia, ib = doc["coherence_pair"]
-        print(f"[{name}]")
+
+        # Energy and coherence get their own dedicated accuracy (dynamics) figures
         accuracy_figure(
-            plt, name, doc, tlist, as_array(doc["reference_energy"]),
-            _curves(doc, "samples_energy"),
+            plt, name, doc, tlist,
+            as_array(doc["reference"]["energy"]),
+            _curves(doc, "energy"),
             obs_math=r"\langle H\rangle", fname_suffix="accuracy",
             subtitle="SLB vs full Lindblad reference (energy)",
         )
-        accuracy_figure(
-            plt, name, doc, tlist, as_array(doc["reference_coherence"]),
-            _curves(doc, "samples_coherence"),
-            obs_math=rf"\langle C_{{{ia},{ib}}}\rangle",
-            fname_suffix="coherence",
-            subtitle=rf"SLB vs reference (coherence on eigenstates {ia},{ib})",
-        )
+        if "coherence" in doc["observables"]:
+            coh = doc.get("coherence") or {}
+            levels = coh.get("levels", doc.get("coherence_pair", [0, 1]))
+            ia, ib = levels
+            accuracy_figure(
+                plt, name, doc, tlist,
+                as_array(doc["reference"]["coherence"]),
+                _curves(doc, "coherence"),
+                obs_math=rf"\langle C_{{{ia},{ib}}}\rangle",
+                fname_suffix="coherence",
+                subtitle=rf"SLB vs reference (coherence on eigenstates {ia},{ib})",
+            )
+
+        # Error decomposition: all observables
         decomposition_figure(plt, name, doc, tlist)
 
 

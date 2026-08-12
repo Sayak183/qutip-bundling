@@ -13,13 +13,13 @@ For each system, at one fixed reference-feasible size, it records:
     each SLB ensemble propagation take. The two are different costs with
     different scalings, and the saved numbers keep them distinct instead of
     blurring them into one.
-  * the exact reference dynamics for TWO observables: the energy <H(t)>
-    (diagonal-dominated) and the dominant coherence <C(t)> -- the energy-
-    eigenstate pair (a,b) whose off-diagonal is most populated by the actual
-    dynamics, chosen from the reference states. Tracking both shows SLB
-    reproduces populations AND coherences.
+  * the exact reference dynamics for ALL observables defined by
+    ``common.observable_set`` for that system -- typically energy, every
+    Hamiltonian sub-term, and the dominant coherence. Saving the full set
+    means the error-decomposition plots can cover every observable without a
+    re-run.
   * SLB, for each bundle size M on the ladder: the raw per-realization curves
-    of both observables (N_REALIZATIONS x n_times each) and the wall-clock of
+    of every observable (N_REALIZATIONS x n_times each) and the wall-clock of
     that ensemble solve. Saving raw realizations is the point of the split:
     the mean curve, the +/-1 std band, and the peak-error bias/fluctuation
     decomposition are all derived at analysis time, so new views of this data
@@ -43,7 +43,7 @@ from common import (
     build_davies_operators,
     build_spin_chain, build_oscillator_bath, build_mixed_field_chain,
     TLIST_FINE, SUBSTEPS,
-    DATA_DIR, MAX_FULL_DIM, populated_coherence_op, run_metadata, save_data,
+    DATA_DIR, MAX_FULL_DIM, observable_set, run_metadata, save_data,
 )
 from benchmark_cli import (
     add_max_full_dim_argument, add_safety_arguments, preflight_run,
@@ -137,17 +137,24 @@ def run(name, build, size, m_ladder, substeps):
             print(f"[{name}] dim={dim}: native reference self-check FAILED "
                   f"(dev {dev:.1e}) -- skipping (uncertifiable).")
             return
-    C, (ia, ib), peak = populated_coherence_op(H, ref_states)
-    e_ops = [H, C]
-    ref_energy = np.real(qutip.expect(H, ref_states))
-    ref_coherence = np.real(qutip.expect(C, ref_states))
+
+    # --- observables: full set from common.observable_set, same as Result 3 ---
+    labels, ops, coherence_info = observable_set(name, H, ref_states)
+    e_ops = ops
+    reference = {label: np.round(np.real(qutip.expect(op, ref_states)), ROUND)
+                 for label, op in zip(labels, ops)}
 
     print(f"[{name}] dim={dim}, N_L={n_l}; Davies {t_davies*1e3:.1f} ms, "
           f"reference ({ref_method}) {t_reference:.2f} s, {substeps} substeps")
-    print(f"  coherence on eigenstate pair ({ia},{ib}), peak |rho_ab|={peak:.2e}")
+    print(f"  observables: {labels}")
+    if coherence_info is not None:
+        ia, ib = coherence_info["levels"]
+        print(f"  coherence on eigenstate pair ({ia},{ib}), "
+              f"peak |rho_ab|={coherence_info['peak_abs_rho']:.2e}")
 
-    # --- SLB ensemble per M: raw realizations of both observables ---
+    # --- SLB ensemble per M: raw realizations of every observable ---
     m_values = capped_unique_m_values(m_ladder, n_l)
+    ref_energy = np.asarray(reference["energy"], dtype=float)
     guard = 100.0 * (1.0 + float(np.max(np.abs(ref_energy))))
     sweep = []
     for m_eff in m_values:
@@ -156,15 +163,16 @@ def run(name, build, size, m_ladder, substeps):
                                n_realizations=N_REALIZATIONS, rng=RNG,
                                backend="native", substeps=substeps)
         dt = time.perf_counter() - t0
+        # Divergence guard on the energy channel
         se = np.real(ens.samples[:, 0, :])
         if not np.isfinite(se).all() or float(np.max(np.abs(se))) > guard:
             print(f"    M={m_eff:3d}  SOFT DIVERGENCE at {substeps} substeps -- skipped")
             continue
-        sweep.append({
-            "M": m_eff, "cost": dt,
-            "samples_energy": np.round(se, ROUND),
-            "samples_coherence": np.round(np.real(ens.samples[:, 1, :]), ROUND),
-        })
+        # Save per-observable samples keyed by label
+        samples = {}
+        for idx, label in enumerate(labels):
+            samples[label] = np.round(np.real(ens.samples[:, idx, :]), ROUND)
+        sweep.append({"M": m_eff, "cost": dt, "samples": samples})
         print(f"    M={m_eff:3d}  ensemble ({N_REALIZATIONS} realizations) "
               f"= {dt:.2f} s")
 
@@ -177,9 +185,8 @@ def run(name, build, size, m_ladder, substeps):
               dim=dim, n_l=n_l, substeps=substeps,
               reference_method=ref_method, reference_selfcheck=ref_selfcheck,
               t_davies=t_davies, t_reference=t_reference,
-              coherence_pair=[ia, ib], coherence_peak=peak,
-              reference_energy=np.round(ref_energy, ROUND),
-              reference_coherence=np.round(ref_coherence, ROUND),
+              observables=labels, coherence=coherence_info,
+              reference=reference,
               slb_sweep=sweep)
     print(f"  -> wrote accuracy_vs_M_{name}_dim{dim}.json")
 
