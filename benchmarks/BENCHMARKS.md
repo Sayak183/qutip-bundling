@@ -710,12 +710,70 @@ measured on its own. Two things come for free:
 | remaining $H$ terms | $\sum_i\langle\sigma^z_i\rangle$ (System B only) | $\langle n^2\rangle$, $\langle x\otimes\sigma^x\rangle$ |
 | per-site version | $\sum\langle\sigma^z\sigma^z\rangle/(n-1)$ | — |
 
-**Why $\langle\sigma^z\rangle$ is the delicate one.** In System C the bath
-couples only through $X=x\otimes I$, so it never acts on the spin at all. The
-spin moves *solely* because it is coupled to the oscillator internally. On top
-of that it carries under 4% of the total energy, so it can be badly wrong while
-$\langle H\rangle$ barely flinches. That blind spot is exactly why the extra
-observables are there.
+#### What each observable tells you
+
+**$\langle H\rangle$ — total energy.** The weighted sum of every other observable.
+It is dominated by the diagonal of $\rho$ (the populations), so a method can get
+the off-diagonal structure badly wrong and the energy curve will still look
+fine. It is necessary but not sufficient.
+
+**Dominant coherence — quantum interference between the two most-coupled energy
+eigenstates.** The density matrix $\rho$ is rotated into the eigenbasis of $H$,
+so its off-diagonal entries $\rho_{ab}$ measure how much quantum superposition
+exists between energy levels $a$ and $b$. Most pairs are effectively dead (at
+dim 16, 76 out of 120 never reach 1 % of the largest). The code
+(`common.populated_coherence_op`) scans the exact reference trajectory and picks
+the single pair $(a,b)$ whose $|\rho_{ab}|$ is largest at any time. The
+observable is $|a\rangle\langle b|+|b\rangle\langle a|$, so it traces a
+real-valued curve. This directly tests whether the method preserves quantum
+interference, not just level populations.
+
+**$\sum_i\langle\sigma^z_i\sigma^z_{i+1}\rangle$ — nearest-neighbour Ising
+correlation (chains).** This is the coupling between adjacent spins in the
+$z$-direction. It tells you whether the chain is ordering ferromagnetically
+(spins aligning) or remaining disordered under the bath. Since the bath drives
+transitions through this term, getting it right means the dissipation is being
+approximated correctly.
+
+**$\langle n\rangle$ — oscillator excitation number (System C).** The average
+rung on the harmonic-oscillator ladder. If the bath is thermalizing the
+oscillator, $\langle n\rangle$ should relax toward the Bose–Einstein value set
+by the bath temperature. This directly tests whether the bath is doing its job.
+
+**$\sum_i\langle\sigma^x_i\rangle$ — bath coupling operator (chains).** The bath
+drives transitions *through* $\sigma^x$, so this expectation value is the most
+sensitive to how accurately you approximate the dissipation. Any error in the
+bundled collapse operators shows up here first, before it bleeds into the other
+observables. That is why it is labelled "the hard one."
+
+**$\langle\sigma^z\rangle$ — the spin the bath never touches (System C).** The
+bath couples only through $X=x\otimes I$, so it never acts on the spin at all.
+The spin moves *solely* because it is coupled to the oscillator internally. On
+top of that it carries under 4 % of the total energy, so it can be badly wrong
+while $\langle H\rangle$ barely flinches. That blind spot is exactly why it is
+included.
+
+**$\sum_i\langle\sigma^z_i\rangle$ — longitudinal magnetization (System B
+only).** The mixed-field Ising chain adds a $\sigma^z$ field on top of the
+transverse $\sigma^x$ field. This observable tracks the response to that extra
+field and is absent in the pure transverse-field chain (System A).
+
+**$\langle n^2\rangle$ — oscillator excitation variance (System C).** The second
+moment of the oscillator number. Together with $\langle n\rangle$ it pins down
+the width of the excitation distribution — a check that energy alone cannot
+provide, since two very different distributions can share the same
+$\langle n\rangle$.
+
+**$\langle x\otimes\sigma^x\rangle$ — oscillator–spin correlation (System C).**
+This is the internal coupling term between the oscillator and the spin. It
+measures how strongly the two subsystems are entangled or correlated. A method
+that treats the two subsystems too independently will get this wrong even if it
+nails the marginals $\langle n\rangle$ and $\langle\sigma^z\rangle$ separately.
+
+**$\sum\langle\sigma^z\sigma^z\rangle/(n{-}1)$ — per-bond correlation
+(chains).** The same nearest-neighbour correlation divided by the number of
+bonds. It rescales the chain observable so that different chain lengths can be
+compared on the same plot.
 
 #### The coherence is chosen from evidence, not by hand
 
