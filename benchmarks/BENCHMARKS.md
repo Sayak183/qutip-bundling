@@ -647,7 +647,7 @@ Yes, but it is still not a universal law.
 
 The cross-term ratio is the exact algebraic origin of the error, but it still cannot quantitatively predict error across different systems. **Open Question 4 stays open.** 
 
-*(Note: The sweeps consistently confirm that empirical error falls cleanly as $1/M$, not $1/\sqrt{M}$. Doubling $M$ halves the error across every system.)*
+**A note on the rate.** The sweeps consistently confirm that the empirical error falls as $1/M$, not $1/\sqrt{M}$: doubling $M$ halves it, measured at 1.87x-2.04x per doubling across every system and dimension.
 
 
 

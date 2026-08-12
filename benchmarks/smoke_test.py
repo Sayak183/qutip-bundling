@@ -119,7 +119,54 @@ def validate_local_links() -> int:
 
     if missing:
         raise RuntimeError("Missing local Markdown targets:\n" + "\n".join(missing))
+    validate_embedded_images_tracked()
     return checked
+
+
+def validate_embedded_images_tracked() -> None:
+    """Every embedded image must be committed, not merely present on disk.
+
+    Existing locally is not enough: a figure that is untracked renders as a
+    broken image on GitHub while every local check passes. This happened -- a
+    ``git commit -am`` stages only *tracked* modifications, so three brand-new
+    figures embedded in Result 3 were silently left behind and the published
+    page showed broken images.
+    """
+    embedded: list[tuple[Path, str]] = []
+    for markdown_file in [REPO_ROOT / "README.md", *sorted(BENCHMARK_DIR.rglob("*.md"))]:
+        for match in LINK_PATTERN.finditer(markdown_file.read_text(encoding="utf-8")):
+            raw_target = match.group(1).strip()
+            if raw_target.startswith(("http://", "https://", "mailto:", "#")):
+                continue
+            target = link_target(raw_target)
+            if target and target.lower().endswith((".png", ".jpg", ".jpeg", ".svg")):
+                embedded.append((markdown_file, target))
+    if not embedded:
+        return
+
+    paths = sorted({
+        (markdown_file.parent / target).resolve().relative_to(REPO_ROOT).as_posix()
+        for markdown_file, target in embedded
+    })
+    result = subprocess.run(
+        ["git", "ls-files", "--error-unmatch", "--", *paths],
+        cwd=REPO_ROOT, capture_output=True, text=True,
+    )
+    if result.returncode == 0:
+        return
+    # git reports one `error: pathspec '<path>' did not match` line per
+    # untracked path, then a trailing "Did you forget to 'git add'?" hint that
+    # must not be mistaken for a filename.
+    untracked = sorted({
+        line.split("'")[1]
+        for line in result.stderr.splitlines()
+        if line.startswith("error:") and "'" in line
+    })
+    raise RuntimeError(
+        "Embedded images are not committed, so they will render as broken on "
+        "GitHub even though they exist locally:\n  "
+        + "\n  ".join(untracked or [result.stderr.strip()])
+    )
 
 
 def unrenderable_math(prose: str) -> list[str]:
