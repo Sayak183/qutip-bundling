@@ -11,4 +11,4 @@
 #SBATCH --error=r4-osc-%j.err
 
 cd /usr/people/roib/sayak/qutip-bundling-landau/benchmarks
-python run_isocost_vs_dim.py --system oscillator_bath --overwrite
+python3 run_isocost_vs_dim.py --system oscillator_bath --overwrite
