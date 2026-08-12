@@ -75,7 +75,7 @@ ALPHA, KT, OMEGA_C = 0.3, 0.5, 8.0
 # Absolute energy tolerance used both for degenerate eigenspaces and
 # equal Bohr-frequency sectors. Keep this central so every benchmark
 # uses and records the same strict Davies construction.
-DAVIES_DEGENERACY_TOL = 1e-10
+DAVIES_DEGENERACY_TOL = 1e-5
 
 
 def gamma(omega: float) -> float:
