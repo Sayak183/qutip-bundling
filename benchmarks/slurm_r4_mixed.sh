@@ -11,6 +11,4 @@
 #SBATCH --error=r4-mixed-%j.err
 
 cd /usr/people/roib/sayak/qutip-bundling-landau/benchmarks
-source $HOME/miniconda/etc/profile.d/conda.sh
-conda activate qutip-env
-python run_isocost_vs_dim.py --system mixed_chain --overwrite
+/usr/people/roib/sayak/qutip-bundling-landau/.conda-env/bin/python run_isocost_vs_dim.py --system mixed_chain --overwrite
