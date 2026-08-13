@@ -152,17 +152,37 @@ def test_spin_chain_sectors_are_unique_and_gibbs_state_is_stationary():
 
 
 def test_degeneracy_tolerance_controls_only_numerical_grouping():
-    """A user can keep a physically meaningful tiny gap split explicitly."""
+    """A user can resolve or merge a tiny gap by choosing the tolerance.
+
+    Asserted against explicit tolerances on both sides rather than against
+    whatever the default happens to be. The default moved from 1e-10 to 1e-5 on
+    2026-08-12 and silently inverted this test's outcome, which is exactly the
+    coupling worth removing: the knob's behaviour is the invariant here, not the
+    shipped value of the knob.
+    """
     H = qutip.Qobj(np.diag([0.0, 1.0, 2.0 + 1e-8]))
     X = qutip.destroy(3) + qutip.create(3)
 
-    default = davies_operators(H, X, lambda omega: 1.0)
-    grouped = davies_operators(
-        H, X, lambda omega: 1.0, degeneracy_tol=1e-7
-    )
+    resolved = davies_operators(H, X, lambda omega: 1.0, degeneracy_tol=1e-10)
+    merged = davies_operators(H, X, lambda omega: 1.0, degeneracy_tol=1e-7)
 
-    assert len(default) == 4
-    assert len(grouped) == 2
+    assert len(resolved) == 4, "a tolerance below the splitting must keep it split"
+    assert len(merged) == 2, "a tolerance above the splitting must merge it"
+
+
+def test_shipped_default_merges_a_1e_8_splitting():
+    """Document what the shipped default does to a gap this small.
+
+    At 1e-5 the default is looser than a 1e-8 splitting, so it merges. That is
+    intentional -- frequencies that close are unresolvable by the bath over any
+    realistic window -- but it is a behaviour change worth pinning rather than
+    leaving implicit. See tests/test_degeneracy_tolerance.py for the measured
+    consequences on the benchmark systems.
+    """
+    H = qutip.Qobj(np.diag([0.0, 1.0, 2.0 + 1e-8]))
+    X = qutip.destroy(3) + qutip.create(3)
+
+    assert len(davies_operators(H, X, lambda omega: 1.0)) == 2
 
 
 def test_negative_degeneracy_tolerance_is_rejected():

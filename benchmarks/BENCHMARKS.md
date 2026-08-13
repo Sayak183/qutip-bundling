@@ -118,7 +118,7 @@ quarter of the spectrum apart.** The definition is in §2.5.
 |---|---|---|---|
 | Model | Transverse-field Ising ($J=1, h=0.6$) | Mixed-field Ising ($g=0.4$) | Anharmonic oscillator + spin |
 | Coupling $X$ | $\sum_i \sigma_x^i$ (collective) | $\sum_i \sigma_x^i$ (collective) | $x \otimes I$ (position) |
-| $N_L$ at dim 64 | 31 (collapses due to integrability) | 2,017 ($\sim N^2 / 2$) | 890 ($\sim N^2$) |
+| $N_L$ at dim 64 | 31 (collapses due to integrability) | 2,015 ($\sim N^2 / 2$) | 890 ($\sim N^2$) |
 | How far operators reach, $\bar d$ (dim 64) | 27% of the spectrum | 26% | **3.1% — neighbours only** |
 | Cost versus the exact solve | **none** (1.0x at dim 64) | **547x cheaper** (dim 128) | **54x cheaper** (dim 64) |
 | Relative error, one run at $M=16$ (dim 64) | $3.6\times10^{-2}$ | $5.4\times10^{-2}$ | $\mathbf{6.0\times10^{-6}}$ |
@@ -134,7 +134,7 @@ at every size measured.
 
 **System B** is the same chain with one extra field term, which destroys that
 special structure. The gaps stop repeating, almost nothing merges, and the
-count climbs to 8,193 at dimension 128 — enough to make bundling **547x
+count climbs to 8,163 at dimension 128 — enough to make bundling **547x
 cheaper** than solving exactly. But its operators connect energy levels far
 apart rather than neighbouring ones, and a single run at $M=16$ lands at
 percent-level error.
@@ -368,10 +368,23 @@ one per eigenvector pair. Keeping the sum inside $A(\omega)$ retains the cross
 terms required when energies or gaps are degenerate and makes the generator
 independent of the arbitrary eigenbasis chosen inside a degenerate eigenspace.
 The code groups numerical equalities within
-`DAVIES_DEGENERACY_TOL = 1e-10`. It also removes projector blocks at or below
+`DAVIES_DEGENERACY_TOL = 1e-5`. It also removes projector blocks at or below
 the scale-covariant backward-error floor
 $512\,\epsilon_{\rm mach}N\lVert X\rVert_F$, so exact symmetry zeros do not
 become machine-dependent operators.
+
+**A caveat on that tolerance.** At these sizes $10^{-5}$ is not comfortably
+below the spectrum: the smallest separation between two genuinely distinct
+driven frequencies is $2.5\times10^{-6}$ for System B at dimension 64 and
+$1.8\times10^{-7}$ at dimension 128, both *below* the tolerance. So a handful of
+distinct frequencies are being merged, and $N_L$ is weakly tolerance-dependent
+rather than a pure property of the model. The effect was measured and is small —
+$N_L$ moves by 0.1% at dimension 64 and 0.4% at dimension 128, and the
+dissipator applied to a state changes by $5\times10^{-9}$ relative — and the
+merging is defensible, since frequencies that close are unresolvable by the bath
+over the benchmark window. But **anyone applying this to a denser spectrum
+should check that margin before trusting the default**;
+`tests/test_degeneracy_tolerance.py` records the numbers above.
 
 The sign $\omega=\epsilon'-\epsilon$ makes a downward transition positive.
 With the detailed-balance convention above, the Gibbs state is stationary.
@@ -381,7 +394,7 @@ exact symmetry shared by both can preserve multiple stationary sectors.
 The three systems feed *different* $(H_{\rm sys}, X)$ into this one recipe:
 
 - **System A** (§2.3): Integrable Ising chain ($g=0$), $X = \sum_i \sigma^x_i$. Its free-fermion integrability and $\mathbb{Z}_2$ symmetry collapse the Bohr spectrum. At 6 spins (dim 64), $N_L = 31$ ($N_L = n^2-n+1$).
-- **System B** (§2.3): Mixed-field Ising chain ($g=0.4$), $X = \sum_i \sigma^x_i$. The longitudinal field breaks integrability, preventing frequency collapse and raising $N_L$ to 2,017 at dim 64 and 8,193 at dim 128. Its transition matrices in the energy eigenbasis are dense (bandwidth ~16% under the `probe_oq4_accuracy.py` normalisation; ~26-32% under the mean-distance definition given in §1 -- quote which one you mean).
+- **System B** (§2.3): Mixed-field Ising chain ($g=0.4$), $X = \sum_i \sigma^x_i$. The longitudinal field breaks integrability, preventing frequency collapse and raising $N_L$ to 2,015 at dim 64 and 8,163 at dim 128. Its transition matrices in the energy eigenbasis are dense (bandwidth ~16% under the `probe_oq4_accuracy.py` normalisation; ~26-32% under the mean-distance definition given in §1 -- quote which one you mean).
 - **System C** (§2.4): Anharmonic oscillator + spin, $X = x \otimes I$. Its collapse operators act through position $x \propto (a + a^\dagger)$, which is strictly tridiagonal in Fock space. $N_L = 890$ at dim 64, and its transition bandwidth is narrow (~3.1% – 4.4% of the spectrum).
 
 In code these are built via dedicated functions in `common.py`:
@@ -428,7 +441,7 @@ H_{\rm sys} = -J\sum_{i=1}^{n-1}\sigma^z_i\sigma^z_{i+1}
 $$
 
 - **System A ($g=0.0$):** The transverse-field Ising model is **integrable**. It maps to free fermions, so its energy levels are sums of $n$ independent single-particle mode energies. Enormous numbers of transitions share identical Bohr frequencies, collapsing $N_L$ under Davies grouping to $n^2-n+1$ (31 at dim 64, 43 at dim 128).
-- **System B ($g=0.4$):** Adding the longitudinal field $g=0.4$ **breaks integrability**. Bohr frequencies no longer coincide, grouping merges almost nothing, and $N_L$ scales as $\sim N^2 / 2$ (2,017 at dim 64, 8,193 at dim 128).
+- **System B ($g=0.4$):** Adding the longitudinal field $g=0.4$ **breaks integrability**. Bohr frequencies no longer coincide, grouping merges almost nothing, and $N_L$ scales as $\sim N^2 / 2$ (2,015 at dim 64, 8,163 at dim 128).
 
 In both chains, the bath couples through $X = \sum_i \sigma^x_i$, and the chain starts fully polarized, $|\psi_0\rangle = |{\uparrow\uparrow\cdots\uparrow}\rangle$. Expressed in the energy eigenbasis, $X$ produces **dense** transitions: it
 connects levels far apart in energy rather than only neighbouring ones. Under
@@ -507,7 +520,7 @@ so the benchmark can say which one matters:
 | | operator count $N_L$ | how far each operator reaches | outcome |
 |---|---|---|---|
 | **A** — TFIM chain ($g=0$) | small (31 at dim 64) | reaches far ($\bar d\approx27\%$) | no speedup available |
-| **B** — mixed chain ($g=0.4$) | large (2,017 at dim 64) | reaches far ($\bar d\approx26\%$) | 547x cheaper, error $5.4\times10^{-2}$ |
+| **B** — mixed chain ($g=0.4$) | large (2,015 at dim 64) | reaches far ($\bar d\approx26\%$) | 547x cheaper, error $5.4\times10^{-2}$ |
 | **C** — oscillator | large (890 at dim 64) | local ($\bar d\approx3\%$) | 54x cheaper, error $6.0\times10^{-6}$ |
 
 **A versus B** isolates the operator count. Same lattice, same coupling
