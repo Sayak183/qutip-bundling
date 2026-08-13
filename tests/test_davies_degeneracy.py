@@ -170,19 +170,18 @@ def test_degeneracy_tolerance_controls_only_numerical_grouping():
     assert len(merged) == 2, "a tolerance above the splitting must merge it"
 
 
-def test_shipped_default_merges_a_1e_8_splitting():
-    """Document what the shipped default does to a gap this small.
+def test_shipped_default_resolves_a_1e_8_splitting():
+    """The shipped default is tight enough to keep a 1e-8 gap distinct.
 
-    At 1e-5 the default is looser than a 1e-8 splitting, so it merges. That is
-    intentional -- frequencies that close are unresolvable by the bath over any
-    realistic window -- but it is a behaviour change worth pinning rather than
-    leaving implicit. See tests/test_degeneracy_tolerance.py for the measured
-    consequences on the benchmark systems.
+    At 1e-10 the default sits below such a splitting, so it resolves it into
+    four operators rather than merging to two. A brief experiment with 1e-5 on
+    2026-08-12 inverted this; see tests/test_degeneracy_tolerance.py for the
+    sweep that argued it back.
     """
     H = qutip.Qobj(np.diag([0.0, 1.0, 2.0 + 1e-8]))
     X = qutip.destroy(3) + qutip.create(3)
 
-    assert len(davies_operators(H, X, lambda omega: 1.0)) == 2
+    assert len(davies_operators(H, X, lambda omega: 1.0)) == 4
 
 
 def test_negative_degeneracy_tolerance_is_rejected():

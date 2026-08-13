@@ -75,7 +75,15 @@ ALPHA, KT, OMEGA_C = 0.3, 0.5, 8.0
 # Absolute energy tolerance used both for degenerate eigenspaces and
 # equal Bohr-frequency sectors. Keep this central so every benchmark
 # uses and records the same strict Davies construction.
-DAVIES_DEGENERACY_TOL = 1e-5
+#
+# 1e-10 is the middle of a measured plateau: sweeping the tolerance from 1e-14
+# to 1e-6 gives an IDENTICAL operator count for every system and dimension
+# here, and the count only starts eroding at 1e-5 (System B, dim 64: 2017 ->
+# 2015) before collapsing beyond 1e-4 (-> 1813 at 1e-3). Sitting in the middle
+# of that shelf keeps N_L a property of the model rather than of this constant.
+# Do not loosen it without re-running the sweep in
+# tests/test_degeneracy_tolerance.py.
+DAVIES_DEGENERACY_TOL = 1e-10
 
 
 def gamma(omega: float) -> float:

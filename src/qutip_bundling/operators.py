@@ -141,7 +141,7 @@ def davies_operators(
     threshold: float = 0.0,
     coupling_threshold: float = 0.0,
     lamb_shift_threshold: float | None = None,
-    degeneracy_tol: float = 1e-5,
+    degeneracy_tol: float = 1e-10,
     return_bare: bool = False,
 ):
     """Build Davies/Bohr collapse operators directly from H and a coupling op.
