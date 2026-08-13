@@ -1098,7 +1098,7 @@ The systems differ dramatically in how fast they converge. The oscillator (Syste
 **Beyond energy: capturing coherence.** Energy is nearly diagonal in the energy eigenbasis, so matching $\langle H\rangle$ says little about off-diagonal structure. Notice the `coherence` panels: SLB tracks the magnitude of the off-diagonal density matrix elements with the same convergence in $M$. This confirms SLB reproduces the full density matrix, not merely its diagonal.
 
 **Sizes.** Every result in this section is available at Hilbert dimensions 16,
-32 and 64 on both systems, computed once per size and stored separately
+32 and 64 on all three systems, computed once per size and stored separately
 (`accuracy_vs_M_<system>_dim<D>.json`); the plot script's `PLOT_DIM` selects
 which to draw. Past dim 32 `mesolve` can no longer build its superoperator
 here, so the reference at dim 64 is the certified native full-dissipator route
@@ -1107,8 +1107,11 @@ because its stiffness demands it. The convergence laws survive the jump: on
 the chain at dim 64 ($N_L=31$) the energy
 bias still falls as $M^{-0.98}$ and the
 statistical spread as $M^{-0.73}$, essentially unchanged from dim 16. On the
-oscillator the bias at large size sits below the sampling floor at every $M$,
-so it is reported as an upper bound rather than a fitted rate.
+oscillator at dim 64 the bias is *comparable to* the sampling floor rather than
+cleanly above it — it sits below at $M=4$, 32 and 64 and above at $M=2$, 8 and
+16 — so the fitted slope there is not trustworthy and the individual points
+should be read as upper bounds. At dim 32 the bias stays measurable at every
+$M$, and the fit is meaningful.
 
 **Why the oscillator's traces look featureless.** On the oscillator the SLB
 curves sit on top of the reference at every $M$, with bands too narrow to see —
@@ -1131,13 +1134,16 @@ realizations). The realization count is the same at every $M$ — nothing about
 the sampling is tuned — so the trends are purely the effect of $M$: the bias
 should fall like $1/M$ (the bundling systematic) and the fluctuation like
 $1/\sqrt{M}$ (the bundling noise). On the chain the energy shows exactly this
-($M^{-0.98}$ and $M^{-0.73}$ fitted). One honest caveat: once the true bias drops
+($M^{-0.98}$ and $M^{-0.73}$ fitted at dim 64), and the pattern holds across
+every system and size measured: the bias exponent lands between $-0.92$ and
+$-1.09$, the fluctuation exponent between $-0.46$ and $-0.73$. One honest caveat: once the true bias drops
 below the statistical floor of the run-mean (SEM $=$ fluctuation $/\sqrt{200}$),
 the *measured* bias flattens into that noise — visible for the coherence at
 large $M$, where the fitted bias slope is shallower for exactly this reason.
 
-![spin chain error decomposition](benchmark_error_decomposition_spin_chain.png)
-![oscillator error decomposition](benchmark_error_decomposition_oscillator_bath.png)
+![System A error decomposition](benchmark_error_decomposition_spin_chain.png)
+![System B error decomposition](benchmark_error_decomposition_mixed_chain.png)
+![System C error decomposition](benchmark_error_decomposition_oscillator_bath.png)
 
 **Construction is not dynamics.** The figure captions now report the two costs
 separately: building the $N_L$ Davies/Lindblad operators (an eigendecomposition
@@ -1162,8 +1168,9 @@ floor.
 
 ### Result 2 — cost scaling versus the exact solver
 
-![spin chain cost scaling](benchmark_cost_scaling_spin_chain.png)
-![oscillator cost scaling](benchmark_cost_scaling_oscillator_bath.png)
+![System A cost scaling](benchmark_cost_scaling_spin_chain.png)
+![System B cost scaling](benchmark_cost_scaling_mixed_chain.png)
+![System C cost scaling](benchmark_cost_scaling_oscillator_bath.png)
 
 The figure has two panels sharing the dimension axis. **Top:** wall-clock time
 for one solve versus Hilbert-space dimension $N$. **Bottom:** the accuracy of the
@@ -1292,7 +1299,7 @@ This is what keeps the chain's iso-accuracy slope near $N^{2.4}$ rather than $N^
 holding accuracy costs about one extra power of $N$. But it still sits far below
 the exact solver, so SLB's advantage survives the honest accounting. It is
 computable only up to the reference wall, since tuning $M^\ast$ needs the exact
-answer. (The target is applied per system, since the two have very different
+answer. (The target is applied per system, since the three have very different
 bias scales: $0.02$ on the chain, where it produces the climbing $M^\ast$
 ladder above, and a tighter $0.005$ on the oscillator, whose bias is small
 enough that the looser target was met with a single bundle at most sizes and so
