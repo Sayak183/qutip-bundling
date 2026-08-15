@@ -1232,9 +1232,12 @@ dim 128, a $16\times$ span in dimension.
 
 One caveat on the SLB slopes, stated plainly because a fitted exponent invites
 it: **the fixed $M$ and iso curves are clean power laws on the chain but not on
-the oscillator.** On the chain the fixed $M$ cost fits $N^{1.6}$ over dim
-4–256 with monotone per-step ratios, close to the $O(N^3)$-per-solve floor once
-overhead is amortized — a quotable scaling law. On the oscillator the same
+the oscillator.** On the chain the fixed $M$ cost fits $N^{1.9}$ over dim
+4–512 with monotone per-step ratios, close to the $O(N^3)$-per-solve floor once
+overhead is amortized — a quotable scaling law. (It fitted $N^{1.6}$ over
+dim 4–256; extending the sweep to 512 steepened it, which is the honest
+direction — the earlier fit was flattered by the small $N$ points where
+fixed overhead dominates.) On the oscillator the same
 curve fits $N^{1.3}$, but the per-doubling cost ratios are *not* monotone (a
 large jump at dim 8→32, then a much smaller one at 32→128 as the dense linear
 algebra reaches its efficient BLAS regime), so that number is a least-squares
@@ -1254,7 +1257,7 @@ point where `mesolve` can no longer provide one.** Wherever both routes run they
 agree to $10^{-10}$ to $10^{-8}$ (stated in the figure footer, recorded per
 dimension in the data), and where the native route is used alone it is re-run at
 half its substeps and rejected if halving moves the answer appreciably. That it
-also scales better than `mesolve` ($N^{1.9}$ / $N^{3.0}$) is worth noting but is
+also scales better than `mesolve` ($N^{2.3}$ / $N^{3.0}$) is worth noting but is
 not a claim of this work: `mesolve` remains the neutral, widely-used standard
 against which the cost argument is made. The
 oscillator is the stiffer system: its anharmonic ladder's frequencies grow
