@@ -1161,10 +1161,14 @@ system is. The bundling error is set by $M$, not by $N$ — which is exactly why
 $M$ can be held constant as the dimension grows (the premise of the Result 2
 cost scaling). The SEM curves fall as $M^{-1/2}$ as expected, and the fitted
 exponents (in the legend) are quoted only where they clear the strict noise
-floor.
+floor -- with the full 200 realizations every point does, on all three systems
+at all three sizes. The measured bias slopes span $M^{-0.91}$ to $M^{-1.02}$,
+and System B's three dimensions land at $M^{-1.00}$, $M^{-1.00}$ and $M^{-1.02}$:
+parallel lines, which is the invariance stated as a picture.
 
-![spin chain size invariance](accuracy_vs_M_invariance_spin_chain.png)
-![oscillator size invariance](accuracy_vs_M_invariance_oscillator_bath.png)
+![System A size invariance](accuracy_vs_M_invariance_spin_chain.png)
+![System B size invariance](accuracy_vs_M_invariance_mixed_chain.png)
+![System C size invariance](accuracy_vs_M_invariance_oscillator_bath.png)
 
 ### Result 2 — cost scaling versus the exact solver
 

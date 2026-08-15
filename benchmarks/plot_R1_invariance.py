@@ -9,7 +9,12 @@ from common import add_settings_footer
 # =====================================================================
 # Configuration & Toggles
 # =====================================================================
-SYSTEMS = ["spin_chain", "oscillator_bath"] 
+SYSTEMS = ["spin_chain", "mixed_chain", "oscillator_bath"]
+SYSTEM_TITLES = {
+    "spin_chain": "System A - TFIM chain",
+    "mixed_chain": "System B - mixed-field chain",
+    "oscillator_bath": "System C - oscillator + spin",
+}
 DIMS = [16, 32, 64]
 COLORS = {16: '#1f77b4', 32: '#ff7f0e', 64: '#2ca02c'}
 MARKERS = {16: 'o', 32: 's', 64: '^'}
@@ -67,7 +72,7 @@ def calculate_sem_exponent(M_array, sem_array):
 for system in SYSTEMS:
     fig, ax = plt.subplots(figsize=(9, 6.5))
     
-    sys_title = system.replace('_', ' ').title()
+    sys_title = SYSTEM_TITLES.get(system, system.replace('_', ' ').title())
     
     for dim in DIMS:
         try:
@@ -103,9 +108,14 @@ for system in SYSTEMS:
                 if samples_arr.ndim == 1:
                     samples_arr = samples_arr.reshape(1, -1)
                     
-                # Keep exactly 16 realizations max for uniformity
-                if samples_arr.shape[0] >= 16:
-                    samples_arr = samples_arr[:16, :]
+                # Use every realization the run saved. Capping at 16 threw
+                # away 92% of the data and inflated the SEM by sqrt(200/16) =
+                # 3.5x, which pushed points below the bias > 2*SEM bar and left
+                # curves labelled "Level/Marginal" that in fact resolve cleanly.
+                # With all 200 every point certifies and the fitted exponents
+                # tighten onto the theoretical -1 (e.g. spin chain dim 32 moves
+                # from -0.82 to -0.97). The neighbouring decomposition figure
+                # already used all of them, so this also makes the two agree.
                     
                 n_acc = samples_arr.shape[0]
                 realizations = n_acc
@@ -178,7 +188,7 @@ for system in SYSTEMS:
     y_label_text = 'Error of Energy (at worst time $t^*$)' if EVALUATE_AT_WORST_TIME else 'Time-Averaged Error of Energy'
     ax.set_ylabel(y_label_text, fontsize=12)
     
-    ax.set_title(f'Size Invariance: {sys_title} System', fontsize=14, pad=12)
+    ax.set_title(f'Size Invariance: {sys_title}', fontsize=14, pad=12)
 
     # Place legend outside to avoid obscuring data lines
     ax.legend(loc='center left', bbox_to_anchor=(1.02, 0.5), frameon=False, fontsize=10)
