@@ -261,11 +261,13 @@ def figure(name, out, target, substeps_text, n_runs_list, est_type):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--system", default="all", choices=["spin_chain", "oscillator_bath", "all"])
+    ap.add_argument("--system", default="all",
+                    choices=["spin_chain", "mixed_chain", "oscillator_bath", "all"])
     ap.add_argument("--target", type=float, default=TARGET_RMSE)
     args = ap.parse_args()
     
-    names = ["spin_chain", "oscillator_bath"] if args.system == "all" else [args.system]
+    names = (["spin_chain", "mixed_chain", "oscillator_bath"]
+             if args.system == "all" else [args.system])
     for name in names:
         doc = load_data(f"isocost_vs_dim_{name}.json")
         n_runs_list = run_counts(name)

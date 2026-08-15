@@ -1062,18 +1062,18 @@ The solvers encounter two distinct, physical walls:
 ---
 
 
-### 5.3 Provenance of Results 1–4
+### 5.3 Provenance of Results 1-4
 
-Results 1, 2, and 3 were **regenerated under 0.6.4** for all three systems, so
-their operator counts match the shipped code.
+**All four Results now run on data regenerated under 0.6.4**, so every operator
+count in this section matches the shipped code. Result 4 was the last to be
+regenerated (Slurm jobs 19587109, 19587803 and 19587111, 2026-08-12/13); its
+metadata records `degeneracy_tol = 1e-10`, the shipped default, on all three
+systems.
 
-Result 4 is currently being **regenerated on the cluster** (Slurm jobs
-19586048/49/50, submitted 2026-08-11). Until the new JSON files arrive, its
-numbers are pre-0.6.4. Their *accuracy* conclusions survive: the 0.6.4 floor
-removes only operators contributing $10^{-24}$ relative or less, so the
-dissipator is unchanged to double precision. Their *cost* comparisons do not,
-and one consequence is worth stating plainly, because it cuts against the
-method:
+**Why the regeneration mattered, stated plainly because it cuts against the
+method.** The 0.6.4 floor removed operators contributing $10^{-24}$ relative or
+less, so the dissipator is unchanged to double precision and every *accuracy*
+conclusion from the older data survived. The *cost* comparisons did not:
 
 > **Removing the spurious operators made `mcsolve` faster.** Its cost scales
 > with `N_L`, since every jump evaluates all `N_L` jump probabilities. On the
@@ -1082,6 +1082,17 @@ method:
 > operator count. Bundling also lost headroom, since `M` can never exceed
 > `N_L`: the old data allowed `M` up to 113, the corrected construction caps it
 > at 31.
+
+The pre-0.6.4 inputs are kept under `data/legacy/` rather than deleted, so the
+older figures remain reproducible and the difference is auditable.
+
+**Wall-clock comparability.** Times are comparable *within* a figure, where all
+methods ran in one Slurm allocation on one node, and **not between** figures.
+Result 4's three systems ran on landau29, landau92 and landau51; its speedup
+*ratios* are sound, its absolute seconds are not directly comparable across
+panels. Every data file records its hostname, job ID and thread settings for
+exactly this check — `plot_method_comparison.py` refuses to draw a cost axis
+across files that disagree unless forced.
 
 ### Result 1 — convergence dynamics versus the bundle size $M$
 
@@ -1458,78 +1469,76 @@ the bundling bias dominates when there are too few operators to compress.
 
 ### Result 4 — iso-accuracy cost versus dimension
 
-> **Superseded by Result 3.** Its central question -- how the cost of matching a
-> fixed accuracy scales with dimension -- is answered there directly, and with
-> operator counts that match the shipped code.
+Results 2 and 3 each leave half a question. Result 2 scales cost with dimension
+but only against the *exact* solver; Result 3 races SLB against `mcsolve` but at
+a fixed size. This figure asks the combined question: **at each dimension, what
+does it cost each method to reach the same accuracy?**
 
-![spin chain iso-cost](benchmark_isocost_vs_dim_spin_chain.png)
-![oscillator iso-cost](benchmark_isocost_vs_dim_oscillator_bath.png)
+At every $N$ both methods are given the same target — ensemble
+$\mathrm{RMSE}=0.02$ against the exact solve — and asked for the cheapest
+setting that reaches it. For SLB that is the smallest bundle count $M^\ast$; for
+`mcsolve` it is the trajectory count $N_{\rm traj}^\ast=(S/{\rm target})^2$ from
+its fitted per-trajectory spread. The vertical gap between the two curves is the
+speedup. The lower panel checks the chosen SLB operating point by splitting its
+MSE into systematic bias² and statistical SEM² against the target.
 
-Results 2 and 3 leave one question open. Result 2 scales cost with dimension but
-only against the *exact* solver; Result 3 races SLB against `mcsolve` but at a
-*fixed* size. This figure runs the SLB-versus-`mcsolve` comparison **as a
-function of dimension**: at each $N$ it asks each method for the cheapest setting
-that reaches a fixed target accuracy ($\text{RMSE}=0.02$ against the exact solve)
-and plots that cost. Their vertical separation in the upper panel is the speedup
-(`mcsolve` cost / SLB cost). The lower panel checks the selected SLB operating
-point directly by decomposing its MSE into systematic bias² and statistical
-SEM² against the target MSE.
+![System A iso-cost](benchmark_isocost_vs_dim_spin_chain.png)
+![System B iso-cost](benchmark_isocost_vs_dim_mixed_chain.png)
+![System C iso-cost](benchmark_isocost_vs_dim_oscillator_bath.png)
 
-**Two regimes, both favorable.** On the spin chain SLB is *never slower* at
-matched accuracy. Its advantage is modest and somewhat irregular through dim
-32 ($\sim\!3.7\text{--}13\times$, since SLB's own $M^\ast$ climbs
-$2\to16\to16\to32$ and eats part of the win), then widens sharply at dim 64.
-There `mcsolve`'s per-trajectory cost rises to $\sim\!3.5$ s while the
-four-realization SLB ensemble remains practical even as $M^\ast$ reaches 64.
-At dim 64 `mcsolve` needs $\sim\!2{,}250$ trajectories ($\sim\!2$ hours) where
-the SLB estimate costs about 79 seconds — a **$\sim\!99\times$** speedup,
-versus $\sim\!5\times$ at dim 32.
+**The three systems give three different answers, and they are the answers §2.5
+predicts.**
 
-On the oscillator the effect is dramatic at every size: `mcsolve` needs
-thousands of trajectories already at dim 8 and crosses "impractical"
-($\gtrsim\!20{,}000$) by dim 16, while SLB hits the target with a *single*
-bundle ($M^\ast=1$) — directly measured at dims 8–32, and at dim 64 inferred
-from the smallest swept point ($M=2$), already $\sim\!250\times$ more accurate
-than `mcsolve`'s best there, with accuracy improving monotonically toward
-$M=1$. At dim 64 the honest arithmetic is stark —
-`mcsolve` would need $\sim\!2.8\times10^5$ trajectories at $\sim\!20$ s each,
-about **67 days**, against 47 seconds for SLB: a speedup of order $10^5$,
-reported as a lower bound ($\gtrsim\!8{,}700\times$) wherever the trajectory
-count is capped. That stiff, operator-heavy regime — dense Davies spectra,
-exploding per-trajectory variance — is exactly the problem class bundling was
-built for; the chain shows the method also wins, by a growing margin, where
-that structure is milder.
+| | $N_L$ (dim 4→64) | $M^\ast$ (dim 4→64) | speedup at dim 64 |
+|---|---|---|---|
+| **A** TFIM chain | 3 → 31 | 2 → **31** | 4x |
+| **B** mixed chain | 7 → 2,017 | 2 → **32** | **149x** |
+| **C** oscillator | 32 → 890 | 1 → **1** | **12,955x** |
 
-*(At dim 64 the `mcsolve` trajectory budget admits a single sampled `ntraj`,
-so $S^2$ there rests on one measurement rather than a three-point fit —
-valid, since $S^2$ is a property of the system, but noisier. Capped points are
-lower bounds and therefore conservative.)*
+Read the middle column against the first. **$M^\ast$ is what the method costs;
+$N_L$ is what it replaces**, and the ratio between them is the whole result.
 
-**The SLB averaging level is configured per system:** $N_r=4$ for the spin
-chain and $N_r=16$ for the oscillator in the committed figures. Each fixed
-level re-optimizes `M` for the target: $M^\ast$ is the smallest bundle size on
-the grid $1, 2, 4, \ldots, 128$ whose $N_r$-run time-averaged RMSE first reaches
-$0.02$. The four-realization spin setting is the lowest-cost choice among the
-previously examined $N_r=4,8,16$ levels at every dimension; displaying that
-single curve removes the redundant bracket while retaining the cheapest
-measured operating point. Run counts are controlled in one place,
-`isocost_config.py`; the runner generates the largest configured count and the
-plotter refuses to label a count that the saved data cannot support.
+**System A — the control, and it fails as designed.** $M^\ast$ tracks $N_L$
+exactly: 13 operators need $M^\ast=13$, 21 need 21, 31 need 31. There is no
+compression, because there is nothing to compress. And at dimensions 32 and 64
+**the target is not reached at all**, even at $M^\ast=N_L$ — visible in the lower
+panel, where those bars sit above the target line. That is not a failure of the
+solver: at $M=N_L$ a bundle is still a random mixture, not the exact operator
+set, so it retains sampling error the target is tighter than. SLB is still 2–4x
+cheaper than `mcsolve` here, but on a system where the honest advice is to use
+the exact solver.
 
-**Two modelling choices, stated plainly.** (1) The `mcsolve` cost is a
-*projection*, not a brute-force run to the threshold: because its trajectory
-average is unbiased, its error is exactly $S/\sqrt{\texttt{ntraj}}$, so we sample
-a few small `ntraj`, estimate $S$, and solve $\texttt{ntraj}^\ast=(S/\text{target})^2$.
-This is more reliable than a single noisy threshold crossing and needs no
-huge-`ntraj` runs — but it does assume `mcsolve` is unbiased (true here, with
-exact per-trajectory integration). (2) SLB is tuned on `M` at a fixed,
-system-specific run count, not fully co-optimized over $(M, N_r)$; that choice
-is explicit and held constant across dimensions. As with Result 2's iso-accuracy curve, the whole figure is
-computable only up to the exact-reference wall, since tuning either knob to a
-target needs the exact answer. (The run script saves the raw run samples and
-the $S^2$ fit, so both the target and the averaging levels are applied at
-analysis time — the figure can be redrawn for a different target without
-re-running the benchmark.)
+**System B — the advantage compounds with dimension.** $N_L$ grows 288-fold
+across the sweep while $M^\ast$ grows 16-fold, and the speedup follows: 1x, 2x,
+4x, 45x, **149x**. This is the generic case, and the trend is the point — the
+gap widens because `mcsolve` pays for every one of the 2,017 operators at each
+jump while SLB pays for 32. At dim 64 that is 60 s against 2.5 hours.
+
+**System C — a single bundle, at every size.** $M^\ast=1$ from dim 8 to dim 64.
+One bundle, drawn once, reaches an accuracy `mcsolve` cannot reach with 300,000
+trajectories. The speedup runs 68x → 715x → 7,095x → **12,955x**, and at dim 64
+that is 25 seconds against roughly four days. This is the ladder structure of
+§2.6 paying off exactly where it was predicted to.
+
+**Three caveats, all of which cut against the numbers above.**
+
+*`mcsolve`'s trajectory counts are extrapolated past the measured range on
+System C.* The fit needs $N_{\rm traj}^\ast$ of 23,000 to 301,000 where the
+sweep measured a few hundred, so those points are marked capped and the
+speedups are quoted as the cap allows. They are lower bounds in the sense that
+the trajectories really would be needed, but the per-trajectory cost is
+extrapolated, not measured, at that count.
+
+*The three systems ran on different nodes* — landau29, landau92 and landau51,
+jobs 19587109, 19587803 and 19587111. Wall-clock is comparable **within** each
+panel, where both methods ran in one allocation, and **not across** panels. The
+speedup ratios are safe; the absolute seconds are not directly comparable
+between systems.
+
+*System A's numbers are quoted at a target it does not meet.* Its $M^\ast$ at
+dims 32 and 64 is the largest available, not a setting that reached 0.02, so its
+2–4x is a comparison at unequal accuracy and should be read as an upper bound on
+the advantage rather than a measurement of it.
 
 ---
 
