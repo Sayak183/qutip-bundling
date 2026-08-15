@@ -1153,18 +1153,46 @@ with its own exponent as the dimension increases, so the pipeline price should
 never be blurred into the solve time — Result 2 now tracks it as its own cost
 curve.
 
-**Size invariance.** Overlaying the bias sweep at every measured dimension on
-one axis shows the property that makes bundling worth doing: the bias curves at
-dim 16, 32, and 64 sit close together and share the same $M^{-1}$ slope, so a
-*fixed* bundle count buys essentially the same accuracy no matter how large the
-system is. The bundling error is set by $M$, not by $N$ — which is exactly why
-$M$ can be held constant as the dimension grows (the premise of the Result 2
-cost scaling). The SEM curves fall as $M^{-1/2}$ as expected, and the fitted
-exponents (in the legend) are quoted only where they clear the strict noise
-floor -- with the full 200 realizations every point does, on all three systems
-at all three sizes. The measured bias slopes span $M^{-0.91}$ to $M^{-1.02}$,
-and System B's three dimensions land at $M^{-1.00}$, $M^{-1.00}$ and $M^{-1.02}$:
-parallel lines, which is the invariance stated as a picture.
+**Size invariance — of the slope, not of the height.** Overlaying the bias
+sweep at every measured dimension on one axis separates two questions that are
+easy to conflate.
+
+**The slope is invariant, and that is the useful part.** Every curve falls as
+$M^{-1}$: measured slopes span $M^{-0.91}$ to $M^{-1.02}$, and they tighten
+toward $-1.00$ as dimension grows ($-0.91 \to -0.97 \to -0.98$ on System A).
+System B is the cleanest case — $M^{-1.00}$, $M^{-1.00}$, $M^{-1.02}$ at dims
+16, 32, 64, three parallel lines. So *doubling $M$ halves the error at any
+size*, and that rule needs no recalibration as the system grows.
+
+**The height is not invariant, and the difference is systematic.** At fixed
+$M=8$ the bias moves with dimension:
+
+| system | dim 16 → 32 → 64 | scaling |
+|---|---|---|
+| **A** TFIM chain | $3.3\times10^{-2} \to 5.0\times10^{-2} \to 8.0\times10^{-2}$ | $\sim N^{+0.64}$ |
+| **B** mixed chain | $2.6\times10^{-2} \to 3.4\times10^{-2} \to 5.5\times10^{-2}$ | $\sim N^{+0.55}$ |
+| **C** oscillator | $2.6\times10^{-3} \to 2.3\times10^{-3} \to 2.0\times10^{-3}$ | $\sim N^{-0.20}$ |
+
+On the chains the bias grows as roughly $\sqrt N$, so holding a fixed *accuracy*
+target requires $M$ to grow with the system — which is precisely what Result 4's
+iso-accuracy curve measures, and why its curve sits above the fixed $M$ one. The
+oscillator is the genuinely invariant case: flat, in fact slightly improving
+with size. **A fixed bundle count buys a fixed *convergence rate* at any
+dimension; it buys a fixed *error* only where the structure is favourable.**
+
+**The fluctuation.** SEM curves fall as expected on the chains — time-averaged
+exponents of $-0.52$ to $-0.58$ against the predicted $M^{-1/2}$. The steeper
+values in the legends ($-0.58$ to $-0.73$) come from evaluating at the fixed
+$t^\ast$ rather than across the trajectory, and are an artefact of that choice.
+The oscillator is the exception: it falls at $M^{-0.77}$ to $M^{-1.05}$ either
+way, genuinely faster than $1/\sqrt M$. A plausible cause is its cross-term
+structure — only 11% of its operator pairs produce a surviving cross term
+(§2.6), so the bundling noise is not a sum of many independent contributions and
+central-limit scaling need not hold. **That explanation is untested.**
+
+Fitted exponents are quoted only where they clear the strict noise floor; with
+the full 200 realizations every point does, on all three systems at all three
+sizes.
 
 ![System A size invariance](accuracy_vs_M_invariance_spin_chain.png)
 ![System B size invariance](accuracy_vs_M_invariance_mixed_chain.png)
