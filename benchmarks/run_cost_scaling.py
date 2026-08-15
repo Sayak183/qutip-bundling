@@ -99,11 +99,21 @@ RNG_TIMING = 0          # seed for the single-realization timing solve
 # giving the slope fits a decent lever arm. (The dim-128 oscillator builds
 # thousands of Lindblad operators -- expect the construction itself to need
 # 1-2 GB and noticeable time; that cost is exactly what the new curve shows.)
+# The fixed-M cost curve needs NO exact reference -- it is one timed SLB solve --
+# so it can be swept far past the point where the exact solver dies. Only the
+# iso-accuracy sweep needs a reference, and it simply stops when one is not
+# available. The sizes below are therefore set by what the OPERATOR LIST costs
+# to build, not by what can be verified:
+#   A dim 512:  73 operators,  292 MB, 17 s to build
+#   B dim 128:  8,193 operators, 2 GB
+#   C dim 256:  2,986 operators, 3.0 GB, 25 s
+# System A stays cheap indefinitely because its N_L grows as ~n^2, not ~N^2.
 SYSTEMS = {
-    "spin_chain":      (build_spin_chain,      [2, 3, 4, 5, 6, 7, 8]),  # dims 4..256
-    "oscillator_bath": (build_oscillator_bath, [4, 8, 16, 32, 64]),  # dims 8..128
-    # Capped at dim 128: the mixed chain has 32,637 operators at dim 256, where
-    # its certified reference alone runs ~28 h.
+    "spin_chain":      (build_spin_chain,      [2, 3, 4, 5, 6, 7, 8, 9]),  # dims 4..512
+    "oscillator_bath": (build_oscillator_bath, [4, 8, 16, 32, 64, 128]),  # dims 8..256
+    # Capped at dim 128: the mixed chain has 32,637 operators at dim 256, whose
+    # list alone needs ~32 GB -- the streaming construction in ROADMAP.md is
+    # what would lift this.
     "mixed_chain":     (build_mixed_field_chain, [2, 3, 4, 5, 6, 7]),  # dims 4..128
 }
 
