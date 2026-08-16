@@ -73,8 +73,13 @@ NATIVE_REF_SUBSTEPS_FACTOR = 2
 MC_TIME_BUDGET_S = 3600.0   # per-dimension mcsolve budget (see mc_fit)
 
 SYSTEMS = {
+    # Extended to dim 512. This result IS the cost-versus-dimension claim, and
+    # it spanned 4-64 while Results 2 and 3 spanned 4-512. Cheap here because
+    # mcsolve on this system stays trivial with size -- 0.21 s/trajectory at
+    # dim 128, 1.89 s at 256 -- and MC_TIME_BUDGET_S caps the ladder anyway.
     "spin_chain":      (build_spin_chain,      [(2, 4), (3, 4), (4, 4),
-                                                (5, 4), (6, 4)]),   # dims 4..64
+                                                (5, 4), (6, 4), (7, 4),
+                                                (8, 4), (9, 4)]),   # dims 4..512
     # System B: same sizes as the TFIM chain, so the pair differs only by the
     # longitudinal field, exactly as in Results 1 and 3. Its N_L reaches 2,017
     # at dim 64, which is where the iso-accuracy question actually has teeth --

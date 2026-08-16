@@ -71,6 +71,9 @@ SYSTEMS = {
         (4, [2, 4, 8, 16, 32, 64], 4),
         (5, [2, 4, 8, 16, 32, 64], 4),
         (6, [2, 4, 8, 16, 32, 64], 4),
+        # dim 128. The size-invariance claim rested on three dimensions; this
+        # makes it four. M is capped at N_L = 43 here.
+        (7, [2, 4, 8, 16, 32, 64], 4),
     ]),
     # Same sizes as the TFIM chain so the two are directly comparable: they
     # differ only by the longitudinal field.
