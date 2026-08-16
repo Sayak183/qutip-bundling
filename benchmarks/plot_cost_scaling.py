@@ -17,14 +17,29 @@ import numpy as np
 from common import add_settings_footer, as_array, load_data
 
 # --- CONFIGURATION ---
-# Iso-accuracy target per system. The spin chain's M* ladder climbs with
-# size at 0.02, so that target is discriminating there. The oscillator
-# needs FEWER bundles as it grows (M*=1 clears 0.02 by dim 64), so a
-# tighter 0.005 target keeps the iso curve meaningful -- every dimension's
-# committed sweep already contains an M that reaches it.
+# Iso-accuracy target per system. The target is not a claim about absolute
+# accuracy -- it fixes a common operating point so SLB and mcsolve are compared
+# doing the same job. It is chosen per system so the iso curve carries
+# information, and the three values differ by two orders of magnitude, which is
+# itself a result:
+#
+#   System C, 0.005  -- a TIGHTER target is needed, because M*=1 clears 0.02 at
+#                       every size and the curve would be a flat, useless line.
+#   System B, 0.02   -- discriminating as it stands: M* climbs 4 -> 64.
+#   System A, 0.05   -- a LOOSER target is needed. At 0.02 this system misses at
+#                       every dimension except 4, because M can never exceed N_L
+#                       and even M = N_L parks just above the target (0.024 to
+#                       0.029 across dims 8-512). An all-missed curve says only
+#                       "impossible". At 0.05 it becomes quantitative and says
+#                       something sharper: M* ~ N_L (1/3, 8/13, 31/31, 57/57,
+#                       64/73), i.e. essentially every operator is needed. That
+#                       IS the no-compression result, measured rather than
+#                       asserted.
+#
+# Quote the target whenever quoting a speedup from these panels; a cost at 0.05
+# is not comparable with a cost at 0.005.
 TARGET_VAL = 0.02
-# The mixed chain shares the chain target: same observable, same scale.
-TARGET_BY_SYSTEM = {"spin_chain": 0.02, "mixed_chain": 0.02,
+TARGET_BY_SYSTEM = {"spin_chain": 0.05, "mixed_chain": 0.02,
                     "oscillator_bath": 0.005}
 
 # Which estimate's error defines M*?

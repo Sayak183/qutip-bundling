@@ -1388,14 +1388,39 @@ This is what keeps the chain's iso-accuracy slope near $N^{2.4}$ rather than $N^
 holding accuracy costs about one extra power of $N$. But it still sits far below
 the exact solver, so SLB's advantage survives the honest accounting. It is
 computable only up to the reference wall, since tuning $M^\ast$ needs the exact
-answer. (The target is applied per system, since the three have very different
-bias scales: $0.02$ on the chain, where it produces the climbing $M^\ast$
-ladder above, and a tighter $0.005$ on the oscillator, whose bias is small
-enough that the looser target was met with a single bundle at most sizes and so
-measured nothing. At $0.005$ the oscillator ladder is $8/4/4/2$ across dim
-16–128 — nearly flat, consistent with a system whose bundling bias barely
-grows with size, and the reason its iso and fixed $M$ curves sit close
-together rather than the iso curve rising above.)
+**The target is chosen per system, and the three values are themselves a
+result.** A target is not a claim about absolute accuracy; it fixes a common
+operating point so that SLB and the exact route are compared doing the same job.
+It has to be picked so the iso curve carries information, and what each system
+requires differs by two orders of magnitude:
+
+| | target | why that value |
+|---|---|---|
+| **A** TFIM chain | $0.05$ | **looser.** At $0.02$ this system misses at every dimension but the smallest — $M$ can never exceed $N_L$, and even $M=N_L$ parks between $0.024$ and $0.029$ across dim 8–512. |
+| **B** mixed chain | $0.02$ | discriminating as it stands: $M^\ast$ climbs $4\to64$. |
+| **C** oscillator | $0.005$ | **tighter.** $M^\ast=1$ clears $0.02$ at every size, so the looser target measured nothing. |
+
+**Read System A's row as the finding it is.** It needs a target three times
+looser than System B and ten times looser than System C — and even then
+$M^\ast$ tracks $N_L$ almost exactly: $1/3$, $4/7$, $8/13$, $16/21$, $31/31$,
+$32/43$, $57/57$, $64/73$. At dims 64 and 256 the two are *equal*. Reaching a
+loose target on this system costs essentially every operator, which is the
+no-compression claim measured rather than asserted.
+
+The slopes make the same point more sharply. System A's iso-accuracy curve fits
+$N^{3.0}$ while its exact solver fits $N^{2.5}$: **holding accuracy fixed makes
+bundling grow faster than solving exactly.** The two curves are converging, and
+past some dimension the exact route simply wins. That is the clearest statement
+available of where this method should not be used — and it is the control system
+behaving exactly as a control should.
+
+At $0.005$ the oscillator ladder is $8/4/4/2$ across dim 16–128 — nearly flat,
+consistent with a system whose bundling bias barely grows with size, and the
+reason its iso and fixed $M$ curves sit close together rather than the iso curve
+rising above.
+
+**Quote the target whenever quoting a speedup from these panels.** A cost at
+$0.05$ is not comparable with a cost at $0.005$.
 
 On the oscillator's iso curve the dim-8 point is drawn as a hollow marker: at
 that smallest size the single-run RMSE reaches $0.005$ only at $M=8$, one step
