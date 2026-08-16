@@ -113,10 +113,15 @@ def derive_iso(points, target, est_type, err_type, n_acc=16):
         else:
             if last is not None:      # sweep had data, target never met
                 base_cost = last.get("cost")
+                # keep the error split at the largest swept M: it is what
+                # explains the miss, and the bottom panel draws it
+                lm = get_metrics(last, n_acc)[est_type]
                 unreached.append(
                     (p.get("dim"),
                      base_cost / n_acc if est_type == "single" else base_cost,
-                     last.get("M")))
+                     last.get("M"),
+                     lm["bias"] ** 2,
+                     lm["noise_sq"]))
         out.append(row)
     arrs = [np.array(v, dtype=float) for v in zip(*out)]
     return arrs + [unreached]
@@ -312,12 +317,24 @@ def figure(name, doc, target, est_type, err_type):
     ax_main.grid(True, which="both", alpha=0.3)
 
     # ---- BOTTOM PANEL: MSE Share Bar Chart ----
-    # Filter only for points where the target was successfully reached
-    v_dims = dims[ii]
-    v_mstar = mstar[ii]
-    v_bias_sq = iso_bias_sq[ii]
-    v_noise_sq = iso_noise_sq[ii]
-    
+    # Every swept dimension appears. Those that reached the target are drawn at
+    # their M*; those that missed are drawn at the largest M they swept, hatched
+    # and labelled. Showing only the former left System A with a single bar,
+    # which reads as a broken figure rather than as the result it is -- and the
+    # missed dimensions carry the more informative split, since a bias-dominated
+    # bar is *why* the target was out of reach.
+    reached_dims = list(dims[ii])
+    v_dims = list(dims[ii]) + [u[0] for u in unreached]
+    v_mstar = list(mstar[ii]) + [u[2] for u in unreached]
+    v_bias_sq = list(iso_bias_sq[ii]) + [u[3] for u in unreached]
+    v_noise_sq = list(iso_noise_sq[ii]) + [u[4] for u in unreached]
+    order = np.argsort(np.array(v_dims, dtype=float))
+    v_dims = np.array(v_dims, dtype=float)[order]
+    v_mstar = np.array(v_mstar, dtype=float)[order]
+    v_bias_sq = np.array(v_bias_sq, dtype=float)[order]
+    v_noise_sq = np.array(v_noise_sq, dtype=float)[order]
+    missed = np.array([d not in reached_dims for d in v_dims])
+
     if len(v_dims) > 0:
         x_positions = np.arange(len(v_dims))
         width = 0.5
@@ -332,15 +349,29 @@ def figure(name, doc, target, est_type, err_type):
         # Dynamically set legend based on ensemble vs single
         noise_label = "SEM²" if est_type == "ensemble" else "Std²"
         
-        ax_bar.bar(x_positions, bias_shares, width, color="#1f77b4", edgecolor="black", label="Bias²")
-        ax_bar.bar(x_positions, noise_shares, width, bottom=bias_shares, color="#B0C4DE", edgecolor="black", label=noise_label)
-        
+        hatches = ["//" if m else "" for m in missed]
+        for x, b, n, h in zip(x_positions, bias_shares, noise_shares, hatches):
+            ax_bar.bar(x, b, width, color="#1f77b4", edgecolor="black", hatch=h)
+            ax_bar.bar(x, n, width, bottom=b, color="#B0C4DE",
+                       edgecolor="black", hatch=h)
+        # legend proxies, so the hatch meaning is stated once
+        ax_bar.bar(0, 0, 0, color="#1f77b4", edgecolor="black", label="Bias²")
+        ax_bar.bar(0, 0, 0, color="#B0C4DE", edgecolor="black", label=noise_label)
+        if missed.any():
+            ax_bar.bar(0, 0, 0, color="white", edgecolor="black", hatch="//",
+                       label="target missed (largest swept M)")
+
         ax_bar.set_xticks(x_positions)
-        ax_bar.set_xticklabels([f"{int(d)}\n$M^*={int(m)}$" for d, m in zip(v_dims, v_mstar)], fontsize=11)
+        ax_bar.set_xticklabels(
+            [f"{int(d)}\n" + (rf"$M={int(m)}$" if ms else rf"$M^*={int(m)}$")
+             for d, m, ms in zip(v_dims, v_mstar, missed)], fontsize=11)
         ax_bar.set_ylabel("MSE share", fontsize=13)
         ax_bar.set_title(rf"MSE budget at $M^*$ (Bias² vs. {noise_label})", fontsize=13)
         ax_bar.set_ylim(0, 1.05)
-        ax_bar.legend(loc="upper right", ncol=2, fontsize=11)
+        # outside the axes: the bars reach y=1 everywhere, so any
+        # in-axes placement covers data
+        ax_bar.legend(loc="center left", bbox_to_anchor=(1.01, 0.5),
+                      fontsize=10, frameon=False)
     else:
         # Fallback if target was completely unreachable across the board
         ax_bar.text(0.5, 0.5, "No data reached target", ha='center', va='center')

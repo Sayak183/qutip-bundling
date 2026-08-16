@@ -1215,6 +1215,26 @@ sizes.
 ![System B cost scaling](benchmark_cost_scaling_mixed_chain.png)
 ![System C cost scaling](benchmark_cost_scaling_oscillator_bath.png)
 
+**Reading the lower panel.** It answers one question: at the bundle size chosen
+above, is the remaining error *systematic* or *random*? The bar splits the mean
+squared error into **bias²** (solid, dark) and **Std²** (light). The distinction
+is practical rather than decorative — averaging more realizations shrinks the
+light part and does nothing at all to the dark part, which only a larger $M$
+removes. So a light bar means "just sample more", and a dark bar means "this is
+as good as this $M$ gets".
+
+Every swept dimension appears. Hatched bars are dimensions where the accuracy
+target was **not** reached; they are drawn at the largest $M$ the sweep tried,
+and they are the informative ones, because the split explains *why* the target
+was out of reach. On System A the bias share climbs from 17% at dim 4 to 55%
+by dim 64 and stays there — the error stops being noise you can average away
+and becomes a systematic floor set by $M$, which is capped at $N_L$. That is the
+same "nothing to compress" conclusion the rest of this page reaches, arrived at
+from the error budget rather than from the operator count. On System C the bias
+share instead *grows with a falling* $M^\ast$ — 0% at dim 16, 26% at 32, 51% at
+64 as $M^\ast$ drops 8 → 8 → 4 — which is the method trading a little bias for a
+lot of cost, deliberately, and still meeting the target.
+
 The figure has two panels sharing the dimension axis. **Top:** wall-clock time
 for one solve versus Hilbert-space dimension $N$. **Bottom:** the accuracy of the
 SLB solve at each size, so the speed claim is qualified by the error it holds.
