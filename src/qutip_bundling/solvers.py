@@ -172,6 +172,98 @@ def mesolve_ensemble(
     )
 
 
+def mesolve_ensemble_davies(
+    H,
+    rho0,
+    tlist,
+    X: qutip.Qobj,
+    gamma,
+    M: int,
+    e_ops: Sequence[qutip.Qobj],
+    n_realizations: int = 16,
+    distribution: str = "phase",
+    rng: np.random.Generator | int | None = None,
+    options=None,
+    *,
+    backend: str = "qutip",
+    substeps: int = 1,
+    **davies_kwargs,
+) -> BundledResult:
+    """Bundled solve straight from the physics, never holding the operators.
+
+    Takes the coupling operator ``X`` and the spectral function ``gamma``
+    instead of a collapse-operator list, builds each Davies operator, folds it
+    into the bundles, and discards it. Peak memory is ``M`` bundles rather than
+    ``N_L`` operators.
+
+    This matters at scale. For the mixed-field chain at dimension 256 the
+    operator list is 32,637 dense matrices, about 32 GB, while the bundles it
+    feeds occupy 16 MB. That gap is the difference between "cannot run here"
+    and "runs on a laptop".
+
+    Which one to call
+    -----------------
+    :func:`mesolve_ensemble`
+        Takes any collapse-operator list. Use it for a dissipator you built
+        yourself, for a non-Davies construction, or when you want the
+        operators for something else as well. Peak memory ``N_L * N^2``.
+
+    :func:`mesolve_ensemble_davies` (this one)
+        Takes ``H, X, gamma``. Use it when the operators come from the Davies
+        construction and are only going to be bundled. Peak memory ``M * N^2``.
+
+    The two agree bit-for-bit at equal ``rng``; ``tests/test_streaming_davies.py``
+    asserts it with ``atol=0``. That equality is why the streaming route can be
+    trusted above the dimension where the list route stops running.
+
+    The signature mirrors :func:`qutip.brmesolve`, which likewise takes coupling
+    operators and spectra rather than a pre-built tensor.
+
+    Extra keyword arguments are forwarded to the Davies construction
+    (``degeneracy_tol``, ``threshold``, ``coupling_threshold``).
+    """
+    from .operators import bundle_davies_from_phases, davies_operator_count
+
+    e_ops = list(e_ops)
+    if not e_ops:
+        raise ValueError("mesolve_ensemble_davies requires at least one e_op.")
+    if not isinstance(rng, np.random.Generator):
+        rng = np.random.default_rng(rng)
+
+    n_l = davies_operator_count(H, X, gamma, **davies_kwargs)
+    if n_l == 0:
+        raise ValueError(
+            "the Davies construction produced no collapse operators; check "
+            "that X couples states of different energy."
+        )
+    m_eff = min(int(M), n_l)
+
+    tlist = np.asarray(tlist)
+    samples = np.empty((n_realizations, len(e_ops), tlist.size))
+    for k in range(n_realizations):
+        phases = random_phases(m_eff, n_l, distribution=distribution, rng=rng)
+        R = bundle_davies_from_phases(H, X, gamma, phases, **davies_kwargs)
+        samples[k] = _solve(H, rho0, tlist, R, e_ops, options, backend, substeps)
+
+    mean = samples.mean(axis=0)
+    if n_realizations > 1:
+        std = samples.std(axis=0, ddof=1)
+        sem = std / math.sqrt(n_realizations)
+    else:
+        std = np.zeros_like(mean)
+        sem = np.zeros_like(mean)
+
+    return BundledResult(
+        times=tlist,
+        expect=[mean[i] for i in range(len(e_ops))],
+        sem=[sem[i] for i in range(len(e_ops))],
+        std=[std[i] for i in range(len(e_ops))],
+        samples=samples,
+        M=m_eff,
+        n_realizations=n_realizations,
+    )
+
+
 def mesolve_jackknife(
     H,
     rho0,

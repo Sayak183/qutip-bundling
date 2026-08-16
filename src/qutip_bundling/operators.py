@@ -37,6 +37,7 @@ trick for the dissipator only.
 
 from __future__ import annotations
 
+import dataclasses
 import math
 from dataclasses import dataclass, field
 from typing import Sequence
@@ -48,6 +49,9 @@ from ._spectral import SpectralInput, evaluate_spectral
 
 __all__ = [
     "davies_operators",
+    "iter_davies_operators",
+    "davies_operator_count",
+    "bundle_davies_from_phases",
     "build_collapse_ops",
     "bundle",
     "bundle_from_phases",
@@ -130,6 +134,230 @@ def _coupling_roundoff_floor(X_eig: np.ndarray) -> float:
     dimension = int(X_eig.shape[0])
     scale = float(np.linalg.norm(X_eig, ord="fro"))
     return _COUPLING_ROUNDOFF_FACTOR * np.finfo(float).eps * dimension * scale
+
+
+@dataclasses.dataclass(frozen=True)
+class _DaviesPlan:
+    """Everything needed to emit the Davies operators, before any exist.
+
+    Holds submatrix blocks -- whose total size is one N x N -- plus a few
+    length-N_L vectors. Never the operators themselves. That asymmetry is
+    what makes a streaming build possible: the expensive object is the
+    OUTPUT list, not the recipe for it.
+    """
+
+    evecs: np.ndarray
+    X_eig: np.ndarray
+    dims: list
+    sectors: list
+    omegas: np.ndarray
+    sqrt_gammas: np.ndarray
+    keep: np.ndarray
+
+
+def _davies_plan(
+    H: qutip.Qobj,
+    X: qutip.Qobj,
+    gamma: SpectralInput,
+    *,
+    threshold: float = 0.0,
+    coupling_threshold: float = 0.0,
+    degeneracy_tol: float = 1e-10,
+) -> "_DaviesPlan":
+    """Diagonalise, block, group by Bohr frequency, and weight.
+
+    The whole Davies construction except the final materialisation. Shared
+    by :func:`davies_operators` and :func:`iter_davies_operators` so the
+    physics has exactly one implementation.
+    """
+    if not callable(gamma):
+        raise TypeError(
+            "davies_operators needs gamma as a callable f(omega); the Bohr "
+            "frequencies are computed internally so an array cannot be "
+            "aligned. Use build_collapse_ops if you already have arrays."
+        )
+    if degeneracy_tol < 0:
+        raise ValueError("degeneracy_tol must be non-negative.")
+
+    H_arr = np.asarray(H.full())
+    H_arr = 0.5 * (H_arr + H_arr.conj().T)
+    if coupling_threshold < 0:
+        raise ValueError("coupling_threshold must be non-negative.")
+    evals, evecs = np.linalg.eigh(H_arr)
+    X_eig = evecs.conj().T @ np.asarray(X.full()) @ evecs
+
+    # 1) Build numerical energy eigenspaces. Projector blocks, unlike
+    #    individual eigenvectors, are invariant under rotations inside an
+    #    exactly degenerate subspace.
+    energy_groups = _cluster_sorted(evals, degeneracy_tol)
+    energies = np.asarray(
+        [float(np.mean(evals[group])) for group in energy_groups],
+        dtype=float,
+    )
+
+    # 2) Keep significant projector blocks Pi_e X Pi_e'. In the energy
+    #    representation each block is just a submatrix of X_eig. Its
+    #    Frobenius norm is invariant under basis rotations within either
+    #    eigenspace and reduces to |<a|X|b>| for one-dimensional spaces.
+    # A fixed 1e-14 floor is not reproducible: LAPACK implementations put
+    # symmetry-forbidden zeros on different sides of that number. Use a
+    # scale-covariant backward-error bound instead, so those null blocks
+    # cannot become thousands of machine-dependent Davies sectors.
+    numerical_floor = _coupling_roundoff_floor(X_eig)
+    block_floor = max(float(coupling_threshold), numerical_floor)
+    transitions: list[tuple[float, np.ndarray, np.ndarray, np.ndarray]] = []
+    for a_group, a_indices in enumerate(energy_groups):
+        for b_group, b_indices in enumerate(energy_groups):
+            block = X_eig[np.ix_(a_indices, b_indices)]
+            if np.linalg.norm(block, ord="fro") <= block_floor:
+                continue
+            omega = float(energies[b_group] - energies[a_group])
+            transitions.append((omega, a_indices, b_indices, block))
+
+    # 3) Group all projector blocks with the same Bohr frequency. Requiring
+    #    the full sector span to fit within the tolerance avoids accidental
+    #    "chaining" of several genuinely distinct nearby frequencies.
+    transitions.sort(key=lambda item: item[0])
+    sectors: list[list[tuple[float, np.ndarray, np.ndarray, np.ndarray]]] = []
+    for transition in transitions:
+        if (
+            not sectors
+            or transition[0] - sectors[-1][0][0] > degeneracy_tol
+        ):
+            sectors.append([transition])
+        else:
+            sectors[-1].append(transition)
+
+    omega_all: list[float] = []
+    bare_norms: list[float] = []
+    for sector in sectors:
+        frequencies = [transition[0] for transition in sector]
+        omega = float(np.mean(frequencies))
+        if abs(omega) <= degeneracy_tol:
+            omega = 0.0
+        omega_all.append(omega)
+        # The projector blocks occupy orthogonal row/column subspaces, so
+        # their squared Frobenius norms add. Avoid retaining one dense N x N
+        # array per sector; that would double peak memory at large dimension.
+        bare_norms.append(math.sqrt(sum(
+            float(np.linalg.norm(transition[3], ord="fro")) ** 2
+            for transition in sector
+        )))
+
+    omega_all_arr = np.asarray(omega_all, dtype=float)
+
+    # 4) Evaluate one bath rate per frequency sector and apply the master
+    #    threshold to the complete grouped operator.
+    gammas = evaluate_spectral(gamma, omega_all_arr, name="gamma")
+    if np.any(gammas < 0):
+        raise ValueError("gamma must be non-negative.")
+    sg_all = np.sqrt(gammas)
+    weights = sg_all * np.asarray(bare_norms, dtype=float)
+    keep = (weights >= threshold) & (weights != 0.0)
+
+    return _DaviesPlan(evecs=evecs, X_eig=X_eig, dims=H.dims,
+                       sectors=sectors, omegas=omega_all_arr,
+                       sqrt_gammas=sg_all, keep=keep)
+
+
+def _iter_plan(plan: "_DaviesPlan"):
+    """Yield ``(bare_operator, omega, sqrt_gamma)``, one sector at a time."""
+    for sector, omega, sg, k in zip(plan.sectors, plan.omegas,
+                                    plan.sqrt_gammas, plan.keep):
+        if not k:
+            continue
+        A_eig = np.zeros_like(plan.X_eig)
+        for _, a_indices, b_indices, block in sector:
+            A_eig[np.ix_(a_indices, b_indices)] += block
+        A = plan.evecs @ A_eig @ plan.evecs.conj().T
+        yield qutip.Qobj(A, dims=plan.dims), float(omega), float(sg)
+
+
+def davies_operator_count(H, X, gamma, **kwargs) -> int:
+    """How many collapse operators the Davies construction will produce.
+
+    Answered from the plan, so nothing is built. Useful on its own -- this is
+    the ``N_L`` every cost claim in the benchmarks turns on -- and required by
+    :func:`bundle_davies_from_phases`, which must size its phase matrix before
+    it can start streaming.
+    """
+    kwargs.pop("imag_gamma", None)
+    kwargs.pop("return_bare", None)
+    return int(np.count_nonzero(_davies_plan(H, X, gamma, **kwargs).keep))
+
+
+def bundle_davies_from_phases(H, X, gamma, phases: np.ndarray, **kwargs):
+    """Build ``M`` bundles without ever holding the operator list.
+
+    ``R_m = (1/sqrt(M)) * sum_alpha phases[m, alpha] * c_alpha``, accumulated
+    one ``c_alpha`` at a time. Peak memory is ``M`` bundles plus a single
+    operator, against ``N_L`` operators for the list route -- 16 MB against
+    ~32 GB for System B at dimension 256.
+
+    The result is identical to
+    ``bundle_from_phases(davies_operators(H, X, gamma), phases)``: same sum,
+    same order, same bits. Only the peak memory differs.
+    """
+    plan = _davies_plan(H, X, gamma, **kwargs)
+    n_l = int(np.count_nonzero(plan.keep))
+    phases = np.asarray(phases)
+    if phases.ndim != 2 or phases.shape[1] != n_l:
+        raise ValueError(
+            f"phases must have shape (M, {n_l}) for this construction; "
+            f"got {phases.shape}. Size it with davies_operator_count()."
+        )
+    n_bundles = int(phases.shape[0])
+    if n_bundles < 1:
+        raise ValueError("phases must contain at least one bundle.")
+
+    dimension = int(plan.X_eig.shape[0])
+    acc = np.zeros((n_bundles, dimension, dimension), dtype=complex)
+    for index, (bare, _omega, sg) in enumerate(_iter_plan(plan)):
+        operator = sg * bare.full()
+        # outer product over bundles: acc[m] += phases[m, index] * operator
+        acc += phases[:, index, None, None] * operator
+    acc /= math.sqrt(n_bundles)
+    return [qutip.Qobj(acc[m], dims=plan.dims) for m in range(n_bundles)]
+
+
+def iter_davies_operators(H, X, gamma, **kwargs):
+    """Yield the Davies collapse operators one at a time.
+
+    Identical to :func:`davies_operators` in every value it produces, and
+    in their order, except that nothing is retained: each operator is
+    built, handed over, and forgotten. Peak memory is ONE operator instead
+    of ``N_L``.
+
+    Use this when the operators are only consumed -- summed into bundles,
+    applied to a state -- and never needed again. For System B at dimension
+    256 the list weighs about 32 GB while the bundles it feeds weigh 16 MB;
+    this function is the difference between those two numbers.
+
+    Use :func:`davies_operators` when you need the list itself: to inspect
+    it, to hand it to an exact solver, or to reuse it across calls.
+
+    Yields
+    ------
+    qutip.Qobj
+        ``sqrt(gamma(omega)) * A(omega)``, matching the corresponding entry
+        of :func:`davies_operators` exactly.
+
+    Notes
+    -----
+    ``imag_gamma`` and ``return_bare`` are refused: both describe aggregates
+    over the entire operator set, which is precisely what this function
+    declines to hold.
+    """
+    for name in ("imag_gamma", "return_bare"):
+        if kwargs.get(name):
+            raise TypeError(
+                f"iter_davies_operators does not support {name!r}: it "
+                "describes the whole operator set, which this function "
+                "deliberately never holds. Use davies_operators instead."
+            )
+        kwargs.pop(name, None)
+    for bare, _omega, sg in _iter_plan(_davies_plan(H, X, gamma, **kwargs)):
+        yield sg * bare
 
 
 def davies_operators(
@@ -229,90 +457,12 @@ def davies_operators(
     nor ``return_bare`` is set; otherwise a tuple in the order
     ``(c_ops[, H_LS][, (L_ops, omegas)])``.
     """
-    if not callable(gamma):
-        raise TypeError(
-            "davies_operators needs gamma as a callable f(omega); the Bohr "
-            "frequencies are computed internally so an array cannot be "
-            "aligned. Use build_collapse_ops if you already have arrays."
-        )
-    if degeneracy_tol < 0:
-        raise ValueError("degeneracy_tol must be non-negative.")
-
-    H_arr = np.asarray(H.full())
-    H_arr = 0.5 * (H_arr + H_arr.conj().T)
-    if coupling_threshold < 0:
-        raise ValueError("coupling_threshold must be non-negative.")
-    evals, evecs = np.linalg.eigh(H_arr)
-    X_eig = evecs.conj().T @ np.asarray(X.full()) @ evecs
-
-    # 1) Build numerical energy eigenspaces. Projector blocks, unlike
-    #    individual eigenvectors, are invariant under rotations inside an
-    #    exactly degenerate subspace.
-    energy_groups = _cluster_sorted(evals, degeneracy_tol)
-    energies = np.asarray(
-        [float(np.mean(evals[group])) for group in energy_groups],
-        dtype=float,
-    )
-
-    # 2) Keep significant projector blocks Pi_e X Pi_e'. In the energy
-    #    representation each block is just a submatrix of X_eig. Its
-    #    Frobenius norm is invariant under basis rotations within either
-    #    eigenspace and reduces to |<a|X|b>| for one-dimensional spaces.
-    # A fixed 1e-14 floor is not reproducible: LAPACK implementations put
-    # symmetry-forbidden zeros on different sides of that number. Use a
-    # scale-covariant backward-error bound instead, so those null blocks
-    # cannot become thousands of machine-dependent Davies sectors.
-    numerical_floor = _coupling_roundoff_floor(X_eig)
-    block_floor = max(float(coupling_threshold), numerical_floor)
-    transitions: list[tuple[float, np.ndarray, np.ndarray, np.ndarray]] = []
-    for a_group, a_indices in enumerate(energy_groups):
-        for b_group, b_indices in enumerate(energy_groups):
-            block = X_eig[np.ix_(a_indices, b_indices)]
-            if np.linalg.norm(block, ord="fro") <= block_floor:
-                continue
-            omega = float(energies[b_group] - energies[a_group])
-            transitions.append((omega, a_indices, b_indices, block))
-
-    # 3) Group all projector blocks with the same Bohr frequency. Requiring
-    #    the full sector span to fit within the tolerance avoids accidental
-    #    "chaining" of several genuinely distinct nearby frequencies.
-    transitions.sort(key=lambda item: item[0])
-    sectors: list[list[tuple[float, np.ndarray, np.ndarray, np.ndarray]]] = []
-    for transition in transitions:
-        if (
-            not sectors
-            or transition[0] - sectors[-1][0][0] > degeneracy_tol
-        ):
-            sectors.append([transition])
-        else:
-            sectors[-1].append(transition)
-
-    omega_all: list[float] = []
-    bare_norms: list[float] = []
-    for sector in sectors:
-        frequencies = [transition[0] for transition in sector]
-        omega = float(np.mean(frequencies))
-        if abs(omega) <= degeneracy_tol:
-            omega = 0.0
-        omega_all.append(omega)
-        # The projector blocks occupy orthogonal row/column subspaces, so
-        # their squared Frobenius norms add. Avoid retaining one dense N x N
-        # array per sector; that would double peak memory at large dimension.
-        bare_norms.append(math.sqrt(sum(
-            float(np.linalg.norm(transition[3], ord="fro")) ** 2
-            for transition in sector
-        )))
-
-    omega_all_arr = np.asarray(omega_all, dtype=float)
-
-    # 4) Evaluate one bath rate per frequency sector and apply the master
-    #    threshold to the complete grouped operator.
-    gammas = evaluate_spectral(gamma, omega_all_arr, name="gamma")
-    if np.any(gammas < 0):
-        raise ValueError("gamma must be non-negative.")
-    sg_all = np.sqrt(gammas)
-    weights = sg_all * np.asarray(bare_norms, dtype=float)
-    keep = (weights >= threshold) & (weights != 0.0)
+    plan = _davies_plan(H, X, gamma, threshold=threshold,
+                        coupling_threshold=coupling_threshold,
+                        degeneracy_tol=degeneracy_tol)
+    evecs, X_eig = plan.evecs, plan.X_eig
+    sectors, omega_all_arr = plan.sectors, plan.omegas
+    sg_all, keep = plan.sqrt_gammas, plan.keep
 
     L_ops: list[qutip.Qobj] = []
     omegas: list[float] = []

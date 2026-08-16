@@ -19,6 +19,9 @@ Two layers:
 
 from .native_solver import NativeResult, rk4_mesolve, SolverInstabilityError
 from .operators import (
+    iter_davies_operators,
+    davies_operator_count,
+    bundle_davies_from_phases,
     BundledOps,
     build_collapse_ops,
     bundle,
@@ -28,11 +31,20 @@ from .operators import (
     prepare_bundled_dynamics,
     random_phases,
 )
-from .solvers import BundledResult, mesolve_ensemble, mesolve_jackknife
+from .solvers import (
+    BundledResult,
+    mesolve_ensemble,
+    mesolve_ensemble_davies,
+    mesolve_jackknife,
+)
 
 __version__ = "0.6.4"
 
 __all__ = [
+    "mesolve_ensemble_davies",
+    "iter_davies_operators",
+    "davies_operator_count",
+    "bundle_davies_from_phases",
     # operator transforms (the method)
     "davies_operators",
     "build_collapse_ops",
