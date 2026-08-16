@@ -1223,7 +1223,7 @@ past it the exact solver is impractical.
 
 **The cost curves (top).** The exact full-dissipator `mesolve` evolves the
 density matrix with all $N_L$ collapse operators; its fitted slope is the
-steepest on the plot ($N^{3.0}$ on the chain, $N^{5.2}$ on the oscillator), and
+steepest on the plot ($N^{3.0}$ on the chain, $N^{6.1}$ on the oscillator), and
 past dim 32 it cannot run here at all — its superoperator construction exhausts
 even 32 GB. SLB at a *fixed* bundle size ($M=8$) only ever propagates $M$
 operators, so one solve is cheap; the SLB and construction curves need no exact
@@ -1239,14 +1239,29 @@ dim 4–256; extending the sweep to 512 steepened it, which is the honest
 direction — the earlier fit was flattered by the small $N$ points where
 fixed overhead dominates.) On the oscillator the same
 curve fits $N^{1.3}$, but the per-doubling cost ratios are *not* monotone (a
-large jump at dim 8→32, then a much smaller one at 32→128 as the dense linear
+large jump at dim 8→32, then a much smaller one at 32→64 as the dense linear
 algebra reaches its efficient BLAS regime), so that number is a least-squares
 summary of a curved trend, not a scaling exponent, and is **not quoted as
 one**. The scaling *claim* of this work therefore rests on the chain's
-$N^{1.6}$; the oscillator panel is included as the decisive visual of the exact
-solver's wall — `mesolve` at $N^{5.2}$ and the native route at $N^{3.0}$ both
+$N^{1.9}$; the oscillator panel is included as the decisive visual of the exact
+solver's wall — `mesolve` at $N^{6.1}$ and the native route at $N^{3.1}$ both
 climbing into hours per solve while SLB stays near-flat — rather than for a
 fitted SLB exponent.
+
+**Where the oscillator's SLB curve stops, and why it is not a memory wall.**
+It ends at dimension 64 while the exact route continues to 128. The reason is
+*stiffness*, not memory: at dimension 128 the bundled generator diverges at the
+16 RK4 substeps this panel uses throughout, growing to $10^6$ while still
+finite. The run stops the cost curve there rather than quietly switching to 32
+substeps, because a point integrated at a different resolution is no longer
+cost-comparable with the rest of the curve — the whole panel is a
+uniform-substep benchmark. The exact reference at that dimension *did* need 32
+substeps, and its certification escalated **upward** to 64 when the coarse
+partner diverged, agreeing to $3.6\times10^{-8}$. So dimension 128 carries an
+exact point and no SLB point, which is an honest gap rather than a missing
+measurement. Bundling at that size is possible; it is simply not measurable
+*on this axis* without changing the integrator, which would change what the
+axis means.
 
 **A second exact route, as a control.** The dash-dot curve is the same Lindblad
 equation propagated by the package's own fixed-step RK4 with *all* $N_L$
