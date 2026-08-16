@@ -174,15 +174,26 @@ def fit_slope(dims, times, floor=FIT_FLOOR_SECONDS):
 
     Returns (None, 0) when fewer than two points survive.
     """
-    m = np.isfinite(times) & (times >= floor)
+    m = np.isfinite(times)
     d, t = dims[m], times[m]
     if len(d) < 2:
         return None, 0
-    # longest suffix over which cost is non-decreasing with dimension
+
+    # ORDER MATTERS. The monotone test runs on the full series first, so the
+    # fitted range stays CONTIGUOUS in dimension. Applying the floor first
+    # punches holes, and the monotone test then cannot see that a warm-up
+    # outlier at the smallest dimension is out of order: on the oscillator the
+    # Davies series is 0.143, 0.0162, 0.089, 0.454, 1.95, and floor-first kept
+    # dims 8, 64, 128 -- skipping 16 and 32 -- for a nonsense N^0.9 against a
+    # true tail near N^2.2.
     start = len(t) - 1
     while start > 0 and t[start - 1] <= t[start]:
         start -= 1
     d, t = d[start:], t[start:]
+
+    # then drop leading points too cheap to be meaningful, while >= 2 remain
+    while len(d) > 2 and t[0] < floor:
+        d, t = d[1:], t[1:]
     if len(d) < 2:
         return None, 0
     return float(np.polyfit(np.log(d), np.log(t), 1)[0]), int(len(d))
