@@ -1223,7 +1223,7 @@ past it the exact solver is impractical.
 
 **The cost curves (top).** The exact full-dissipator `mesolve` evolves the
 density matrix with all $N_L$ collapse operators; its fitted slope is the
-steepest on the plot ($N^{3.0}$ on the chain, $N^{6.1}$ on the oscillator), and
+steepest on the plot ($N^{4.9}$ on the chain, $N^{6.7}$ on the oscillator), and
 past dim 32 it cannot run here at all — its superoperator construction exhausts
 even 32 GB. SLB at a *fixed* bundle size ($M=8$) only ever propagates $M$
 operators, so one solve is cheap; the SLB and construction curves need no exact
@@ -1232,19 +1232,27 @@ dim 128, a $16\times$ span in dimension.
 
 One caveat on the SLB slopes, stated plainly because a fitted exponent invites
 it: **the fixed $M$ and iso curves are clean power laws on the chain but not on
-the oscillator.** On the chain the fixed $M$ cost fits $N^{1.9}$ over dim
+the oscillator.** On the chain the fixed $M$ cost fits $N^{2.5}$ over dim
 4–512 with monotone per-step ratios, close to the $O(N^3)$-per-solve floor once
-overhead is amortized — a quotable scaling law. (It fitted $N^{1.6}$ over
-dim 4–256; extending the sweep to 512 steepened it, which is the honest
-direction — the earlier fit was flattered by the small $N$ points where
-fixed overhead dominates.) On the oscillator the same
+overhead is amortized — a quotable scaling law. (This number has moved twice and both moves were upward. It fitted
+$N^{1.6}$ over dim 4–256 before the sweep reached 512, and $N^{1.9}$
+before the fitting range was corrected. Both earlier values were
+flattered by including the smallest dimensions, where the measured time
+is interpreter and allocator overhead rather than the algorithm — on
+this system `mesolve` costs 0.032 s at dim 4 and 0.021 s at dim 8, *less*
+at the larger size, which cannot be a cost that grows with $N$. Every
+slope on these panels is now fitted only over the curve's monotone tail
+above a 0.1 s floor, and each legend entry states how many points that
+left. Where only two survive, the number is labelled a local slope
+rather than an exponent, because a line through two points is one ratio,
+not a scaling law.) On the oscillator the same
 curve fits $N^{1.3}$, but the per-doubling cost ratios are *not* monotone (a
 large jump at dim 8→32, then a much smaller one at 32→64 as the dense linear
 algebra reaches its efficient BLAS regime), so that number is a least-squares
 summary of a curved trend, not a scaling exponent, and is **not quoted as
 one**. The scaling *claim* of this work therefore rests on the chain's
-$N^{1.9}$; the oscillator panel is included as the decisive visual of the exact
-solver's wall — `mesolve` at $N^{6.1}$ and the native route at $N^{3.1}$ both
+$N^{2.5}$; the oscillator panel is included as the decisive visual of the exact
+solver's wall — `mesolve` at $N^{6.7}$ and the native route at $N^{3.1}$ both
 climbing into hours per solve while SLB stays near-flat — rather than for a
 fitted SLB exponent.
 
@@ -1272,7 +1280,7 @@ point where `mesolve` can no longer provide one.** Wherever both routes run they
 agree to $10^{-10}$ to $10^{-8}$ (stated in the figure footer, recorded per
 dimension in the data), and where the native route is used alone it is re-run at
 half its substeps and rejected if halving moves the answer appreciably. That it
-also scales better than `mesolve` ($N^{2.3}$ / $N^{3.0}$) is worth noting but is
+also scales better than `mesolve` ($N^{2.5}$ / $N^{4.9}$) is worth noting but is
 not a claim of this work: `mesolve` remains the neutral, widely-used standard
 against which the cost argument is made. The
 oscillator is the stiffer system: its anharmonic ladder's frequencies grow

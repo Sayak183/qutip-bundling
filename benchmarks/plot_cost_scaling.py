@@ -136,15 +136,61 @@ def fixed_m_stats(points, m_rep):
             sem.append(metrics["ensemble"]["sem"])
     return np.array(rmse), np.array(bias), np.array(sem)
 
-def fit_slope(dims, times):
-    m = np.isfinite(times)
+# Timings below this are dominated by fixed overhead -- interpreter dispatch,
+# object construction, allocator warm-up -- not by the algorithm being measured.
+# Including them biases every fitted slope downward, sometimes badly: on the
+# spin chain mesolve costs 0.032 s at dim 4 and 0.021 s at dim 8, LOWER at the
+# larger size, which cannot be true of a cost that grows with N. Those two
+# points alone pull the fit from N^4.9 to N^3.0 and make the extrapolated line
+# visibly undershoot the trend it extrapolates from.
+FIT_FLOOR_SECONDS = 0.1
+
+# A slope through two points is one ratio, not a scaling law. Below this many
+# surviving points the number is reported as a local slope and not as an
+# exponent.
+FIT_MIN_POINTS = 3
+
+
+def fit_slope(dims, times, floor=FIT_FLOOR_SECONDS):
+    """(exponent, n_points_used) fitted over the curve's meaningful tail.
+
+    Two filters, both necessary:
+
+    * the floor drops points too CHEAP to measure -- mesolve costs 0.032 s at
+      dim 4 and 0.021 s at dim 8 on the spin chain, i.e. less at the larger
+      size, which is timer noise rather than a cost;
+    * the monotone suffix drops points anomalously EXPENSIVE at small size --
+      the Davies construction costs 0.4 s at dim 4 against 0.1 s at dim 32,
+      first-call warm-up rather than algorithm.
+
+    A cost that grows with N is monotone in N. Where the measured series is
+    not, something other than the algorithm dominates, so the fit is taken over
+    the longest monotone run ending at the largest dimension.
+
+    Returns (None, 0) when fewer than two points survive.
+    """
+    m = np.isfinite(times) & (times >= floor)
     d, t = dims[m], times[m]
-    if len(d) < 2: return None
-    return float(np.polyfit(np.log(d), np.log(t), 1)[0])
+    if len(d) < 2:
+        return None, 0
+    # longest suffix over which cost is non-decreasing with dimension
+    start = len(t) - 1
+    while start > 0 and t[start - 1] <= t[start]:
+        start -= 1
+    d, t = d[start:], t[start:]
+    if len(d) < 2:
+        return None, 0
+    return float(np.polyfit(np.log(d), np.log(t), 1)[0]), int(len(d))
+
 
 def _slope_label(base, dims, times):
-    e = fit_slope(dims, times)
-    return base + (rf"  — $\propto N^{{{e:.1f}}}$" if e else "")
+    e, n = fit_slope(dims, times)
+    if e is None:
+        return base
+    if n < FIT_MIN_POINTS:
+        # honest about what a two-point number is
+        return base + rf"  — local slope $N^{{{e:.1f}}}$ ({n} pts)"
+    return base + rf"  — $\propto N^{{{e:.1f}}}$ ({n} pts)"
 
 def figure(name, doc, target, est_type, err_type):
     import matplotlib
@@ -177,7 +223,7 @@ def figure(name, doc, target, est_type, err_type):
     ff = np.isfinite(t_full)
     ax_main.loglog(dims[ff], t_full[ff], "o-", color="tab:red", lw=2, label=_slope_label("full mesolve", dims, t_full))
     
-    s_full = fit_slope(dims, t_full)
+    s_full, _ = fit_slope(dims, t_full)
     if s_full and ff.any() and dims[~ff & np.isfinite(dims)].size:
         d0, y0 = dims[ff][-1], t_full[ff][-1]
         d_ext = np.array(sorted(set(dims[dims >= d0])))
