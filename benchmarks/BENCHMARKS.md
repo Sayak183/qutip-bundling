@@ -1169,20 +1169,25 @@ sweep at every measured dimension on one axis separates two questions that are
 easy to conflate.
 
 **The slope is invariant, and that is the useful part.** Every curve falls as
-$M^{-1}$: measured slopes span $M^{-0.91}$ to $M^{-1.02}$, and they tighten
-toward $-1.00$ as dimension grows ($-0.91 \to -0.97 \to -0.98$ on System A).
-System B is the cleanest case — $M^{-1.00}$, $M^{-1.00}$, $M^{-1.02}$ at dims
-16, 32, 64, three parallel lines. So *doubling $M$ halves the error at any
-size*, and that rule needs no recalibration as the system grows.
+$M^{-1}$, and the exponent settles as dimension grows. System A is measured at
+**four** sizes: $-0.91$, $-0.97$, $-0.98$, $-0.98$ at dims 16, 32, 64, 128. It
+stops moving after dim 32 and stays put through a further fourfold increase.
+System B gives $M^{-1.00}$, $M^{-1.00}$, $M^{-1.02}$ across its three sizes. So
+**doubling M halves the error at any size**, and that rule needs no
+recalibration as the system grows.
 
 **The height is not invariant, and the difference is systematic.** At fixed
 $M=8$ the bias moves with dimension:
 
 | system | dim 16 → 32 → 64 | scaling |
 |---|---|---|
-| **A** TFIM chain | $3.3\times10^{-2} \to 5.0\times10^{-2} \to 8.0\times10^{-2}$ | $\sim N^{+0.64}$ |
+| **A** TFIM chain | $3.3\times10^{-2} \to 5.0\times10^{-2} \to 8.0\times10^{-2} \to 1.2\times10^{-1}$ | $\sim N^{+0.64}$ |
 | **B** mixed chain | $2.6\times10^{-2} \to 3.4\times10^{-2} \to 5.5\times10^{-2}$ | $\sim N^{+0.55}$ |
 | **C** oscillator | $2.6\times10^{-3} \to 2.3\times10^{-3} \to 2.0\times10^{-3}$ | $\sim N^{-0.20}$ |
+
+System A's exponent is measured over four dimensions and the fourth does not
+move it: $N^{+0.64}$ over dims 16–64, and still $N^{+0.64}$ with dim 128
+included. The growth is a trend, not a three-point artefact.
 
 On the chains the bias grows as roughly $\sqrt N$, so holding a fixed *accuracy*
 target requires $M$ to grow with the system — which is precisely what Result 4's

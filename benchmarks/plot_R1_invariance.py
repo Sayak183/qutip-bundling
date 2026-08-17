@@ -4,7 +4,8 @@ from pathlib import Path
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.stats import linregress
-from common import add_settings_footer
+from common import (add_settings_footer, result1_reference,
+                    result1_samples)
 
 # =====================================================================
 # Configuration & Toggles
@@ -15,9 +16,9 @@ SYSTEM_TITLES = {
     "mixed_chain": "System B - mixed-field chain",
     "oscillator_bath": "System C - oscillator + spin",
 }
-DIMS = [16, 32, 64]
-COLORS = {16: '#1f77b4', 32: '#ff7f0e', 64: '#2ca02c'}
-MARKERS = {16: 'o', 32: 's', 64: '^'}
+DIMS = [16, 32, 64, 128]
+COLORS = {16: '#1f77b4', 32: '#ff7f0e', 64: '#2ca02c', 128: '#d62728'}
+MARKERS = {16: 'o', 32: 's', 64: '^', 128: 'D'}
 
 # Toggle: True = evaluate at the worst-time slice t* (standard R1 anatomy)
 #         False = use the overall time-averaged error across the full trajectory
@@ -86,7 +87,8 @@ for system in SYSTEMS:
         # ---------------------------------------------------------
         try:
             sweep_data = data['slb_sweep']
-            ref_arr = np.array(data['reference_energy'])
+            # two schemas are committed; read either
+            ref_arr = result1_reference(data, 'energy')
             
             M_vals, bias_vals, sem_vals = [], [], []
             realizations = 0
@@ -95,7 +97,7 @@ for system in SYSTEMS:
             worst_t_idx = 0
             if EVALUATE_AT_WORST_TIME and len(sweep_data) > 0:
                 smallest_item = sweep_data[0] 
-                s_arr = np.array(smallest_item['samples_energy'])
+                s_arr = result1_samples(smallest_item, 'energy')
                 if s_arr.ndim == 1:
                     s_arr = s_arr.reshape(1, -1)
                 smallest_mean = np.mean(s_arr, axis=0)
@@ -104,7 +106,7 @@ for system in SYSTEMS:
             for item in sweep_data:
                 m_val = item.get('M', item.get('bundles'))
                 
-                samples_arr = np.array(item['samples_energy'])
+                samples_arr = result1_samples(item, 'energy')
                 if samples_arr.ndim == 1:
                     samples_arr = samples_arr.reshape(1, -1)
                     

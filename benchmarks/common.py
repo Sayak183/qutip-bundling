@@ -573,6 +573,49 @@ def load_data(filename):
         return json.load(fh)
 
 
+# --------------------------------------------------------------------------
+# Result 1 schema adapter
+# --------------------------------------------------------------------------
+# run_accuracy_vs_M.py gained all-observable tracking partway through, so its
+# saved files come in two shapes and BOTH are committed:
+#
+#   old (dims 16/32/64)  reference_energy, samples_energy, coherence_pair
+#   new (dim 128+)       reference={name: ...}, samples={name: ...}, coherence
+#
+# Nothing here converts one to the other -- the old runs are perfectly good and
+# re-running them would cost hours for no new physics. These readers just accept
+# either. Without them the plot scripts silently SKIP the newer files, which is
+# how a dim-128 point can be computed overnight and never appear in a figure.
+
+
+def result1_observables(doc) -> list[str]:
+    """Observable names present in a Result 1 document, either schema."""
+    if "observables" in doc:
+        return list(doc["observables"])
+    return ["energy", "coherence"]
+
+
+def result1_reference(doc, observable: str = "energy") -> np.ndarray:
+    """Reference curve for one observable, from either schema."""
+    if "reference" in doc:
+        return np.asarray(doc["reference"][observable], dtype=float)
+    return np.asarray(doc[f"reference_{observable}"], dtype=float)
+
+
+def result1_samples(entry, observable: str = "energy") -> np.ndarray:
+    """Per-realization samples ``(n_realizations, n_times)``, either schema."""
+    if "samples" in entry:
+        return np.asarray(entry["samples"][observable], dtype=float)
+    return np.asarray(entry[f"samples_{observable}"], dtype=float)
+
+
+def result1_coherence_pair(doc):
+    """The (a, b) level pair the coherence observable tracks, either schema."""
+    if "coherence" in doc and isinstance(doc["coherence"], dict):
+        return tuple(doc["coherence"]["levels"])
+    return tuple(doc.get("coherence_pair", ()))
+
+
 def as_array(seq):
     """List from a data file -> float array, mapping JSON null back to NaN."""
     return np.array([np.nan if v is None else v for v in seq], dtype=float)
