@@ -81,6 +81,7 @@ The supporting checks (`benchmark_convergence.py`,
   - [Result 2 — cost scaling versus the exact solver](#result-2--cost-scaling-versus-the-exact-solver)
   - [Result 3 — four-method accuracy versus cost](#result-3--four-method-accuracy-versus-cost)
   - [Result 4 — iso-accuracy cost versus dimension](#result-4--iso-accuracy-cost-versus-dimension)
+  - [Result 5 — past the reference wall](#result-5--past-the-reference-wall)
 
 **Reference**
 - [6. Validation and robustness](#6-validation-and-robustness)
@@ -1642,6 +1643,98 @@ between systems.
 dims 32 and 64 is the largest available, not a setting that reached 0.02, so its
 2–4x is a comparison at unequal accuracy and should be read as an upper bound on
 the advantage rather than a measurement of it.
+
+### Result 5 — past the reference wall
+
+Every result above compares SLB against an exact solve, which caps each study at
+the dimension where an exact solve is still possible. That is the wrong place to
+stop. The regime the method exists for is the one where the operator list does
+not fit, and it had never been shown.
+
+System B at dimension 256 has $N_L = 32{,}637$ Davies operators. Held as a list
+of dense matrices that is **31.9 GB** — the operators alone, before a single
+step of propagation. `mesolve_ensemble_davies` never forms it: each operator is
+built, folded into the bundles, and discarded, so peak memory is a bounded chunk
+buffer plus the ensemble's bundles and does not grow with $N_L$.
+
+**What this can and cannot claim.** There is no exact solve at this size, so
+there is no error to report, and "SLB ran at dimension 256" proves only that it
+terminated. The run is therefore scored on three things that can be checked
+*without* a reference, each of which the method could have failed.
+
+![Extreme dimension](benchmark_extreme_dimension_mixed_chain.png)
+
+**Check 1 — it converges in $M$, and in the predicted form.**
+
+| $M$ | $\langle H \rangle$ at $t=5$ | change | ratio |
+|---|---|---|---|
+| 8 | −10.74198 | | |
+| 16 | −10.78844 | 0.04646 | |
+| 32 | −10.81238 | 0.02394 | **0.515** |
+
+The claim is not that the numbers stop moving — a wrong answer can also stop
+moving. It is that they stop moving *as* $1/M$, which is what the bias is
+predicted to do, so each doubling of $M$ should halve the change. Measured
+0.515 against a predicted 0.500. In the right panel of the figure this is the
+straight line, and a curve there would have falsified it. The two independent
+pairwise extrapolations to $M \to \infty$ give −10.8349 and −10.8363, agreeing
+to 0.0014; the three-point fit intercepts at −10.8356.
+
+**Check 2 — the integrator holds.** Max $|\mathrm{Tr}-1| = 4.4 \times 10^{-16}$
+across all three sweeps. The bundled generator is Lindblad by construction, so
+this is a test of the propagation at a size where nobody had run it.
+
+**Check 3 — it relaxes to the thermal state.** This is the strong one, for two
+reasons: detailed balance makes the Gibbs state stationary, and
+$\mathrm{Tr}(H \rho_{\mathrm{Gibbs}})$ needs only the eigenvalues of $H$, which
+the construction already computes. The reference is therefore *free at any
+dimension the method can reach*, and it is independent of everything bundling
+does.
+
+```
+started at   -10.2000
+ended at     -10.8692
+Gibbs        -10.8737     <- from eigenvalues alone
+```
+
+It covered **99.3%** of the distance, and it has genuinely stopped: over the
+last 20 time units the curve is flat to $10^{-6}$, so the 0.0046 that remains is
+a floor and not a curve still creeping toward the line.
+
+**What that residual does and does not settle.** The thermal run used 4
+realizations rather than the sweep's 16, which puts its own standard error at
+about 0.0040 — so the gap is **1.1 s.e.m.**, drawn to scale in the figure's
+inset. At that size the data cannot distinguish landing exactly on the Gibbs
+state from landing a little short of it, and this write-up does not claim the
+former. What it does exclude is a gross failure: a bundled generator that had
+lost detailed balance would not arrive within 0.7% of a number it was never
+given.
+
+One measured detail worth recording without explaining it: the long-time gap
+(0.0046) is five times *smaller* than the $M=32$ bias in the transient window
+(0.023 against the extrapolated −10.8356). Whatever bias survives into the
+stationary state is smaller than the bias on the way there. That is an
+observation from one system at one size, not a result.
+
+**Why System B and not System A.** System A has a $Z_2$ symmetry, hence extra
+conserved quantities, so it relaxes to a *symmetry-restricted* stationary state
+rather than the global Gibbs state — measured at dimension 16 it settles at
+−3.5054 against a Gibbs value of −3.4738. That gap is real physics, and it would
+invalidate check 3 for reasons having nothing to do with bundling. System B has
+no such symmetry.
+
+**Cost.** 644.6 s, 1016.1 s and 1775.0 s for the three sweeps at 16 realizations
+each, plus 4098.1 s for the thermal run — about 2.1 hours total on one node with
+4 CPUs. Counting $N_L$ took 1.3 s and built no operators.
+
+**Provenance.** Slurm job 19592847 on landau42, partition `roibq`, 2026-08-17.
+Written by `run_extreme_dimension.py --size 8 --m-values 8 16 32`
+(`benchmarks/slurm_extreme256.sh`), plotted by `plot_extreme_dimension.py`.
+
+**Two caveats.** The thermal run's 4 realizations are thin, and a repeat at 16
+would tighten the 1.1 s.e.m. statement considerably. And nothing here is an
+*accuracy* measurement — Results 1–4 remain the only place error against a known
+answer is reported, precisely because they stop where a known answer stops.
 
 ---
 
