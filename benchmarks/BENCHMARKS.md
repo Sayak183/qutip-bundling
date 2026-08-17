@@ -1243,7 +1243,7 @@ past it the exact solver is impractical.
 
 **The cost curves (top).** The exact full-dissipator `mesolve` evolves the
 density matrix with all $N_L$ collapse operators; its fitted slope is the
-steepest on the plot ($N^{4.9}$ on the chain, $N^{6.7}$ on the oscillator), and
+steepest on the plot ($N^{4.9}$ on the chain, $N^{5.0}$ on the oscillator), and
 past dim 32 it cannot run here at all — its superoperator construction exhausts
 even 32 GB. SLB at a *fixed* bundle size ($M=8$) only ever propagates $M$
 operators, so one solve is cheap; the SLB and construction curves need no exact
@@ -1266,30 +1266,45 @@ above a 0.1 s floor, and each legend entry states how many points that
 left. Where only two survive, the number is labelled a local slope
 rather than an exponent, because a line through two points is one ratio,
 not a scaling law.) On the oscillator the same
-curve fits $N^{1.3}$, but the per-doubling cost ratios are *not* monotone (a
+curve fits $N^{1.7}$, but the per-doubling cost ratios are *not* monotone (a
 large jump at dim 8→32, then a much smaller one at 32→64 as the dense linear
 algebra reaches its efficient BLAS regime), so that number is a least-squares
 summary of a curved trend, not a scaling exponent, and is **not quoted as
 one**. The scaling *claim* of this work therefore rests on the chain's
 $N^{2.5}$; the oscillator panel is included as the decisive visual of the exact
-solver's wall — `mesolve` at $N^{6.7}$ and the native route at $N^{3.1}$ both
+solver's wall — `mesolve` at $N^{5.0}$ and the native route at $N^{3.1}$ both
 climbing into hours per solve while SLB stays near-flat — rather than for a
 fitted SLB exponent.
 
-**Where the oscillator's SLB curve stops, and why it is not a memory wall.**
-It ends at dimension 64 while the exact route continues to 128. The reason is
-*stiffness*, not memory: at dimension 128 the bundled generator diverges at the
-16 RK4 substeps this panel uses throughout, growing to $10^6$ while still
-finite. The run stops the cost curve there rather than quietly switching to 32
-substeps, because a point integrated at a different resolution is no longer
-cost-comparable with the rest of the curve — the whole panel is a
-uniform-substep benchmark. The exact reference at that dimension *did* need 32
-substeps, and its certification escalated **upward** to 64 when the coarse
-partner diverged, agreeing to $3.6\times10^{-8}$. So dimension 128 carries an
-exact point and no SLB point, which is an honest gap rather than a missing
-measurement. Bundling at that size is possible; it is simply not measurable
-*on this axis* without changing the integrator, which would change what the
-axis means.
+**Where the oscillator's curves stop, and why it is stiffness rather than
+memory.** All three end together at dimension 128, and the limit is the
+integrator, not the operator count.
+
+The panel is a *uniform-substep* benchmark: every method integrates at one
+resolution, or the wall-clocks are not comparable. Running it at 16 substeps,
+the bundled generator diverged at dimension 128 — entries growing to $10^6$
+while still finite. Re-running the whole panel at 32 substeps recovers that
+dimension and pushes the failure to 256, where it diverges again, this time to
+$4\times10^{17}$.
+
+**That is a pattern, not a setting.** Each doubling of dimension needs roughly
+double the substeps, because the anharmonic ladder's level spacing grows with
+the level index: adding Fock states adds *faster* frequencies, so the generator
+becomes stiffer as the system grows. Two consequences follow. The oscillator's
+true cost per solve grows faster than the $M N^3$ the arithmetic suggests, since
+the integrator must also take more steps. And a fixed-resolution comparison has
+a natural ceiling — not because bundling fails at dimension 256, but because
+measuring it there on the same axis as dimension 8 stops being meaningful.
+
+The exact reference is subject to the same physics and shows it: at dimension
+128 it needed 32 substeps, and its certification escalated **upward** to 64 when
+the coarse partner diverged, agreeing to $3.6\times10^{-8}$. At dimension 256 it
+too runs out — 2,986 operators against a reference that would need finer
+integration still.
+
+The gap this leaves is honest rather than missing: **bundling at dimension 256
+is possible, it is simply not measurable on this axis** without changing the
+integrator, which would change what the axis means.
 
 **A second exact route, as a control.** The dash-dot curve is the same Lindblad
 equation propagated by the package's own fixed-step RK4 with *all* $N_L$
