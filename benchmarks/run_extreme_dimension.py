@@ -94,7 +94,7 @@ def gibbs_energy(H: qutip.Qobj) -> float:
     return float(np.dot(weights, energies))
 
 
-def run(size: int, m_values: list[int]) -> None:
+def run(size: int, m_values: list[int], thermal_realizations: int) -> None:
     H, X, psi0 = build_mixed_field_chain(size)
     rho0 = qutip.ket2dm(psi0)
     dimension = H.shape[0]
@@ -144,7 +144,7 @@ def run(size: int, m_values: list[int]) -> None:
     start = time.perf_counter()
     long_run = mesolve_ensemble_davies(
         H, rho0, TLIST_THERMAL, X, gamma, M=m_thermal, e_ops=e_ops,
-        n_realizations=max(4, N_REALIZATIONS // 4), rng=RNG + 1,
+        n_realizations=thermal_realizations, rng=RNG + 1,
         backend="native", substeps=SUBSTEPS,
         degeneracy_tol=DAVIES_DEGENERACY_TOL,
     )
@@ -156,16 +156,19 @@ def run(size: int, m_values: list[int]) -> None:
     remaining = abs(final_energy - thermal)
     fraction = travelled / max(abs(thermal - start_energy), 1e-30)
 
-    print(f"\n  thermal check at M={m_thermal}, t -> {TLIST_THERMAL[-1]:.0f} "
-          f"({t_thermal:.1f} s)")
+    sem_end = float(np.asarray(long_run.sem[0], dtype=float)[-1])
+    print(f"\n  thermal check at M={m_thermal}, {thermal_realizations} "
+          f"realizations, t -> {TLIST_THERMAL[-1]:.0f} ({t_thermal:.1f} s)")
     print(f"    <H> ran {start_energy:+.4f} -> {final_energy:+.4f}")
     print(f"    Gibbs                      {thermal:+.4f}")
     print(f"    covered {100 * fraction:.1f}% of the distance; "
-          f"{remaining:.4f} remains")
+          f"{remaining:.4f} remains = {remaining / max(sem_end, 1e-30):.1f} "
+          f"s.e.m. (s.e.m. = {sem_end:.4f})")
 
     meta = run_metadata(
         tlist=TLIST, substeps=SUBSTEPS, system="mixed_chain", size=size,
         M_VALUES=m_values, N_REALIZATIONS=N_REALIZATIONS, rng=RNG,
+        thermal_realizations=thermal_realizations,
         route="streaming (mesolve_ensemble_davies)",
         tlist_thermal=[float(TLIST_THERMAL[0]), float(TLIST_THERMAL[-1]),
                        int(TLIST_THERMAL.size)],
@@ -177,6 +180,12 @@ def run(size: int, m_values: list[int]) -> None:
         gibbs_energy=thermal, sweep=sweep,
         thermal={
             "M": m_thermal, "wall_s": t_thermal,
+            # Recorded rather than assumed. How close the endpoint sits to Gibbs
+            # is only meaningful against this run's own statistical error, which
+            # scales as 1/sqrt(this number -- a plot that hardcoded it would
+            # mis-size the band that decides the whole check.
+            "n_realizations": thermal_realizations,
+            "sem": np.round(np.asarray(long_run.sem[0], dtype=float), ROUND),
             "times": np.round(TLIST_THERMAL, 6),
             "energy": np.round(relaxed, ROUND),
             "start": start_energy, "final": final_energy,
@@ -192,9 +201,15 @@ def main() -> None:
                         help="spins; 8 gives dimension 256 (default)")
     parser.add_argument("--m-values", type=int, nargs="+", default=[8, 16, 32],
                         help="bundle sizes, ascending (default: 8 16 32)")
+    parser.add_argument("--thermal-realizations", type=int, default=16,
+                        help="realizations for the thermal check (default: 16). "
+                             "This sets the error bar the residual gap to Gibbs "
+                             "is judged against, and the thermal run is the "
+                             "most expensive part of this script, so it is the "
+                             "one knob worth turning.")
     args = parser.parse_args()
     DATA_DIR.mkdir(parents=True, exist_ok=True)
-    run(args.size, sorted(args.m_values))
+    run(args.size, sorted(args.m_values), args.thermal_realizations)
 
 
 if __name__ == "__main__":

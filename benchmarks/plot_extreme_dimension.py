@@ -34,7 +34,9 @@ from common import add_settings_footer, as_array, load_data
 SLB_GREEN = "#006d2c"
 GIBBS_GREY = "tab:gray"
 SWEEP_REALIZATIONS = 16
-THERMAL_REALIZATIONS = 4
+# Only used for files written before the thermal run recorded its own count
+# and its own s.e.m.; those runs used a hardcoded 4.
+LEGACY_THERMAL_REALIZATIONS = 4
 
 
 def derive(doc):
@@ -61,11 +63,19 @@ def derive(doc):
         for a, b in zip(range(len(m_values) - 1), range(1, len(m_values)))
     ]
 
-    # The thermal run used fewer realizations than the sweep, so its statistical
-    # error is larger by the square root of that ratio. Without this the residual
-    # gap looks like a bias when it is within the noise.
-    sem_thermal = float(sems[-1]) * np.sqrt(SWEEP_REALIZATIONS
-                                            / THERMAL_REALIZATIONS)
+    # How close the endpoint sits to Gibbs means nothing except against this
+    # run's own statistical error, so take the MEASURED one when the file has it
+    # (runs from 2026-08-18 on). Older files predate that field and their
+    # thermal run used a fixed 4 realizations, so the sweep's error is rescaled
+    # by the square root of the ratio -- an estimate, and labelled as one.
+    thermal = doc["thermal"]
+    n_thermal = int(thermal.get("n_realizations", LEGACY_THERMAL_REALIZATIONS))
+    if "sem" in thermal:
+        sem_thermal = float(as_array(thermal["sem"])[-1])
+        sem_measured = True
+    else:
+        sem_thermal = float(sems[-1]) * np.sqrt(SWEEP_REALIZATIONS / n_thermal)
+        sem_measured = False
     residual = abs(float(energy[-1]) - gibbs)
 
     # Has it actually stopped, or is it still creeping? A residual from a curve
@@ -76,7 +86,8 @@ def derive(doc):
         "m_values": m_values, "finals": finals, "sems": sems,
         "slope": float(slope), "intercept": float(intercept),
         "pairwise": pairwise,
-        "sem_thermal": sem_thermal, "residual": residual,
+        "sem_thermal": sem_thermal, "sem_measured": sem_measured,
+        "n_thermal": n_thermal, "residual": residual,
         "residual_in_sem": residual / sem_thermal,
         "tail_drift": float(tail[-1] - tail[0]),
         "fraction": float(doc["thermal"]["fraction_covered"]),
@@ -93,7 +104,7 @@ def figure(doc, out_name):
     # ---- LEFT: relaxation to the thermal state ---------------------------
     ax_t.plot(r["t"], r["energy"], "-", color=SLB_GREEN, lw=2,
               label=f"SLB, $M$={doc['thermal']['M']}, "
-                    f"{THERMAL_REALIZATIONS} realizations")
+                    f"{r['n_thermal']} realizations")
     ax_t.axhline(r["gibbs"], ls="--", color=GIBBS_GREY, lw=1.8,
                  label=r"$\mathrm{Tr}(H\rho_{\mathrm{Gibbs}})$"
                        " (from eigenvalues; free)")
@@ -101,7 +112,8 @@ def figure(doc, out_name):
     # the gap that remains is a real offset or the noise it sits inside.
     ax_t.axhspan(r["gibbs"] - r["sem_thermal"], r["gibbs"] + r["sem_thermal"],
                  color=GIBBS_GREY, alpha=0.18, lw=0,
-                 label=r"$\pm 1$ s.e.m. of this run")
+                 label=r"$\pm 1$ s.e.m. of this run"
+                       + ("" if r["sem_measured"] else " (estimated)"))
     ax_t.set_xlabel("time")
     ax_t.set_ylabel(r"$\langle H \rangle$")
     ax_t.set_title(f"Relaxes to the Gibbs state\n"
