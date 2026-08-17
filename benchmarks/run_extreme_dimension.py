@@ -69,7 +69,13 @@ from qutip_bundling import davies_operator_count, mesolve_ensemble_davies
 # hard transient and reaches only ~87% of the steady state, which is the right
 # choice for measuring solver error and the wrong one for testing a thermal
 # limit.
-TLIST_THERMAL = np.linspace(0.0, 60.0, 60)
+# Same STEP SIZE as TLIST, not the same number of points. The first attempt
+# used 60 points over t=0..60, which is an 8x coarser step than the benchmark
+# grid, and the fixed-step RK4 diverged on this stiff generator at dimension
+# 256 -- a failure caused entirely by the grid choice, not by the physics or by
+# bundling. Reaching further in time must cost more steps, not bigger ones.
+_STEP = float(TLIST[1] - TLIST[0])
+TLIST_THERMAL = np.arange(0.0, 60.0 + _STEP, _STEP)
 N_REALIZATIONS = 16
 RNG = 0
 ROUND = 8

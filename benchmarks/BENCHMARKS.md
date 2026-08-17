@@ -1582,22 +1582,34 @@ predicts.**
 
 | | $N_L$ (dim 4→64) | $M^\ast$ (dim 4→64) | speedup at dim 64 |
 |---|---|---|---|
-| **A** TFIM chain | 3 → 31 | 2 → **31** | 4x |
+| **A** TFIM chain | 3 → 73 (dims 4–512) | 2 → **73** | 3x |
 | **B** mixed chain | 7 → 2,017 | 2 → **32** | **149x** |
 | **C** oscillator | 32 → 890 | 1 → **1** | **12,955x** |
 
 Read the middle column against the first. **$M^\ast$ is what the method costs;
 $N_L$ is what it replaces**, and the ratio between them is the whole result.
 
-**System A — the control, and it fails as designed.** $M^\ast$ tracks $N_L$
-exactly: 13 operators need $M^\ast=13$, 21 need 21, 31 need 31. There is no
-compression, because there is nothing to compress. And at dimensions 32 and 64
-**the target is not reached at all**, even at $M^\ast=N_L$ — visible in the lower
-panel, where those bars sit above the target line. That is not a failure of the
-solver: at $M=N_L$ a bundle is still a random mixture, not the exact operator
-set, so it retains sampling error the target is tighter than. SLB is still 2–4x
-cheaper than `mcsolve` here, but on a system where the honest advice is to use
-the exact solver.
+**System A — the control, and it fails as designed, over four octaves.**
+This system is now swept from dimension 4 to 512, and $M^\ast$ equals $N_L$
+*exactly* at every size from 16 upward: 13 operators need $M^\ast=13$, then
+21/21, 31/31, 43/43, 57/57, 73/73. Not approximately — equal, across a 32-fold
+range in dimension. There is no compression because there is nothing to
+compress, and that is now a measurement across four octaves rather than an
+observation at two.
+
+From dimension 32 up **the target is not reached at all**, even at
+$M^\ast=N_L$ — visible in the lower panel, where those bars sit above the target
+line. That is not a failure of the solver: at $M=N_L$ a bundle is still a random
+mixture, not the exact operator set, so it retains sampling error the target is
+tighter than.
+
+**And the advantage does not grow.** The speedup over `mcsolve` is 2x, 5x, 5x,
+4x, 3x across dims 16 to 512 — flat, within noise, over a 32-fold range. Compare
+System B below, where the same quantity climbs from 1x to 149x over a *smaller*
+range. A flat ratio is the signature of a system with nothing to exploit: both
+methods pay for all $N_L$ operators, so both scale the same way and their ratio
+is a constant. On this system the honest advice remains to use the exact
+solver.
 
 **System B — the advantage compounds with dimension.** $N_L$ grows 288-fold
 across the sweep while $M^\ast$ grows 16-fold, and the speedup follows: 1x, 2x,
