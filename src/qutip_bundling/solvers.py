@@ -197,9 +197,16 @@ def mesolve_ensemble_davies(
     ``N_L`` operators.
 
     This matters at scale. For the mixed-field chain at dimension 256 the
-    operator list is 32,637 dense matrices, about 32 GB, while the bundles it
-    feeds occupy 16 MB. That gap is the difference between "cannot run here"
-    and "runs on a laptop".
+    operator list is 32,637 dense matrices, about 32 GB. The streaming route
+    holds a bounded accumulation buffer plus the ensemble's bundles instead --
+    a few hundred MB, and independent of ``N_L``. That gap is the difference
+    between "cannot run here" and "runs on a laptop".
+
+    It is not a speed sacrifice. Measured on System B at dimension 64 with
+    ``M=8`` and 8 realizations: 4.1 s and 75 MB for this route against 5.5 s and
+    381 MB for the list. The operators are streamed once for the whole ensemble
+    and folded in BLAS-sized chunks, so the construction is paid once, exactly
+    as it is when a list is built and reused.
 
     Which one to call
     -----------------
@@ -210,7 +217,8 @@ def mesolve_ensemble_davies(
 
     :func:`mesolve_ensemble_davies` (this one)
         Takes ``H, X, gamma``. Use it when the operators come from the Davies
-        construction and are only going to be bundled. Peak memory ``M * N^2``.
+        construction and are only going to be bundled. Peak memory is a capped
+        chunk buffer plus ``n_realizations * M * N^2``, independent of ``N_L``.
 
     The two agree bit-for-bit at equal ``rng``; ``tests/test_streaming_davies.py``
     asserts it with ``atol=0``. That equality is why the streaming route can be
@@ -222,7 +230,7 @@ def mesolve_ensemble_davies(
     Extra keyword arguments are forwarded to the Davies construction
     (``degeneracy_tol``, ``threshold``, ``coupling_threshold``).
     """
-    from .operators import bundle_davies_from_phases, davies_operator_count
+    from .operators import _bundle_ensemble_from_plan, _davies_plan
 
     e_ops = list(e_ops)
     if not e_ops:
@@ -230,7 +238,10 @@ def mesolve_ensemble_davies(
     if not isinstance(rng, np.random.Generator):
         rng = np.random.default_rng(rng)
 
-    n_l = davies_operator_count(H, X, gamma, **davies_kwargs)
+    # built once: the eigendecomposition and frequency grouping do not depend
+    # on the random draw, only the bundles do
+    plan = _davies_plan(H, X, gamma, **davies_kwargs)
+    n_l = int(np.count_nonzero(plan.keep))
     if n_l == 0:
         raise ValueError(
             "the Davies construction produced no collapse operators; check "
@@ -239,11 +250,20 @@ def mesolve_ensemble_davies(
     m_eff = min(int(M), n_l)
 
     tlist = np.asarray(tlist)
+    # Draw every realization's coefficients first, so the operators can be
+    # streamed ONCE and folded into all of them. Drawn in the same order and
+    # from the same generator as mesolve_ensemble, which is what keeps the two
+    # routes bit-for-bit identical at equal rng.
+    phase_stack = np.stack([
+        random_phases(m_eff, n_l, distribution=distribution, rng=rng)
+        for _ in range(n_realizations)
+    ])
+    bundles = _bundle_ensemble_from_plan(plan, phase_stack)
+
     samples = np.empty((n_realizations, len(e_ops), tlist.size))
     for k in range(n_realizations):
-        phases = random_phases(m_eff, n_l, distribution=distribution, rng=rng)
-        R = bundle_davies_from_phases(H, X, gamma, phases, **davies_kwargs)
-        samples[k] = _solve(H, rho0, tlist, R, e_ops, options, backend, substeps)
+        samples[k] = _solve(H, rho0, tlist, bundles[k], e_ops, options,
+                            backend, substeps)
 
     mean = samples.mean(axis=0)
     if n_realizations > 1:

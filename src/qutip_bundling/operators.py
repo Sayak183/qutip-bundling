@@ -69,6 +69,9 @@ _DISTRIBUTIONS = ("phase", "pm1", "uniform")
 # transformations accumulate O(eps * N * ||X||) roundoff; the Frobenius norm
 # supplies a cheap conservative scale bound.
 _COUPLING_ROUNDOFF_FACTOR = 512.0
+# Operators buffered before each accumulate matmul. Bounds the streaming
+# route's peak independently of N_L while keeping the fold in BLAS.
+_STREAM_CHUNK_BYTES = 64 * 1024 * 1024
 
 
 # --------------------------------------------------------------------------
@@ -298,7 +301,68 @@ def bundle_davies_from_phases(H, X, gamma, phases: np.ndarray, **kwargs):
     ``bundle_from_phases(davies_operators(H, X, gamma), phases)``: same sum,
     same order, same bits. Only the peak memory differs.
     """
-    plan = _davies_plan(H, X, gamma, **kwargs)
+    return _bundle_from_plan(_davies_plan(H, X, gamma, **kwargs), phases)
+
+
+def _bundle_ensemble_from_plan(plan: "_DaviesPlan", phase_stack: np.ndarray):
+    """Bundles for a whole ensemble in ONE pass over the operators.
+
+    ``phase_stack`` has shape ``(n_realizations, M, N_L)``. Each operator is
+    built once and folded into every realization's bundles before being
+    discarded, so the construction cost is paid once rather than
+    ``n_realizations`` times -- the difference between the streaming route being
+    slower than the list route and being competitive with it.
+
+    Peak memory is ``n_realizations * M * N^2`` for the accumulators plus one
+    operator, against ``N_L * N^2`` for the list.
+
+    Returns a list of ``n_realizations`` lists of ``M`` operators.
+    """
+    n_l = int(np.count_nonzero(plan.keep))
+    phase_stack = np.asarray(phase_stack)
+    if phase_stack.ndim != 3 or phase_stack.shape[2] != n_l:
+        raise ValueError(
+            f"phase_stack must have shape (n_realizations, M, {n_l}); "
+            f"got {phase_stack.shape}."
+        )
+    n_real, n_bundles = int(phase_stack.shape[0]), int(phase_stack.shape[1])
+    dimension = int(plan.X_eig.shape[0])
+    n_targets = n_real * n_bundles
+    flat_phases = phase_stack.reshape(n_targets, n_l)
+
+    # Accumulate in chunks so the fold is a matmul rather than n_l separate
+    # broadcast-adds. The chunk is the only thing that scales with the operator
+    # count, and it is capped, so peak stays independent of N_L.
+    chunk = max(1, min(n_l, int(_STREAM_CHUNK_BYTES
+                                // max(dimension * dimension * 16, 1))))
+    acc = np.zeros((n_targets, dimension * dimension), dtype=complex)
+    buffer = np.empty((chunk, dimension * dimension), dtype=complex)
+
+    filled, first = 0, 0
+    for index, (bare, _omega, sg) in enumerate(_iter_plan(plan)):
+        buffer[filled] = (sg * bare.full()).reshape(-1)
+        filled += 1
+        if filled == chunk:
+            acc += flat_phases[:, first:index + 1] @ buffer[:filled]
+            first, filled = index + 1, 0
+    if filled:
+        acc += flat_phases[:, first:] @ buffer[:filled]
+
+    acc /= math.sqrt(n_bundles)
+    acc = acc.reshape(n_real, n_bundles, dimension, dimension)
+    return [[qutip.Qobj(acc[r, m], dims=plan.dims) for m in range(n_bundles)]
+            for r in range(n_real)]
+
+
+def _bundle_from_plan(plan: "_DaviesPlan", phases: np.ndarray):
+    """Accumulate bundles from an already-built plan.
+
+    Separated so a solver can build the plan ONCE and reuse it across
+    realizations. Rebuilding it per realization would re-diagonalise H and
+    re-group every frequency sector -- at System B dimension 256 that is 32,637
+    sectors regrouped for each of 16 draws, which is the wrong trade for the
+    case this route exists to serve.
+    """
     n_l = int(np.count_nonzero(plan.keep))
     phases = np.asarray(phases)
     if phases.ndim != 2 or phases.shape[1] != n_l:
