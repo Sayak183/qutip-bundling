@@ -1286,8 +1286,13 @@ fitted SLB exponent.
 memory.** All three end together at dimension 128, and the limit is the
 integrator, not the operator count.
 
-The panel is a *uniform-substep* benchmark: every method integrates at one
-resolution, or the wall-clocks are not comparable. Running it at 16 substeps,
+The panel is a *uniform-substep* benchmark: **every dimension** integrates at
+one resolution, or the wall-clocks are not slope-comparable. Uniform across
+dimensions, not across methods — the native curve is the reference-grade run and
+carries a deliberate $2\times$ substep margin over SLB, so the SLB-vs-native
+ratio should be read as against a *certified* exact solve rather than against
+the same integrator. That margin is what makes the reference trustworthy, and it
+inflates the ratio by roughly $2\times$; see §3.4 for the full accounting. Running it at 16 substeps,
 the bundled generator diverged at dimension 128 — entries growing to $10^6$
 while still finite. Re-running the whole panel at 32 substeps recovers that
 dimension and pushes the failure to 256, where it diverges again, this time to
