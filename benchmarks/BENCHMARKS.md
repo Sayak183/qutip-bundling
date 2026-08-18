@@ -79,7 +79,7 @@ The supporting checks (`benchmark_convergence.py`,
   - [5.3 Provenance of Results 1-4](#53-provenance-of-results-1-4)
   - [Result 1 — accuracy versus the bundle size M](#result-1--accuracy-versus-the-bundle-size-m)
   - [Result 2 — cost scaling versus the exact solver](#result-2--cost-scaling-versus-the-exact-solver)
-  - [Result 3 — four-method accuracy versus cost](#result-3--four-method-accuracy-versus-cost)
+  - [Result 3 — accuracy versus cost: SLB against mcsolve](#result-3--accuracy-versus-cost-slb-against-mcsolve)
   - [Result 4 — iso-accuracy cost versus dimension](#result-4--iso-accuracy-cost-versus-dimension)
   - [Result 5 — past the reference wall](#result-5--past-the-reference-wall)
 
@@ -1481,7 +1481,7 @@ These runs use a small fixed substep count (given in the caption) inside the
 stable range. If the integration ever blows up to a non-finite state, the solver
 raises `SolverInstabilityError` instead of silently returning a corrupted result.
 
-### Result 3 — four-method accuracy versus cost
+### Result 3 — accuracy versus cost: SLB against mcsolve
 
 `run_method_comparison.py` executes **four solvers in a single Slurm
 allocation** at each dimension, so every wall-clock is from the same node:
@@ -1491,11 +1491,21 @@ allocation** at each dimension, so every wall-clock is from the same node:
 3. **`mcsolve`:** QuTiP's Monte-Carlo trajectory solver ($N_{\text{traj}} = 500$).
 4. **SLB:** Stochastically bundled dissipators ($M=16, 32$, 16 realizations).
 
+**The figures compare the two approximate methods; the exact ones are the
+yardstick.** All four solvers above run, and their wall-clocks are quoted in the
+tables below. But only SLB and `mcsolve` are *drawn*: `native` is the certified
+reference every error on the plot is measured against, and `mesolve` is its
+cross-check. Plotting them as competing points placed two deterministic dots
+several decades below SLB on the same error axis, which reads as SLB being the
+worst method rather than the only approximate one down there. Pass
+`--all-methods` to `plot_method_comparison.py` for the four-method view.
+
 **Accuracy against cost.** Each method is a point in the (wall-clock, error)
-plane, so "which method reaches this accuracy for the least compute" is read
-off directly; lower-left is better. SLB traces a curve as $M$ grows, `mcsolve`
-is a single fixed-budget point, and the exact solvers sit at their own cost
-with error at the integrator floor. Shade darkens with dimension.
+plane, so "which method reaches this accuracy for the least compute" is read off
+directly; lower-left is better. SLB traces a curve as $M$ grows — one point per
+bundle size — while `mcsolve` is a single fixed-budget point at
+$N_{\text{traj}} = 500$. Shade darkens with dimension. Error is the
+time-averaged deviation from the certified reference, identically for both.
 
 #### System C — oscillator (dim 64, $N_L = 890$)
 

@@ -156,6 +156,21 @@ def bias_comparison(point, observable):
 
 EXACT_METHODS = ("native", "mesolve")
 
+# Result 3 asks which APPROXIMATE method to use, so it compares the two that are
+# approximate: SLB and mcsolve. `native` and `mesolve` are the reference and its
+# cross-check -- they define what "correct" means on this plot, and drawing them
+# as competitors put two deterministic dots four decades below SLB on the same
+# axis, which reads as SLB being the worst method rather than the only
+# approximate one there. They remain available via --all-methods.
+#
+# This changes nothing about the error: every method is already scored against
+# point["reference"], the native RK4 at twice the SLB substeps.
+COMPARED_METHODS = ("mcsolve",)
+ALL_COMPARED_METHODS = ("native", "mesolve", "mcsolve")
+
+# Set once by main(); read by the drawing helpers.
+_COMPARED = COMPARED_METHODS
+
 
 def _draw_cost_panel(ax, points, observable, per_sample: bool):
     """One accuracy-versus-cost panel.
@@ -192,7 +207,7 @@ def _draw_cost_panel(ax, points, observable, per_sample: bool):
                             fontsize=8, color=style["color"], alpha=alpha)
 
         for name, wall, error, _note, samples in rows:
-            if name in ("slb", "jackknife"):
+            if name in ("slb", "jackknife") or name not in _COMPARED:
                 continue
             style = METHOD_STYLE[name]
             x = cost(wall, samples)
@@ -237,10 +252,16 @@ def figure_accuracy_vs_cost(system, points, observable):
 
     handles, labels = axes[0].get_legend_handles_labels()
     axes[1].legend(handles, labels, fontsize=8, loc="best")
+    # The subtitle has to describe what is actually drawn. In the default
+    # two-method view there are no open markers at all, because the exact
+    # solvers are the reference rather than competitors.
+    legend_note = ("open markers are exact solvers (error = integrator floor)"
+                   if any(m in _COMPARED for m in EXACT_METHODS)
+                   else "both methods shown are approximate; error is "
+                        "measured against the certified reference")
     fig.suptitle(
         f"{system}: accuracy versus cost -- {observable}\n"
-        f"lower-left is better; shade darkens with dimension; "
-        f"open markers are exact solvers (error = integrator floor)",
+        f"lower-left is better; shade darkens with dimension; {legend_note}",
         fontsize=12)
     return fig
 
@@ -260,7 +281,8 @@ def figure_dynamics(system, points, observable):
         reference = mean_curve(grid)
         ax.plot(times, reference, color="#333333", linewidth=2.4,
                 label="certified reference")
-        for name in ("mesolve", "mcsolve"):
+        # native is omitted here because it IS the reference line already drawn.
+        for name in (n for n in _COMPARED if n != "native"):
             entry = point["methods"].get(name)
             if not entry or "skipped" in entry:
                 continue
@@ -288,6 +310,13 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[1])
     parser.add_argument("--system", choices=SYSTEMS, default=None,
                         help="default: every system with data present")
+    parser.add_argument("--all-methods", action="store_true",
+                        help="also draw the exact solvers (native, mesolve) as "
+                             "points. They are the reference and its "
+                             "cross-check rather than competitors, so the "
+                             "default compares only the two approximate "
+                             "methods, SLB and mcsolve. Error is measured "
+                             "against the same certified reference either way.")
     parser.add_argument("--dims", nargs="+", type=int, default=None,
                         help="default: every dimension found")
     parser.add_argument("--observables", nargs="+", default=None,
@@ -297,6 +326,9 @@ def main() -> None:
                              "different jobs or hosts (their wall-clock times "
                              "are then not comparable)")
     args = parser.parse_args()
+
+    global _COMPARED
+    _COMPARED = ALL_COMPARED_METHODS if args.all_methods else COMPARED_METHODS
 
     systems = [args.system] if args.system else [
         s for s in SYSTEMS if discover_dims(s)]
