@@ -376,6 +376,11 @@ def figure_accuracy_vs_cost(system, points, observable):
     return fig
 
 
+# Diagnostic only: these are NOT embedded in BENCHMARKS.md. Three full-width
+# figures said one thing -- the curves overlap -- which the accuracy panels
+# already give as a number, and at most dimensions the traces are visually
+# indistinguishable. Kept because it is the fastest way to eyeball a run that
+# looks wrong.
 def figure_dynamics(system, points, observable):
     dims = sorted(points)
     fig, axes = plt.subplots(1, len(dims), figsize=(4.2 * len(dims), 3.8),

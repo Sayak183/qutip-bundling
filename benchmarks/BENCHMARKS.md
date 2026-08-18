@@ -1641,12 +1641,6 @@ solve costs the same as bundling ($M=16$). SLB provides no speed advantage
 when $N_L$ is small, and **is worse than `mcsolve` on every observable** —
 the bundling bias dominates when there are too few operators to compress.
 
-#### The dynamics themselves
-
-![Dynamics, TFIM chain](benchmark_comparison_dynamics_spin_chain.png)
-![Dynamics, mixed chain](benchmark_comparison_dynamics_mixed_chain.png)
-![Dynamics, oscillator](benchmark_comparison_dynamics_oscillator_bath.png)
-
 ### Result 4 — iso-accuracy cost versus dimension
 
 Results 2 and 3 each leave half a question. Result 2 scales cost with dimension
