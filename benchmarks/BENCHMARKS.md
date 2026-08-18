@@ -1051,6 +1051,20 @@ The solvers encounter two distinct, physical walls:
    - The anharmonicity $\chi n^2$ grows with the Fock cutoff, and the substeps needed for
      stability roughly double per dimension doubling: 32 suffices at dim 64, 64 at dim 128,
      128 at dim 256.
+   - **The dim-256 half of that rule has now been measured, and it holds.** It was a
+     projection from two octaves; job 19592849 tested the third. Given 128 substeps SLB
+     runs at dimension 256 -- one $M=8$ solve in 806.6 s, $N_L = 2{,}986$, Davies
+     construction 19.4 s -- with no divergence. So the `slb_unstable_at_substeps: 32`
+     recorded against that dimension in Result 2 means exactly what it says, *unstable at
+     32*, and not that the method stops there.
+   - **That point is deliberately absent from Result 2's curve**, for two independent
+     reasons: it is integrated at $4\times$ that panel's substeps, and it ran on landau44
+     while the panel ran on landau42. Either one alone disqualifies its wall-clock from
+     that axis. Putting it on properly would mean re-running the whole oscillator sweep at
+     128 substeps -- roughly 15 h, and it would multiply every published SLB cost there by
+     four, turning the $302\times$ advantage at dim 128 into $\sim75\times$. Paying that
+     to gain one dot is a bad trade. **It establishes reach, not cost scaling**, and is
+     quoted here rather than plotted for that reason.
    - **What stops the study at dim 128 is certification, not propagation.** A dim-256
      reference at 128 substeps does run -- it completed in ~2.4 days (job 19559986). But
      certifying it requires agreement with a second run at a different resolution, and the

@@ -1,0 +1,83 @@
+{
+ "meta": {
+  "timestamp": "2026-08-18T00:27:27+00:00",
+  "python": "3.11.15",
+  "numpy": "2.4.6",
+  "qutip": "5.3.0",
+  "qutip_bundling": "0.6.4",
+  "platform": "Linux-4.15.0-213-generic-x86_64-with-glibc2.27",
+  "execution": {
+   "hostname": "landau44",
+   "cpu_count": 72,
+   "threads": {
+    "OMP_NUM_THREADS": "4",
+    "OPENBLAS_NUM_THREADS": "4",
+    "MKL_NUM_THREADS": "4",
+    "NUMEXPR_NUM_THREADS": "4"
+   },
+   "slurm": {
+    "job_id": "19592849",
+    "job_name": "osc256",
+    "nodelist": "landau44",
+    "cpus_per_task": "4",
+    "partition": "roibq"
+   }
+  },
+  "tlist": {
+   "t0": 0.0,
+   "t1": 5.0,
+   "n": 40
+  },
+  "substeps": 128,
+  "full_time_budget_s": 60.0,
+  "max_full_dim": 32,
+  "max_native_ref_dim": 128,
+  "davies": {
+   "construction": "grouped_frequency_sectors",
+   "degeneracy_tol": 1e-10,
+   "coupling_block_floor": "512 * eps * dim * frobenius_norm(X_in_energy_basis)"
+  },
+  "params": {
+   "system": "oscillator_bath",
+   "sizes": [
+    128
+   ],
+   "M_REP": 8,
+   "N_ACC": 16,
+   "full_budget_used": 60.0,
+   "native_ref_max_dim": 128,
+   "NATIVE_REF_SUBSTEPS": 256,
+   "M_SWEEP_GRID": [
+    1,
+    2,
+    4,
+    8,
+    16,
+    32,
+    64,
+    128
+   ],
+   "SWEEP_STOP_RMSE": 0.0025,
+   "rng_sweep": 100,
+   "rng_timing": 0
+  }
+ },
+ "wall_dim": 256,
+ "stiff_dim": null,
+ "native_vs_mesolve": null,
+ "points": [
+  {
+   "size": 128,
+   "dim": 256,
+   "n_l": 2986,
+   "t_davies": 19.42507427185774,
+   "t_full": null,
+   "t_slb_fixed": 806.5780923552811,
+   "reference": null,
+   "reference_method": null,
+   "t_native_ref": null,
+   "native_ref_selfcheck": null,
+   "m_sweep": null
+  }
+ ]
+}
