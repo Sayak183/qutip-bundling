@@ -118,16 +118,28 @@ def method_errors(point: dict, observable: str):
         error = float(np.mean(np.abs(curve - reference)))
         samples = int(entry.get("ntraj", 1))
         note = f"ntraj={samples}" if name == "mcsolve" else None
-        rows.append((name, float(entry["wall_s"]), error, note, samples))
+        # mcsolve records the spread ACROSS trajectories, so the standard error
+        # of its mean is that divided by sqrt(ntraj). The deterministic solvers
+        # have no ensemble and therefore no such quantity.
+        spread = entry.get("traj_std", {}).get(observable)
+        sem = (float(np.mean(np.asarray(spread, dtype=float))) / np.sqrt(samples)
+               if spread is not None and samples > 1 else None)
+        rows.append((name, float(entry["wall_s"]), error, note, samples, sem))
 
     for family in ("slb", "jackknife"):
         for row in point["methods"].get(family, []):
-            if row.get("diverged"):
+            if row.get("diverged") or int(row["M"]) < _MIN_M:
                 continue
             samples = np.asarray(row["samples"], dtype=float)[:, index, :]
+            n_runs = int(row.get("n_runs", samples.shape[0]))
+            # Spread of the ENSEMBLE MEAN, time-averaged. Compared against the
+            # error it says whether more samples would help (they would, if the
+            # two are comparable) or whether only a larger M will (if not).
+            sem = (float(np.mean(samples.std(axis=0, ddof=1)
+                                 / np.sqrt(n_runs))) if n_runs > 1 else None)
             rows.append((family, float(row["wall_s"]),
                          tavg_rmse(samples, reference), f"M={row['M']}",
-                         int(row.get("n_runs", samples.shape[0]))))
+                         n_runs, sem))
     return rows
 
 
@@ -168,8 +180,54 @@ EXACT_METHODS = ("native", "mesolve")
 COMPARED_METHODS = ("mcsolve",)
 ALL_COMPARED_METHODS = ("native", "mesolve", "mcsolve")
 
+# M=1 is one bundle carrying every operator -- the maximum-bias setting, and not
+# something anyone would run. It also timed slower than M=2 on the benchmark node
+# despite doing less work, which, on a curve drawn in order of cost, produced a
+# hook that reads as "more compute made it worse". Accuracy is monotone in M at
+# every dimension; only the cost axis misbehaved. --include-m1 restores it.
+MIN_M_PLOTTED = 2
+
 # Set once by main(); read by the drawing helpers.
 _COMPARED = COMPARED_METHODS
+_MIN_M = MIN_M_PLOTTED
+
+
+# error^2 ~= bias^2 + sem^2, so bias > sem exactly when error > sqrt(2) * sem.
+# Not a taste threshold: it is the point where the two contributions are equal.
+BIAS_LIMITED_RATIO = np.sqrt(2.0)
+
+
+def _bias_limited(error, sem):
+    """True when bias outweighs sampling noise in this point's error.
+
+    A point with no ensemble behind it has no measurable noise, so it is
+    reported as bias-limited -- which is what a deterministic solver is.
+    """
+    if not sem:
+        return True
+    return error > BIAS_LIMITED_RATIO * float(sem)
+
+
+def _regime_facecolors(color, errors, sems):
+    """Filled where bias dominates, hollow where sampling noise does."""
+    return [color if _bias_limited(e, s) else "white"
+            for e, s in zip(errors, sems)]
+
+
+def _sem_bars(errors, sems):
+    """Asymmetric +/- 1 s.e.m. whiskers that survive a log axis.
+
+    A bar reaching zero cannot be drawn on a log scale, so the lower whisker is
+    clipped at 90% of the value. A bar that runs to the bottom therefore means
+    the s.e.m. is at least as large as the error itself -- the fluctuation-
+    limited case, and the one the reader is meant to notice.
+    """
+    lower, upper = [], []
+    for err, sem in zip(errors, sems):
+        s = float(sem) if sem else 0.0
+        lower.append(min(s, 0.9 * err))
+        upper.append(s)
+    return np.array([lower, upper])
 
 
 def _draw_cost_panel(ax, points, observable, per_sample: bool):
@@ -196,28 +254,42 @@ def _draw_cost_panel(ax, points, observable, per_sample: bool):
             if not curve:
                 continue
             style = METHOD_STYLE[family]
-            ax.plot([cost(r[1], r[4]) for r in curve], [r[2] for r in curve],
-                    color=style["color"], marker=style["marker"],
-                    alpha=alpha, linewidth=1.6, markersize=5,
-                    label=style["label"] if family not in seen else None)
+            errors = [r[2] for r in curve]
+            sems = [r[5] for r in curve]
+            xs = [cost(r[1], r[4]) for r in curve]
+            ax.errorbar(xs, errors, yerr=_sem_bars(errors, sems),
+                        color=style["color"], marker="none",
+                        alpha=alpha, linewidth=1.6,
+                        elinewidth=1.1, capsize=2.5,
+                        label=style["label"] if family not in seen else None)
+            # Markers drawn separately so each one can carry its own verdict.
+            ax.scatter(xs, errors, marker=style["marker"], s=42,
+                       facecolors=_regime_facecolors(style["color"], errors, sems),
+                       edgecolors=style["color"], linewidths=1.5,
+                       alpha=alpha, zorder=3)
             seen.add(family)
             if family == "slb":
                 ax.annotate(f"d={dim}", (cost(curve[0][1], curve[0][4]), curve[0][2]),
                             textcoords="offset points", xytext=(-4, 6),
                             fontsize=8, color=style["color"], alpha=alpha)
 
-        for name, wall, error, _note, samples in rows:
+        for name, wall, error, _note, samples, sem in rows:
             if name in ("slb", "jackknife") or name not in _COMPARED:
                 continue
             style = METHOD_STYLE[name]
             x = cost(wall, samples)
+            if sem:
+                ax.errorbar([x], [error], yerr=_sem_bars([error], [sem]),
+                            color=style["color"], alpha=alpha, fmt="none",
+                            elinewidth=1.3, capsize=3.5)
             # Every method carries its dimension. Without this the exact
             # solvers are unlabelled points sitting four decades below SLB,
             # which reads as SLB being the worst method rather than as the
             # only approximate one on that part of the axis.
             ax.plot([x], [error], color=style["color"], marker=style["marker"],
-                    alpha=alpha, markersize=8, linestyle="none",
-                    markerfacecolor="none" if name in EXACT_METHODS else style["color"],
+                    alpha=alpha, markersize=9, linestyle="none",
+                    markerfacecolor=(style["color"]
+                                     if _bias_limited(error, sem) else "white"),
                     markeredgewidth=1.8,
                     label=style["label"] if name not in seen else None)
             ax.annotate(f"d={dim}", (x, error), textcoords="offset points",
@@ -257,12 +329,13 @@ def figure_accuracy_vs_cost(system, points, observable):
     # solvers are the reference rather than competitors.
     legend_note = ("open markers are exact solvers (error = integrator floor)"
                    if any(m in _COMPARED for m in EXACT_METHODS)
-                   else "both methods shown are approximate; error is "
-                        "measured against the certified reference")
+                   else "error is measured against the certified reference")
     fig.suptitle(
         f"{system}: accuracy versus cost -- {observable}\n"
-        f"lower-left is better; shade darkens with dimension; {legend_note}",
-        fontsize=12)
+        f"lower-left is better; shade darkens with dimension; {legend_note}\n"
+        f"bars are $\\pm$1 s.e.m.  |  FILLED = error is mostly bias, so raise "
+        f"$M$   ---   HOLLOW = error is mostly sampling noise, so add samples",
+        fontsize=11)
     return fig
 
 
@@ -310,6 +383,13 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[1])
     parser.add_argument("--system", choices=SYSTEMS, default=None,
                         help="default: every system with data present")
+    parser.add_argument("--include-m1", action="store_true",
+                        help="also plot M=1. It is one bundle holding every "
+                             "operator -- the maximum-bias setting, not an "
+                             "operating point -- and it timed slower than M=2 "
+                             "on the benchmark node despite doing less work, "
+                             "which puts a misleading hook in a curve ordered "
+                             "by cost. Excluded by default.")
     parser.add_argument("--all-methods", action="store_true",
                         help="also draw the exact solvers (native, mesolve) as "
                              "points. They are the reference and its "
@@ -327,8 +407,9 @@ def main() -> None:
                              "are then not comparable)")
     args = parser.parse_args()
 
-    global _COMPARED
+    global _COMPARED, _MIN_M
     _COMPARED = ALL_COMPARED_METHODS if args.all_methods else COMPARED_METHODS
+    _MIN_M = 1 if args.include_m1 else MIN_M_PLOTTED
 
     systems = [args.system] if args.system else [
         s for s in SYSTEMS if discover_dims(s)]

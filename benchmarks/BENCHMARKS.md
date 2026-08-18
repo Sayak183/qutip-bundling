@@ -1503,9 +1503,68 @@ worst method rather than the only approximate one down there. Pass
 **Accuracy against cost.** Each method is a point in the (wall-clock, error)
 plane, so "which method reaches this accuracy for the least compute" is read off
 directly; lower-left is better. SLB traces a curve as $M$ grows — one point per
-bundle size — while `mcsolve` is a single fixed-budget point at
+bundle size, from $M=2$ up — while `mcsolve` is a single fixed-budget point at
 $N_{\text{traj}} = 500$. Shade darkens with dimension. Error is the
 time-averaged deviation from the certified reference, identically for both.
+
+**$M=1$ is excluded** (`--include-m1` restores it). One bundle carrying every
+operator is the maximum-bias setting the method has, not an operating point
+anyone would choose. It also timed *slower* than $M=2$ on the benchmark node
+despite doing strictly less arithmetic — 1.118 s against 0.921 s on System A at
+dimension 32, three repeats agreeing to under a millisecond — which, on a curve
+drawn in order of cost, put a hook in the line that reads as "more compute made
+it worse". The accuracy is monotone in $M$ at every dimension on every system;
+only the cost axis misbehaved, and only on that machine.
+
+#### Filled or hollow: which knob to turn
+
+An error can be too large for two different reasons, and they need opposite
+fixes. Each point therefore carries $\pm 1$ s.e.m. — the spread of the estimate,
+not its distance from the truth — **and a marker giving the verdict**, because on
+a log axis "is this bar as tall as the point" is not a judgement a reader can
+make reliably, and that judgement is the entire question.
+
+The two contributions add in quadrature:
+
+$$
+\text{error}^2 \;\approx\; \text{bias}^2 + \text{s.e.m.}^2
+$$
+
+so bias outweighs noise exactly when $\text{error} > \sqrt{2}\,\text{s.e.m.}$
+That is the cutoff: a definition, not a taste.
+
+| marker | the error is mostly | what to do |
+|---|---|---|
+| **filled** | bias | raise $M$ — more samples are nearly wasted |
+| **hollow** | sampling noise | add samples — they parallelize, and $M$ need not move |
+
+**Every SLB point is filled**, at ratios of 3 to 13. That is why averaging 16
+realizations instead of 1 buys only 1.15–1.9x rather than the 4x that pure noise
+would give: the error is bias, and only $M$ moves it. Both numbers sit in every
+data file, so the same check runs on a new system before its settings are chosen.
+
+**And it cuts against this section's own comparison, which is why it is drawn.**
+On two of the three systems `mcsolve`'s points come out *hollow* — at 500
+trajectories its error is not resolvable above its own noise:
+
+| system | `mcsolve` error | its s.e.m. | ratio |
+|---|---|---|---|
+| A spin | $7.47\times10^{-3}$ | $1.76\times10^{-2}$ | **0.42** |
+| C oscillator | $3.44\times10^{-1}$ | $3.54\times10^{-1}$ | **0.97** |
+| B mixed | $2.60\times10^{-2}$ | $1.54\times10^{-2}$ | 1.68 |
+
+So these points are **not a floor for `mcsolve`**. They are where it lands on the
+budget it was given, and more trajectories would lower them. Every accuracy ratio
+quoted below is therefore a ratio against a noise floor at
+$N_{\text{traj}} = 500$, not against a converged `mcsolve`, and should be read
+that way.
+
+The claim that survives that objection is the one `mcsolve`'s own scaling
+supplies. Its error falls as $N_{\text{traj}}^{-1/2}$, so reaching SLB's
+$3.25\times10^{-4}$ on the oscillator at dimension 64 would take roughly
+$5.6\times10^{8}$ trajectories against the 500 it was run with. **Result 4** is
+where that budget is tuned to hit a target rather than fixed, and is the right
+place to read iso-accuracy cost.
 
 #### System C — oscillator (dim 64, $N_L = 890$)
 
