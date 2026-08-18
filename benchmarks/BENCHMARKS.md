@@ -1722,28 +1722,43 @@ does.
 
 ```
 started at   -10.2000
-ended at     -10.8692
+ended at     -10.8732
 Gibbs        -10.8737     <- from eigenvalues alone
 ```
 
-It covered **99.3%** of the distance, and it has genuinely stopped: over the
-last 20 time units the curve is flat to $10^{-6}$, so the 0.0046 that remains is
+It covered **99.9%** of the distance, and it has genuinely stopped: over the
+last 20 time units the curve is flat to $10^{-6}$, so the 0.0005 that remains is
 a floor and not a curve still creeping toward the line.
 
-**What that residual does and does not settle.** The thermal run used 4
-realizations rather than the sweep's 16, which puts its own standard error at
-about 0.0040 — so the gap is **1.1 s.e.m.**, drawn to scale in the figure's
-inset. At that size the data cannot distinguish landing exactly on the Gibbs
-state from landing a little short of it, and this write-up does not claim the
-former. What it does exclude is a gross failure: a bundled generator that had
-lost detailed balance would not arrive within 0.7% of a number it was never
-given.
+**What that residual does and does not settle.** The thermal run's own standard
+error is $0.0017$, *measured* on its 16 realizations rather than inferred, so the
+gap is **0.29 s.e.m.** — drawn to scale in the figure's inset, where the curve
+sits inside the band. The residual is statistically indistinguishable from zero:
+having travelled $0.674$ in energy it stopped $0.0005$ short, which is $0.07\%$
+of the journey.
 
-One measured detail worth recording without explaining it: the long-time gap
-(0.0046) is five times *smaller* than the $M=32$ bias in the transient window
-(0.023 against the extrapolated −10.8356). Whatever bias survives into the
-stationary state is smaller than the bias on the way there. That is an
-observation from one system at one size, not a result.
+That still is not a proof of exactness, and no finite measurement could be. What
+it is, is a *bound*: any systematic offset in the stationary state is below one
+standard error, on a system of 32,637 collapse operators, at a dimension where no
+exact solve exists, against a reference that cost one eigendecomposition.
+
+**An earlier version of this section reported 0.0046 here, at 1.1 s.e.m., from a
+4-realization run.** Raising the realization count did not merely tighten the bar
+around that number — the number itself moved by a factor of ten. The gap was
+mostly noise in a poorly-estimated mean, not bias. It is recorded because the
+opposite outcome was equally possible and would have been reported the same way:
+at dimension 16 the same change turns a residual inside the noise into a resolved
+$2.4$ s.e.m. offset.
+
+**The stationary-state bias is at least 14x smaller than the transient one.**
+This is worth stating carefully, because bundling bias is *not* expected to
+vanish at long times: the evolution is nonlinear in the generator, so an unbiased
+estimator of the dissipator does not give an unbiased stationary state. There
+should be an $O(1/M)$ offset here too. At $M=32$ the transient bias is a resolved
+$0.0232$ (against the extrapolated $-10.8356$); at the same $M$ the stationary
+gap sits below $0.0017$. So the measurement bounds the long-time bias at roughly
+one fourteenth of the short-time one, rather than showing it to be zero. One
+system, one size, and an upper bound rather than a value.
 
 **Why System B and not System A.** System A has a $Z_2$ symmetry, hence extra
 conserved quantities, so it relaxes to a *symmetry-restricted* stationary state
@@ -1752,18 +1767,23 @@ rather than the global Gibbs state — measured at dimension 16 it settles at
 invalidate check 3 for reasons having nothing to do with bundling. System B has
 no such symmetry.
 
-**Cost.** 644.6 s, 1016.1 s and 1775.0 s for the three sweeps at 16 realizations
-each, plus 4098.1 s for the thermal run — about 2.1 hours total on one node with
-4 CPUs. Counting $N_L$ took 1.3 s and built no operators.
+**Cost.** 646.2 s, 1023.8 s and 1774.8 s for the three sweeps at 16
+realizations each, plus 15,581.8 s for the thermal run at 16 realizations —
+**5.3 hours** total on one node with 4 CPUs. Counting $N_L$ took 1.3 s and built
+no operators. The thermal stage is 82% of that bill, which is the price of the
+one check here that is independent of everything bundling does.
 
-**Provenance.** Slurm job 19592847 on landau42, partition `roibq`, 2026-08-17.
-Written by `run_extreme_dimension.py --size 8 --m-values 8 16 32`
-(`benchmarks/slurm_extreme256.sh`), plotted by `plot_extreme_dimension.py`.
+**Provenance.** Slurm job 19592848 on landau42, partition `roibq`, 2026-08-18.
+Written by `run_extreme_dimension.py --size 8 --m-values 8 16 32
+--thermal-realizations 16` (`benchmarks/slurm_extreme256.sh`), plotted by
+`plot_extreme_dimension.py`, which reads the measured s.e.m. from the data rather
+than rescaling the sweep's. The three sweep values reproduce job 19592847's to
+every digit at equal seed — an incidental confirmation that the run is
+deterministic across allocations.
 
-**Two caveats.** The thermal run's 4 realizations are thin, and a repeat at 16
-would tighten the 1.1 s.e.m. statement considerably. And nothing here is an
-*accuracy* measurement — Results 1–4 remain the only place error against a known
-answer is reported, precisely because they stop where a known answer stops.
+**One caveat.** Nothing here is an *accuracy* measurement. Results 1–4 remain the
+only place error against a known answer is reported, precisely because they stop
+where a known answer stops.
 
 ---
 
