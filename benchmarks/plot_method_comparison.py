@@ -187,9 +187,15 @@ ALL_COMPARED_METHODS = ("native", "mesolve", "mcsolve")
 # every dimension; only the cost axis misbehaved. --include-m1 restores it.
 MIN_M_PLOTTED = 2
 
+# How many bundle sizes to draw per curve, counting back from the crossover.
+# Nine points per curve across six dimensions is not a readable figure, and the
+# small-M end is settings nobody would choose.
+MAX_CURVE_POINTS = 4
+
 # Set once by main(); read by the drawing helpers.
 _COMPARED = COMPARED_METHODS
 _MIN_M = MIN_M_PLOTTED
+_MAX_POINTS = MAX_CURVE_POINTS
 
 
 # error^2 ~= bias^2 + sem^2, so bias > sem exactly when error > sqrt(2) * sem.
@@ -212,6 +218,37 @@ def _regime_facecolors(color, errors, sems):
     """Filled where bias dominates, hollow where sampling noise does."""
     return [color if _bias_limited(e, s) else "white"
             for e, s in zip(errors, sems)]
+
+
+def _m_of(row):
+    """Bundle size from a row's note, which reads ``M=32``."""
+    return int(str(row[3]).split("=")[1])
+
+
+def _curve_window(rows):
+    """The stretch of an SLB curve worth drawing: up to the crossover, and short.
+
+    Truncates at the SUSTAINED crossover: the first point from which every
+    larger M is also noise-limited. That point is kept, since it is the evidence
+    the crossover happened, and anything past it is dropped because raising M
+    beyond there is not the knob that helps.
+
+    Sustained, not first, because error/s.e.m. is itself estimated from a finite
+    number of realizations and scatters across the threshold. On x_sx the
+    oscillator at dimension 8 runs hollow, hollow, hollow, FILLED, hollow -- cutting
+    at the first hollow point would leave a single-point curve out of scatter.
+
+    Then keeps at most ``_MAX_POINTS``, counting back from that end.
+    """
+    ordered = sorted(rows, key=_m_of)
+    if _MAX_POINTS is None:
+        return ordered
+    cut = len(ordered)
+    for i in range(len(ordered) - 1, -1, -1):
+        if _bias_limited(ordered[i][2], ordered[i][5]):
+            break
+        cut = i + 1          # this point and every larger M are noise-limited
+    return ordered[:cut][-_MAX_POINTS:]
 
 
 def _sem_bars(errors, sems):
@@ -249,8 +286,8 @@ def _draw_cost_panel(ax, points, observable, per_sample: bool):
         rows = method_errors(points[dim], observable)
 
         for family in ("slb", "jackknife"):
-            curve = sorted([r for r in rows if r[0] == family],
-                           key=lambda r: cost(r[1], r[4]))
+            window = _curve_window([r for r in rows if r[0] == family])
+            curve = sorted(window, key=lambda r: cost(r[1], r[4]))
             if not curve:
                 continue
             style = METHOD_STYLE[family]
@@ -383,6 +420,12 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[1])
     parser.add_argument("--system", choices=SYSTEMS, default=None,
                         help="default: every system with data present")
+    parser.add_argument("--full-curves", action="store_true",
+                        help="draw every bundle size. By default each SLB curve "
+                             "stops at the first point where sampling noise "
+                             "overtakes bias -- past there a larger M is not "
+                             f"the knob that helps -- and shows the last "
+                             f"{MAX_CURVE_POINTS} points up to it.")
     parser.add_argument("--include-m1", action="store_true",
                         help="also plot M=1. It is one bundle holding every "
                              "operator -- the maximum-bias setting, not an "
@@ -407,9 +450,10 @@ def main() -> None:
                              "are then not comparable)")
     args = parser.parse_args()
 
-    global _COMPARED, _MIN_M
+    global _COMPARED, _MIN_M, _MAX_POINTS
     _COMPARED = ALL_COMPARED_METHODS if args.all_methods else COMPARED_METHODS
     _MIN_M = 1 if args.include_m1 else MIN_M_PLOTTED
+    _MAX_POINTS = None if args.full_curves else MAX_CURVE_POINTS
 
     systems = [args.system] if args.system else [
         s for s in SYSTEMS if discover_dims(s)]
