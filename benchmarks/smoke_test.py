@@ -313,17 +313,40 @@ def exercise_commands(scratch_dir: Path) -> None:
         raise RuntimeError("Dry runs changed JSON: " + ", ".join(changed))
 
 
+def validate_shell_scripts_lf() -> int:
+    """Slurm refuses a batch script containing CRLF, so guard it here.
+
+    Editing a script from Windows through Python text mode silently rewrites
+    every line ending, and the damage is invisible both in an editor and in
+    `git diff`. The failure then surfaces only at `sbatch`, on the cluster,
+    after a file transfer -- the slowest possible place to learn about it.
+    Three committed scripts were already broken this way before this existed.
+    """
+    scripts = sorted(BENCHMARK_DIR.glob("*.sh"))
+    broken = [s.name for s in scripts if b"\r\n" in s.read_bytes()]
+    if broken:
+        raise RuntimeError(
+            "Shell scripts contain CRLF line endings; sbatch rejects these "
+            "with 'Batch script contains DOS line breaks':\n  "
+            + "\n  ".join(broken)
+            + "\n\nFix with:  sed -i 's/\\r$//' <file>"
+        )
+    return len(scripts)
+
+
 def main() -> None:
     json_count, csv_count = validate_saved_data()
     link_count = validate_local_links()
     markdown_count = validate_markdown_integrity()
+    script_count = validate_shell_scripts_lf()
     with tempfile.TemporaryDirectory(prefix="qutip-bundling-smoke-") as temp_dir:
         exercise_commands(Path(temp_dir))
     print(
         "Benchmark smoke test passed: "
         f"{json_count} JSON, {csv_count} CSV, {link_count} local links, "
         f"{markdown_count} Markdown files clean, "
-        f"{len(PLOT_COMMANDS)} plot commands, {len(RUNNERS)} protected runners."
+        f"{len(PLOT_COMMANDS)} plot commands, {len(RUNNERS)} protected "
+        f"runners, {script_count} shell scripts LF-clean."
     )
 
 
