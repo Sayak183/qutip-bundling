@@ -997,7 +997,7 @@ frontier (Result 3) sweeps the bias knob `M` for SLB against the noise knob
 
 > **Read in order, the benchmark results build one argument:**
 > 1. **Memory and Stiffness Walls (§5.2):** `mesolve` hits a hard 32 GB memory wall at dim 128 for the chain and dim 64 for the oscillator; the oscillator hits a fixed-step RK4 stiffness ceiling at dim 256.
-> 2. **Results 1 and 2:** accuracy versus bundle size, and cost scaling with dimension, regenerated under 0.6.4 for all three systems. On the mixed chain SLB at matched accuracy scales as $N^{1.8}$ against $N^{2.9}$ for the exact solver and $N^{4.4}$ for `mesolve`, so the advantage widens with size.
+> 2. **Results 1 and 2:** accuracy versus bundle size, and cost scaling with dimension, regenerated under 0.6.4 for all three systems. On the mixed chain, now complete to dim 128, SLB at matched accuracy fits $N^{3.6}$ against $N^{4.6}$ for the exact solver — about one power of $N$ apart, so the advantage widens with size. Measured directly: the exact solve costs $577\times$ one SLB solve at dim 64 and $2{,}263\times$ at dim 128.
 > 3. **Result 3 — the four-method comparison:** across three systems and six observables, SLB, `mcsolve`, and the exact solvers are compared head-to-head at dim 64. The advantage swings from 620x (oscillator energy) to 34x *worse* than `mcsolve` (mixed chain coherence). No single number captures the method; the section presents the full range.
 > 4. **Result 4:** iso-accuracy cost versus dimension.
 
@@ -1295,6 +1295,24 @@ $N^{2.5}$; the oscillator panel is included as the decisive visual of the exact
 solver's wall — `mesolve` at $N^{5.0}$ and the native route at $N^{3.1}$ both
 climbing into hours per solve while SLB stays near-flat — rather than for a
 fitted SLB exponent.
+
+**System B is now complete to dimension 128.** Its exact curve was previously
+capped at 64 by `--native-ref-max`, chosen to avoid a 37 h reference against a
+24 h wall; on `roibq`, which imposes no wall clock, it was run in full (job
+19592644, 52 h). The dim-128 reference alone took **24.6 hours** — 8,193
+operators, certified by a substep-halving check at $2.6\times10^{-9}$ — against
+**39.1 s** for one SLB solve at the same size. That single pair is the widest
+gap measured anywhere in this document: $2{,}263\times$, up from $577\times$
+one octave below.
+
+Filling that point moved every fitted exponent on the panel, upward in each
+case: the exact route from $N^{3.35}$ to $N^{4.60}$, fixed $M$ from $N^{2.36}$
+to $N^{2.85}$, and the iso-accuracy curve from $N^{2.46}$ to $N^{3.63}$. **This
+is the fourth time extending a sweep has moved a quoted exponent, and the fourth
+time it moved up.** The pattern is consistent and worth stating as a caution:
+these fits are lower bounds until the curve stops growing, because the smallest
+dimensions are dominated by overhead that does not scale, and truncating a sweep
+early keeps them weighted.
 
 **Where the oscillator's curves stop, and why it is stiffness rather than
 memory.** All three end together at dimension 128, and the limit is the
