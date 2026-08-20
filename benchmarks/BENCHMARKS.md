@@ -998,7 +998,7 @@ frontier (Result 3) sweeps the bias knob `M` for SLB against the noise knob
 > **Read in order, the benchmark results build one argument:**
 > 1. **Memory and Stiffness Walls (§5.2):** `mesolve` hits a hard 32 GB memory wall at dim 128 for the chain and dim 64 for the oscillator; the oscillator hits a fixed-step RK4 stiffness ceiling at dim 256.
 > 2. **Results 1 and 2:** accuracy versus bundle size, and cost scaling with dimension, regenerated under 0.6.4 for all three systems. On the mixed chain, now complete to dim 128, SLB at matched accuracy fits $N^{3.6}$ against $N^{4.6}$ for the exact solver — about one power of $N$ apart, so the advantage widens with size. Measured directly: the exact solve costs $577\times$ one SLB solve at dim 64 and $2{,}263\times$ at dim 128.
-> 3. **Result 3 — the four-method comparison:** across three systems and six observables, SLB, `mcsolve`, and the exact solvers are compared head-to-head at dim 64. The advantage swings from 620x (oscillator energy) to 34x *worse* than `mcsolve` (mixed chain coherence). No single number captures the method; the section presents the full range.
+> 3. **Result 3 — the four-method comparison:** across three systems and six observables, SLB, `mcsolve`, and the exact solvers are compared head-to-head at dim 64. The advantage swings from 620x (oscillator energy) to 16.5x *worse* than `mcsolve` (mixed chain coherence at $M=16$; raising $M$ to 256 narrows that to 2.8x). No single number captures the method; the section presents the full range.
 > 4. **Result 4:** iso-accuracy cost versus dimension.
 
 ### 5.1 Reading the cost–accuracy plots
@@ -1556,26 +1556,53 @@ That is the cutoff: a definition, not a taste.
 | **filled** | bias | raise $M$ — more samples are nearly wasted |
 | **hollow** | sampling noise | add samples — they parallelize, and $M$ need not move |
 
-**Every SLB point is filled**, at ratios of 3 to 13. That is why averaging 16
-realizations instead of 1 buys only 1.15–1.9x rather than the 4x that pure noise
-would give: the error is bias, and only $M$ moves it. Both numbers sit in every
-data file, so the same check runs on a new system before its settings are chosen.
+**Nearly every SLB point is filled.** On System B at dimension 64 the ratio runs
+from 12.2 at $M=2$ down to 1.48 at $M=256$ — bias-limited throughout, which is
+why averaging 16 realizations instead of 1 buys only 1.15–1.9x rather than the 4x
+that pure noise would give. Both numbers sit in every data file, so the same
+check runs on a new system before its settings are chosen.
 
-**And it cuts against this section's own comparison, which is why it is drawn.**
-On two of the three systems `mcsolve`'s points come out *hollow* — at 500
+**The crossover is real, and System B reaches it.** Extending that system's sweep
+to $M=256$ (job 19594145) pushed one curve through:
+
+| dim | ratio at the largest $M$ | fitted crossover | $N_L$ | |
+|---|---|---|---|---|
+| 16 | 2.63 (at $M=121=N_L$) | $\sim 825$ | 121 | beyond $N_L$ |
+| **32** | **1.33** (at $M=256$) | $\sim 268$ | 513 | **crossed** |
+| 64 | 1.48 (at $M=256$) | $\sim 231$ | 2,017 | just short |
+| 128 | 2.24 (at $M=256$) | $\sim 460$ | 8,193 | not yet |
+
+So the dimension-32 curve ends on a hollow marker: past $M=256$ there, a larger
+bundle is no longer the knob that helps. Predicted beforehand at $M\approx193$
+from five points, measured at $M\approx231$ for dimension 64 — the extrapolation
+was about 20% low, which is the right order for a fit over a 16-fold range.
+
+Two honest limits on that number. It is **not intrinsic to the method**: the
+s.e.m. is the spread of a 16-realization mean, so averaging more realizations
+lowers it and pushes the crossover to larger $M$. And it **grows with dimension**
+(231 at dim 64, 460 at dim 128), so it must be measured per system and size, not
+carried over.
+
+**And all of this cuts against the section's own comparison, which is why it is
+drawn.** On **all three** systems `mcsolve`'s points come out *hollow* — at 500
 trajectories its error is not resolvable above its own noise:
 
 | system | `mcsolve` error | its s.e.m. | ratio |
 |---|---|---|---|
 | A spin | $7.47\times10^{-3}$ | $1.76\times10^{-2}$ | **0.42** |
 | C oscillator | $3.44\times10^{-1}$ | $3.54\times10^{-1}$ | **0.97** |
-| B mixed | $2.60\times10^{-2}$ | $1.54\times10^{-2}$ | 1.68 |
+| B mixed | $2.49\times10^{-2}$ | $1.77\times10^{-2}$ | **1.40** |
 
 So these points are **not a floor for `mcsolve`**. They are where it lands on the
 budget it was given, and more trajectories would lower them. Every accuracy ratio
 quoted below is therefore a ratio against a noise floor at
 $N_{\text{traj}} = 500$, not against a converged `mcsolve`, and should be read
 that way.
+
+That warning is not theoretical here. Re-running System B on a different node
+moved `mcsolve`'s coherence error by a factor of two on a different seed, which
+alone took SLB's coherence deficit from **33.7x worse to 16.5x**. A ratio against
+a noise-limited point carries that point's noise.
 
 The claim that survives that objection is the one `mcsolve`'s own scaling
 supplies. Its error falls as $N_{\text{traj}}^{-1/2}$, so reaching SLB's
@@ -1620,25 +1647,53 @@ is included precisely because it is the harsher test.
 
 | observable | SLB ($M=16$) error | `mcsolve` error | SLB/mc ratio | SLB speed vs native |
 |---|---|---|---|---|
-| `energy` | $2.52\times10^{-2}$ | $2.60\times10^{-2}$ | 0.97x (comparable) | 6.4x |
-| `zz` | $1.52\times10^{-2}$ | $1.45\times10^{-2}$ | 1.05x (comparable) | 6.4x |
-| `sx` | $2.07\times10^{-2}$ | $4.31\times10^{-3}$ | **4.8x worse** | 6.4x |
-| `sz` | $2.75\times10^{-2}$ | $3.23\times10^{-2}$ | 0.85x (comparable) | 6.4x |
-| `zz_per_bond` | $3.05\times10^{-3}$ | $2.90\times10^{-3}$ | 1.05x (comparable) | 6.4x |
-| `coherence` | $1.35\times10^{-2}$ | $4.02\times10^{-4}$ | **33.7x worse** | 6.4x |
+| `energy` | $2.52\times10^{-2}$ | $2.49\times10^{-2}$ | 1.0x (comparable) | 6.0x |
+| `zz` | $1.52\times10^{-2}$ | $1.61\times10^{-2}$ | 1.06x better | 6.0x |
+| `sx` | $2.07\times10^{-2}$ | $3.93\times10^{-3}$ | **5.3x worse** | 6.0x |
+| `sz` | $2.75\times10^{-2}$ | $2.55\times10^{-2}$ | 1.1x worse | 6.0x |
+| `zz_per_bond` | $3.05\times10^{-3}$ | $3.22\times10^{-3}$ | 1.06x better | 6.0x |
+| `coherence` | $1.36\times10^{-2}$ | $8.19\times10^{-4}$ | **16.5x worse** | 6.0x |
 
-SLB runs **379x faster** than `mcsolve` and **6.4x faster** than the exact
-solve. On `energy` and `sz` the errors are comparable. But on `sx` SLB is
-4.8x worse, and on `coherence` it is **33.7x worse** — `mcsolve` resolves
-off-diagonal density-matrix elements far better than the bundled estimator at
-this $M$.
+At $M=16$ SLB runs **337x faster** than `mcsolve` and **6.0x faster** than the
+exact solve, with comparable errors on four observables. On `sx` it is 5.3x
+worse and on `coherence` **16.5x worse**: `mcsolve` resolves off-diagonal
+density-matrix elements better than a bundled estimator at this $M$.
 
-**At dim 128** ($N_L = 8{,}193$), `mcsolve` was not run: at dim 64 it already
-took 4,372 s against 74 s for the exact solve (59x *slower* than solving
-exactly), because every jump must test all $N_L$ collapse operators.
-Extrapolating that to $N_L = 8{,}193$ exceeded the job budget. The dim-128
-comparison is SLB against the exact solver only: one SLB realization at $M=16$
-runs **547x faster** (4.46 s against 2,442 s) at ~92% accuracy.
+**But $M=16$ is the wrong setting at this size, and dimension 128 shows why.**
+
+**At dim 128** ($N_L = 8{,}193$) `mcsolve` now runs, for the first time — 92,174 s
+at $N_{\text{traj}}=500$, which is **38x slower than solving the system
+exactly** (2,413 s), because every jump must test all 8,193 collapse operators.
+It took 25.6 hours of the job's 46.
+
+Against that, the choice of $M$ decides the whole comparison:
+
+| | cost | `energy` error | vs `mcsolve` |
+|---|---|---|---|
+| `mcsolve`, 500 trajectories | 92,174 s | $2.46\times10^{-2}$ | — |
+| SLB, $M=16$ | 125 s | $4.57\times10^{-2}$ | **1.9x worse** |
+| SLB, $M=256$ | 1,361 s | $3.02\times10^{-3}$ | **8.1x better** |
+
+**At $M=16$ SLB loses on every one of the six observables** (1.9x to 17x worse).
+At $M=256$ — still **68x cheaper** than `mcsolve` and 1.8x cheaper than the exact
+solve — it wins on four of six:
+
+| observable | SLB ($M=256$) | `mcsolve` | ratio |
+|---|---|---|---|
+| `energy` | $3.02\times10^{-3}$ | $2.46\times10^{-2}$ | **8.1x better** |
+| `sz` | $4.06\times10^{-3}$ | $2.25\times10^{-2}$ | **5.6x better** |
+| `zz` | $4.10\times10^{-3}$ | $1.32\times10^{-2}$ | **3.2x better** |
+| `zz_per_bond` | $6.83\times10^{-4}$ | $2.20\times10^{-3}$ | **3.2x better** |
+| `sx` | $6.94\times10^{-3}$ | $6.38\times10^{-3}$ | 1.1x worse |
+| `coherence` | $2.74\times10^{-3}$ | $9.75\times10^{-4}$ | 2.8x worse |
+
+Two things follow. **The coherence weakness is a setting, not a property**: it is
+17.2x worse at $M=16$ and 2.8x at $M=256$, so most of the gap this document has
+reported on that observable was an under-resourced bundle rather than something
+the estimator cannot represent. And **$M$ must grow with the system**: a bundle
+count that was ample at dimension 64 is badly short at 128, because the bias
+scales with how much of $N_L$ each bundle has to stand in for. That is precisely
+the quantity **Result 4** measures.
 
 #### System A — TFIM chain (dim 64, $N_L = 31$)
 
