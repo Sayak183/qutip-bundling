@@ -1867,13 +1867,19 @@ at every size tested, including 136 and 120 levels at dimension 256; the split
 is stable for coupling thresholds from $10^{-10}$ to $10^{-4}$.
 
 That corrected target costs $O(N^2)$ on a matrix already formed, so it stays
-free — and it is exact. Against the unbundled dynamics at dimension 16:
+free — and it is exact. Against the *unbundled* dynamics, propagated to $t=600$
+and flat to $10^{-13}$:
 
-| system | global Gibbs is off by | sector-resolved is off by |
-|---|---|---|
-| B mixed chain | $1.4\times10^{-2}$ | **0** (six decimals) |
-| A spin chain | $3.2\times10^{-2}$ | $2.4\times10^{-5}$ |
-| C oscillator | one sector, so the two agree | — |
+| system | dim | limit | global Gibbs off by | sector-resolved off by |
+|---|---|---|---|---|
+| B mixed chain | 16 | $-4.982237$ | $1.37\times10^{-2}$ | **0** |
+| B mixed chain | 32 | $-6.462773$ | $1.50\times10^{-2}$ | **0** |
+| A spin chain | 16 | $-3.505400$ | $3.16\times10^{-2}$ | $2.4\times10^{-5}$ |
+| C oscillator | 16 | $+0.224910$ | one sector, so the two agree | — |
+
+The second size is there to answer the obvious objection. The discrepancy is not
+a small-system artefact that washes out: it **grows**, from $0.0137$ at dimension
+16 to $0.0150$ at 32, while the sector-resolved prediction stays exact at both.
 
 **Scored against the right target, the dimension-256 run has not converged.**
 
