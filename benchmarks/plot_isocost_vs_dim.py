@@ -43,13 +43,33 @@ NTRAJ_EXTRAP_MAX = 20000 # Beyond this, mcsolve is considered impractical
 # plotting if the largest configured count increases.
 # ---------------------
 
-def derive_slb(point, n_runs, target, est_type):
+def _obs_axis(point):
+    """(reference (n_obs, n_times), labels).
+
+    Old single-observable files load as a one-entry set labelled "energy", so
+    both schemas go through the same code and the section can be replotted
+    before every system has been regenerated.
     """
-    Returns (m_star, cost, reached, bias_sq, noise_sq) for one dimension.
+    reference = np.atleast_2d(as_array(point["reference"]))
+    labels = point.get("observables") or ["energy"]
+    if len(labels) != reference.shape[0]:
+        labels = [f"obs{j}" for j in range(reference.shape[0])]
+    return reference, labels
+
+
+def derive_slb(point, n_runs, target, est_type):
+    """(m_star, cost, reached, bias_sq, noise_sq, binding) for one dimension.
+
+    ``m_star`` is the cheapest bundle count reaching the target on EVERY
+    observable, not on the energy alone -- the energy is the easiest quantity
+    this suite measures, so tuning to it reports the best case rather than the
+    cost of using the method. ``binding`` names the observable that sets it, and
+    the bias/noise split returned is that observable's, since it is the one the
+    operating point is chosen for.
     """
     last = None
-    reference = as_array(point["reference"])
-    
+    reference, labels = _obs_axis(point)
+
     for row in point["slb_sweep"]:
         # Extract exactly n_runs to compute statistics. NumPy slicing silently
         # returns fewer rows when the request is too large, so validate first:
@@ -64,48 +84,58 @@ def derive_slb(point, n_runs, target, est_type):
                 f"configuration, or lower the configured count, then replot."
             )
         samples = all_samples[:n_runs]
+        if samples.ndim == 2:                 # legacy file: energy only
+            samples = samples[:, None, :]
         n_actual = samples.shape[0]
-        
-        # 1. Total Observed MSE of the ensemble mean
-        ensemble_mean = np.mean(samples, axis=0)
-        total_mse = np.mean((ensemble_mean - reference)**2)
-        
-        # 2. Statistical Variance
+
+        # Per observable, so the binding one can be identified rather than
+        # averaged away. Averaging the MSE across observables would let one
+        # large coherence error hide behind five small ones.
+        ensemble_mean = np.mean(samples, axis=0)                 # (n_obs, n_t)
+        total_mse = np.mean((ensemble_mean - reference) ** 2, axis=1)
         if n_actual > 1:
-            var_single_run = np.mean(np.var(samples, axis=0, ddof=1)) # This is Std^2
+            var_single_run = np.mean(np.var(samples, axis=0, ddof=1), axis=1)
         else:
-            var_single_run = 0.0
+            var_single_run = np.zeros(samples.shape[1])
         sem_sq = var_single_run / n_actual
-        
-        # 3. Implied Systematic Bias^2
-        bias_sq = max(0.0, total_mse - sem_sq)
-        
-        # 4. Apply toggle logic for Cost and RMSE
+        bias_sq = np.maximum(0.0, total_mse - sem_sq)
+
         if est_type == "single":
             noise_sq = var_single_run
-            cost = row["per_run_cost"] # COST OF 1 RUN
+            cost = row["per_run_cost"]                   # COST OF 1 RUN
         else:
             noise_sq = sem_sq
-            cost = n_actual * row["per_run_cost"] # COST OF N RUNS
-            
+            cost = n_actual * row["per_run_cost"]        # COST OF N RUNS
+
         rmse = np.sqrt(bias_sq + noise_sq)
-        
-        last = (row["M"], cost, True, bias_sq, noise_sq)
-        
-        if rmse <= target:
+        worst = int(np.argmax(rmse))
+        last = (row["M"], cost, True,
+                float(bias_sq[worst]), float(noise_sq[worst]), labels[worst])
+
+        # Every observable must clear it, not the first one that does.
+        if float(rmse.max()) <= target:
             return last
-            
-    # If target never reached, return data for largest M tested
-    last = (row["M"], cost, False, bias_sq, noise_sq)
-    return last
+
+    # Target never reached: report the largest M tried, and which observable
+    # was still missing it there.
+    return (row["M"], cost, False,
+            float(bias_sq[worst]), float(noise_sq[worst]), labels[worst])
 
 def derive_mc(point, target):
     """
     (ntraj_star, cost, reachable) derived from saved S^2 fit.
     mcsolve ALWAYS calculates the ensemble cost required to reach the target.
     """
-    s2 = np.mean([np.mean(np.square(r["rmse_repeats"])) * r["ntraj"]
-                  for r in point["mc_fit"]])
+    # rmse_repeats is (repeat,) on old files and (repeat, observable) on new
+    # ones. mcsolve must clear the target on every observable too, so its S^2
+    # comes from the WORST one -- the same standard applied to SLB.
+    def _s2_of(r):
+        a = np.asarray(r["rmse_repeats"], dtype=float)
+        per_obs = (np.mean(np.square(a), axis=0) if a.ndim == 2
+                   else np.mean(np.square(a)))
+        return float(np.max(per_obs)) * r["ntraj"]
+
+    s2 = np.mean([_s2_of(r) for r in point["mc_fit"]])
     t_per_traj = np.mean([r["per_traj_time"] for r in point["mc_fit"]])
     
     # Ensemble can be averaged down
@@ -132,6 +162,8 @@ def derive(doc, target, n_runs_list, est_type):
             "ok": np.array([r[2] for r in rows]),
             "bias_sq": np.array([r[3] for r in rows]),
             "noise_sq": np.array([r[4] for r in rows]),
+
+            "binding": [r[5] for r in rows],
         }
         
     for p in points:
@@ -174,10 +206,15 @@ def figure(name, out, target, substeps_text, n_runs_list, est_type):
 
     # Line Annotations
     n_max = max(n_runs_list)
-    for x, y, m, ok in zip(d, out["slb"][n_max]["cost"], out["slb"][n_max]["mstar"],
-                           out["slb"][n_max]["ok"]):
-        ax_main.annotate(f"M*={int(m)}", (x, y), xytext=(5, -12), textcoords="offset points", 
-                         fontsize=11, color=greens.get(n_max, "tab:green"))
+    bindings = out["slb"][n_max].get("binding") or [None] * len(d)
+    for x, y, m, ok, bind in zip(d, out["slb"][n_max]["cost"],
+                                 out["slb"][n_max]["mstar"],
+                                 out["slb"][n_max]["ok"], bindings):
+        # Name the observable M* satisfies LAST. Without it the reader sees a
+        # larger M* than the energy-only figures reported, with no reason why.
+        tag = f"M*={int(m)}" + (f"\n({bind})" if bind and bind != "energy" else "")
+        ax_main.annotate(tag, (x, y), xytext=(5, -12), textcoords="offset points",
+                         fontsize=10, color=greens.get(n_max, "tab:green"))
         
     for x, y, nt, ok in zip(d, out["mc_cost"], out["mc_star"], out["mc_ok"]):
         label = f"ntraj≈{int(round(nt)):,}" if (ok and np.isfinite(nt)) else f"ntraj≳{NTRAJ_EXTRAP_MAX:,}"

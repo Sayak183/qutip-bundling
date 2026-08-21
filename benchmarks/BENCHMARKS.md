@@ -1839,59 +1839,92 @@ to 0.0014; the three-point fit intercepts at −10.8356.
 across all three sweeps. The bundled generator is Lindblad by construction, so
 this is a test of the propagation at a size where nobody had run it.
 
-**Check 3 — it relaxes to the thermal state.** This is the strong one, for two
-reasons: detailed balance makes the Gibbs state stationary, and
-$\mathrm{Tr}(H \rho_{\mathrm{Gibbs}})$ needs only the eigenvalues of $H$, which
-the construction already computes. The reference is therefore *free at any
-dimension the method can reach*, and it is independent of everything bundling
+**Check 3 — it relaxes to the thermal state.** This is the strong one, and
+correcting it changed what it measures. The reference is free — for any
+observable $A$, $\mathrm{Tr}(A \rho)$ in a Boltzmann-weighted state is
+$\sum_e p_e \langle e|A|e \rangle$, needing only the eigendecomposition the
+construction already performs — and it is independent of everything bundling
 does.
 
+**But the Gibbs state being stationary does not make it the limit.** The
+construction is right: applying the generator to the Gibbs state gives zero to
+machine precision on all three systems ($4.7\times10^{-15}$,
+$1.2\times10^{-14}$, $1.5\times10^{-15}$), so detailed balance holds exactly.
+What does not hold is *uniqueness*. The generator's kernel is measured to be
+
+| system | kernel dimension | limit |
+|---|---|---|
+| C oscillator | **1** | unique, so it must be Gibbs |
+| B mixed chain | **2** at every size from dim 4 to 32 | depends on $\rho_0$ |
+| A spin chain | **5** at dim 16 | depends on $\rho_0$ |
+
+A Davies operator is built as $\Pi_e X \Pi_{e'}$, so two levels are
+dynamically connected exactly when $\langle e|X|e' \rangle$ is non-zero. When
+that graph is disconnected the space splits into **sectors**, the population of
+each is separately conserved, and the limit is Gibbs *within* each sector,
+weighted by where $\rho_0$ put its population. System B splits into two sectors
+at every size tested, including 136 and 120 levels at dimension 256; the split
+is stable for coupling thresholds from $10^{-10}$ to $10^{-4}$.
+
+That corrected target costs $O(N^2)$ on a matrix already formed, so it stays
+free — and it is exact. Against the unbundled dynamics at dimension 16:
+
+| system | global Gibbs is off by | sector-resolved is off by |
+|---|---|---|
+| B mixed chain | $1.4\times10^{-2}$ | **0** (six decimals) |
+| A spin chain | $3.2\times10^{-2}$ | $2.4\times10^{-5}$ |
+| C oscillator | one sector, so the two agree | — |
+
+**Scored against the right target, the dimension-256 run has not converged.**
+
 ```
-started at   -10.2000
-ended at     -10.8732
-Gibbs        -10.8737     <- from eigenvalues alone
+SLB endpoint, M=32       -10.873221   (s.e.m. 0.001693)
+global Gibbs             -10.873710   ->  0.29 s.e.m.
+sector-resolved Gibbs    -10.890584   -> 10.26 s.e.m.
 ```
 
-It covered **99.9%** of the distance, and it has genuinely stopped: over the
-last 20 time units the curve is flat to $10^{-6}$, so the 0.0005 that remains is
-a floor and not a curve still creeping toward the line.
+The agreement with global Gibbs is not the method succeeding. A bundle
+$R_m \propto \sum_\alpha r_\alpha c_\alpha$ mixes operators from *different*
+sectors, so the bundled generator connects what the exact one cannot: at small
+$M$ the dynamics is **more ergodic than the generator it approximates**, and
+drifts to the global Gibbs state instead of the sector-resolved one.
 
-**What that residual does and does not settle.** The thermal run's own standard
-error is $0.0017$, *measured* on its 16 realizations rather than inferred, so the
-gap is **0.29 s.e.m.** — drawn to scale in the figure's inset, where the curve
-sits inside the band. The residual is statistically indistinguishable from zero:
-having travelled $0.674$ in energy it stopped $0.0005$ short, which is $0.07\%$
-of the journey.
+**That artefact is $O(1/M)$ and it does converge.** Sweeping $M$ to $N_L$ on
+System B at dimension 16, against the exact limit of $-4.982237$:
 
-That still is not a proof of exactness, and no finite measurement could be. What
-it is, is a *bound*: any systematic offset in the stationary state is below one
-standard error, on a system of 32,637 collapse operators, at a dimension where no
-exact solve exists, against a reference that cost one eigendecomposition.
+| $M$ | 4 | 8 | 16 | 32 | 64 | 121 = $N_L$ |
+|---|---|---|---|---|---|---|
+| gap | 0.0230 | 0.0110 | 0.0061 | 0.0033 | 0.0017 | 0.00094 |
 
-**An earlier version of this section reported 0.0046 here, at 1.1 s.e.m., from a
-4-realization run.** Raising the realization count did not merely tighten the bar
-around that number — the number itself moved by a factor of ten. The gap was
-mostly noise in a poorly-estimated mean, not bias. It is recorded because the
-opposite outcome was equally possible and would have been reported the same way:
-at dimension 16 the same change turns a residual inside the noise into a resolved
-$2.4$ s.e.m. offset.
+Each doubling of $M$ halves it — ratios 0.48, 0.55, 0.54, 0.51, 0.55. So SLB
+does recover the correct stationary state; it needs $M$ large relative to $N_L$
+to do it. At dimension 16 that ratio is $121/32 \approx 4$ and the run is 76% of
+the way there. At dimension 256 it is $32{,}637/32 \approx 1{,}020$, and the run
+has made essentially no progress — which is exactly what the table above shows.
 
-**The stationary-state bias is at least 14x smaller than the transient one.**
-This is worth stating carefully, because bundling bias is *not* expected to
-vanish at long times: the evolution is nonlinear in the generator, so an unbiased
-estimator of the dissipator does not give an unbiased stationary state. There
-should be an $O(1/M)$ offset here too. At $M=32$ the transient bias is a resolved
-$0.0232$ (against the extrapolated $-10.8356$); at the same $M$ the stationary
-gap sits below $0.0017$. So the measurement bounds the long-time bias at roughly
-one fourteenth of the short-time one, rather than showing it to be zero. One
-system, one size, and an upper bound rather than a value.
+Note also that the gap is still non-zero at $M = N_L$: a bundle at $M = N_L$ is
+still a random mixture of all the operators, not the operators themselves, so it
+still connects sectors the exact generator keeps apart.
 
-**Why System B and not System A.** System A has a $Z_2$ symmetry, hence extra
-conserved quantities, so it relaxes to a *symmetry-restricted* stationary state
-rather than the global Gibbs state — measured at dimension 16 it settles at
-−3.5054 against a Gibbs value of −3.4738. That gap is real physics, and it would
-invalidate check 3 for reasons having nothing to do with bundling. System B has
-no such symmetry.
+**What this section can therefore claim.** Checks 1 and 2 stand unchanged:
+convergence in $M$ at the predicted rate, and trace to $4.4\times10^{-16}$.
+Check 3 is now a *measurement rather than a pass*: it puts a number on how large
+$M$ must be for the **stationary** state, which is a stricter and quite separate
+requirement from the transient accuracy Results 1–4 measure. Reaching the
+long-time limit on System B at dimension 256 would need $M$ of order
+$10^3$ to $10^4$, not 32.
+
+**Results 1–4 are unaffected.** They score SLB against an exact solve of the
+same generator over $t \le 5$, where both are far from any stationary state, so
+the non-uniqueness never enters.
+
+**System A is no longer excluded.** It was left out of this section because it
+relaxes to a symmetry-restricted state rather than the global Gibbs state — at
+dimension 16, $-3.5054$ against a Gibbs value of $-3.4738$. That is now
+*computed*, not merely acknowledged: the sector-resolved target predicts
+$-3.505376$ against a measured $-3.505400$. The obstruction was never System A's
+symmetry; it was the section using a target that assumed ergodicity.
+
 
 **Cost.** 646.2 s, 1023.8 s and 1774.8 s for the three sweeps at 16
 realizations each, plus 15,581.8 s for the thermal run at 16 realizations —
