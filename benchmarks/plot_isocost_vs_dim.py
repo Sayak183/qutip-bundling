@@ -3,7 +3,7 @@ plot_isocost_vs_dim.py
 ======================
 
 UPDATED: Iso-accuracy cost-vs-dimension benchmark (Result 4).
-Displays the wall-clock cost to reach a specified TARGET_RMSE for SLB 
+Displays the wall-clock cost to reach TARGET_REL of each observable's own span, for SLB 
 versus mcsolve. 
 
 CRITICAL FIX: mcsolve always calculates the cost of the ensemble required 
@@ -21,7 +21,19 @@ from common import add_settings_footer, as_array, load_data, tavg_rmse
 from isocost_config import run_counts
 
 # --- CONFIGURATION ---
-TARGET_RMSE = 0.02       # accuracy target
+# Accuracy target, as a fraction of each observable's own span over the
+# reference trajectory. A single ABSOLUTE tolerance cannot serve six observables
+# that differ by three orders of magnitude in scale: at oscillator dim 64, an
+# RMSE of 0.02 is 0.008% of n2's span and 374% of the coherence's. Scoring
+# against each observable's own scale is one standard for all of them.
+#
+# 3% is close to what the old absolute 0.02 already demanded of the energy on
+# the chains (4% at mixed dim 64, 2.8% at spin dim 512), so the chains barely
+# move; the oscillator, where the artefact lived, moves a lot.
+TARGET_REL = 0.03
+
+# Kept for the --target flag and for single-observable legacy files.
+TARGET_RMSE = 0.02       # absolute fallback
 # Which estimate's error must reach the target?
 #   "ensemble" : SLB's N-run average -> sqrt(bias^2 + SEM^2). The LIKE-FOR-LIKE
 #                comparison: mcsolve reaches the target the only way it can --
@@ -42,6 +54,19 @@ NTRAJ_EXTRAP_MAX = 20000 # Beyond this, mcsolve is considered impractical
 # data-generation script. Edit them there, then regenerate the data before
 # plotting if the largest configured count increases.
 # ---------------------
+
+def observable_targets(point, rel=None):
+    """Per-observable accuracy target: ``rel`` times that observable's span.
+
+    The span is taken over the reference trajectory, so the target is a fixed
+    fraction of the signal each observable actually shows. Returns one target
+    per observable, in the same order as the reference rows.
+    """
+    reference, _ = _obs_axis(point)
+    rel = TARGET_REL if rel is None else rel
+    span = reference.max(axis=1) - reference.min(axis=1)
+    return rel * np.maximum(span, 1e-12)
+
 
 def _obs_axis(point):
     """(reference (n_obs, n_times), labels).
@@ -69,6 +94,10 @@ def derive_slb(point, n_runs, target, est_type):
     """
     last = None
     reference, labels = _obs_axis(point)
+    # A scalar target is applied to every observable; the vector form is what
+    # observable_targets() supplies, one entry per observable.
+    target = np.broadcast_to(np.asarray(target, dtype=float),
+                             (reference.shape[0],))
 
     for row in point["slb_sweep"]:
         # Extract exactly n_runs to compute statistics. NumPy slicing silently
@@ -108,12 +137,14 @@ def derive_slb(point, n_runs, target, est_type):
             cost = n_actual * row["per_run_cost"]        # COST OF N RUNS
 
         rmse = np.sqrt(bias_sq + noise_sq)
-        worst = int(np.argmax(rmse))
+        # "Worst" means furthest from its OWN target, not largest in absolute
+        # terms -- otherwise the biggest-scale observable is always named.
+        worst = int(np.argmax(rmse / target))
         last = (row["M"], cost, True,
                 float(bias_sq[worst]), float(noise_sq[worst]), labels[worst])
 
-        # Every observable must clear it, not the first one that does.
-        if float(rmse.max()) <= target:
+        # Every observable must clear its own target, not the first to do so.
+        if bool(np.all(rmse <= target)):
             return last
 
     # Target never reached: report the largest M tried, and which observable
@@ -127,19 +158,22 @@ def derive_mc(point, target):
     mcsolve ALWAYS calculates the ensemble cost required to reach the target.
     """
     # rmse_repeats is (repeat,) on old files and (repeat, observable) on new
-    # ones. mcsolve must clear the target on every observable too, so its S^2
-    # comes from the WORST one -- the same standard applied to SLB.
+    # ones. mcsolve must clear every observable's own target, exactly as SLB
+    # must, so S^2 is taken per observable and the binding one is whichever
+    # needs the most trajectories -- not whichever has the largest raw error.
     def _s2_of(r):
         a = np.asarray(r["rmse_repeats"], dtype=float)
         per_obs = (np.mean(np.square(a), axis=0) if a.ndim == 2
-                   else np.mean(np.square(a)))
-        return float(np.max(per_obs)) * r["ntraj"]
+                   else np.atleast_1d(np.mean(np.square(a))))
+        return np.asarray(per_obs, dtype=float) * r["ntraj"]
 
-    s2 = np.mean([_s2_of(r) for r in point["mc_fit"]])
+    s2 = np.mean([_s2_of(r) for r in point["mc_fit"]], axis=0)
+    target = np.broadcast_to(np.asarray(target, dtype=float), s2.shape)
     t_per_traj = np.mean([r["per_traj_time"] for r in point["mc_fit"]])
     
     # Ensemble can be averaged down
-    ntraj_star = float(s2) / (target ** 2)
+    # The binding observable is the one demanding the most trajectories.
+    ntraj_star = float(np.max(s2 / (target ** 2)))
     reachable = ntraj_star <= NTRAJ_EXTRAP_MAX
     cost = float(t_per_traj) * min(ntraj_star, NTRAJ_EXTRAP_MAX) # COST OF ENSEMBLE
         
@@ -154,8 +188,12 @@ def derive(doc, target, n_runs_list, est_type):
         "slb": {}, "mc_cost": [], "mc_star": [], "mc_ok": [],
     }
     
+    # One target vector per point: TARGET_REL of each observable's own span at
+    # that dimension. Passing the scalar through would restore the artefact.
+    targets = {id(p): observable_targets(p) for p in points}
+
     for n in n_runs_list:
-        rows = [derive_slb(p, n, target, est_type) for p in points]
+        rows = [derive_slb(p, n, targets[id(p)], est_type) for p in points]
         out["slb"][n] = {
             "mstar": np.array([r[0] for r in rows]),
             "cost": np.array([r[1] for r in rows]),
@@ -167,7 +205,7 @@ def derive(doc, target, n_runs_list, est_type):
         }
         
     for p in points:
-        nt, c, ok = derive_mc(p, target)
+        nt, c, ok = derive_mc(p, targets[id(p)])
         out["mc_star"].append(nt)
         out["mc_cost"].append(c)
         out["mc_ok"].append(ok)
@@ -229,7 +267,9 @@ def figure(name, out, target, substeps_text, n_runs_list, est_type):
                              for dd, nl in zip(d, n_ls)], fontsize=11)
     ax_main.minorticks_off()
     est_label_cap = "Ensemble" if est_type == "ensemble" else "Single-Run"
-    ax_main.set_title(f"{name}: cost to reach {est_label_cap} RMSE={target} — SLB vs mcsolve", fontsize=14)
+    ax_main.set_title(
+        f"{name}: cost to reach {TARGET_REL:.0%} of each observable's span"
+        f" — SLB vs mcsolve", fontsize=14)
     ax_main.legend(loc="upper left", fontsize=11)
     ax_main.grid(True, which="both", alpha=0.3)
 
@@ -277,7 +317,10 @@ def figure(name, out, target, substeps_text, n_runs_list, est_type):
     footer_math = "Ens RMSE\u00b2 = bias\u00b2 + SEM\u00b2" if est_type == "ensemble" else "Single RMSE\u00b2 = bias\u00b2 + Std\u00b2"
 
     segs = [
-        f"iso-accuracy: smallest M reaching {est_type} RMSE={target}; "
+        f"iso-accuracy: smallest M whose {est_type} RMSE clears "
+        f"{TARGET_REL:.0%} of EVERY observable's own span (the binding one is "
+        f"named at each point); one absolute tolerance cannot serve "
+        f"observables differing by 10^3 in scale; "
         f"{substeps_text}",
         f"{footer_math}; computable only to the exact-reference wall; '≳' = mcsolve needs impractical trajectory count",
     ]
