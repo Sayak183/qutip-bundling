@@ -29,7 +29,67 @@ import re
 import numpy as np
 import matplotlib.pyplot as plt
 
-from common import add_settings_footer, as_array, load_data
+from scipy.sparse import csr_matrix
+from scipy.sparse.csgraph import connected_components
+
+import qutip
+
+from common import (KT, add_settings_footer, as_array, build_mixed_field_chain,
+                    build_oscillator_bath, build_spin_chain, load_data)
+
+_BUILDERS = {
+    "mixed_chain": build_mixed_field_chain,
+    "oscillator_bath": build_oscillator_bath,
+    "spin_chain": build_spin_chain,
+}
+
+# |<e|X|e'>| below this counts as no coupling; stable over six decades.
+SECTOR_COUPLING_TOL = 1e-10
+
+
+def sector_resolved_energy(doc):
+    """Tr(H rho_inf) for the state the generator actually reaches, or None.
+
+    The Gibbs state is stationary here -- the generator annihilates it to
+    machine precision -- but it is not the only stationary state: a Davies
+    operator is Pi_e X Pi_e', so levels are dynamically connected only where
+    <e|X|e'> is non-zero, and where that graph is disconnected each sector's
+    population is separately conserved. The limit is then Gibbs WITHIN each
+    sector, weighted by where rho0 started.
+
+    Recomputed from the system definition because the committed data predates
+    this correction. One eigendecomposition and a connected-components pass.
+    """
+    params = (doc.get("meta") or {}).get("params") or {}
+    build = _BUILDERS.get(params.get("system"))
+    size = params.get("size")
+    if build is None or size is None:
+        return None, None
+
+    H, X, psi0 = build(int(size))
+    energies, states = H.eigenstates()
+    energies = np.real(energies)
+    V = np.column_stack([s.full().ravel() for s in states])
+
+    adjacency = (np.abs(V.conj().T @ X.full() @ V) > SECTOR_COUPLING_TOL)
+    adjacency = adjacency.astype(np.int8)
+    np.fill_diagonal(adjacency, 1)
+    n_sectors, sector_of = connected_components(csr_matrix(adjacency),
+                                                directed=False)
+    if n_sectors == 1:
+        return None, 1        # ergodic: the two targets coincide
+
+    pops0 = np.real(np.diag(V.conj().T @ qutip.ket2dm(psi0).full() @ V))
+    total = 0.0
+    for s in range(n_sectors):
+        mask = sector_of == s
+        p_s = float(pops0[mask].sum())
+        if p_s <= 0.0:
+            continue
+        w = np.exp(-(energies[mask] - energies[mask].min()) / KT)
+        w /= w.sum()
+        total += p_s * float(np.dot(w, energies[mask]))
+    return total, int(n_sectors)
 
 SLB_GREEN = "#006d2c"
 GIBBS_GREY = "tab:gray"
@@ -77,6 +137,9 @@ def derive(doc):
         sem_thermal = float(sems[-1]) * np.sqrt(SWEEP_REALIZATIONS / n_thermal)
         sem_measured = False
     residual = abs(float(energy[-1]) - gibbs)
+    sector, n_sectors = sector_resolved_energy(doc)
+    residual_sector = (abs(float(energy[-1]) - sector)
+                       if sector is not None else None)
 
     # Has it actually stopped, or is it still creeping? A residual from a curve
     # still in motion means something different from one from a flat curve.
@@ -88,6 +151,10 @@ def derive(doc):
         "pairwise": pairwise,
         "sem_thermal": sem_thermal, "sem_measured": sem_measured,
         "n_thermal": n_thermal, "residual": residual,
+        "sector": sector, "n_sectors": n_sectors,
+        "residual_sector": residual_sector,
+        "residual_sector_in_sem": (None if residual_sector is None
+                                   else residual_sector / sem_thermal),
         "residual_in_sem": residual / sem_thermal,
         "tail_drift": float(tail[-1] - tail[0]),
         "fraction": float(doc["thermal"]["fraction_covered"]),
@@ -106,8 +173,13 @@ def figure(doc, out_name):
               label=f"SLB, $M$={doc['thermal']['M']}, "
                     f"{r['n_thermal']} realizations")
     ax_t.axhline(r["gibbs"], ls="--", color=GIBBS_GREY, lw=1.8,
-                 label=r"$\mathrm{Tr}(H\rho_{\mathrm{Gibbs}})$"
-                       " (from eigenvalues; free)")
+                 label=r"global Gibbs  (stationary, but NOT unique)")
+    if r["sector"] is not None:
+        # Where the generator actually goes. The Gibbs state is stationary here
+        # but so is any sector-weighted mixture, so the limit depends on rho0.
+        ax_t.axhline(r["sector"], ls="-", color="tab:red", lw=1.8,
+                     label=f"sector-resolved limit "
+                           f"({r['n_sectors']} sectors) -- the correct target")
     # One standard error of THIS run, so the reader can see at a glance whether
     # the gap that remains is a real offset or the noise it sits inside.
     ax_t.axhspan(r["gibbs"] - r["sem_thermal"], r["gibbs"] + r["sem_thermal"],
@@ -116,7 +188,7 @@ def figure(doc, out_name):
                        + ("" if r["sem_measured"] else " (estimated)"))
     ax_t.set_xlabel("time")
     ax_t.set_ylabel(r"$\langle H \rangle$")
-    ax_t.set_title(f"Relaxes to the Gibbs state\n"
+    ax_t.set_title(f"Relaxes -- but not yet to the right state\n"
                    f"dimension {r['dim']}, $N_L$ = {r['n_l']:,}", fontsize=11)
     ax_t.legend(loc="center right", fontsize=9, framealpha=0.95)
     ax_t.grid(alpha=0.3)
@@ -128,20 +200,35 @@ def figure(doc, out_name):
     late = r["t"] >= 12.0
     ax_zoom.plot(r["t"][late], r["energy"][late], "-", color=SLB_GREEN, lw=2)
     ax_zoom.axhline(r["gibbs"], ls="--", color=GIBBS_GREY, lw=1.5)
+    if r["sector"] is not None:
+        ax_zoom.axhline(r["sector"], ls="-", color="tab:red", lw=1.5)
     ax_zoom.axhspan(r["gibbs"] - r["sem_thermal"], r["gibbs"] + r["sem_thermal"],
                     color=GIBBS_GREY, alpha=0.25, lw=0)
-    ax_zoom.set_ylim(r["gibbs"] - 4 * r["sem_thermal"],
-                     r["gibbs"] + 2 * r["sem_thermal"])
+    lo = min(r["gibbs"], r["sector"] if r["sector"] is not None else r["gibbs"])
+    hi = max(r["gibbs"], r["sector"] if r["sector"] is not None else r["gibbs"])
+    pad = max(4 * r["sem_thermal"], 0.25 * (hi - lo))
+    ax_zoom.set_ylim(lo - pad, hi + pad)
     ax_zoom.set_title("tail, to scale", fontsize=8, pad=3)
     ax_zoom.tick_params(labelsize=7)
     ax_zoom.grid(alpha=0.3)
 
+    if r["sector"] is None:
+        note = (f"covers {100 * r['fraction']:.1f}% of the distance\n"
+                f"{r['residual']:.4f} from Gibbs = "
+                f"{r['residual_in_sem']:.1f} s.e.m.\n"
+                f"one sector, so Gibbs IS the limit")
+    else:
+        # Naming both, because the small gap is to the wrong line. Reporting
+        # only the 0.29 would repeat the error this figure exists to correct.
+        note = (f"to global Gibbs:  {r['residual']:.4f} "
+                f"({r['residual_in_sem']:.1f} s.e.m.)\n"
+                f"to the CORRECT target: {r['residual_sector']:.4f} "
+                f"({r['residual_sector_in_sem']:.1f} s.e.m.)\n"
+                f"flat to {abs(r['tail_drift']):.0e} over the last 20 -- "
+                f"stopped, but short")
     ax_t.annotate(
-        f"covers {100 * r['fraction']:.1f}% of the distance\n"
-        f"{r['residual']:.4f} remains = {r['residual_in_sem']:.1f} s.e.m.\n"
-        f"flat to {abs(r['tail_drift']):.0e} over the last 20",
-        xy=(0.03, 0.03), xycoords="axes fraction", ha="left", va="bottom",
-        fontsize=9,
+        note, xy=(0.03, 0.03), xycoords="axes fraction", ha="left",
+        va="bottom", fontsize=8.5,
         bbox=dict(boxstyle="round,pad=0.4", fc="white", ec="0.7", alpha=0.9))
 
     # ---- RIGHT: convergence in M, against 1/M ----------------------------
@@ -177,6 +264,13 @@ def figure(doc, out_name):
         f"independent extrapolations agree: {pair_text}",
         "trace preserved to machine precision throughout "
         "(max $|\\mathrm{Tr}-1|$ = 4.4e-16)",
+        "THE GIBBS STATE IS STATIONARY BUT NOT UNIQUE HERE: the coupling "
+        "operator does not connect every level, so the space splits into "
+        "sectors and the limit depends on $\\rho_0$. A bundle mixes operators "
+        "ACROSS sectors, so at small $M$ the bundled dynamics is more ergodic "
+        "than the generator it approximates and drifts toward global Gibbs. "
+        "The bias is $O(1/M)$; at $N_L/M \\approx 1{,}020$ this run has barely "
+        "started to converge.",
         fontsize=9)
 
     fig.savefig(out_name, dpi=120, bbox_inches="tight")
