@@ -86,10 +86,17 @@ SYSTEMS = {
     # at dim 64, which is where the iso-accuracy question actually has teeth --
     # without it Result 4 compares only the two systems where N_L is either
     # tiny (TFIM) or ladder-structured (oscillator).
+    # Size 7 (dim 128) added: these two stopped at 64 while the spin chain
+    # spanned 4-512, so their fitted slopes rested on the fewest points of the
+    # three. The dim-128 reference is the whole cost here -- about 25 h on the
+    # mixed chain and 2 h on the oscillator, measured in Result 2.
     "mixed_chain":     (build_mixed_field_chain, [(2, 4), (3, 4), (4, 4),
-                                                  (5, 4), (6, 4)]), # dims 4..64
+                                                  (5, 4), (6, 4),
+                                                  (7, 4)]),         # dims 4..128
+    # dim 128 takes 32 substeps, not 16: the anharmonic ladder needs roughly
+    # double per octave (5.2), and 16 is what diverged at this size in Result 2.
     "oscillator_bath": (build_oscillator_bath, [(4, 4), (8, 4), (16, 4),
-                                                (32, 16)]),         # dims 8..64
+                                                (32, 16), (64, 32)]),  # dims 8..128
 }
 
 

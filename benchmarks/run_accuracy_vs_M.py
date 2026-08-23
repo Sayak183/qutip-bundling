@@ -74,6 +74,10 @@ SYSTEMS = {
         # dim 128. The size-invariance claim rested on three dimensions; this
         # makes it four. M is capped at N_L = 43 here.
         (7, [2, 4, 8, 16, 32, 64], 4),
+        # dim 256, making five. M is capped at N_L = 57. This is the system
+        # where the invariance claim is cheapest to extend, because its N_L
+        # grows slowly and the exact reference stays affordable.
+        (8, [2, 4, 8, 16, 32, 64], 4),
     ]),
     # Same sizes as the TFIM chain so the two are directly comparable: they
     # differ only by the longitudinal field.
