@@ -115,14 +115,14 @@ operator connects, as a fraction of the whole spectrum: **3% means an operator
 essentially only couples neighbouring levels, 27% means it couples levels a
 quarter of the spectrum apart.** The definition is in §2.5.
 
-| Metric / Property | System A — Spin Chain ($g=0$, §2.3) | System B — Mixed Chain ($g=0.4$, §2.3) | System C — Oscillator (§2.4) |
+| Metric / Property | System A — Spin Chain (`g=0`, §2.3) | System B — Mixed Chain (`g=0.4`, §2.3) | System C — Oscillator (§2.4) |
 |---|---|---|---|
-| Model | Transverse-field Ising ($J=1, h=0.6$) | Mixed-field Ising ($g=0.4$) | Anharmonic oscillator + spin |
-| Coupling $X$ | $\sum_i \sigma_x^i$ (collective) | $\sum_i \sigma_x^i$ (collective) | $x \otimes I$ (position) |
-| $N_L$ at dim 64 | 31 (collapses due to integrability) | 2,017 ($\sim N^2 / 2$) | 890 ($\sim N^2$) |
-| How far operators reach, $\bar d$ (dim 64) | 27% of the spectrum | 26% | **3.1% — neighbours only** |
+| Model | Transverse-field Ising (`J=1, h=0.6`) | Mixed-field Ising (`g=0.4`) | Anharmonic oscillator + spin |
+| Coupling `X` | Σᵢ σˣᵢ (collective) | Σᵢ σˣᵢ (collective) | x ⊗ I (position) |
+| `N_L` at dim 64 | 31 (collapses due to integrability) | 2,017 (~N²/2) | 890 (~N²) |
+| How far operators reach, d̄ (dim 64) | 27% of the spectrum | 26% | **3.1% — neighbours only** |
 | Cost versus the exact solve | **none** (1.0x at dim 64) | **547x cheaper** (dim 128) | **54x cheaper** (dim 64) |
-| Relative error, one run at $M=16$ (dim 64) | $3.6\times10^{-2}$ | $5.4\times10^{-2}$ | $\mathbf{6.0\times10^{-6}}$ |
+| Relative error, one run at `M=16` (dim 64) | 3.6×10⁻² | 5.4×10⁻² | **6.0×10⁻⁶** |
 | Role here | **Control 1** — too few operators to bundle | **Control 2** — many operators, but each reaches far | **Demonstration** — many operators, each local |
 
 **System A** is a special case. Its bath couples to every spin in the same way,
@@ -177,11 +177,11 @@ what to measure, not a guarantee.
 
 **What to do with the answer.**
 
-| $N_L$ | operator reach | what to expect |
+| `N_L` | operator reach | what to expect |
 |---|---|---|
 | small (tens) | either | use the exact solver; bundling has nothing to compress |
-| large | local | the best case — large speedup at small $M$ (System C) |
-| large | far-reaching | still a large speedup, but you will need a larger $M$ for a given accuracy (System B) |
+| large | local | the best case — large speedup at small `M` (System C) |
+| large | far-reaching | still a large speedup, but you will need a larger `M` for a given accuracy (System B) |
 
 And if you cannot even build the operator list — thousands of dense operators
 at large dimension — that is the regime bundling exists for, though you will
@@ -380,7 +380,7 @@ it sets $N_L$ — and it should be chosen so that the answer does not depend on
 it. Sweeping it across nine decades on the benchmark systems gives a wide
 plateau:
 
-| tolerance | $10^{-14}$ | $10^{-12}$ | $10^{-10}$ | $10^{-8}$ | $10^{-6}$ | $10^{-5}$ | $10^{-4}$ | $10^{-3}$ |
+| tolerance | 10⁻¹⁴ | 10⁻¹² | 10⁻¹⁰ | 10⁻⁸ | 10⁻⁶ | 10⁻⁵ | 10⁻⁴ | 10⁻³ |
 |---|---|---|---|---|---|---|---|---|
 | System B, dim 64 | 2,017 | 2,017 | **2,017** | 2,017 | 2,017 | 2,015 | 1,991 | 1,813 |
 | System C, dim 64 | 890 | 890 | **890** | 890 | 890 | 890 | 890 | 884 |
@@ -527,11 +527,11 @@ molecular/vibronic problems the method was developed for.
 The three are not three demonstrations. They vary two properties independently,
 so the benchmark can say which one matters:
 
-| | operator count $N_L$ | how far each operator reaches | outcome |
+| | operator count `N_L` | how far each operator reaches | outcome |
 |---|---|---|---|
-| **A** — TFIM chain ($g=0$) | small (31 at dim 64) | reaches far ($\bar d\approx27\%$) | no speedup available |
-| **B** — mixed chain ($g=0.4$) | large (2,017 at dim 64) | reaches far ($\bar d\approx26\%$) | 547x cheaper, error $5.4\times10^{-2}$ |
-| **C** — oscillator | large (890 at dim 64) | local ($\bar d\approx3\%$) | 54x cheaper, error $6.0\times10^{-6}$ |
+| **A** — TFIM chain (`g=0`) | small (31 at dim 64) | reaches far (d̄ ≈ 27%) | no speedup available |
+| **B** — mixed chain (`g=0.4`) | large (2,017 at dim 64) | reaches far (d̄ ≈ 26%) | 547x cheaper, error 5.4×10⁻² |
+| **C** — oscillator | large (890 at dim 64) | local (d̄ ≈ 3%) | 54x cheaper, error 6.0×10⁻⁶ |
 
 **A versus B** isolates the operator count. Same lattice, same coupling
 operator, same initial state; the only change is a longitudinal field that
@@ -600,7 +600,7 @@ This simple rule instantly crosses out 76% of all the possible transitions on th
 
 Here is how those two rules play out in practice:
 
-| | Allowed Transitions | Unique Energy Gaps ($N_L$) | Transitions packed into one operator |
+| | Allowed Transitions | Unique Energy Gaps (`N_L`) | Transitions packed into one operator |
 |---|---|---|---|
 | **System A** (Perfect symmetry, perfect adding) | 62 of 256 (24%) | **13** | 4.8 |
 | **System B** (Broken symmetry, messy adding) | 136 of 256 (53%) | **121** | 1.1 |
@@ -726,12 +726,12 @@ measured on its own. Two things come for free:
 
 | | chains (A, B) | oscillator (C) |
 |---|---|---|
-| the bulk number | $\langle H\rangle$ | $\langle H\rangle$ |
+| the bulk number | ⟨H⟩ | ⟨H⟩ |
 | the quantum part | dominant coherence | dominant coherence |
-| what the bath drives | $\sum_i\langle\sigma^z_i\sigma^z_{i+1}\rangle$ — neighbour alignment | $\langle n\rangle$ — how far up the ladder |
-| the hard one | $\sum_i\langle\sigma^x_i\rangle$ — this *is* the bath coupling operator | $\langle\sigma^z\rangle$ — the bath never touches the spin |
-| remaining $H$ terms | $\sum_i\langle\sigma^z_i\rangle$ (System B only) | $\langle n^2\rangle$, $\langle x\otimes\sigma^x\rangle$ |
-| per-site version | $\sum\langle\sigma^z\sigma^z\rangle/(n-1)$ | — |
+| what the bath drives | Σᵢ⟨σᶻᵢσᶻᵢ₊₁⟩ — neighbour alignment | ⟨n⟩ — how far up the ladder |
+| the hard one | Σᵢ⟨σˣᵢ⟩ — this *is* the bath coupling operator | ⟨σᶻ⟩ — the bath never touches the spin |
+| remaining `H` terms | Σᵢ⟨σᶻᵢ⟩ (System B only) | ⟨ n²⟩, ⟨ x⊗σˣ⟩ |
+| per-site version | Σ⟨σᶻσᶻ⟩/(n-1) | — |
 
 #### What each observable tells you
 
@@ -805,13 +805,13 @@ becomes the coherence observable. The choice matters enormously, because **most
 pairs are dead**. Running the exact dynamics and recording the largest
 $|\rho_{ab}|$ each pair ever reaches:
 
-| pair | largest $|\rho_{ab}|$ over the whole run |
+| pair | largest |ρ_ab| over the whole run |
 |---|---|
-| $(0,1)$ | $3.9\times10^{-1}$ |
-| $(1,3)$ | $2.2\times10^{-1}$ |
-| $(0,3)$ | $2.0\times10^{-1}$ |
+| (0,1) | 3.9×10⁻¹ |
+| (1,3) | 2.2×10⁻¹ |
+| (0,3) | 2.0×10⁻¹ |
 | … | |
-| $(10,14)$ | $2.9\times10^{-18}$ |
+| (10,14) | 2.9×10⁻¹⁸ |
 
 Top to bottom spans **17 orders of magnitude**, and **76 of the 120 pairs never
 reach even 1%** of the largest. The dynamics simply never creates coherence
@@ -911,10 +911,10 @@ density-matrix solves of $M$ operators each — a total of $M\times$
 
 | figure | `M` | `n_realizations` | error bars |
 |---|---|---|---|
-| accuracy (Result 1) | system-dependent | 200 | $\pm1$ std band |
+| accuracy (Result 1) | system-dependent | 200 | ±1 std band |
 | cost scaling (Result 2) | 8 (iso-accuracy sweeps `M`) | 1 (cost) / 16 (RMSE) | — |
-| frontier (Result 3) | 1–64, system/size-dependent | spin: 2 / 4 / 8; oscillator: 8 / 16 | $S/\sqrt{N_r}$ |
-| iso-cost vs dim (Result 4) | swept to target ($\le 128$) | spin: 4; oscillator: 16 | mcsolve via $S/\sqrt{\texttt{ntraj}}$ fit |
+| frontier (Result 3) | 1–64, system/size-dependent | spin: 2 / 4 / 8; oscillator: 8 / 16 | S/√N_r |
+| iso-cost vs dim (Result 4) | swept to target (≤ 128) | spin: 4; oscillator: 16 | mcsolve via S/√ntraj fit |
 
 **`mcsolve` has one level of sampling:** a single reported point is `ntraj`
 independent trajectories (swept over `[10, 50, 200, 1000]` in the frontier
@@ -1022,8 +1022,8 @@ answer.
 
 | oscillator, dim 64 | samples it needs | cost of that | error |
 |---|---|---|---|
-| SLB, $M=16$ | **1** realization | 2.3 s | $6.0\times10^{-6}$ |
-| `mcsolve` | **500** trajectories | 7,118 s serial, 14.2 s on 500 cores | $2.9\times10^{-3}$ |
+| SLB, `M=16` | **1** realization | 2.3 s | 6.0×10⁻⁶ |
+| `mcsolve` | **500** trajectories | 7,118 s serial, 14.2 s on 500 cores | 2.9×10⁻³ |
 
 So parallelism does not close the gap. Given unlimited cores `mcsolve` finishes
 in 14.2 s at $2.9\times10^{-3}$, while SLB finishes in 2.3 s at
@@ -1086,7 +1086,7 @@ memory:
 
 | Result | Slurm jobs | dates |
 |---|---|---|
-| **1** accuracy vs $M$ | 19585257, 19592647, 19597390 | Aug 7 – 24 |
+| **1** accuracy vs `M` | 19585257, 19592647, 19597390 | Aug 7 – 24 |
 | **2** cost scaling | 19591128, 19592645, 19592644 | Aug 15 – 19 |
 | **3** method comparison | 19559720, 19559854, 19559945, 19594145 | Aug 1 – 19 |
 | **4** iso-accuracy cost | **19597387** (all three systems, one job) | Aug 22 |
@@ -1208,7 +1208,7 @@ at **five** sizes spanning a sixteen-fold range:
 
 | dim | 16 | 32 | 64 | 128 | 256 |
 |---|---|---|---|---|---|
-| bias slope | $-0.91$ | $-0.97$ | $-0.98$ | $-0.98$ | $-0.97$ |
+| bias slope | −0.91 | −0.97 | −0.98 | −0.98 | −0.97 |
 
 It stops moving after dim 32 and stays put through a further eightfold increase,
 with a total spread of $0.07$ across the five. System B gives $M^{-1.00}$,
@@ -1223,9 +1223,9 @@ $M=8$ the bias moves with dimension:
 
 | system | dim 16 → 32 → 64 | scaling |
 |---|---|---|
-| **A** TFIM chain | $2.7\times10^{-2} \to 4.5\times10^{-2} \to 7.2\times10^{-2} \to 1.1\times10^{-1} \to 1.6\times10^{-1}$ (to dim 256) | $\sim N^{+0.64}$ |
-| **B** mixed chain | $2.6\times10^{-2} \to 3.4\times10^{-2} \to 5.5\times10^{-2}$ | $\sim N^{+0.55}$ |
-| **C** oscillator | $2.6\times10^{-3} \to 2.3\times10^{-3} \to 2.0\times10^{-3}$ | $\sim N^{-0.20}$ |
+| **A** TFIM chain | 2.7×10⁻² → 4.5×10⁻² → 7.2×10⁻² → 1.1×10⁻¹ → 1.6×10⁻¹ (to dim 256) | ~ N^+0.64 |
+| **B** mixed chain | 2.6×10⁻² → 3.4×10⁻² → 5.5×10⁻² | ~ N^+0.55 |
+| **C** oscillator | 2.6×10⁻³ → 2.3×10⁻³ → 2.0×10⁻³ | ~ N^-0.20 |
 
 System A's height exponent is now measured over five dimensions, and the extra
 points pull it *down* slightly rather than confirming it unchanged: $N^{+0.72}$
@@ -1485,9 +1485,9 @@ requires differs by two orders of magnitude:
 
 | | target | why that value |
 |---|---|---|
-| **A** TFIM chain | $0.05$ | **looser.** At $0.02$ this system misses at every dimension but the smallest — $M$ can never exceed $N_L$, and even $M=N_L$ parks between $0.024$ and $0.029$ across dim 8–512. |
-| **B** mixed chain | $0.02$ | discriminating as it stands: $M^\ast$ climbs $4\to64$. |
-| **C** oscillator | $0.005$ | **tighter.** $M^\ast=1$ clears $0.02$ at every size, so the looser target measured nothing. |
+| **A** TFIM chain | 0.05 | **looser.** At 0.02 this system misses at every dimension but the smallest — `M` can never exceed `N_L`, and even M=N_L parks between 0.024 and 0.029 across dim 8–512. |
+| **B** mixed chain | 0.02 | discriminating as it stands: `M*` climbs 4→64. |
+| **C** oscillator | 0.005 | **tighter.** M^*=1 clears 0.02 at every size, so the looser target measured nothing. |
 
 **Read System A's row as the finding it is.** It needs a target three times
 looser than System B and ten times looser than System C — and even then
@@ -1584,8 +1584,8 @@ That is the cutoff: a definition, not a taste.
 
 | marker | the error is mostly | what to do |
 |---|---|---|
-| **filled** | bias | raise $M$ — more samples are nearly wasted |
-| **hollow** | sampling noise | add samples — they parallelize, and $M$ need not move |
+| **filled** | bias | raise `M` — more samples are nearly wasted |
+| **hollow** | sampling noise | add samples — they parallelize, and `M` need not move |
 
 **Nearly every SLB point is filled.** On System B at dimension 64 the ratio runs
 from 12.2 at $M=2$ down to 1.48 at $M=256$ — bias-limited throughout, which is
@@ -1596,12 +1596,12 @@ check runs on a new system before its settings are chosen.
 **The crossover is real, and System B reaches it.** Extending that system's sweep
 to $M=256$ (job 19594145) pushed one curve through:
 
-| dim | ratio at the largest $M$ | fitted crossover | $N_L$ | |
+| dim | ratio at the largest `M` | fitted crossover | `N_L` | |
 |---|---|---|---|---|
-| 16 | 2.63 (at $M=121=N_L$) | $\sim 825$ | 121 | beyond $N_L$ |
-| **32** | **1.33** (at $M=256$) | $\sim 268$ | 513 | **crossed** |
-| 64 | 1.48 (at $M=256$) | $\sim 231$ | 2,017 | just short |
-| 128 | 2.24 (at $M=256$) | $\sim 460$ | 8,193 | not yet |
+| 16 | 2.63 (at M=121=N_L) | ~ 825 | 121 | beyond `N_L` |
+| **32** | **1.33** (at `M=256`) | ~ 268 | 513 | **crossed** |
+| 64 | 1.48 (at `M=256`) | ~ 231 | 2,017 | just short |
+| 128 | 2.24 (at `M=256`) | ~ 460 | 8,193 | not yet |
 
 So the dimension-32 curve ends on a hollow marker: past $M=256$ there, a larger
 bundle is no longer the knob that helps. Predicted beforehand at $M\approx193$
@@ -1620,9 +1620,9 @@ trajectories its error is not resolvable above its own noise:
 
 | system | `mcsolve` error | its s.e.m. | ratio |
 |---|---|---|---|
-| A spin | $7.47\times10^{-3}$ | $1.76\times10^{-2}$ | **0.42** |
-| C oscillator | $3.44\times10^{-1}$ | $3.54\times10^{-1}$ | **0.97** |
-| B mixed | $2.49\times10^{-2}$ | $1.77\times10^{-2}$ | **1.40** |
+| A spin | 7.47×10⁻³ | 1.76×10⁻² | **0.42** |
+| C oscillator | 3.44×10⁻¹ | 3.54×10⁻¹ | **0.97** |
+| B mixed | 2.49×10⁻² | 1.77×10⁻² | **1.40** |
 
 So these points are **not a floor for `mcsolve`**. They are where it lands on the
 budget it was given, and more trajectories would lower them. Every accuracy ratio
@@ -1648,14 +1648,14 @@ place to read iso-accuracy cost.
 ![Accuracy versus cost, oscillator, x_sx](benchmark_comparison_oscillator_bath_x_sx.png)
 ![Accuracy versus cost, oscillator, coherence](benchmark_comparison_oscillator_bath_coherence.png)
 
-| observable | SLB ($M=16$) error | `mcsolve` error | SLB/mc ratio | SLB speed vs native |
+| observable | SLB (`M=16`) error | `mcsolve` error | SLB/mc ratio | SLB speed vs native |
 |---|---|---|---|---|
-| `energy` | $5.56\times10^{-4}$ | $3.44\times10^{-1}$ | **620x better** | 3.4x |
-| `n` | $2.70\times10^{-4}$ | $9.09\times10^{-2}$ | 337x better | 3.4x |
-| `sz` | $4.65\times10^{-4}$ | $6.29\times10^{-3}$ | 13.5x better | 3.4x |
-| `n2` | $7.90\times10^{-3}$ | $2.52\times10^{0}$ | 318x better | 3.4x |
-| `x_sx` | $3.11\times10^{-3}$ | $4.45\times10^{-3}$ | **1.4x better** | 3.4x |
-| `coherence` | $6.31\times10^{-6}$ | $1.22\times10^{-4}$ | 19.3x better | 3.4x |
+| `energy` | 5.56×10⁻⁴ | 3.44×10⁻¹ | **620x better** | 3.4x |
+| `n` | 2.70×10⁻⁴ | 9.09×10⁻² | 337x better | 3.4x |
+| `sz` | 4.65×10⁻⁴ | 6.29×10⁻³ | 13.5x better | 3.4x |
+| `n2` | 7.90×10⁻³ | 2.52×10⁰ | 318x better | 3.4x |
+| `x_sx` | 3.11×10⁻³ | 4.45×10⁻³ | **1.4x better** | 3.4x |
+| `coherence` | 6.31×10⁻⁶ | 1.22×10⁻⁴ | 19.3x better | 3.4x |
 
 One SLB realization at $M=16$ costs 2.3 s and reaches $6.0\times10^{-6}$
 relative error on the energy, against 121 s for the exact full-dissipator solve
@@ -1676,14 +1676,14 @@ is included precisely because it is the harsher test.
 ![Accuracy versus cost, mixed chain, sx](benchmark_comparison_mixed_chain_sx.png)
 ![Accuracy versus cost, mixed chain, coherence](benchmark_comparison_mixed_chain_coherence.png)
 
-| observable | SLB ($M=16$) error | `mcsolve` error | SLB/mc ratio | SLB speed vs native |
+| observable | SLB (`M=16`) error | `mcsolve` error | SLB/mc ratio | SLB speed vs native |
 |---|---|---|---|---|
-| `energy` | $2.52\times10^{-2}$ | $2.49\times10^{-2}$ | 1.0x (comparable) | 6.0x |
-| `zz` | $1.52\times10^{-2}$ | $1.61\times10^{-2}$ | 1.06x better | 6.0x |
-| `sx` | $2.07\times10^{-2}$ | $3.93\times10^{-3}$ | **5.3x worse** | 6.0x |
-| `sz` | $2.75\times10^{-2}$ | $2.55\times10^{-2}$ | 1.1x worse | 6.0x |
-| `zz_per_bond` | $3.05\times10^{-3}$ | $3.22\times10^{-3}$ | 1.06x better | 6.0x |
-| `coherence` | $1.36\times10^{-2}$ | $8.19\times10^{-4}$ | **16.5x worse** | 6.0x |
+| `energy` | 2.52×10⁻² | 2.49×10⁻² | 1.0x (comparable) | 6.0x |
+| `zz` | 1.52×10⁻² | 1.61×10⁻² | 1.06x better | 6.0x |
+| `sx` | 2.07×10⁻² | 3.93×10⁻³ | **5.3x worse** | 6.0x |
+| `sz` | 2.75×10⁻² | 2.55×10⁻² | 1.1x worse | 6.0x |
+| `zz_per_bond` | 3.05×10⁻³ | 3.22×10⁻³ | 1.06x better | 6.0x |
+| `coherence` | 1.36×10⁻² | 8.19×10⁻⁴ | **16.5x worse** | 6.0x |
 
 At $M=16$ SLB runs **337x faster** than `mcsolve` and **6.0x faster** than the
 exact solve, with comparable errors on four observables. On `sx` it is 5.3x
@@ -1701,22 +1701,22 @@ Against that, the choice of $M$ decides the whole comparison:
 
 | | cost | `energy` error | vs `mcsolve` |
 |---|---|---|---|
-| `mcsolve`, 500 trajectories | 92,174 s | $2.46\times10^{-2}$ | — |
-| SLB, $M=16$ | 125 s | $4.57\times10^{-2}$ | **1.9x worse** |
-| SLB, $M=256$ | 1,361 s | $3.02\times10^{-3}$ | **8.1x better** |
+| `mcsolve`, 500 trajectories | 92,174 s | 2.46×10⁻² | — |
+| SLB, `M=16` | 125 s | 4.57×10⁻² | **1.9x worse** |
+| SLB, `M=256` | 1,361 s | 3.02×10⁻³ | **8.1x better** |
 
 **At $M=16$ SLB loses on every one of the six observables** (1.9x to 17x worse).
 At $M=256$ — still **68x cheaper** than `mcsolve` and 1.8x cheaper than the exact
 solve — it wins on four of six:
 
-| observable | SLB ($M=256$) | `mcsolve` | ratio |
+| observable | SLB (`M=256`) | `mcsolve` | ratio |
 |---|---|---|---|
-| `energy` | $3.02\times10^{-3}$ | $2.46\times10^{-2}$ | **8.1x better** |
-| `sz` | $4.06\times10^{-3}$ | $2.25\times10^{-2}$ | **5.6x better** |
-| `zz` | $4.10\times10^{-3}$ | $1.32\times10^{-2}$ | **3.2x better** |
-| `zz_per_bond` | $6.83\times10^{-4}$ | $2.20\times10^{-3}$ | **3.2x better** |
-| `sx` | $6.94\times10^{-3}$ | $6.38\times10^{-3}$ | 1.1x worse |
-| `coherence` | $2.74\times10^{-3}$ | $9.75\times10^{-4}$ | 2.8x worse |
+| `energy` | 3.02×10⁻³ | 2.46×10⁻² | **8.1x better** |
+| `sz` | 4.06×10⁻³ | 2.25×10⁻² | **5.6x better** |
+| `zz` | 4.10×10⁻³ | 1.32×10⁻² | **3.2x better** |
+| `zz_per_bond` | 6.83×10⁻⁴ | 2.20×10⁻³ | **3.2x better** |
+| `sx` | 6.94×10⁻³ | 6.38×10⁻³ | 1.1x worse |
+| `coherence` | 2.74×10⁻³ | 9.75×10⁻⁴ | 2.8x worse |
 
 Two things follow. **The coherence weakness is a setting, not a property**: it is
 17.2x worse at $M=16$ and 2.8x at $M=256$, so most of the gap this document has
@@ -1732,13 +1732,13 @@ the quantity **Result 4** measures.
 ![Accuracy versus cost, TFIM chain, sx](benchmark_comparison_spin_chain_sx.png)
 ![Accuracy versus cost, TFIM chain, coherence](benchmark_comparison_spin_chain_coherence.png)
 
-| observable | SLB ($M=16$) error | `mcsolve` error | SLB/mc ratio | SLB speed vs native |
+| observable | SLB (`M=16`) error | `mcsolve` error | SLB/mc ratio | SLB speed vs native |
 |---|---|---|---|---|
-| `energy` | $4.21\times10^{-2}$ | $7.47\times10^{-3}$ | **5.6x worse** | 0.1x |
-| `zz` | $2.18\times10^{-2}$ | $7.56\times10^{-3}$ | 2.9x worse | 0.1x |
-| `sx` | $5.30\times10^{-2}$ | $4.77\times10^{-3}$ | **11.1x worse** | 0.1x |
-| `zz_per_bond` | $4.35\times10^{-3}$ | $1.51\times10^{-3}$ | 2.9x worse | 0.1x |
-| `coherence` | $2.36\times10^{-2}$ | $1.04\times10^{-2}$ | 2.3x worse | 0.1x |
+| `energy` | 4.21×10⁻² | 7.47×10⁻³ | **5.6x worse** | 0.1x |
+| `zz` | 2.18×10⁻² | 7.56×10⁻³ | 2.9x worse | 0.1x |
+| `sx` | 5.30×10⁻² | 4.77×10⁻³ | **11.1x worse** | 0.1x |
+| `zz_per_bond` | 4.35×10⁻³ | 1.51×10⁻³ | 2.9x worse | 0.1x |
+| `coherence` | 2.36×10⁻² | 1.04×10⁻² | 2.3x worse | 0.1x |
 
 This is Control 1. Davies grouping collapses operators to 31, so the exact
 solve costs the same as bundling ($M=16$). SLB provides no speed advantage
@@ -1792,9 +1792,9 @@ and 2.8% at spin dimension 512.
 **The three systems give three different answers, and they are the answers §2.5
 predicts.**
 
-| | $N_L$ | $M^\ast$ | binding observable | target met? | speedup at the largest dim |
+| | `N_L` | `M*` | binding observable | target met? | speedup at the largest dim |
 |---|---|---|---|---|---|
-| **A** TFIM chain | 3 → 73 | 3 → **73** $= N_L$ | `coherence` | **never** | not quotable |
+| **A** TFIM chain | 3 → 73 | 3 → **73** = N_L | `coherence` | **never** | not quotable |
 | **B** mixed chain | 7 → 2,017 | 4 → **32** | `energy` | everywhere | **322x** |
 | **C** oscillator | 32 → 890 | 8 → **4** | `x_sx` | everywhere | **664x** |
 
@@ -1814,8 +1814,8 @@ operator count.** That is what a control is for.
 
 | system | SLB | `mcsolve` |
 |---|---|---|
-| B mixed chain | $N^{1.62}$ | $N^{2.60}$ |
-| C oscillator | $N^{1.69}$ | $N^{2.83}$ |
+| B mixed chain | `N^1.62` | `N^2.60` |
+| C oscillator | `N^1.69` | `N^2.83` |
 
 About one power of $N$ apart in both cases, which is why the gap widens with
 size: 39x to 322x on System B across dims 16 to 64, and 64x to 664x on System C.
@@ -1921,7 +1921,7 @@ terminated. The run is therefore scored on three things that can be checked
 
 **Check 1 — it converges in $M$, and in the predicted form.**
 
-| $M$ | $\langle H \rangle$ at $t=5$ | change | ratio |
+| `M` | ⟨H⟩ at `t=5` | change | ratio |
 |---|---|---|---|
 | 8 | −10.74198 | | |
 | 16 | −10.78844 | 0.04646 | |
@@ -1955,8 +1955,8 @@ What does not hold is *uniqueness*. The generator's kernel is measured to be
 | system | kernel dimension | limit |
 |---|---|---|
 | C oscillator | **1** | unique, so it must be Gibbs |
-| B mixed chain | **2** at every size from dim 4 to 32 | depends on $\rho_0$ |
-| A spin chain | **5** at dim 16 | depends on $\rho_0$ |
+| B mixed chain | **2** at every size from dim 4 to 32 | depends on ρ₀ |
+| A spin chain | **5** at dim 16 | depends on ρ₀ |
 
 A Davies operator is built as $\Pi_e X \Pi_{e'}$, so two levels are
 dynamically connected exactly when $\langle e|X|e' \rangle$ is non-zero. When
@@ -1972,10 +1972,10 @@ and flat to $10^{-13}$:
 
 | system | dim | limit | global Gibbs off by | sector-resolved off by |
 |---|---|---|---|---|
-| B mixed chain | 16 | $-4.982237$ | $1.37\times10^{-2}$ | **0** |
-| B mixed chain | 32 | $-6.462773$ | $1.50\times10^{-2}$ | **0** |
-| A spin chain | 16 | $-3.505400$ | $3.16\times10^{-2}$ | $2.4\times10^{-5}$ |
-| C oscillator | 16 | $+0.224910$ | one sector, so the two agree | — |
+| B mixed chain | 16 | −4.982237 | 1.37×10⁻² | **0** |
+| B mixed chain | 32 | −6.462773 | 1.50×10⁻² | **0** |
+| A spin chain | 16 | −3.505400 | 3.16×10⁻² | 2.4×10⁻⁵ |
+| C oscillator | 16 | +0.224910 | one sector, so the two agree | — |
 
 The second size is there to answer the obvious objection. The discrepancy is not
 a small-system artefact that washes out: it **grows**, from $0.0137$ at dimension
@@ -1998,7 +1998,7 @@ drifts to the global Gibbs state instead of the sector-resolved one.
 **That artefact is $O(1/M)$ and it does converge.** Sweeping $M$ to $N_L$ on
 System B at dimension 16, against the exact limit of $-4.982237$:
 
-| $M$ | 4 | 8 | 16 | 32 | 64 | 121 = $N_L$ |
+| `M` | 4 | 8 | 16 | 32 | 64 | 121 = `N_L` |
 |---|---|---|---|---|---|---|
 | gap | 0.0230 | 0.0110 | 0.0061 | 0.0033 | 0.0017 | 0.00094 |
 
@@ -2093,12 +2093,12 @@ where enough points clear the noise floor.
 
 | system | dim | uncorrected | jackknife | reduction | verdict |
 |---|---|---|---|---|---|
-| Spin Chain | 16 | $M^{-0.96}$ | $M^{-1.45}$ | 3.3–6.7× | rate steepens |
-| Spin Chain | 32 | $M^{-0.96}$ | $M^{-1.78}$ | 3.0–9.7× | rate steepens |
-| Spin Chain | 64 | $M^{-0.95}$ | $M^{-1.04}$ | 2.8–4.1× | level only |
-| Oscillator Bath | 16 | $M^{-1.00}$ | $M^{-0.87}$ | 5.6–8.9× | level only |
-| Oscillator Bath | 32 | $M^{-1.00}$ | — | 1.4–3.0× | marginal |
-| Oscillator Bath | 64 | $M^{-0.97}$ | — | 2.1× | marginal |
+| Spin Chain | 16 | `M^-0.96` | `M^-1.45` | 3.3–6.7× | rate steepens |
+| Spin Chain | 32 | `M^-0.96` | `M^-1.78` | 3.0–9.7× | rate steepens |
+| Spin Chain | 64 | `M^-0.95` | `M^-1.04` | 2.8–4.1× | level only |
+| Oscillator Bath | 16 | `M^-1.00` | `M^-0.87` | 5.6–8.9× | level only |
+| Oscillator Bath | 32 | `M^-1.00` | — | 1.4–3.0× | marginal |
+| Oscillator Bath | 64 | `M^-0.97` | — | 2.1× | marginal |
 
 Only where at least three points clear **twice** the SEM is a corrected rate
 quoted; below that the corrected "bias" is Monte-Carlo noise and its ratio
