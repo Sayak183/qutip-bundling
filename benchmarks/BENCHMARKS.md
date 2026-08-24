@@ -1184,25 +1184,37 @@ sweep at every measured dimension on one axis separates two questions that are
 easy to conflate.
 
 **The slope is invariant, and that is the useful part.** Every curve falls as
-$M^{-1}$, and the exponent settles as dimension grows. System A is measured at
-**four** sizes: $-0.91$, $-0.97$, $-0.98$, $-0.98$ at dims 16, 32, 64, 128. It
-stops moving after dim 32 and stays put through a further fourfold increase.
-System B gives $M^{-1.00}$, $M^{-1.00}$, $M^{-1.02}$ across its three sizes. So
-**doubling M halves the error at any size**, and that rule needs no
-recalibration as the system grows.
+$M^{-1}$, and the exponent settles as dimension grows. System A is now measured
+at **five** sizes spanning a sixteen-fold range:
+
+| dim | 16 | 32 | 64 | 128 | 256 |
+|---|---|---|---|---|---|
+| bias slope | $-0.91$ | $-0.97$ | $-0.98$ | $-0.98$ | $-0.97$ |
+
+It stops moving after dim 32 and stays put through a further eightfold increase,
+with a total spread of $0.07$ across the five. System B gives $M^{-1.00}$,
+$M^{-1.00}$, $M^{-1.02}$ across its three sizes. So **doubling M halves the
+error at any size**, and that rule needs no recalibration as the system grows.
+
+Five points is where this stops being a line through three and starts being a
+measurement. The prediction was $M^{-1}$ before any of them were taken.
 
 **The height is not invariant, and the difference is systematic.** At fixed
 $M=8$ the bias moves with dimension:
 
 | system | dim 16 → 32 → 64 | scaling |
 |---|---|---|
-| **A** TFIM chain | $3.3\times10^{-2} \to 5.0\times10^{-2} \to 8.0\times10^{-2} \to 1.2\times10^{-1}$ | $\sim N^{+0.64}$ |
+| **A** TFIM chain | $2.7\times10^{-2} \to 4.5\times10^{-2} \to 7.2\times10^{-2} \to 1.1\times10^{-1} \to 1.6\times10^{-1}$ (to dim 256) | $\sim N^{+0.64}$ |
 | **B** mixed chain | $2.6\times10^{-2} \to 3.4\times10^{-2} \to 5.5\times10^{-2}$ | $\sim N^{+0.55}$ |
 | **C** oscillator | $2.6\times10^{-3} \to 2.3\times10^{-3} \to 2.0\times10^{-3}$ | $\sim N^{-0.20}$ |
 
-System A's exponent is measured over four dimensions and the fourth does not
-move it: $N^{+0.64}$ over dims 16–64, and still $N^{+0.64}$ with dim 128
-included. The growth is a trend, not a three-point artefact.
+System A's height exponent is now measured over five dimensions, and the extra
+points pull it *down* slightly rather than confirming it unchanged: $N^{+0.72}$
+over dims 16–64, and $N^{+0.64}$ once dims 128 and 256 are included. Stated
+plainly because it cuts against the earlier reading — the growth is real and it
+is a trend rather than a three-point artefact, but the exponent itself was
+overestimated by the short sweep, and the curve is flattening as the system
+grows rather than holding a fixed power.
 
 On the chains the bias grows as roughly $\sqrt N$, so holding a fixed *accuracy*
 target requires $M$ to grow with the system — which is precisely what Result 4's

@@ -16,9 +16,12 @@ SYSTEM_TITLES = {
     "mixed_chain": "System B - mixed-field chain",
     "oscillator_bath": "System C - oscillator + spin",
 }
-DIMS = [16, 32, 64, 128]
-COLORS = {16: '#1f77b4', 32: '#ff7f0e', 64: '#2ca02c', 128: '#d62728'}
-MARKERS = {16: 'o', 32: 's', 64: '^', 128: 'D'}
+# Dimension 256 added for the spin chain (job 19597390). Systems without a file
+# at a given dimension are skipped with a notice, so this list can lead the data.
+DIMS = [16, 32, 64, 128, 256]
+COLORS = {16: '#1f77b4', 32: '#ff7f0e', 64: '#2ca02c', 128: '#d62728',
+          256: '#9467bd'}
+MARKERS = {16: 'o', 32: 's', 64: '^', 128: 'D', 256: 'v'}
 
 # Toggle: True = evaluate at the worst-time slice t* (standard R1 anatomy)
 #         False = use the overall time-averaged error across the full trajectory
