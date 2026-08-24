@@ -335,9 +335,17 @@ Reading the three factors:
 - $\alpha\,\omega$ — an **ohmic** spectral density (linear in $\omega$ at low
   frequency). $\alpha=0.3$ sets the overall system–bath coupling strength.
 - $e^{-|\omega|/\omega_c}$ — an exponential high-frequency cutoff at
-  $\omega_c=8$. Since the systems' transition frequencies are of order $1$, the
-  cutoff sits well above them and the bath is effectively broadband across the
-  transitions that matter.
+  $\omega_c=8$, representing the fact that a real environment cannot respond
+  arbitrarily fast. **It is comparable to the transition frequencies here, not
+  far above them, so it does shape the coupling.** Weighting each transition by
+  $|\langle i|X|j\rangle|^2$, the median transition sits at $\omega=3.1$ (System
+  A), $2.8$ (B) and $5.3$ (C), with 90th percentiles of $5.3$, $5.2$ and $6.9$ —
+  of order a few, not of order one. Across that range the cutoff removes 31% of
+  the rate at $\omega=3$ and 58% at $\omega=7$, so a high-frequency transition
+  is damped about $1.6\times$ harder than a typical one. The suppression is
+  smooth and never switches a transition off, but the bath is **not** broadband
+  over the transitions that matter, and rates should not be read as though the
+  cutoff were absent.
 - $1/(1-e^{-\omega/k_BT})$ — the thermal occupation factor at temperature
   $k_BT=0.5$. It enforces **detailed balance** (the KMS condition
   $\gamma(-\omega)/\gamma(\omega)=e^{-\omega/k_BT}$), which makes the Gibbs
