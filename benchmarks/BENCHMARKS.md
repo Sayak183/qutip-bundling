@@ -76,7 +76,7 @@ The supporting checks (`benchmark_convergence.py`,
 - [5. Results](#5-results)
   - [5.1 Reading the cost–accuracy plots](#51-reading-the-costaccuracy-plots)
   - [5.2 Memory and stiffness walls](#52-memory-and-stiffness-walls)
-  - [5.3 Provenance of Results 1-4](#53-provenance-of-results-1-4)
+  - [5.3 Provenance](#53-provenance)
   - [Result 1 — accuracy versus the bundle size M](#result-1--accuracy-versus-the-bundle-size-m)
   - [Result 2 — cost scaling versus the exact solver](#result-2--cost-scaling-versus-the-exact-solver)
   - [Result 3 — accuracy versus cost: SLB against mcsolve](#result-3--accuracy-versus-cost-slb-against-mcsolve)
@@ -1077,13 +1077,32 @@ The solvers encounter two distinct, physical walls:
 ---
 
 
-### 5.3 Provenance of Results 1-4
+### 5.3 Provenance
 
-**All four Results now run on data regenerated under 0.6.4**, so every operator
-count in this section matches the shipped code. Result 4 was the last to be
-regenerated (Slurm jobs 19587109, 19587803 and 19587111, 2026-08-12/13); its
-metadata records `degeneracy_tol = 1e-10`, the shipped default, on all three
-systems.
+**Every Result runs on data regenerated under 0.6.4**, so every operator count
+matches the shipped code, and every file records `degeneracy_tol = 1e-10`, the
+shipped default. Job IDs, read from the committed files rather than from
+memory:
+
+| Result | Slurm jobs | dates |
+|---|---|---|
+| **1** accuracy vs $M$ | 19585257, 19592647, 19597390 | Aug 7 – 24 |
+| **2** cost scaling | 19591128, 19592645, 19592644 | Aug 15 – 19 |
+| **3** method comparison | 19559720, 19559854, 19559945, 19594145 | Aug 1 – 19 |
+| **4** iso-accuracy cost | **19597387** (all three systems, one job) | Aug 22 |
+| **5** past the reference wall | 19592848 | Aug 18 |
+
+Result 4 is the only one whose three systems share a single allocation. That
+was deliberate — it is the section that compares wall-clocks across systems —
+and it is stated again in that section's caveats. The others span several jobs
+because their claims are about *slopes* and *ratios*, which do not require one
+machine.
+
+Results 1 and 3 each carry points from an older job alongside newer ones, which
+is safe for the same reason: Result 1 compares the exponent of $M$ at each
+dimension separately, and Result 3's wall-clock comparisons are checked by
+`plot_method_comparison.py`, which refuses to draw a cost axis across
+allocations unless forced.
 
 **Why the regeneration mattered, stated plainly because it cuts against the
 method.** The 0.6.4 floor removed operators contributing $10^{-24}$ relative or
