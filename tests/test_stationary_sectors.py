@@ -116,6 +116,70 @@ def test_sector_resolved_target_matches_the_actual_limit():
     assert abs(curve[-1] - global_gibbs) > 1e-3
 
 
+# --- 4. the sectors are reflection parity, not spin-flip parity -----------
+
+def _reflection(n):
+    """|b0..b_{n-1}> -> |b_{n-1}..b0> as an explicit permutation matrix.
+    Do NOT build this by permuting an identity Qobj -- permuting the identity
+    returns the identity, which silently passes every commutator test."""
+    d = 2 ** n
+    R = np.zeros((d, d))
+    for k in range(d):
+        bits = [(k >> (n - 1 - j)) & 1 for j in range(n)]
+        R[sum(b << (n - 1 - j) for j, b in enumerate(bits[::-1])), k] = 1.0
+    return qutip.Qobj(R, dims=[[2] * n, [2] * n])
+
+
+def test_reflection_operator_is_not_the_identity():
+    """Guards the trap above: the reflection must actually move something."""
+    assert (_reflection(3) - qutip.qeye([2, 2, 2])).norm("max") > 0.5
+
+
+@pytest.mark.parametrize("name,n,sizes", [("spin_chain", 4, [6, 4, 4, 1, 1]),
+                                          ("mixed_chain", 4, [10, 6]),
+                                          ("mixed_chain", 3, [6, 2])])
+def test_sectors_are_the_connected_components_of_reflection_parity(name, n, sizes):
+    """The document names left-right reflection as the cause and quotes these
+    sizes. Both halves are pinned: the component sizes, and the fact that each
+    component is uniform in reflection parity."""
+    from scipy.sparse import csr_matrix
+    from scipy.sparse.csgraph import connected_components
+
+    build = {"spin_chain": common.build_spin_chain,
+             "mixed_chain": common.build_mixed_field_chain}[name]
+    H, X, _psi0, _c = _generator(build, n)
+    _energies, vecs = H.eigenstates()
+
+    Xm = np.abs(np.array([[complex(a.dag() * X * b) for b in vecs]
+                          for a in vecs]))
+    ncomp, labels = connected_components(csr_matrix(Xm > 1e-10), directed=False)
+    assert sorted(np.bincount(labels))[::-1] == sizes
+
+    R = _reflection(n)
+    parity = np.sign(np.round(
+        [float(np.real(complex(v.dag() * R * v))) for v in vecs], 6))
+    for c in range(ncomp):
+        assert len(set(parity[labels == c])) == 1, "component mixes parity"
+
+
+def test_longitudinal_field_breaks_spin_flip_parity_but_not_reflection():
+    """Why System A fragments further than System B. The obvious guess --
+    spin-flip parity -- does NOT survive in B, so it cannot be the cause there.
+    X commutes with both in both systems; it is H that loses one."""
+    n = 4
+    P, R = qutip.tensor([qutip.sigmax()] * n), _reflection(n)
+
+    Ha, Xa, _ = common.build_spin_chain(n)
+    Hb, Xb, _ = common.build_mixed_field_chain(n)
+
+    assert float((Ha * P - P * Ha).norm("max")) < 1e-12       # kept at g=0
+    assert float((Hb * P - P * Hb).norm("max")) == pytest.approx(3.2, abs=1e-9)
+    for H, X in ((Ha, Xa), (Hb, Xb)):
+        assert float((H * R - R * H).norm("max")) < 1e-12
+        assert float((X * R - R * X).norm("max")) < 1e-12
+        assert float((X * P - P * X).norm("max")) < 1e-12
+
+
 def test_ergodic_system_reports_no_separate_sector_target():
     """Where the generator is ergodic the two targets coincide, and the helper
     says so by returning None rather than a duplicate number -- so a plot can

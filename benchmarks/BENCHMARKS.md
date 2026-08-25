@@ -1974,6 +1974,18 @@ weighted by where $\rho_0$ put its population. System B splits into two sectors
 at every size tested, including 136 and 120 levels at dimension 256; the split
 is stable for coupling thresholds from $10^{-10}$ to $10^{-4}$.
 
+The symmetry responsible is **left-right reflection**, $i \to n-1-i$. The
+chain is reflection-symmetric and so is $X = \sum_i \sigma^x_i$, so
+$\langle e|X|e'\rangle$ vanishes identically between states of opposite
+reflection parity, and sorting the levels by that parity reproduces the
+connected components exactly -- for both chains, at every size tested. System A
+fragments further, into 5 sectors of sizes 6, 4, 4, 1, 1 at dim 16 against
+System B's 10 and 6, because it also keeps the spin-flip parity
+$\prod_i \sigma^x_i$; the longitudinal field breaks that one in B, where
+$\|[H,P]\| = 3.2$ at $g=0.4$ against $0$ at $g=0$. Note that $X$ commutes with
+both symmetries in both systems -- it is $H$ that loses one, which is why the
+sectors are a property of the pair $(H_{\rm sys}, X)$ and not of either alone.
+
 That corrected target costs $O(N^2)$ on a matrix already formed, so it stays
 free — and it is exact. Against the *unbundled* dynamics, propagated to $t=600$
 and flat to $10^{-13}$:
