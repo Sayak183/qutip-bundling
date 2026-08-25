@@ -620,7 +620,7 @@ This proves a key point: **Extreme operator compression is a lucky feature of sp
 
 #### What the collapse operators look like
 
-To see *why* System C works and System B fails, we can plot the total transition weight (how strongly the bath moves population between energy levels) as a heatmap over the 16x16 energy basis:
+To see *why* System C compresses so well and System B resists bundling, we can plot the total transition weight (how strongly the bath moves population between energy levels) as a heatmap over the 16x16 energy basis:
 
 ![System B Matrix](matrix_system_b.png)
 ![System C Matrix](matrix_system_c.png)
@@ -712,7 +712,8 @@ get the populations right, get the coherences badly wrong, and the energy curve
 will still look fine.
 
 That is not a small effect here. On identical runs, SLB beats `mcsolve` by
-**488x on the energy** but only **7x on the dominant coherence**. Quote the
+**488x on the energy** but only **7x on the dominant coherence** (the
+eigenstate pair $(a,b)$ that develops the strongest quantum superposition $|\rho_{ab}(t)|$ during the dynamics; detailed below). Quote the
 energy alone and you overstate the advantage roughly seventyfold.
 
 **Read every accuracy claim on this page as being about one specific
