@@ -1129,12 +1129,15 @@ The pre-0.6.4 inputs are kept under `data/legacy/` rather than deleted, so the
 older figures remain reproducible and the difference is auditable.
 
 **Wall-clock comparability.** Times are comparable *within* a figure, where all
-methods ran in one Slurm allocation on one node, and **not between** figures.
-Result 4's three systems ran on landau29, landau92 and landau51; its speedup
-*ratios* are sound, its absolute seconds are not directly comparable across
-panels. Every data file records its hostname, job ID and thread settings for
-exactly this check — `plot_method_comparison.py` refuses to draw a cost axis
-across files that disagree unless forced.
+methods ran in one Slurm allocation on one node, and in general **not between**
+figures. Result 4 is the exception, and deliberately so: all three of its
+systems come from job 19597387 on landau44, so its absolute seconds *are*
+comparable across panels, not only its speedup ratios. Every data file records
+its hostname, job ID and thread settings for exactly this check —
+`plot_method_comparison.py` refuses to draw a cost axis across files that
+disagree unless forced, and `smoke_test.py` fails if Result 4's three files stop
+agreeing on job ID and host, so this paragraph cannot quietly go stale if one
+panel is ever regenerated on its own.
 
 ### Result 1 — convergence dynamics versus the bundle size $M$
 

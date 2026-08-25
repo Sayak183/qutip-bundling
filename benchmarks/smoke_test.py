@@ -334,10 +334,43 @@ def validate_shell_scripts_lf() -> int:
     return len(scripts)
 
 
+def validate_result4_single_allocation() -> int:
+    """Result 4 is the one figure whose ABSOLUTE seconds are compared across
+    panels, and section 5.3 says so in as many words. That claim is only true
+    while its three files come from one Slurm job on one node.
+
+    It has already gone stale once in the other direction: the section still
+    described the pre-regeneration runs on landau29/92/51 long after the data
+    had been rebuilt as a single job on landau44, so the document disclaimed a
+    weakness it no longer had. Regenerating one panel on its own -- which is
+    exactly what a dimension extension does -- would break it for real and just
+    as silently. Fail here instead, where it is cheap to notice.
+    """
+    files = sorted(DATA_DIR.glob("isocost_vs_dim_*.json"))
+    if not files:
+        return 0
+    stamps = {}
+    for path in files:
+        execution = json.loads(path.read_text(encoding="utf-8"))["meta"]["execution"]
+        stamps[path.name] = (execution["slurm"]["job_id"], execution["hostname"])
+    if len(set(stamps.values())) > 1:
+        listing = "\n  ".join(f"{n}: job {j} on {h}" for n, (j, h) in
+                              sorted(stamps.items()))
+        raise RuntimeError(
+            "Result 4's panels no longer share one Slurm allocation:\n  "
+            + listing
+            + "\n\nIts absolute wall-clock seconds are then comparable only "
+              "within a panel. Update the 'Wall-clock comparability' paragraph "
+              "in section 5.3 and Result 4's own caveats before shipping this."
+        )
+    return len(files)
+
+
 def main() -> None:
     json_count, csv_count = validate_saved_data()
     link_count = validate_local_links()
     markdown_count = validate_markdown_integrity()
+    isocost_count = validate_result4_single_allocation()
     script_count = validate_shell_scripts_lf()
     with tempfile.TemporaryDirectory(prefix="qutip-bundling-smoke-") as temp_dir:
         exercise_commands(Path(temp_dir))
@@ -345,6 +378,7 @@ def main() -> None:
         "Benchmark smoke test passed: "
         f"{json_count} JSON, {csv_count} CSV, {link_count} local links, "
         f"{markdown_count} Markdown files clean, "
+        f"{isocost_count} Result 4 panels in one allocation, "
         f"{len(PLOT_COMMANDS)} plot commands, {len(RUNNERS)} protected "
         f"runners, {script_count} shell scripts LF-clean."
     )
