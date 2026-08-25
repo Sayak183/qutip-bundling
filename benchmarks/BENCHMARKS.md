@@ -74,6 +74,7 @@ The supporting checks (`benchmark_convergence.py`,
 
 **Results**
 - [5. Results](#5-results)
+  - [Reference state and spectrum profiles](#reference-state-and-spectrum-profiles)
   - [5.1 Reading the cost–accuracy plots](#51-reading-the-costaccuracy-plots)
   - [5.2 Memory and stiffness walls](#52-memory-and-stiffness-walls)
   - [5.3 Provenance](#53-provenance)
@@ -1010,6 +1011,28 @@ the fixed 500-trajectory budget for `mcsolve` and the exact solvers.
 > 2. **Results 1 and 2:** accuracy versus bundle size, and cost scaling with dimension, regenerated under 0.6.4 for all three systems. On the mixed chain, now complete to dim 128, SLB at matched accuracy fits $N^{3.6}$ against $N^{4.6}$ for the exact solver — about one power of $N$ apart, so the advantage widens with size. Measured directly: the exact solve costs $577\times$ one SLB solve at dim 64 and $2{,}263\times$ at dim 128.
 > 3. **Result 3 — the four-method comparison:** across three systems and six observables, SLB, `mcsolve`, and the exact solvers are compared head-to-head at dim 64. The advantage swings from 620x (oscillator energy) to 16.5x *worse* than `mcsolve` (mixed chain coherence at $M=16$; raising $M$ to 256 narrows that to 2.8x). No single number captures the method; the section presents the full range.
 > 4. **Result 4:** iso-accuracy cost versus dimension.
+
+### Reference state and spectrum profiles
+
+To understand where each simulation starts and where it relaxes, the table below defines the exact physical parameters, initial state projections, operator counts, and asymptotic thermal equilibrium targets across the three benchmark systems at dimension 64:
+
+| property | System A (TFIM chain) | System B (mixed chain) | System C (oscillator + spin) |
+|---|---|---|---|
+| **Hilbert space dimension ($N$)** | 64 ($n=6$ spins) | 64 ($n=6$ spins) | 64 ($N_{\text{Fock}}=32 \otimes 2$) |
+| **Collapse operators ($N_L$)** | **31** (free-fermion grouped) | **2,017** (chaotic spectrum) | **890** (near-tridiagonal) |
+| **Initial pure state $|\psi_0\rangle$** | $\|{\uparrow\uparrow\uparrow\uparrow\uparrow\uparrow}\rangle$ ($|000000\rangle$) | $\|{\uparrow\uparrow\uparrow\uparrow\uparrow\uparrow}\rangle$ ($|000000\rangle$) | $|31\rangle \otimes |\uparrow\rangle$ (highest Fock level) |
+| **Density matrix $\rho(0)$** | $|\psi_0\rangle\langle\psi_0|$ ($\mathrm{Tr}=1$, rank 1) | $|\psi_0\rangle\langle\psi_0|$ ($\mathrm{Tr}=1$, rank 1) | $|\psi_0\rangle\langle\psi_0|$ ($\mathrm{Tr}=1$, rank 1) |
+| **Eigenstate projection of $|\psi_0\rangle$** | 38.4% $|E_1\rangle$, 34.8% $|E_0\rangle$, 7.8% $|E_3\rangle$ | 85.5% $|E_0\rangle$, 8.1% $|E_1\rangle$, 1.5% $|E_7\rangle$ | 97.9% $|E_{63}\rangle$ (top of spectrum), 2.0% $|E_{60}\rangle$ |
+| **Ground state energy $E_0$** | -5.7709 | -7.9575 | -0.0216 |
+| **First excited energies ($E_1, E_2, E_3$)** | -5.7107, -4.5287, -4.4685 | -5.2567, -5.2541, -4.4212 | 0.8177, 1.2427, 1.9173 |
+| **Initial energy $\langle H\rangle(0)$** | -5.0000 | -7.4000 | +128.1000 |
+| **Initial components at $t=0$** | $\langle ZZ\rangle=5.0, \langle X\rangle=0.0, \langle Z\rangle=6.0$ | $\langle ZZ\rangle=5.0, \langle X\rangle=0.0, \langle Z\rangle=6.0$ | $\langle n\rangle=31.0, \langle n^2\rangle=961.0, \langle \sigma^z\rangle=1.0, \langle x\sigma^x\rangle=0.0$ |
+| **Thermal Gibbs energy $\langle H\rangle_{\rm th}$ ($kT=0.5$)** | **-5.5687** | **-7.9238** | **+0.2249** |
+| **Thermal components ($t\to\infty$)** | $\langle ZZ\rangle=4.05, \langle X\rangle=2.54, \langle Z\rangle=0.00$ | $\langle ZZ\rangle=4.55, \langle X\rangle=1.86, \langle Z\rangle=5.64$ | $\langle n\rangle=0.14, \langle n^2\rangle=0.16, \langle \sigma^z\rangle=-0.74$ |
+
+**Physical interpretation:**
+- **System A & B initial states:** Both chains start in the computational state $|\uparrow\dots\uparrow\rangle$ ($\langle H\rangle(0) = -5.0$ for A and $-7.4$ for B). Because of the transverse field $h=0.6$, this is *not* the Hamiltonian ground state ($E_0 = -5.77$ for A, $-7.96$ for B). Over time the bath transfers energy, tilts the spins towards the $x$-axis, and cools the chain toward thermal equilibrium ($\langle H\rangle_{\rm th} = -5.57$ for A, $-7.92$ for B).
+- **System C initial state:** The oscillator starts pumped to its maximum inverted state $|31,\uparrow\rangle$ with energy $\langle H\rangle(0) = 128.10$, projecting almost entirely (97.9%) on the highest eigenstate $|E_{63}\rangle$. During the dynamics it cascades down the ladder, draining 31 quanta into the bath until settling at the thermal average $\langle n\rangle_{\rm th} = 0.14$ ($\langle H\rangle_{\rm th} = 0.22$).
 
 ### 5.1 Reading the cost–accuracy plots
 
