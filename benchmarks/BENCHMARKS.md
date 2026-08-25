@@ -1112,6 +1112,22 @@ dimension separately, and Result 3's wall-clock comparisons are checked by
 `plot_method_comparison.py`, which refuses to draw a cost axis across
 allocations unless forced.
 
+**The code that produced the data.** Every file records the package version it
+ran under, but that number is written by the running process about itself — it
+cannot show that the cluster checkout matched what this repository publishes.
+Checked directly instead, by diffing the cluster's working copies against
+`main`: `run_accuracy_vs_M.py` and `run_isocost_vs_dim.py` are **byte-identical**,
+so every Result 1 and Result 4 number came from the published runner.
+`run_extreme_dimension.py` sits one commit behind, at the revision immediately
+preceding the sector-resolved correction — and that correction is applied when
+the figure is drawn, by `sector_resolved_energy()` in
+`plot_extreme_dimension.py`, not when the data is generated, so Result 5's files
+are unaffected by the gap. The one *run-time* fix that could have mattered — the
+thermal grid that keeps its step size — is verifiable in the data rather than
+taken on trust: the committed grid runs from $0$ to $60.128205$ on a uniform
+step of $0.128205$ across 470 points, matching `TLIST`'s step exactly, which is
+what the corrected code produces.
+
 **Why the regeneration mattered, stated plainly because it cuts against the
 method.** The 0.6.4 floor removed operators contributing $10^{-24}$ relative or
 less, so the dissipator is unchanged to double precision and every *accuracy*
