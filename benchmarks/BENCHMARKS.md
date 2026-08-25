@@ -1018,17 +1018,17 @@ To understand where each simulation starts and where it relaxes, the table below
 
 | property | System A (TFIM chain) | System B (mixed chain) | System C (oscillator + spin) |
 |---|---|---|---|
-| **Hilbert space dimension ($N$)** | 64 ($n=6$ spins) | 64 ($n=6$ spins) | 64 ($N_{\text{Fock}}=32 \otimes 2$) |
-| **Collapse operators ($N_L$)** | **31** (free-fermion grouped) | **2,017** (chaotic spectrum) | **890** (near-tridiagonal) |
-| **Initial pure state $|\psi_0\rangle$** | $\|{\uparrow\uparrow\uparrow\uparrow\uparrow\uparrow}\rangle$ ($|000000\rangle$) | $\|{\uparrow\uparrow\uparrow\uparrow\uparrow\uparrow}\rangle$ ($|000000\rangle$) | $|31\rangle \otimes |\uparrow\rangle$ (highest Fock level) |
-| **Density matrix $\rho(0)$** | $|\psi_0\rangle\langle\psi_0|$ ($\mathrm{Tr}=1$, rank 1) | $|\psi_0\rangle\langle\psi_0|$ ($\mathrm{Tr}=1$, rank 1) | $|\psi_0\rangle\langle\psi_0|$ ($\mathrm{Tr}=1$, rank 1) |
-| **Eigenstate projection of $|\psi_0\rangle$** | 38.4% $|E_1\rangle$, 34.8% $|E_0\rangle$, 7.8% $|E_3\rangle$ | 85.5% $|E_0\rangle$, 8.1% $|E_1\rangle$, 1.5% $|E_7\rangle$ | 97.9% $|E_{63}\rangle$ (top of spectrum), 2.0% $|E_{60}\rangle$ |
-| **Ground state energy $E_0$** | -5.7709 | -7.9575 | -0.0216 |
-| **First excited energies ($E_1, E_2, E_3$)** | -5.7107, -4.5287, -4.4685 | -5.2567, -5.2541, -4.4212 | 0.8177, 1.2427, 1.9173 |
-| **Initial energy $\langle H\rangle(0)$** | -5.0000 | -7.4000 | +128.1000 |
-| **Initial components at $t=0$** | $\langle ZZ\rangle=5.0, \langle X\rangle=0.0, \langle Z\rangle=6.0$ | $\langle ZZ\rangle=5.0, \langle X\rangle=0.0, \langle Z\rangle=6.0$ | $\langle n\rangle=31.0, \langle n^2\rangle=961.0, \langle \sigma^z\rangle=1.0, \langle x\sigma^x\rangle=0.0$ |
-| **Thermal Gibbs energy $\langle H\rangle_{\rm th}$ ($kT=0.5$)** | **-5.5687** | **-7.9238** | **+0.2249** |
-| **Thermal components ($t\to\infty$)** | $\langle ZZ\rangle=4.05, \langle X\rangle=2.54, \langle Z\rangle=0.00$ | $\langle ZZ\rangle=4.55, \langle X\rangle=1.86, \langle Z\rangle=5.64$ | $\langle n\rangle=0.14, \langle n^2\rangle=0.16, \langle \sigma^z\rangle=-0.74$ |
+| **Hilbert space dimension (N)** | 64 (n=6 spins) | 64 (n=6 spins) | 64 (N_Fock = 32 x 2) |
+| **Collapse operators (N_L)** | **31** (free-fermion grouped) | **2,017** (chaotic spectrum) | **890** (near-tridiagonal) |
+| **Initial pure state \|ψ₀⟩** | \|↑↑↑↑↑↑⟩ (\|000000⟩) | \|↑↑↑↑↑↑⟩ (\|000000⟩) | \|31⟩ ⊗ \|↑⟩ (highest Fock level) |
+| **Density matrix ρ(0)** | \|ψ₀⟩⟨ψ₀\| (pure, rank 1, Tr=1) | \|ψ₀⟩⟨ψ₀\| (pure, rank 1, Tr=1) | \|ψ₀⟩⟨ψ₀\| (pure, rank 1, Tr=1) |
+| **Eigenstate projection of \|ψ₀⟩** | 38.4% \|E₁⟩, 34.8% \|E₀⟩, 7.8% \|E₃⟩ | 85.5% \|E₀⟩, 8.1% \|E₁⟩, 1.5% \|E₇⟩ | 97.9% \|E₆₃⟩ (top of spectrum), 2.0% \|E₆₀⟩ |
+| **Ground state energy E₀** | -5.7709 | -7.9575 | -0.0216 |
+| **First excited energies (E₁, E₂, E₃)** | -5.7107, -4.5287, -4.4685 | -5.2567, -5.2541, -4.4212 | 0.8177, 1.2427, 1.9173 |
+| **Initial energy ⟨H⟩(0)** | -5.0000 | -7.4000 | +128.1000 |
+| **Initial components at t=0** | ⟨ZZ⟩ = 5.0, ⟨X⟩ = 0.0, ⟨Z⟩ = 6.0 | ⟨ZZ⟩ = 5.0, ⟨X⟩ = 0.0, ⟨Z⟩ = 6.0 | ⟨n⟩ = 31.0, ⟨n²⟩ = 961.0, ⟨σᶻ⟩ = 1.0, ⟨xσˣ⟩ = 0.0 |
+| **Thermal Gibbs energy ⟨H⟩_th (kT=0.5)** | **-5.5687** | **-7.9238** | **+0.2249** |
+| **Thermal components (t→∞)** | ⟨ZZ⟩ = 4.05, ⟨X⟩ = 2.54, ⟨Z⟩ = 0.00 | ⟨ZZ⟩ = 4.55, ⟨X⟩ = 1.86, ⟨Z⟩ = 5.64 | ⟨n⟩ = 0.14, ⟨n²⟩ = 0.16, ⟨σᶻ⟩ = -0.74 |
 
 **Physical interpretation:**
 - **System A & B initial states:** Both chains start in the computational state $|\uparrow\dots\uparrow\rangle$ ($\langle H\rangle(0) = -5.0$ for A and $-7.4$ for B). Because of the transverse field $h=0.6$, this is *not* the Hamiltonian ground state ($E_0 = -5.77$ for A, $-7.96$ for B). Over time the bath transfers energy, tilts the spins towards the $x$-axis, and cools the chain toward thermal equilibrium ($\langle H\rangle_{\rm th} = -5.57$ for A, $-7.92$ for B).
