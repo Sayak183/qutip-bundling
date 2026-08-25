@@ -1223,7 +1223,8 @@ at **five** sizes spanning a sixteen-fold range:
 
 It stops moving after dim 32 and stays put through a further eightfold increase,
 with a total spread of $0.07$ across the five. System B gives $M^{-1.00}$,
-$M^{-1.00}$, $M^{-1.02}$ across its three sizes. So **doubling M halves the
+$M^{-1.00}$, $M^{-1.02}$, $M^{-0.98}$ across its four sizes, the last from
+dimension 128 (job 19598578). So **doubling M halves the
 error at any size**, and that rule needs no recalibration as the system grows.
 
 Five points is where this stops being a line through three and starts being a
@@ -1234,19 +1235,32 @@ $M=8$ the bias moves with dimension:
 
 | system | dim 16 → 32 → 64 | scaling |
 |---|---|---|
-| **A** TFIM chain | 2.7×10⁻² → 4.5×10⁻² → 7.2×10⁻² → 1.1×10⁻¹ → 1.6×10⁻¹ (to dim 256) | ~ N^+0.64 |
-| **B** mixed chain | 2.6×10⁻² → 3.4×10⁻² → 5.5×10⁻² | ~ N^+0.55 |
+| **A** TFIM chain | 3.3×10⁻² → 5.0×10⁻² → 8.0×10⁻² → 1.24×10⁻¹ → 1.74×10⁻¹ (to dim 256) | ~ N^+0.61 |
+| **B** mixed chain | 2.6×10⁻² → 3.4×10⁻² → 5.5×10⁻² → 8.8×10⁻² (to dim 128) | ~ N^+0.61 |
 | **C** oscillator | 2.6×10⁻³ → 2.3×10⁻³ → 2.0×10⁻³ | ~ N^-0.20 |
 
-System A's height exponent is now measured over five dimensions, and the extra
-points pull it *down* slightly rather than confirming it unchanged: $N^{+0.72}$
-over dims 16–64, and $N^{+0.64}$ once dims 128 and 256 are included. Stated
-plainly because it cuts against the earlier reading — the growth is real and it
-is a trend rather than a three-point artefact, but the exponent itself was
-overestimated by the short sweep, and the curve is flattening as the system
-grows rather than holding a fixed power.
+All three rows are the error at the worst-time slice $t^\ast$, the same measure
+as the slope table above and as the figure's axis. An earlier version of this
+table measured System A by its *time-averaged* error instead, which read about
+10% lower and made the two chains look like they grew at different rates.
 
-On the chains the bias grows as roughly $\sqrt N$, so holding a fixed *accuracy*
+System A's height exponent is now measured over five dimensions, and the extra
+points pull it *down* rather than confirming it unchanged: $N^{+0.64}$ over dims
+16–64, and $N^{+0.61}$ once dims 128 and 256 are included. Stated plainly
+because it cuts against the earlier reading — the growth is real and it is a
+trend rather than a three-point artefact, but the exponent itself was
+overestimated by the short sweep, and the curve is flattening as the system
+grows rather than holding a fixed power. System B does the same thing over its
+own four dimensions, $N^{+0.55}$ over dims 16–64 against $N^{+0.61}$ to 128, so
+the flattening is not particular to the integrable chain.
+
+**The two chains grow at the same rate**, $N^{+0.61}$ against $N^{+0.61}$. That
+is a change from the previous version of this section, which reported $+0.64$
+for A and $+0.55$ for B and read something into the gap; the gap was the mixed
+convention above, not the physics.
+
+On the chains the bias grows as $N^{+0.61}$ — a little faster than
+$\sqrt N$ — so holding a fixed *accuracy*
 target requires $M$ to grow with the system — which is precisely what Result 4's
 iso-accuracy curve measures, and why its curve sits above the fixed $M$ one. The
 oscillator is the genuinely invariant case: flat, in fact slightly improving
