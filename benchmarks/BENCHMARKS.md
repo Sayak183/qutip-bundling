@@ -882,7 +882,7 @@ job:
   worst deviation over the trajectory. For "how fast does this method's error
   shrink," the conservative worst case is the robust diagnostic and needs no
   chosen time.
-- **Comparing two methods head-to-head** — the SLB-vs-`mcsolve` frontier
+- **Comparing methods head-to-head** — the four-method comparison
   (Result 3) — uses the **time-averaged RMSE**: at each time it combines the
   systematic bias $|\langle H\rangle_{\rm SLB}-\langle H\rangle_{\rm ref}|$
   with the statistical error $S/\sqrt{N_r}$ as $\sqrt{\text{bias}^2+\text{SEM}^2}$,
@@ -920,19 +920,20 @@ density-matrix solves of $M$ operators each — a total of $M\times$
 
 | figure | `M` | `n_realizations` | error bars |
 |---|---|---|---|
-| accuracy (Result 1) | system-dependent | 200 | ±1 std band |
+| accuracy (Result 1) | system-dependent (2–64) | 200 | ±1 std band |
 | cost scaling (Result 2) | 8 (iso-accuracy sweeps `M`) | 1 (cost) / 16 (RMSE) | — |
-| frontier (Result 3) | 1–64, system/size-dependent | spin: 2 / 4 / 8; oscillator: 8 / 16 | S/√N_r |
-| iso-cost vs dim (Result 4) | swept to target (≤ 128) | spin: 4; oscillator: 16 | mcsolve via S/√ntraj fit |
+| four-method comparison (Result 3) | 1–32 (swept) | 16 | S/√N_r (SEM) |
+| iso-cost vs dim (Result 4) | swept to target (≤ 128) | spin (A): 4; mixed (B) & oscillator (C): 16 | mcsolve via S/√ntraj fit |
+| extreme dim (Result 5) | 16, 32, 64 | 16 (128 for thermal check) | S/√N_r (SEM) |
 
 **`mcsolve` has one level of sampling:** a single reported point is `ntraj`
-independent trajectories (swept over `[10, 50, 200, 1000]` in the frontier
-(Result 3), and sampled at `[100, 200, 400]` to fit the cost projection in
-Result 4), run single-threaded so its wall-clock
+independent trajectories (fixed at 500 trajectories in the four-method
+comparison (Result 3), and sampled at `[100, 200, 400]` to fit the cost
+projection in Result 4), run single-threaded so its wall-clock
 time is the full sequential cost of all trajectories — matching SLB's
-single-threaded realization loop. Its frontier error bar is its own trajectory
+single-threaded realization loop. Its error bar is its own trajectory
 spread $S/\sqrt{\texttt{ntraj}}$ — the same quantity SLB's bar measures over its
-runs, so the two methods are treated identically, one estimate per point (no
+runs ($S/\sqrt{N_r}$), so the two methods are treated identically, one estimate per point (no
 extra repeats of one method but not the other).
 
 ### 3.4 Integrators: matched where it is possible, disclosed where it is not
@@ -997,8 +998,8 @@ realizations. So:
 
 The practical upshot: `mcsolve` users turn one knob (`ntraj`) against noise; SLB
 users turn `M` against bias and `n_realizations` against fluctuation. The
-frontier (Result 3) sweeps the bias knob `M` for SLB against the noise knob
-`ntraj` for `mcsolve`.
+four-method comparison (Result 3) sweeps the bias knob `M` for SLB alongside
+the fixed 500-trajectory budget for `mcsolve` and the exact solvers.
 
 ---
 
