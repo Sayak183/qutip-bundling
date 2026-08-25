@@ -412,7 +412,7 @@ exact symmetry shared by both can preserve multiple stationary sectors.
 The three systems feed *different* $(H_{\rm sys}, X)$ into this one recipe:
 
 - **System A** (§2.3): Integrable Ising chain ($g=0$), $X = \sum_i \sigma^x_i$. Its free-fermion integrability and $\mathbb{Z}_2$ symmetry collapse the Bohr spectrum. At 6 spins (dim 64), $N_L = 31$ ($N_L = n^2-n+1$).
-- **System B** (§2.3): Mixed-field Ising chain ($g=0.4$), $X = \sum_i \sigma^x_i$. The longitudinal field breaks integrability, preventing frequency collapse and raising $N_L$ to 2,017 at dim 64 and 8,193 at dim 128. Its transition matrices in the energy eigenbasis are dense (bandwidth ~16% under the `probe_oq4_accuracy.py` normalisation; ~26-32% under the mean-distance definition given in §1 -- quote which one you mean).
+- **System B** (§2.3): Mixed-field Ising chain ($g=0.4$), $X = \sum_i \sigma^x_i$. The longitudinal field breaks integrability, preventing frequency collapse and raising $N_L$ to 2,017 at dim 64 and 8,193 at dim 128. Its transition matrices in the energy eigenbasis are dense: the strength-weighted mean transition distance is $\bar d = 16.9$ levels out of a possible 63 at dim 64, i.e. **27% of the spectrum**, the same measure and the same convention used in §2.5 and in the summary table. Its operators reach about as far as System A's (27.6%) and roughly eight times further than System C's (3.2%).
 - **System C** (§2.4): Anharmonic oscillator + spin, $X = x \otimes I$. Its collapse operators act through position $x \propto (a + a^\dagger)$, which is strictly tridiagonal in Fock space. $N_L = 890$ at dim 64, and its transition bandwidth is narrow (~3.1% – 4.4% of the spectrum).
 
 In code these are built via dedicated functions in `common.py`:
