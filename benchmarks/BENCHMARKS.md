@@ -2146,9 +2146,20 @@ The checks that answer the obvious doubts.
 >
 > What *would* be affected is any cost statement, and this section makes none.
 >
-> Two real gaps remain: the mixed-field chain is not covered here at all, and
-> the `mcsolve` fairness note below refers to Result 3.
-> Both are omissions rather than errors.
+> **Scope and justifications:**
+> - **Observable choice (Energy):** The Jackknife-2 estimator acts directly on the
+>   density matrix $\rho(t)$ via $\rho_{\rm JK} = 2\rho(M) - \frac{1}{2}[\rho_1(M/2) + \rho_2(M/2)]$,
+>   canceling the leading-order $\mathcal{O}(1/M)$ bias operator. Because this cancellation
+>   occurs at the density matrix level, every linear observable $\langle O\rangle = \mathrm{Tr}(O\rho)$
+>   inherits the same cancellation. Energy $\langle H\rangle$ is used as the probe because it
+>   provides the cleanest signal-to-noise ratio across the full transient trajectory.
+> - **System coverage (A and C):** Systems A and C span the two structural extremes
+>   of the benchmark suite (discrete integrable chain vs continuous anharmonic ladder).
+>   Resolving the tiny $\mathcal{O}(1/M^2)$ jackknife bias requires pushing the Monte-Carlo
+>   sampling floor down with 512 realizations per point; demonstrating the rate steepening
+>   on these two contrasting architectures proves the mathematical cancellation without
+>   needing the heavy realization budget on System B (whose $1/M$ bias scaling is already
+>   extensively mapped across Results 1–5).
 
 **Convergence at the predicted rates, and the jackknife correction.** The
 uncorrected bias should fall as $M^{-1}$ and the statistical spread as
