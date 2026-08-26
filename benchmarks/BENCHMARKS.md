@@ -1119,7 +1119,7 @@ memory:
 
 | Result | Slurm jobs | dates |
 |---|---|---|
-| **1** accuracy vs `M` | 19585257, 19592647, 19597390 | Aug 7 – 24 |
+| **1** accuracy vs `M` | 19585257, 19592647, 19597390, 19598577 | Aug 7 – 26 |
 | **2** cost scaling | 19591128, 19592645, 19592644 | Aug 15 – 19 |
 | **3** method comparison | 19559720, 19559854, 19559945, 19594145 | Aug 1 – 19 |
 | **4** iso-accuracy cost | **19597387** (all three systems, one job) | Aug 22 |
@@ -1278,7 +1278,7 @@ $M=8$ the bias moves with dimension:
 |---|---|---|
 | **A** TFIM chain | 3.3×10⁻² → 5.0×10⁻² → 8.0×10⁻² → 1.24×10⁻¹ → 1.74×10⁻¹ (to dim 256) | ~ N^+0.61 |
 | **B** mixed chain | 2.6×10⁻² → 3.4×10⁻² → 5.5×10⁻² → 8.8×10⁻² (to dim 128) | ~ N^+0.61 |
-| **C** oscillator | 2.6×10⁻³ → 2.3×10⁻³ → 2.0×10⁻³ | ~ N^-0.20 |
+| **C** oscillator | 2.6×10⁻³ → 2.3×10⁻³ → 2.0×10⁻³ → 1.5×10⁻³ (to dim 128) | flat (~ 10⁻³) |
 
 All three rows are the error at the worst-time slice $t^\ast$, the same measure
 as the slope table above and as the figure's axis. An earlier version of this
