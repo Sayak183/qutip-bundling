@@ -24,16 +24,21 @@ Everything below is produced by self-contained scripts in this folder:
   `data/cost_scaling_<system>.json` (stamped with package versions, seeds, the
   bundle-size sweep, and the substeps used for each reference); the plot script
   derives the figure from that file in seconds.
-- `run_frontier.py` + `plot_frontier.py` — accuracy-versus-cost frontier against
-  `mcsolve` (Result 3), same split: raw SLB run samples and per-`ntraj` stats go
-  into `data/frontier_<system>_dim<D>.json` (each run also records whether its
-  fixed-step integrator stayed stable at the chosen substep count, so an
-  under-resolved reference is flagged rather than trusted), and the plot script
-  draws the frontier from it. The valid command for the heavy spin-chain
-  dimension-64 run is
-  `python run_frontier.py --system spin_chain --dims 64 --overwrite`
-  ($N_L=113$ in the committed pre-0.6.4 data, 31 once regenerated -- see
-  the provenance note in §2.3); preview it first with `--dry-run`.
+- `run_method_comparison.py` + `plot_method_comparison.py` — accuracy versus
+  cost against `mcsolve` (Result 3). One Slurm allocation runs all four solvers
+  at each dimension so the wall-clocks are comparable, and
+  `data/method_comparison_<system>_dim<D>.json` keeps the per-realization samples
+  for every `M` alongside `mcsolve`'s trajectory statistics; each run records
+  whether its fixed-step integrator stayed stable at the chosen substep count,
+  so an under-resolved reference is flagged rather than trusted.
+- `run_extreme_dimension.py` + `plot_extreme_dimension.py` — the regime with no
+  exact reference (Result 5), where the operator list no longer fits in memory
+  and the run is scored on convergence, trace preservation, and the thermal
+  limit instead of against an exact answer.
+
+`run_frontier.py` + `plot_frontier.py` produced an earlier version of Result 3
+and are kept so the superseded figures stay reproducible; new work should use
+`run_method_comparison.py`.
 - `run_isocost_vs_dim.py` + `plot_isocost_vs_dim.py` — iso-accuracy cost versus
   dimension (Result 4), split the same way: the run script writes
   `data/isocost_vs_dim_<system>.json` with the raw run samples and the mcsolve
@@ -210,9 +215,10 @@ $H_{\rm eff} = H - \tfrac{i}{2}\sum_a L_a^\dagger L_a$, interrupted by random
 $L_a$ fires (chosen with probability
 $\propto\langle\psi|L_a^\dagger L_a|\psi\rangle$) and the state resets to
 $L_a|\psi\rangle$. A single trajectory
-looks nothing like the smooth answer; you recover the density matrix by
-averaging over `ntraj` trajectories. Both the jump times and which operator fires are random, so no two trajectories are alike — they differ even in how many jumps occur. Raising ntraj does not change any single trajectory; it only adds more independent samples to the average, shrinking the Monte-Carlo error as $N_{\rm traj}^{-1/2}$.  **The randomness is in the state path, and
-all $N_L$ operators are kept exact.**
+looks nothing like the smooth answer — no two are alike, differing even in how
+many jumps occur — and you recover the density matrix by averaging `ntraj` of
+them. **The randomness is in the state path, and all $N_L$ operators are kept
+exact.**
 
 **SLB randomizes the operators.** It keeps the full density matrix and runs an
 ordinary deterministic Lindblad evolution — but with the $N_L$ collapse
@@ -413,7 +419,7 @@ exact symmetry shared by both can preserve multiple stationary sectors.
 The three systems feed *different* $(H_{\rm sys}, X)$ into this one recipe:
 
 - **System A** (§2.3): Integrable Ising chain ($g=0$), $X = \sum_i \sigma^x_i$. Its free-fermion integrability and $\mathbb{Z}_2$ symmetry collapse the Bohr spectrum. At 6 spins (dim 64), $N_L = 31$ ($N_L = n^2-n+1$).
-- **System B** (§2.3): Mixed-field Ising chain ($g=0.4$), $X = \sum_i \sigma^x_i$. The longitudinal field breaks integrability, preventing frequency collapse and raising $N_L$ to 2,017 at dim 64 and 8,193 at dim 128. Its transition matrices in the energy eigenbasis are dense: the strength-weighted mean transition distance is $\bar d = 16.9$ levels out of a possible 63 at dim 64, i.e. **27% of the spectrum**, the same measure and the same convention used in §2.5 and in the summary table. Its operators reach about as far as System A's (27.6%) and roughly eight times further than System C's (3.2%).
+- **System B** (§2.3): Mixed-field Ising chain ($g=0.4$), $X = \sum_i \sigma^x_i$. The longitudinal field breaks integrability, preventing frequency collapse and raising $N_L$ to 2,017 at dim 64 and 8,193 at dim 128. Its transition matrices in the energy eigenbasis are dense: the strength-weighted mean transition distance is $\bar d = 16.9$ levels at dim 64, i.e. **26% of the spectrum** under the §2.5 definition, which divides by $N$. Its operators reach about as far as System A's (27%) and roughly eight times further than System C's (3.1%).
 - **System C** (§2.4): Anharmonic oscillator + spin, $X = x \otimes I$. Its collapse operators act through position $x \propto (a + a^\dagger)$, which is strictly tridiagonal in Fock space. $N_L = 890$ at dim 64, and its transition bandwidth is narrow (~3.1% – 4.4% of the spectrum).
 
 In code these are built via dedicated functions in `common.py`:
@@ -515,21 +521,16 @@ ohmic bath couples to the oscillator position $X = x\otimes I$ only, so the
 spin relaxes solely indirectly through $g$. The oscillator starts in its top
 Fock level.
 
-The bath couples to the system through the **coupling operator** $X = x\otimes I$
-(the oscillator position): a phonon/photon-like reservoir acts *via* this observable,
-damping the oscillator's motion and draining its energy toward thermal equilibrium.
-It is a single shared bath — $X = x\otimes I$ acts only on the oscillator, so the
-oscillator and spin couple to **one** common reservoir (the spin has no separate
-bath of its own). Because $X$ touches only the oscillator, the bath never damps the
-spin directly; dissipation reaches the spin only indirectly, through the internal
-coherent coupling $g_{\rm int}(x\otimes\sigma_x)$. The system starts in the oscillator's
-top Fock state with the spin down. As above, the total evolved object is the Lindblad master
-equation with dissipators built from $(H_{\rm sys}, X, \gamma)$ as in §2.1 ($N_L = 128$ at dim 16). Note the two
-distinct "couplings": $g_{\rm int}=0.3$ is an **internal coherent** coupling inside
-$H_{\rm sys}$, whereas $\alpha=0.3$ is the **system–bath** coupling carried by
-$\gamma$ through $X$ — they are different physics that happen to share a value.
-The size is set by the Fock truncation. This system is close to the
-molecular/vibronic problems the method was developed for.
+There is **one** bath, not two: $X = x\otimes I$ acts only on the oscillator, so
+the spin has no reservoir of its own. The evolved object is the Lindblad equation
+built from $(H_{\rm sys}, X, \gamma)$ exactly as in §2.1 ($N_L = 128$ at dim 16),
+started with the spin down and the oscillator in its top Fock state.
+
+Watch the two "couplings", which are unrelated physics that happen to share a
+value: $g_{\rm int}=0.3$ is the **internal coherent** coupling inside
+$H_{\rm sys}$, while $\alpha=0.3$ is the **system–bath** strength carried by
+$\gamma$ through $X$. Dimension is set by the Fock truncation. This system is the
+closest here to the molecular and vibronic problems the method was built for.
 
 ### 2.5 What each system is for
 
@@ -567,9 +568,10 @@ $$
 \bar{d} = \frac{1}{N} \frac{\sum_{\alpha}\sum_{ij} |i-j| \, |\langle i|c_\alpha|j\rangle|^2}{\sum_{\alpha}\sum_{ij} |\langle i|c_\alpha|j\rangle|^2}
 $$
 
-At dimension 64 this gives 27% (A), 26% (B) and 3.1% (C). `probe_oq4_accuracy.py`
-normalises differently, so state which definition you mean — the ranking is
-robust, the absolute scale is not.
+At dimension 64 this gives 27% (A), 26% (B) and 3.1% (C) — raw distances of
+17.4, 16.9 and 2.0 levels. `probe_oq4_accuracy.py` normalises differently and
+reports different percentages for the same systems; the ranking is robust, the
+absolute scale is not.
 
 **Treat it as a guide, not a law.** It separates the two *families* cleanly, and
 within System C halving $\bar{d}$ divides the error by about five. But it does
@@ -596,7 +598,7 @@ Imagine a system where the energy levels are completely messy. If you calculate 
 
 System A is special. It is a "free" model, meaning its excitations (like flipping a spin) don't interfere with each other. If flipping one spin costs 2 units of energy, and flipping another costs 3 units, then flipping *both* costs exactly 5 units. Because the energies add together perfectly, the energy gaps between different levels start to repeat over and over again. 
 
-For a 4-spin chain (16 energy levels), there are 256 possible transitions. But because the energies add up perfectly, there are only 81 unique energy gaps. The gaps "collide," allowing the Davies method to pack many transitions into a single operator.
+For a 4-spin chain (16 energy levels), there are 256 possible transitions. But because the energies add up perfectly, they produce only 81 distinct gaps rather than 256. The gaps "collide," letting the Davies method pack many transitions into one operator. The second rule below cuts the count much further: once transitions forbidden by symmetry are removed, 62 survive and they carry just **13** distinct gaps.
 
 #### 2. The "Parity" Rule (Symmetry)
 System A has a perfect symmetry: if you flip all the spins at once, the system's physics remain exactly the same. Because of this, every quantum state in the system is stamped with a built-in "parity" (think of it as being either "Even" or "Odd").
@@ -925,7 +927,7 @@ density-matrix solves of $M$ operators each — a total of $M\times$
 | cost scaling (Result 2) | 8 (iso-accuracy sweeps `M`) | 1 (cost) / 16 (RMSE) | — |
 | four-method comparison (Result 3) | 1–32 (swept) | 16 | S/√N_r (SEM) |
 | iso-cost vs dim (Result 4) | swept to target (≤ 128) | spin (A): 4; mixed (B) & oscillator (C): 16 | mcsolve via S/√ntraj fit |
-| extreme dim (Result 5) | 16, 32, 64 | 16 (128 for thermal check) | S/√N_r (SEM) |
+| extreme dim (Result 5) | 8, 16, 32 | 16 | S/√N_r (SEM) |
 
 **`mcsolve` has one level of sampling:** a single reported point is `ntraj`
 independent trajectories (fixed at 500 trajectories in the four-method
@@ -1010,7 +1012,14 @@ the fixed 500-trajectory budget for `mcsolve` and the exact solvers.
 > 1. **Memory and Stiffness Walls (§5.2):** `mesolve` hits a hard 32 GB memory wall at dim 128 for the chain and dim 64 for the oscillator; the oscillator hits a fixed-step RK4 stiffness ceiling at dim 256.
 > 2. **Results 1 and 2:** accuracy versus bundle size, and cost scaling with dimension, regenerated under 0.6.4 for all three systems. On the mixed chain, now complete to dim 128, SLB at matched accuracy fits $N^{3.6}$ against $N^{4.6}$ for the exact solver — about one power of $N$ apart, so the advantage widens with size. Measured directly: the exact solve costs $577\times$ one SLB solve at dim 64 and $2{,}263\times$ at dim 128.
 > 3. **Result 3 — the four-method comparison:** across three systems and six observables, SLB, `mcsolve`, and the exact solvers are compared head-to-head at dim 64. The advantage swings from 620x (oscillator energy) to 16.5x *worse* than `mcsolve` (mixed chain coherence at $M=16$; raising $M$ to 256 narrows that to 2.8x). No single number captures the method; the section presents the full range.
-> 4. **Result 4:** iso-accuracy cost versus dimension.
+> 4. **Result 4 — iso-accuracy cost versus dimension:** at each size, what does
+>    each method cost to reach the *same* accuracy? The advantage compounds:
+>    322x on the mixed chain and 664x on the oscillator at the largest dimension,
+>    while System A never reaches the target at all.
+> 5. **Result 5 — past the reference wall:** System B at dimension 256, where
+>    the operator list alone would be 31.9 GB and no exact solve exists. Scored
+>    on convergence rate, trace preservation, and the thermal limit rather than
+>    against an exact answer.
 
 ### Reference state and spectrum profiles
 
@@ -1198,8 +1207,8 @@ The systems differ dramatically in how fast they converge. The oscillator (Syste
 
 **Beyond energy: capturing coherence.** Energy is nearly diagonal in the energy eigenbasis, so matching $\langle H\rangle$ says little about off-diagonal structure. Notice the `coherence` panels: SLB tracks the magnitude of the off-diagonal density matrix elements with the same convergence in $M$. This confirms SLB reproduces the full density matrix, not merely its diagonal.
 
-**Sizes.** Every result in this section is available at Hilbert dimensions 16,
-32 and 64 on all three systems, computed once per size and stored separately
+**Sizes.** This section spans dimensions 16 to 256 on System A and 16 to 128
+on Systems B and C, computed once per size and stored separately
 (`accuracy_vs_M_<system>_dim<D>.json`); the plot script's `PLOT_DIM` selects
 which to draw. Past dim 32 `mesolve` can no longer build its superoperator
 here, so the reference at dim 64 is the certified native full-dissipator route
@@ -1282,7 +1291,7 @@ $M=8$ the bias moves with dimension:
 |---|---|---|
 | **A** TFIM chain | 3.3×10⁻² → 5.0×10⁻² → 8.0×10⁻² → 1.24×10⁻¹ → 1.74×10⁻¹ (to dim 256) | ~ N^+0.61 |
 | **B** mixed chain | 2.6×10⁻² → 3.4×10⁻² → 5.5×10⁻² → 8.8×10⁻² (to dim 128) | ~ N^+0.61 |
-| **C** oscillator | 2.6×10⁻³ → 2.3×10⁻³ → 2.0×10⁻³ → 1.5×10⁻³ (to dim 128) | flat (~ 10⁻³) |
+| **C** oscillator | 2.6×10⁻³ → 2.3×10⁻³ → 2.0×10⁻³ → 1.5×10⁻³ (to dim 128) | ~ N^-0.26 |
 
 All three rows are the error at the worst-time slice $t^\ast$, the same measure
 as the slope table above and as the figure's axis. An earlier version of this
@@ -1299,10 +1308,9 @@ grows rather than holding a fixed power. System B does the same thing over its
 own four dimensions, $N^{+0.55}$ over dims 16–64 against $N^{+0.61}$ to 128, so
 the flattening is not particular to the integrable chain.
 
-**The two chains grow at the same rate**, $N^{+0.61}$ against $N^{+0.61}$. That
-is a change from the previous version of this section, which reported $+0.64$
-for A and $+0.55$ for B and read something into the gap; the gap was the mixed
-convention above, not the physics.
+**The two chains grow at the same rate**, $N^{+0.61}$ against $N^{+0.61}$. The
+earlier $+0.64$ against $+0.55$, and the difference read into it, was the mixed
+convention rather than the physics.
 
 On the chains the bias grows as $N^{+0.61}$ — a little faster than
 $\sqrt N$ — so holding a fixed *accuracy*
@@ -1375,18 +1383,7 @@ One caveat on the SLB slopes, stated plainly because a fitted exponent invites
 it: **the fixed $M$ and iso curves are clean power laws on the chain but not on
 the oscillator.** On the chain the fixed $M$ cost fits $N^{2.5}$ over dim
 4–512 with monotone per-step ratios, close to the $O(N^3)$-per-solve floor once
-overhead is amortized — a quotable scaling law. (This number has moved twice and both moves were upward. It fitted
-$N^{1.6}$ over dim 4–256 before the sweep reached 512, and $N^{1.9}$
-before the fitting range was corrected. Both earlier values were
-flattered by including the smallest dimensions, where the measured time
-is interpreter and allocator overhead rather than the algorithm — on
-this system `mesolve` costs 0.032 s at dim 4 and 0.021 s at dim 8, *less*
-at the larger size, which cannot be a cost that grows with $N$. Every
-slope on these panels is now fitted only over the curve's monotone tail
-above a 0.1 s floor, and each legend entry states how many points that
-left. Where only two survive, the number is labelled a local slope
-rather than an exponent, because a line through two points is one ratio,
-not a scaling law.) On the oscillator the same
+overhead is amortized — a quotable scaling law. On the oscillator the same
 curve fits $N^{1.7}$, but the per-doubling cost ratios are *not* monotone (a
 large jump at dim 8→32, then a much smaller one at 32→64 as the dense linear
 algebra reaches its efficient BLAS regime), so that number is a least-squares
@@ -1396,6 +1393,17 @@ $N^{2.5}$; the oscillator panel is included as the decisive visual of the exact
 solver's wall — `mesolve` at $N^{5.0}$ and the native route at $N^{3.1}$ both
 climbing into hours per solve while SLB stays near-flat — rather than for a
 fitted SLB exponent.
+
+*That exponent has moved twice, and upward both times.* It fitted $N^{1.6}$ over
+dim 4–256 before the sweep reached 512, and $N^{1.9}$ before the fitting range
+was corrected. Both earlier values were flattered by the smallest dimensions,
+where the measured time is interpreter and allocator overhead rather than the
+algorithm — `mesolve` costs 0.032 s at dim 4 and 0.021 s at dim 8 here, *less* at
+the larger size, which cannot be a cost that grows with $N$. Every slope on these
+panels is now fitted over the curve's monotone tail above a 0.1 s floor, with
+each legend entry stating how many points survived. Where only two do, the number
+is labelled a local slope rather than an exponent: a line through two points is
+one ratio, not a scaling law.
 
 **System B is now complete to dimension 128.** Its exact curve was previously
 capped at 64 by `--native-ref-max`, chosen to avoid a 37 h reference against a
@@ -1608,7 +1616,7 @@ allocation** at each dimension, so every wall-clock is from the same node:
 1. **Native RK4 (`native`):** Full-dissipator dense RK4 on the density matrix without superoperators. Serves as certified reference past `mesolve` limits.
 2. **`mesolve`:** QuTiP's standard exact solver, constructing the full $N^2 \times N^2$ Liouvillian.
 3. **`mcsolve`:** QuTiP's Monte-Carlo trajectory solver ($N_{\text{traj}} = 500$).
-4. **SLB:** Stochastically bundled dissipators ($M=16, 32$, 16 realizations).
+4. **SLB:** Stochastically bundled dissipators, $M$ swept from 2 up to 256 where the sweep reached it, 16 realizations per point.
 
 **The figures compare the two approximate methods; the exact ones are the
 yardstick.** All four solvers above run, and their wall-clocks are quoted in the
@@ -2025,7 +2033,7 @@ What does not hold is *uniqueness*. The generator's kernel is measured to be
 | system | kernel dimension | limit |
 |---|---|---|
 | C oscillator | **1** | unique, so it must be Gibbs |
-| B mixed chain | **2** at every size from dim 4 to 32 | depends on ρ₀ |
+| B mixed chain | **2** at every size tested, dim 4 to 256 | depends on ρ₀ |
 | A spin chain | **5** at dim 16 | depends on ρ₀ |
 
 A Davies operator is built as $\Pi_e X \Pi_{e'}$, so two levels are
@@ -2248,9 +2256,9 @@ foundations, and the QuTiP solvers benchmarked against — is collected in
 Absolute times depend on the machine, core count, and BLAS build — treat them as
 relative comparisons. A few notes:
 
-- `mcsolve` parallelizes trajectories across cores; both Result 3 and the
-  four-method comparison (Result 3) pin it single-threaded to match SLB's serial
-  loop. State the core count when reporting.
+- `mcsolve` parallelizes trajectories across cores; Result 3 pins it
+  single-threaded to match SLB's serial loop. State the core count when
+  reporting.
 - **Wall-clock is only comparable within one job on one node.** The same
   certified dimension-256 reference took 2,744 s standalone and 86.6 s inside
   a sequential sweep on the same machine, and repeat measurements on a shared
