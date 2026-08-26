@@ -1122,14 +1122,18 @@ memory:
 | **1** accuracy vs `M` | 19585257, 19592647, 19597390, 19598577 | Aug 7 – 26 |
 | **2** cost scaling | 19591128, 19592645, 19592644 | Aug 15 – 19 |
 | **3** method comparison | 19559720, 19559854, 19559945, 19594145 | Aug 1 – 19 |
-| **4** iso-accuracy cost | **19597387** (all three systems, one job) | Aug 22 |
+| **4** iso-accuracy cost | 19597387, 19597388, 19598579 | Aug 22 – 25 |
 | **5** past the reference wall | 19592848 | Aug 18 |
 
-Result 4 is the only one whose three systems share a single allocation. That
-was deliberate — it is the section that compares wall-clocks across systems —
-and it is stated again in that section's caveats. The others span several jobs
-because their claims are about *slopes* and *ratios*, which do not require one
-machine.
+Result 4's three systems *did* share a single allocation (19597387) when the
+figure stopped at dimension 64, which is what made its absolute wall-clocks
+comparable across panels. Extending the mixed chain and the oscillator to
+dimension 128 needed jobs of their own, so that no longer holds; the caveat
+below and the one in Result 4 itself both say so, and the speedup *ratios*
+within each panel are unaffected because SLB and `mcsolve` still ran together.
+Every Result now spans several jobs, which is safe because their claims are
+about *slopes* and *ratios* rather than absolute seconds — none of them require
+one machine.
 
 Results 1 and 3 each carry points from an older job alongside newer ones, which
 is safe for the same reason: Result 1 compares the exponent of $M$ at each
