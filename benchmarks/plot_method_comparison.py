@@ -309,6 +309,19 @@ def _draw_cost_panel(ax, points, observable, per_sample: bool):
                 ax.annotate(f"d={dim}", (cost(curve[0][1], curve[0][4]), curve[0][2]),
                             textcoords="offset points", xytext=(-4, 6),
                             fontsize=8, color=style["color"], alpha=alpha)
+                m_first = _m_of(curve[0])
+                m_last = _m_of(curve[-1])
+                if len(curve) > 1:
+                    ax.annotate(f"M={m_first}", (cost(curve[0][1], curve[0][4]), curve[0][2]),
+                                textcoords="offset points", xytext=(-14, -10),
+                                fontsize=6.5, color=style["color"], alpha=alpha)
+                    ax.annotate(f"M={m_last}", (cost(curve[-1][1], curve[-1][4]), curve[-1][2]),
+                                textcoords="offset points", xytext=(4, -8),
+                                fontsize=6.5, color=style["color"], alpha=alpha)
+                else:
+                    ax.annotate(f"M={m_first}", (cost(curve[0][1], curve[0][4]), curve[0][2]),
+                                textcoords="offset points", xytext=(4, -8),
+                                fontsize=6.5, color=style["color"], alpha=alpha)
 
         for name, wall, error, _note, samples, sem in rows:
             if name in ("slb", "jackknife") or name not in _COMPARED:
