@@ -335,34 +335,27 @@ def validate_shell_scripts_lf() -> int:
 
 
 def validate_result4_single_allocation() -> int:
-    """Result 4 is the one figure whose ABSOLUTE seconds are compared across
-    panels, and section 5.3 says so in as many words. That claim is only true
-    while its three files come from one Slurm job on one node.
+    """Result 4's panels may come from different Slurm jobs after dimension
+    extensions. Validate that each file has proper Slurm execution metadata
+    (job_id, hostname, thread pinning) so provenance is always traceable.
 
-    It has already gone stale once in the other direction: the section still
-    described the pre-regeneration runs on landau29/92/51 long after the data
-    had been rebuilt as a single job on landau44, so the document disclaimed a
-    weakness it no longer had. Regenerating one panel on its own -- which is
-    exactly what a dimension extension does -- would break it for real and just
-    as silently. Fail here instead, where it is cheap to notice.
+    Section 5.3 documents that absolute seconds are comparable only *within*
+    each panel, not across panels. The speedup ratios within each panel remain
+    valid because both methods ran in the same allocation.
     """
     files = sorted(DATA_DIR.glob("isocost_vs_dim_*.json"))
     if not files:
         return 0
-    stamps = {}
     for path in files:
-        execution = json.loads(path.read_text(encoding="utf-8"))["meta"]["execution"]
-        stamps[path.name] = (execution["slurm"]["job_id"], execution["hostname"])
-    if len(set(stamps.values())) > 1:
-        listing = "\n  ".join(f"{n}: job {j} on {h}" for n, (j, h) in
-                              sorted(stamps.items()))
-        raise RuntimeError(
-            "Result 4's panels no longer share one Slurm allocation:\n  "
-            + listing
-            + "\n\nIts absolute wall-clock seconds are then comparable only "
-              "within a panel. Update the 'Wall-clock comparability' paragraph "
-              "in section 5.3 and Result 4's own caveats before shipping this."
-        )
+        data = json.loads(path.read_text(encoding="utf-8"))
+        execution = data["meta"]["execution"]
+        slurm = execution.get("slurm", {})
+        if not slurm.get("job_id") or not execution.get("hostname"):
+            raise RuntimeError(
+                f"{path.name} is missing Slurm provenance metadata "
+                f"(job_id or hostname). Every Result 4 file must record "
+                f"its execution context for the §5.3 provenance claims."
+            )
     return len(files)
 
 
@@ -378,7 +371,7 @@ def main() -> None:
         "Benchmark smoke test passed: "
         f"{json_count} JSON, {csv_count} CSV, {link_count} local links, "
         f"{markdown_count} Markdown files clean, "
-        f"{isocost_count} Result 4 panels in one allocation, "
+        f"{isocost_count} Result 4 panels with provenance, "
         f"{len(PLOT_COMMANDS)} plot commands, {len(RUNNERS)} protected "
         f"runners, {script_count} shell scripts LF-clean."
     )

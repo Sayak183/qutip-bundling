@@ -1171,14 +1171,14 @@ older figures remain reproducible and the difference is auditable.
 
 **Wall-clock comparability.** Times are comparable *within* a figure, where all
 methods ran in one Slurm allocation on one node, and in general **not between**
-figures. Result 4 is the exception, and deliberately so: all three of its
-systems come from job 19597387 on landau44, so its absolute seconds *are*
-comparable across panels, not only its speedup ratios. Every data file records
-its hostname, job ID and thread settings for exactly this check —
-`plot_method_comparison.py` refuses to draw a cost axis across files that
-disagree unless forced, and `smoke_test.py` fails if Result 4's three files stop
-agreeing on job ID and host, so this paragraph cannot quietly go stale if one
-panel is ever regenerated on its own.
+figures. Result 4's three panels now come from separate Slurm jobs (spin chain:
+19597387/landau44, oscillator: 19597388/landau44, mixed chain:
+19598579/landau43), so their absolute seconds are comparable only *within* each
+panel, not across panels. The speedup *ratios* within each panel — SLB vs
+`mcsolve` at the same dimension — remain valid because both methods ran in
+the same allocation. Every data file records its hostname, job ID and thread
+settings for exactly this check — `plot_method_comparison.py` refuses to draw a
+cost axis across files that disagree unless forced.
 
 ### Result 1 — convergence dynamics versus the bundle size $M$
 
@@ -1960,10 +1960,10 @@ a property of the system, so fewer sampled counts costs precision rather than
 validity — but check that field before quoting a trajectory count at the large
 dimensions.
 
-*All three systems now come from one job* — 19597387 on landau44 — where they
-previously came from three separate allocations on three nodes. Wall-clock is
-therefore comparable *across* panels as well as within them, which was not true
-of the earlier figures.
+*The three systems now come from separate jobs* — spin chain: 19597387/landau44,
+oscillator: 19597388/landau44, mixed chain: 19598579/landau43. Wall-clock is
+therefore comparable *within* each panel but not across panels. The speedup
+ratios within each panel remain valid.
 
 ### Result 5 — past the reference wall
 
