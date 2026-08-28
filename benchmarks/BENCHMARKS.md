@@ -125,10 +125,10 @@ quarter of the spectrum apart.** The definition is in §2.5.
 |---|---|---|---|
 | Model | Transverse-field Ising (`J=1, h=0.6`) | Mixed-field Ising (`g=0.4`) | Anharmonic oscillator + spin |
 | Coupling `X` | Σᵢ σˣᵢ (collective) | Σᵢ σˣᵢ (collective) | x ⊗ I (position) |
-| `N_L` at dim 64 | 31 (collapses due to integrability) | 2,017 (~N²/2) | 890 (~N²) |
+| `N_L` at dim 64 | 31 (collapses due to integrability) | 2,017 (~N²/2) | 890 (~N¹·⁴) |
 | How far operators reach, d̄ (dim 64) | 27% of the spectrum | 26% | **3.1% — neighbours only** |
-| Cost versus the exact solve | **none** (1.0x at dim 64) | **547x cheaper** (dim 128) | **54x cheaper** (dim 64) |
-| Relative error, one run at `M=16` (dim 64) | 3.6×10⁻² | 5.4×10⁻² | **6.0×10⁻⁶** |
+| Cost vs the exact solve, one SLB run at `M=16` | **1.6x** — and none at a usable accuracy | **96x cheaper** | **54x cheaper** |
+| Relative error, one run at `M=16` | 8.6×10⁻² | 6.2×10⁻² | **6.6×10⁻⁶** |
 | Role here | **Control 1** — too few operators to bundle | **Control 2** — many operators, but each reaches far | **Demonstration** — many operators, each local |
 
 **System A** is a special case. Its bath couples to every spin in the same way,
@@ -141,14 +141,22 @@ at every size measured.
 
 **System B** is the same chain with one extra field term, which destroys that
 special structure. The gaps stop repeating, almost nothing merges, and the
-count climbs to 8,193 at dimension 128 — enough to make bundling **547x
-cheaper** than solving exactly. But its operators connect energy levels far
-apart rather than neighbouring ones, and a single run at $M=16$ lands at
-percent-level error.
+count climbs to 8,193 at dimension 128 — enough to make one bundled run **96x
+cheaper** than solving exactly at dimension 64, and the margin widens with size.
+But its operators connect energy levels far apart rather than neighbouring ones,
+and a single run at $M=16$ lands at percent-level error.
 
 **System C** has both properties at once: many operators (890 at dimension 64)
 *and* operators that only connect neighbouring rungs of its ladder. It is the
 only system here that is cheap **and** accurate at small $M$.
+
+**Note which chain is the less accurate one.** System A, not System B — 8.6×10⁻²
+against 6.2×10⁻² at the same $M$ and dimension, and by the same ordering under
+absolute error, error over span, and error over $|\langle H\rangle|$. Having
+few operators does not make them easy to bundle; System A's are as far-reaching
+as System B's and there are too few of them for a bundle to average over. Result
+1's height table, Result 3's tables, and §2.6's cross-term ratios all agree on
+this ordering.
 
 ### Will bundling help *your* system?
 
@@ -363,7 +371,7 @@ Reading the three factors:
 So in one line: **an ohmic bath with an exponential cutoff, at temperature
 $k_BT=0.5$, satisfying detailed balance.**
 
-**Building the Lindblad operators.** Both systems turn
+**Building the Lindblad operators.** All three systems turn
 $(H_{\rm sys}, X, \gamma)$ into collapse operators by the same strict Davies
 (secular) recipe. First resolve the Hamiltonian into projectors onto its
 distinct, possibly degenerate, energy eigenspaces,
@@ -515,6 +523,8 @@ oscillator–spin coupling.
 
 ![System C schematic](system_b_schematic.png)
 
+<!-- filename is historical: this is System C's schematic. -->
+
 System C: an anharmonic oscillator whose energy gaps widen up the ladder,
 coupled to a two-level spin by an internal coherent coupling $g_{\rm int}$. A single
 ohmic bath couples to the oscillator position $X = x\otimes I$ only, so the
@@ -539,9 +549,9 @@ so the benchmark can say which one matters:
 
 | | operator count `N_L` | how far each operator reaches | outcome |
 |---|---|---|---|
-| **A** — TFIM chain (`g=0`) | small (31 at dim 64) | reaches far (d̄ ≈ 27%) | no speedup available |
-| **B** — mixed chain (`g=0.4`) | large (2,017 at dim 64) | reaches far (d̄ ≈ 26%) | 547x cheaper, error 5.4×10⁻² |
-| **C** — oscillator | large (890 at dim 64) | local (d̄ ≈ 3%) | 54x cheaper, error 6.0×10⁻⁶ |
+| **A** — TFIM chain (`g=0`) | small (31 at dim 64) | reaches far (d̄ ≈ 27%) | no usable speedup, error 8.6×10⁻² |
+| **B** — mixed chain (`g=0.4`) | large (2,017 at dim 64) | reaches far (d̄ ≈ 26%) | 96x cheaper, error 6.2×10⁻² |
+| **C** — oscillator | large (890 at dim 64) | local (d̄ ≈ 3%) | 54x cheaper, error 6.6×10⁻⁶ |
 
 **A versus B** isolates the operator count. Same lattice, same coupling
 operator, same initial state; the only change is a longitudinal field that
@@ -555,7 +565,7 @@ the *accuracy* is not governed by `N_L`. Without B, that would be invisible,
 and the natural reading of A-versus-C would be that a large `N_L` buys both
 benefits at once. It does not.
 
-**System B is therefore not a failure.** A 547x speedup at ~5% error is a
+**System B is therefore not a failure.** A 96x speedup at ~6% error is a
 useful operating point — for parameter sweeps, screening, or qualitative
 dynamics — and it is a *different point on the cost-accuracy curve*, not a
 broken result. What it rules out is the simpler claim we would otherwise have
@@ -614,10 +624,19 @@ Here is how those two rules play out in practice:
 | | Allowed Transitions | Unique Energy Gaps (`N_L`) | Transitions packed into one operator |
 |---|---|---|---|
 | **System A** (Perfect symmetry, perfect adding) | 62 of 256 (24%) | **13** | 4.8 |
-| **System B** (Broken symmetry, messy adding) | 136 of 256 (53%) | **121** | 1.1 |
+| **System B** (One symmetry left, messy adding) | 136 of 256 (53%) | **121** | 1.1 |
 | **System C** (No symmetry, messy adding) | 128 of 256 (50%) | **128** | 1.0 |
 
-As you can see, System A gets a massive discount because of its symmetrical and "free" nature. Systems B and C do not have these clean physical properties, so their transitions don't group together. 
+As you can see, System A gets a massive discount because of its symmetrical and "free" nature. Systems B and C do not have these clean physical properties, so their transitions don't group together.
+
+**System B is not symmetry-free either, and its row shows it.** The longitudinal
+field breaks the spin-flip parity above, but the chain is still unchanged when
+read back to front, and so is $X$. That surviving left–right reflection is what
+forbids the other 47%: its two sectors hold 10 and 6 of the 16 levels, and
+$10^2 + 6^2 = 136$ — exactly the allowed count in the table. What System B loses
+is not symmetry but *degeneracy*: its gaps stop colliding, so grouping packs
+only 1.1 transitions per operator against System A's 4.8. Result 5 returns to
+these sectors, where they decide which state the dynamics relaxes to. 
 
 This proves a key point: **Extreme operator compression is a lucky feature of specific, clean physical models (like System A), not a guarantee for all systems.**
 
@@ -1009,7 +1028,9 @@ the fixed 500-trajectory budget for `mcsolve` and the exact solvers.
 ## 5. Results
 
 > **Read in order, the benchmark results build one argument:**
-> 1. **Memory and Stiffness Walls (§5.2):** `mesolve` hits a hard 32 GB memory wall at dim 128 for the chain and dim 64 for the oscillator; the oscillator hits a fixed-step RK4 stiffness ceiling at dim 256.
+> 1. **Memory and Stiffness Walls (§5.2):** `mesolve` hits a hard 32 GB memory wall at dim 128 for the chain and dim 64 for the oscillator; the oscillator's fixed-step RK4 needs ever more substeps as it grows — 128 of
+>    them at dim 256, where 32 diverges — so dim 256 leaves the *uniform-substep*
+>    axis of Result 2 rather than defeating the method.
 > 2. **Results 1 and 2:** accuracy versus bundle size, and cost scaling with dimension, regenerated under 0.6.4 for all three systems. On the mixed chain, now complete to dim 128, SLB at matched accuracy fits $N^{3.6}$ against $N^{4.6}$ for the exact solver — about one power of $N$ apart, so the advantage widens with size. Measured directly: the exact solve costs $577\times$ one SLB solve at dim 64 and $2{,}263\times$ at dim 128.
 > 3. **Result 3 — the four-method comparison:** across three systems and six observables, SLB, `mcsolve`, and the exact solvers are compared head-to-head at dim 64. The advantage swings from 620x (oscillator energy) to 16.5x *worse* than `mcsolve` (mixed chain coherence at $M=16$; raising $M$ to 256 narrows that to 2.8x). No single number captures the method; the section presents the full range.
 > 4. **Result 4 — iso-accuracy cost versus dimension:** at each size, what does
@@ -1091,8 +1112,13 @@ The solvers encounter two distinct, physical walls:
    - **Operator Count Wall (Oscillator):** At dim 64, the oscillator's Liouvillian matrix is small (268 MB), but summing 890 superoperator matrices during construction exhausts 32 GB RAM.
 2. **The Oscillator Stiffness Ceiling:**
    - The anharmonicity $\chi n^2$ grows with the Fock cutoff, and the substeps needed for
-     stability roughly double per dimension doubling: 32 suffices at dim 64, 64 at dim 128,
-     128 at dim 256.
+     stability roughly double per dimension doubling. Quote these against the
+     right object, because SLB and its certified reference do not run at the
+     same resolution: Result 2 propagates **SLB** at 32 substeps uniformly and
+     that is stable through dim 128, while the **reference** at that size is
+     certified on a 32/64 pair, and dim 256 needs 128 for SLB. Result 1, a
+     separate sweep, runs the oscillator at 4 substeps to dim 32, 16 at dim 64
+     and 32 at dim 128.
    - **The dim-256 half of that rule has now been measured, and it holds.** It was a
      projection from two octaves; job 19592849 tested the third. Given 128 substeps SLB
      runs at dimension 256 -- one $M=8$ solve in 806.6 s, $N_L = 2{,}986$, Davies
@@ -1245,8 +1271,10 @@ the sampling is tuned — so the trends are purely the effect of $M$: the bias
 should fall like $1/M$ (the bundling systematic) and the fluctuation like
 $1/\sqrt{M}$ (the bundling noise). On the chain the energy shows exactly this
 ($M^{-0.98}$ and $M^{-0.73}$ fitted at dim 64), and the pattern holds across
-every system and size measured: the bias exponent lands between $-0.92$ and
-$-1.09$, the fluctuation exponent between $-0.46$ and $-0.73$. One honest caveat: once the true bias drops
+every system and size measured: the bias exponent lands between $-0.91$ and
+$-1.09$, and the fluctuation exponent between $-0.46$ and $-1.05$ — the steep
+end of that second range is the oscillator, discussed below, which genuinely
+beats $M^{-1/2}$. One honest caveat: once the true bias drops
 below the statistical floor of the run-mean (SEM $=$ fluctuation $/\sqrt{200}$),
 the *measured* bias flattens into that noise — visible for the coherence at
 large $M$, where the fitted bias slope is shallower for exactly this reason.
@@ -1304,9 +1332,11 @@ points pull it *down* rather than confirming it unchanged: $N^{+0.64}$ over dims
 because it cuts against the earlier reading — the growth is real and it is a
 trend rather than a three-point artefact, but the exponent itself was
 overestimated by the short sweep, and the curve is flattening as the system
-grows rather than holding a fixed power. System B does the same thing over its
-own four dimensions, $N^{+0.55}$ over dims 16–64 against $N^{+0.61}$ to 128, so
-the flattening is not particular to the integrable chain.
+grows rather than holding a fixed power. System B moves the *other* way over its own four
+dimensions, $N^{+0.55}$ over dims 16–64 against $N^{+0.61}$ out to 128. So the
+two chains converge on the same exponent from opposite sides, and neither short
+sweep predicted it: A's was too steep, B's too shallow. What generalises is that
+a three-point fit is not to be trusted here, not the direction of its error.
 
 **The two chains grow at the same rate**, $N^{+0.61}$ against $N^{+0.61}$. The
 earlier $+0.64$ against $+0.55$, and the difference read into it, was the mixed
@@ -1331,8 +1361,8 @@ structure — only 11% of its operator pairs produce a surviving cross term
 central-limit scaling need not hold. **That explanation is untested.**
 
 Fitted exponents are quoted only where they clear the strict noise floor; with
-the full 200 realizations every point does, on all three systems at all three
-sizes.
+the full 200 realizations every point does, on all three systems at every size
+measured.
 
 ![System A size invariance](accuracy_vs_M_invariance_spin_chain.png)
 ![System B size invariance](accuracy_vs_M_invariance_mixed_chain.png)
@@ -1551,7 +1581,7 @@ $M^\ast$ grows with $N$ but *sublinearly*: measured on the chain across six
 dimensions (4 to 128, the last two reached via the native reference), the
 ladder runs $4\to16\to32\to32\to64\to64$ — close to $M^\ast\sim\sqrt{N}$, and
 far short of the $M^\ast\propto N$ that would cost SLB a full power of $N$.
-This is what keeps the chain's iso-accuracy slope near $N^{2.4}$ rather than $N^4$, so this curve is steeper than fixed $M$:
+This is what keeps the chain's iso-accuracy slope near $N^{3.6}$ rather than $N^4$, so this curve is steeper than fixed $M$:
 holding accuracy costs about one extra power of $N$. But it still sits far below
 the exact solver, so SLB's advantage survives the honest accounting. It is
 computable only up to the reference wall, since tuning $M^\ast$ needs the exact
