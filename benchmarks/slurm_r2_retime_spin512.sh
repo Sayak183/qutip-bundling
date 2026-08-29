@@ -63,9 +63,9 @@ echo "=== spread of the three timing samples, per point ==="
 $PY - <<'PYEOF'
 import json
 for p in json.load(open("data/cost_scaling_spin_chain.json"))["points"]:
-    reps = p.get("t_native_ref_repeats")
-    if reps:
-        print(f"   dim {p['dim']:4d}  native ref median {p['t_native_ref']:9.1f} s"
+    reps, med = p.get("t_native_ref_repeats"), p.get("t_native_ref")
+    if reps and med is not None:
+        print(f"   dim {p['dim']:4d}  native ref median {med:9.1f} s"
               f"   samples {[round(x, 1) for x in reps]}"
               f"   spread {max(reps)/min(reps):.2f}x")
 PYEOF
