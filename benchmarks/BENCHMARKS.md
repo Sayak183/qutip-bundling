@@ -662,7 +662,9 @@ far apart in energy. One bath event can take the system from near the bottom of
 the spectrum to near the middle. There is no ladder to walk.
 
 $\bar d$ puts one number on that difference: the strength-weighted mean of
-$|a-b|$. C sits at 1.97 out of a possible 15; B at 5.13, close to the 5.3 you
+$|a-b|$. **These are dimension-16 numbers in levels**, not the dimension-64
+percentages of §2.5 — divide by $N=16$ to compare. C sits at 1.97 out of a
+possible 15; B at 5.13, close to the 5.3 you
 would get by scattering weight uniformly at random.
 
 Note what this does **not** separate. System A's $\bar d$ is 4.98 — statistically
@@ -1080,6 +1082,25 @@ To understand where each simulation starts and where it relaxes, the table below
 
 ### 5.1 Reading the cost–accuracy plots
 
+**Which speedup is which.** Several different comparisons live in this
+document, and each answers a different question. They are all real; quoting one
+where another is meant is the mistake to avoid.
+
+| number | what it compares | where |
+|---|---|---|
+| **1.6x, 96x, 54x** | one SLB realization at `M=16` against one exact solve, dim 64 | §1's table, from Result 3 |
+| **0.1x, 6.0x, 3.4x** | the whole 16-realization ensemble against one exact solve | Result 3's tables |
+| **577x, 2263x** | one SLB solve at `M=8` against the *certified* reference, which runs at 2x SLB's substeps | Result 2 |
+| **322x, 664x** | SLB at `M*` against `mcsolve`'s *projected* trajectory count for the same accuracy | Result 4 |
+| **620x, 19.3x** | SLB's error against `mcsolve`'s at a fixed budget, not a cost ratio at all | Result 3 |
+
+Three rules follow. **Say how many realizations** — the ensemble is 16x the work
+of one run, which is the whole difference between 3.4x and 54x. **Say which
+baseline** — Result 2's exact curve carries a deliberate 2x substep margin and
+its ratios are inflated by roughly that, while Result 3's native runs at SLB's
+own substeps and carries none. **Say measured or projected** — Result 4's
+`mcsolve` cost is a fit, not a run, and its caveats say where that fit is thin.
+
 **What one point on the cost axis means.** Every wall-clock here is the *total*
 for that method's whole ensemble on a single core: all 500 `mcsolve`
 trajectories, all 16 SLB realizations, one deterministic solve. Both stochastic
@@ -1425,7 +1446,7 @@ dim 128, a $16\times$ span in dimension.
 
 One caveat on the SLB slopes, stated plainly because a fitted exponent invites
 it: **the fixed $M$ and iso curves are clean power laws on the chain but not on
-the oscillator.** On the chain the fixed $M$ cost fits $N^{2.5}$ over dim
+the oscillator.** On **System A** the fixed $M$ cost fits $N^{2.5}$ over dim
 4–512 with monotone per-step ratios, close to the $O(N^3)$-per-solve floor once
 overhead is amortized — a quotable scaling law. On the oscillator the same
 curve fits $N^{1.7}$, but the per-doubling cost ratios are *not* monotone (a
@@ -1591,7 +1612,7 @@ slope: measured against it, SLB's fixed $M$ point at the largest
 dimension shown is cheaper by four to five orders of magnitude (chain, dim
 256: an extrapolated $\sim\!3$ weeks versus a measured minute) — this, not
 the sub-wall region where both methods are cheap, is the figure's claim. The required
-$M^\ast$ grows with $N$ but *sublinearly*: measured on the chain across six
+$M^\ast$ grows with $N$ but *sublinearly*: measured on **System B** across six
 dimensions (4 to 128, the last two reached via the native reference), the
 ladder runs $4\to16\to32\to32\to64\to64$ — fitted, $M^\ast\sim N^{0.74}$, and
 far short of the $M^\ast\propto N$ that would cost SLB a full power of $N$.
@@ -1779,9 +1800,24 @@ place to read iso-accuracy cost.
 | `x_sx` | 3.11×10⁻³ | 4.45×10⁻³ | **1.4x better** | 3.4x |
 | `coherence` | 6.31×10⁻⁶ | 1.22×10⁻⁴ | 19.3x better | 3.4x |
 
+**Two costs for SLB, and the table and the text quote different ones.** The
+`SLB speed vs native` column above is the whole 16-realization ensemble against
+one exact solve — 3.4x here. The paragraph below is *one* realization against
+the same solve, which is 16 times less work and therefore a 16 times larger
+ratio. Both are honest; neither is "the" number. Use the ensemble when you need
+the error bar and the single run when the bias already dominates, which §5.1
+shows it does on this system.
+
+Unlike Result 2, these ratios carry **no substep margin**: `run_native` is
+timed at SLB's own substep count, so the two sides integrate identically. Result
+2's exact curve deliberately runs at $2\times$ SLB's substeps and its ratios are
+inflated accordingly — which is why the summary table in §1 is built from this
+section's numbers and not from that one's.
+
 One SLB realization at $M=16$ costs 2.3 s and reaches $6.0\times10^{-6}$
 relative error on the energy, against 121 s for the exact full-dissipator solve
-(**54x cheaper**) and 7,118 s for `mcsolve` at 500 trajectories (**3,100x
+(**54x cheaper**, or 3.4x for the full ensemble) and 7,118 s for `mcsolve` at
+500 trajectories (**3,100x
 cheaper**, and **490x more accurate** on the energy). `mcsolve` is slow here
 because every jump must evaluate all 890 jump probabilities.
 
@@ -2136,9 +2172,9 @@ a small-system artefact that washes out: it **grows**, from $0.0137$ at dimensio
 **Scored against the right target, the dimension-256 run has not converged.**
 
 ```
-SLB endpoint, M=32       -10.873221   (s.e.m. 0.001693)
-global Gibbs             -10.873710   ->  0.29 s.e.m.
-sector-resolved Gibbs    -10.890584   -> 10.26 s.e.m.
+SLB endpoint, M=32, t=600   -10.873221   (s.e.m. 0.001693)
+global Gibbs                -10.873710   ->  0.29 s.e.m.
+sector-resolved Gibbs       -10.890584   -> 10.26 s.e.m.
 ```
 
 The agreement with global Gibbs is not the method succeeding. A bundle
@@ -2328,7 +2364,10 @@ from; one could integrate far more crudely without moving the SLB error.
 
 The plotted error is the absolute deviation from the adaptive reference at the
 fixed mid-point $t=2.5$, $|\langle H\rangle(2.5) - \langle H\rangle_{\rm ref}(2.5)|$
-— the same single-time-point metric as the scaling and frontier figures (§3.1).
+— the single-instant metric of §3.2, chosen there for exactly this check.
+Note it is *not* the max-over-time error §3.2 assigns to the convergence and
+jackknife figures, nor Result 3's time-averaged RMSE; §3.2 lists all three and
+which figure uses which.
 
 ![spin chain substep convergence](benchmark_substep_convergence_spin_chain.png)
 ![oscillator substep convergence](benchmark_substep_convergence_oscillator_bath.png)
