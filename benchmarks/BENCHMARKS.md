@@ -734,9 +734,10 @@ get the populations right, get the coherences badly wrong, and the energy curve
 will still look fine.
 
 That is not a small effect here. On identical runs, SLB beats `mcsolve` by
-**488x on the energy** but only **7x on the dominant coherence** (the
-eigenstate pair $(a,b)$ that develops the strongest quantum superposition $|\rho_{ab}(t)|$ during the dynamics; detailed below). Quote the
-energy alone and you overstate the advantage roughly seventyfold.
+**620x on the energy** but only **19.3x on the dominant coherence** (the
+eigenstate pair $(a,b)$ that develops the strongest quantum superposition $|\rho_{ab}(t)|$ during the dynamics; detailed below). Both are
+from Result 3's oscillator table at dimension 64. Quote the energy alone and you
+overstate the advantage roughly **thirtyfold**.
 
 **Read every accuracy claim on this page as being about one specific
 observable.**
@@ -1592,7 +1593,7 @@ dimension shown is cheaper by four to five orders of magnitude (chain, dim
 the sub-wall region where both methods are cheap, is the figure's claim. The required
 $M^\ast$ grows with $N$ but *sublinearly*: measured on the chain across six
 dimensions (4 to 128, the last two reached via the native reference), the
-ladder runs $4\to16\to32\to32\to64\to64$ — close to $M^\ast\sim\sqrt{N}$, and
+ladder runs $4\to16\to32\to32\to64\to64$ — fitted, $M^\ast\sim N^{0.74}$, and
 far short of the $M^\ast\propto N$ that would cost SLB a full power of $N$.
 This is what keeps the chain's iso-accuracy slope near $N^{3.6}$ rather than $N^4$, so this curve is steeper than fixed $M$:
 holding accuracy costs about one extra power of $N$. But it still sits far below
@@ -2207,15 +2208,38 @@ where a known answer stops.
 
 The checks that answer the obvious doubts.
 
-> **Provenance, and why it does not undermine this section.** These validation
+> **Provenance, and what it does and does not undermine.** These validation
 > figures were computed before the 0.6.4 Davies correction, from the
-> `convergence_progress_*.json` files. Unlike §5, that does **not** put their
-> conclusions in question: every claim here is about *convergence rates and
-> accuracy* — how the bias falls with $M$, whether the jackknife steepens that
-> rate, whether results move under a different seed or a finer integrator — and
-> the 0.6.4 floor leaves the dissipator unchanged to double precision (it
-> removes only operators contributing $10^{-24}$ relative or less, verified
-> directly). Rates measured on an identical dissipator are identical.
+> `convergence_progress_*.json` files, and every claim here is about
+> *convergence rates* — how the bias falls with $M$, whether the jackknife
+> steepens that rate, whether results move under a different seed or a finer
+> integrator.
+>
+> **The estimator is unchanged, and that is the argument — not that the
+> dissipator is.** A bundle is $R_m = M^{-1/2}\sum_\alpha r_\alpha c_\alpha$: a
+> signed sum over *every* operator, normalised by $M$ and not by $N_L$. The
+> operators 0.6.4 removes are numerically null — the smallest has Frobenius norm
+> $1.6\times10^{-32}$ — so they contribute nothing to any bundle, and appending
+> them changes no realization. Measured rather than argued, on System A at
+> dim 16 with $M=8$ and 200 realizations: the shipped 13-operator construction
+> gives a bias of $2.5379\times10^{-2}$ and the un-floored 81-operator one
+> $2.6146\times10^{-2}$, a difference of **0.36 s.e.m.** Rates measured on one
+> are rates on the other.
+>
+> **One caveat that does bite, stated because the section would otherwise hide
+> it.** `benchmark_convergence.py` sweeps $M = 2, 4, 8, 16, 32, 64$, and 0.6.4
+> cut the spin chain's operator count hard: $N_L$ fell from 64 to **13** at
+> dim 16, 218 to **21** at dim 32, and 869 to **31** at dim 64. A bundle cannot
+> hold more operators than exist, so on that system the upper half of the sweep
+> — $M=32$ and $64$ everywhere, and $M=16$ at dim 16 — is **above what the
+> shipped construction permits**. Those points are real measurements of the
+> pre-0.6.4 model and they are not reproducible now. The oscillator is
+> unaffected: its $N_L$ runs 408 to 1,686, far above the sweep.
+>
+> Read the spin-chain panels with that in mind. The steepening to $M^{-1.78}$ at
+> dim 32 is fitted over a range whose top half is past the shipped cap, so it
+> demonstrates the jackknife's leading-order cancellation without being an
+> operating point anyone could reach today.
 >
 > What *would* be affected is any cost statement, and this section makes none.
 >
@@ -2277,9 +2301,16 @@ rises with dimension while the jackknife keeps the corrected bias comparatively
 flat — so Result 2's growth of the bias with system size is a known,
 correctable effect, not a breakdown.
 
-**Seed robustness.** Recomputing the frontier across independent master seeds
-leaves the conclusion unchanged: per-seed frontiers cluster tightly and SLB
-stays below `mcsolve` for every seed.
+**Seed robustness.** Recomputing the accuracy-versus-cost frontier across four
+independent master seeds leaves the picture unchanged: per-seed frontiers
+cluster tightly, and the ordering of the two methods does not move with the
+seed. **This is a statement about seed sensitivity, not about which method
+wins** — `benchmark_seed_robustness.py` runs the spin chain at dimension 16 with
+$M \in \{2,8,32\}$ against $\texttt{ntraj} \in \{50,200,1000\}$, a different
+size and a different budget from Result 3's System A comparison at dimension 64
+($M=16$ against $\texttt{ntraj}=500$), where SLB loses on every observable.
+The two are not in conflict and neither generalises to the other. As with the
+convergence sweeps above, $M=32$ sits past the shipped $N_L=13$ at this size.
 
 ![spin chain seed robustness](benchmark_seed_robustness_spin_chain.png)
 
@@ -2302,9 +2333,14 @@ fixed mid-point $t=2.5$, $|\langle H\rangle(2.5) - \langle H\rangle_{\rm ref}(2.
 ![spin chain substep convergence](benchmark_substep_convergence_spin_chain.png)
 ![oscillator substep convergence](benchmark_substep_convergence_oscillator_bath.png)
 
-**`mcsolve` fairness.** In Result 3 `mcsolve` runs single-threaded (matching
-SLB's single-threaded loop) at stated tolerances; removing its multi-core
-advantage does not change the conclusion.
+**`mcsolve` fairness.** In Result 3 `mcsolve` runs single-threaded, matching
+SLB's single-threaded realization loop, at stated tolerances. This is a
+statement about how the comparison was configured rather than a measured claim:
+no paired multi-core run was made, so what is asserted is that neither method
+was given cores the other lacked. §5.1's second panel is where the parallel
+question is actually answered — it divides each method's wall-clock by its
+sample count, the limit of one core per sample, and the ordering there is the
+same.
 
 ---
 
