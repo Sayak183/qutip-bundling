@@ -534,7 +534,7 @@ Fock level.
 There is **one** bath, not two: $X = x\otimes I$ acts only on the oscillator, so
 the spin has no reservoir of its own. The evolved object is the Lindblad equation
 built from $(H_{\rm sys}, X, \gamma)$ exactly as in §2.1 ($N_L = 128$ at dim 16),
-started with the spin down and the oscillator in its top Fock state.
+started with the spin up and the oscillator in its top Fock state.
 
 Watch the two "couplings", which are unrelated physics that happen to share a
 value: $g_{\rm int}=0.3$ is the **internal coherent** coupling inside
@@ -1073,11 +1073,12 @@ To understand where each simulation starts and where it relaxes, the table below
 | **First excited energies (E₁, E₂, E₃)** | -5.7107, -4.5287, -4.4685 | -5.2567, -5.2541, -4.4212 | 0.8177, 1.2427, 1.9173 |
 | **Initial energy ⟨H⟩(0)** | -5.0000 | -7.4000 | +128.1000 |
 | **Initial components at t=0** | ⟨ZZ⟩ = 5.0, ⟨X⟩ = 0.0, ⟨Z⟩ = 6.0 | ⟨ZZ⟩ = 5.0, ⟨X⟩ = 0.0, ⟨Z⟩ = 6.0 | ⟨n⟩ = 31.0, ⟨n²⟩ = 961.0, ⟨σᶻ⟩ = 1.0, ⟨xσˣ⟩ = 0.0 |
-| **Thermal Gibbs energy ⟨H⟩_th (kT=0.5)** | **-5.5687** | **-7.9238** | **+0.2249** |
+| **Global Gibbs energy ⟨H⟩_th (kT=0.5)** | -5.5687 | -7.9238 | **+0.2249** |
+| **Actual t→∞ limit** (Gibbs within the sector ρ₀ occupies) | **-5.6490** (7 sectors) | **-7.9397** (2 sectors) | **+0.2249** (1 sector) |
 | **Thermal components (t→∞)** | ⟨ZZ⟩ = 4.05, ⟨X⟩ = 2.54, ⟨Z⟩ = 0.00 | ⟨ZZ⟩ = 4.55, ⟨X⟩ = 1.86, ⟨Z⟩ = 5.64 | ⟨n⟩ = 0.14, ⟨n²⟩ = 0.16, ⟨σᶻ⟩ = -0.74 |
 
 **Physical interpretation:**
-- **System A & B initial states:** Both chains start in the computational state $|\uparrow\dots\uparrow\rangle$ ($\langle H\rangle(0) = -5.0$ for A and $-7.4$ for B). Because of the transverse field $h=0.6$, this is *not* the Hamiltonian ground state ($E_0 = -5.77$ for A, $-7.96$ for B). Over time the bath transfers energy, tilts the spins towards the $x$-axis, and cools the chain toward thermal equilibrium ($\langle H\rangle_{\rm th} = -5.57$ for A, $-7.92$ for B).
+- **System A & B initial states:** Both chains start in the computational state $|\uparrow\dots\uparrow\rangle$ ($\langle H\rangle(0) = -5.0$ for A and $-7.4$ for B). Because of the transverse field $h=0.6$, this is *not* the Hamiltonian ground state ($E_0 = -5.77$ for A, $-7.96$ for B). Over time the bath transfers energy, tilts the spins towards the $x$-axis, and cools the chain — but **not to the global Gibbs state**. Both chains have a coupling operator that cannot connect every pair of levels, so each relaxes to the Gibbs state *within the sector its initial state occupies*: $-5.6490$ for A across 7 sectors, $-7.9397$ for B across 2. The global values in the row above are what a naive calculation gives and are **not** the limit; Result 5 is where this is established and measured. System C has a single sector, so for it the two coincide.
 - **System C initial state:** The oscillator starts pumped to its maximum inverted state $|31,\uparrow\rangle$ with energy $\langle H\rangle(0) = 128.10$, projecting almost entirely (97.9%) on the highest eigenstate $|E_{63}\rangle$. During the dynamics it cascades down the ladder, draining 31 quanta into the bath until settling at the thermal average $\langle n\rangle_{\rm th} = 0.14$ ($\langle H\rangle_{\rm th} = 0.22$).
 
 ### 5.1 Reading the cost–accuracy plots
@@ -1998,11 +1999,11 @@ and 2.8% at spin dimension 512.
 **The three systems give three different answers, and they are the answers §2.5
 predicts.**
 
-| | `N_L` | `M*` | binding observable | target met? | speedup at the largest dim |
+| | `N_L` (to largest dim) | `M*` | binding observable | target met? | speedup at the largest dim |
 |---|---|---|---|---|---|
-| **A** TFIM chain | 3 → 73 | 3 → **73** = N_L | `coherence` | **never** | not quotable |
-| **B** mixed chain | 7 → 2,017 | 4 → **32** | `energy` | everywhere | **322x** |
-| **C** oscillator | 32 → 890 | 8 → **4** | `x_sx` | everywhere | **664x** |
+| **A** TFIM chain (to 512) | 3 → 73 | 3 → **73** = N_L | `coherence` | **never** | not quotable |
+| **B** mixed chain (to 128) | 7 → 8,193 | 4 → **64** | `energy` | everywhere | **468x** |
+| **C** oscillator (to 128) | 32 → 1,686 | 8 → **2** | `x_sx` | everywhere | **1,739x** |
 
 Read the middle columns against the first. **$M^\ast$ is what the method costs;
 $N_L$ is what it replaces**, and the ratio between them is the whole result. On
@@ -2070,23 +2071,23 @@ At $M = N_L$ a bundle is still a random mixture rather than the operator set
 itself, so it keeps sampling error the target is tighter than — which is why
 $M^\ast = N_L$ is a ceiling, not a solution.
 
-**System B — the advantage compounds with dimension.** $N_L$ grows 288-fold
-across the sweep while $M^\ast$ grows 8-fold, from 4 to 32, and the speedup
-follows: 175x, 53x, 39x, 70x, **322x** across dims 4 to 64. The dip in the middle
-is real and worth not smoothing over — $M^\ast$ doubles at dim 8 and again at
-32, each jump costing more than the dimension gained — but the trend from dim 16
-on is monotone and steep. SLB fits $N^{1.62}$ against `mcsolve`'s $N^{2.60}$,
-about one power of $N$ apart, and at dim 64 that is 59 s against 5.3 hours.
+**System B — the advantage compounds with dimension.** $N_L$ grows 1,170-fold
+across the sweep while $M^\ast$ grows 16-fold, from 4 to 64, and the speedup
+follows: 141x, 62x, 39x, 46x, 446x, **468x** across dims 4 to 128. The dip in the
+middle is real and worth not smoothing over — $M^\ast$ quadruples at dim 8 and
+doubles again at 32, each jump costing more than the dimension gained — but the
+trend from dim 32 on is steep. SLB fits $N^{1.62}$ against `mcsolve`'s
+$N^{2.60}$, about one power of $N$ apart.
 
 The binding observable is the **energy** at every dimension — the one system
 where the quantity everyone reports first is also the hardest one to get right.
 
-**System C — four bundles, at every size.** $M^\ast=8$ at dim 8 and $4$ at every
-size above it, while $N_L$ grows from 32 to 890. The compression ratio therefore
-*improves* with size: $M^\ast/N_L$ runs $1/4$, $1/32$, $1/102$, $1/222$. Four
-bundles, drawn once, reach an accuracy `mcsolve` needs $1{,}343$ trajectories
-for. The speedup runs 72x → 64x → 214x → **664x**, and at dim 64 that is 44 s
-against 8.2 hours. This is the ladder structure of §2.6 paying off exactly where
+**System C — a handful of bundles, at every size.** $M^\ast=8$ at dim 8, $4$
+through dim 64, and **2** at dim 128, while $N_L$ grows from 32 to 1,686. The
+compression ratio therefore *improves* with size: $M^\ast/N_L$ runs $1/4$,
+$1/32$, $1/102$, $1/222$, $1/843$. Two bundles, drawn once, reach an accuracy
+`mcsolve` needs thousands of trajectories for. The speedup runs
+73x → 84x → 190x → 550x → **1,739x** across dims 8 to 128. This is the ladder structure of §2.6 paying off exactly where
 it was predicted to.
 
 The binding observable is `x_sx` throughout — never the energy, and never $n^2$
