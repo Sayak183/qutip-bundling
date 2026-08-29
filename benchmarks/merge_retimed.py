@@ -43,7 +43,9 @@ def _points(doc):
 
 
 def _sweep(point):
-    return {e["M"]: e["rmse"] for e in point.get("m_sweep", [])}
+    # `m_sweep` is present but null at a dimension whose SLB solve went
+    # unstable, so a default of [] is not enough.
+    return {e["M"]: e["rmse"] for e in (point.get("m_sweep") or [])}
 
 
 def check(incoming: dict, committed: dict) -> list[str]:

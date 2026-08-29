@@ -1047,7 +1047,7 @@ the fixed 500-trajectory budget for `mcsolve` and the exact solvers.
 > 1. **Memory and Stiffness Walls (§5.2):** `mesolve` hits a hard 32 GB memory wall at dim 128 for the chain and dim 64 for the oscillator; the oscillator's fixed-step RK4 needs ever more substeps as it grows — 128 of
 >    them at dim 256, where 32 diverges — so dim 256 leaves the *uniform-substep*
 >    axis of Result 2 rather than defeating the method.
-> 2. **Results 1 and 2:** accuracy versus bundle size, and cost scaling with dimension, regenerated under 0.6.4 for all three systems. On the mixed chain, now complete to dim 128, SLB at matched accuracy fits $N^{3.6}$ against $N^{4.6}$ for the exact solver — about one power of $N$ apart, so the advantage widens with size. Measured directly: the exact solve costs $577\times$ one SLB solve at dim 64 and $2{,}263\times$ at dim 128.
+> 2. **Results 1 and 2:** accuracy versus bundle size, and cost scaling with dimension, regenerated under 0.6.4 for all three systems. On the mixed chain, now complete to dim 128, SLB at matched accuracy fits $N^{2.7}$ against $N^{3.7}$ for the exact solver — about one power of $N$ apart, so the advantage widens with size. Measured directly: the exact solve costs $353\times$ one SLB solve at dim 64 and $1{,}013\times$ at dim 128. Those wall-clocks were re-measured on exclusive nodes in August 2026; §5.3 records what the earlier numbers were and why they were wrong.
 > 3. **Result 3 — the four-method comparison:** across three systems and six observables, SLB, `mcsolve`, and the exact solvers are compared head-to-head at dim 64. The advantage swings from 620x (oscillator energy) to 16.5x *worse* than `mcsolve` (mixed chain coherence at $M=16$; raising $M$ to 256 narrows that to 2.8x). No single number captures the method; the section presents the full range.
 > 4. **Result 4 — iso-accuracy cost versus dimension:** at each size, what does
 >    each method cost to reach the *same* accuracy? The advantage compounds:
@@ -1090,7 +1090,7 @@ where another is meant is the mistake to avoid.
 |---|---|---|
 | **1.6x, 96x, 54x** | one SLB realization at `M=16` against one exact solve, dim 64 | §1's table, from Result 3 |
 | **0.1x, 6.0x, 3.4x** | the whole 16-realization ensemble against one exact solve | Result 3's tables |
-| **577x, 2263x** | one SLB solve at `M=8` against the *certified* reference, which runs at 2x SLB's substeps | Result 2 |
+| **353x, 1013x** | one SLB solve at `M=8` against the *certified* reference, which runs at 2x SLB's substeps | Result 2 |
 | **322x, 664x** | SLB at `M*` against `mcsolve`'s *projected* trajectory count for the same accuracy | Result 4 |
 | **620x, 19.3x** | SLB's error against `mcsolve`'s at a fixed budget, not a cost ratio at all | Result 3 |
 
@@ -1165,7 +1165,7 @@ The solvers encounter two distinct, physical walls:
      while the panel ran on landau42. Either one alone disqualifies its wall-clock from
      that axis. Putting it on properly would mean re-running the whole oscillator sweep at
      128 substeps -- roughly 15 h, and it would multiply every published SLB cost there by
-     four, turning the $302\times$ advantage at dim 128 into $\sim75\times$. Paying that
+     four, turning the $327\times$ advantage at dim 128 into $\sim82\times$. Paying that
      to gain one dot is a bad trade. **It establishes reach, not cost scaling**, and is
      quoted here rather than plotted for that reason.
    - **What stops the study at dim 128 is certification, not propagation.** A dim-256
@@ -1190,7 +1190,7 @@ memory:
 | Result | Slurm jobs | dates |
 |---|---|---|
 | **1** accuracy vs `M` | 19585257, 19592647, 19597390, 19598577, 19598578 | Aug 7 – 26 |
-| **2** cost scaling | 19591128, 19592645, 19592644 | Aug 15 – 19 |
+| **2** cost scaling | 19599550, 19599671, 19599672 | Aug 29 – 30 |
 | **3** method comparison | 19559720, 19559854, 19559945, 19594145 | Aug 1 – 19 |
 | **4** iso-accuracy cost | 19597387, 19597388, 19598579 | Aug 22 – 25 |
 | **5** past the reference wall | 19592848 | Aug 18 |
@@ -1210,6 +1210,46 @@ is safe for the same reason: Result 1 compares the exponent of $M$ at each
 dimension separately, and Result 3's wall-clock comparisons are checked by
 `plot_method_comparison.py`, which refuses to draw a cost axis across
 allocations unless forced.
+
+**Result 2's wall-clocks were re-measured, and the first set was wrong.** An
+outside reviewer noticed that the mixed chain's dimension-128 exact solve
+appears as 88,443 s in Result 2 and 2,413 s in Result 3 — the same quantity, 37×
+apart, in one document. That was worth taking seriously and it turned out to be
+real.
+
+The first hypothesis was thread pinning: all three original `cost_scaling` runs
+had `OMP_NUM_THREADS` unset while every `method_comparison` run pinned it to 4.
+Job 19599549 tested it directly, running both configurations back to back in one
+allocation on one node, and **disproved it** — 204.9 s pinned against 206.2 s
+unpinned. The cause was node sharing, not threading.
+
+Re-run on `--exclusive` nodes with three timing samples per point (jobs
+19599550, 19599671 and 19599672, superseding the timings from the original
+19591128, 19592644 and 19592645), the inflation tracks the size of the operator
+list almost perfectly:
+
+| `N_L` | inflation of the exact reference |
+|---|---|
+| 3 – 513 | 1.1 – 2.4× |
+| 890 – 1,686 | 1.4 – 2.0× |
+| 2,017 | 5.6× |
+| **8,193** | **27.2×** |
+
+The heaviest solve in the document was hit hardest, and it is the one carrying
+the headline. The mixed chain's widest gap falls from $2{,}263	imes$ to
+$1{,}013	imes$, and dim 64 from $577	imes$ to $353	imes$. The oscillator's
+ratios barely move and two of them *rise* (dim 128, $303	imes$ to $327	imes$),
+because both sides of its ratio were inflated about equally.
+
+**What did not change is the reason to believe any of it.** Every RMSE in every
+sweep reproduced to the last printed digit — the accuracy results are
+deterministic at fixed seed and were never in question. `merge_retimed.py`
+checks exactly that before allowing a merge: same settings, same dimensions,
+same operator counts, same RMSE at every bundle size. All three files passed.
+
+Three samples per point now agree to **1.00–1.15×**. So these wall-clocks are
+reproducible to a few percent on a node the job does not share — the original
+numbers were not noisy, they were inflated, and by a diagnosable amount.
 
 **The code that produced the data.** Every file records the package version it
 ran under, but that number is written by the running process about itself — it
@@ -1437,7 +1477,8 @@ past it the exact solver is impractical.
 
 **The cost curves (top).** The exact full-dissipator `mesolve` evolves the
 density matrix with all $N_L$ collapse operators; its fitted slope is the
-steepest on the plot ($N^{4.9}$ on the chain, $N^{5.0}$ on the oscillator), and
+steepest on the plot ($N^{6.0}$ on the chain, $N^{6.7}$ on the oscillator — both
+two-point local slopes, since `mesolve` reaches only dim 32 here), and
 past dim 32 it cannot run here at all — its superoperator construction exhausts
 even 32 GB. SLB at a *fixed* bundle size ($M=8$) only ever propagates $M$
 operators, so one solve is cheap; the SLB and construction curves need no exact
@@ -1446,16 +1487,16 @@ dim 128, a $16\times$ span in dimension.
 
 One caveat on the SLB slopes, stated plainly because a fitted exponent invites
 it: **the fixed $M$ and iso curves are clean power laws on the chain but not on
-the oscillator.** On **System A** the fixed $M$ cost fits $N^{2.5}$ over dim
+the oscillator.** On **System A** the fixed $M$ cost fits $N^{2.3}$ over dim
 4–512 with monotone per-step ratios, close to the $O(N^3)$-per-solve floor once
 overhead is amortized — a quotable scaling law. On the oscillator the same
-curve fits $N^{1.7}$, but the per-doubling cost ratios are *not* monotone (a
+curve fits $N^{1.5}$, but the per-doubling cost ratios are *not* monotone (a
 large jump at dim 8→32, then a much smaller one at 32→64 as the dense linear
 algebra reaches its efficient BLAS regime), so that number is a least-squares
 summary of a curved trend, not a scaling exponent, and is **not quoted as
 one**. The scaling *claim* of this work therefore rests on the chain's
-$N^{2.5}$; the oscillator panel is included as the decisive visual of the exact
-solver's wall — `mesolve` at $N^{5.0}$ and the native route at $N^{3.1}$ both
+$N^{2.3}$; the oscillator panel is included as the decisive visual of the exact
+solver's wall — `mesolve` at $N^{6.7}$ and the native route at $N^{3.0}$ both
 climbing into hours per solve while SLB stays near-flat — rather than for a
 fitted SLB exponent.
 
@@ -1473,20 +1514,27 @@ one ratio, not a scaling law.
 **System B is now complete to dimension 128.** Its exact curve was previously
 capped at 64 by `--native-ref-max`, chosen to avoid a 37 h reference against a
 24 h wall; on `roibq`, which imposes no wall clock, it was run in full (job
-19592644, 52 h). The dim-128 reference alone took **24.6 hours** — 8,193
-operators, certified by a substep-halving check at $2.6\times10^{-9}$ — against
-**39.1 s** for one SLB solve at the same size. That single pair is the widest
-gap measured anywhere in this document: $2{,}263\times$, up from $577\times$
-one octave below.
+19592644, 52 h). The dim-128 reference takes **54 minutes** — 8,193 operators,
+certified by a substep-halving check at $2.6\times10^{-9}$ — against **3.21 s**
+for one SLB solve at the same size. That single pair is the widest gap measured
+anywhere in this document: $1{,}013\times$, up from $353\times$ one octave
+below.
 
-Filling that point moved every fitted exponent on the panel, upward in each
-case: the exact route from $N^{3.35}$ to $N^{4.60}$, fixed $M$ from $N^{2.36}$
-to $N^{2.85}$, and the iso-accuracy curve from $N^{2.46}$ to $N^{3.63}$. **This
-is the fourth time extending a sweep has moved a quoted exponent, and the fourth
-time it moved up.** The pattern is consistent and worth stating as a caution:
-these fits are lower bounds until the curve stops growing, because the smallest
-dimensions are dominated by overhead that does not scale, and truncating a sweep
-early keeps them weighted.
+**Those two numbers were 24.6 hours and 39.1 s in an earlier version, and the
+gap read $2{,}263\times$.** Re-measured on an exclusive node with three timing
+samples, the reference is $27\times$ faster and the bundled solve $12\times$;
+because they moved unequally the ratio fell by $2.2\times$. Nothing about the
+method changed — every RMSE in the sweep reproduced to the last printed digit —
+and §5.3 gives the full account.
+
+Filling dimension 128 still moved every fitted exponent on the panel upward,
+which was the point of running it: before that dimension existed the exact route
+fitted $N^{3.35}$, fixed $M$ fitted $N^{2.36}$ and the iso curve $N^{2.46}$.
+**Extending a sweep has moved a quoted exponent four times here, and every time
+it moved up.** The reason is worth stating as a caution: these fits are lower
+bounds until the curve stops growing, because the smallest dimensions are
+dominated by overhead that does not scale, and truncating a sweep early keeps
+them weighted.
 
 **Where the oscillator's curves stop, and why it is stiffness rather than
 memory.** All three end together at dimension 128, and the limit is the
@@ -1532,7 +1580,7 @@ point where `mesolve` can no longer provide one.** Wherever both routes run they
 agree to $10^{-10}$ to $10^{-8}$ (stated in the figure footer, recorded per
 dimension in the data), and where the native route is used alone it is re-run at
 half its substeps and rejected if halving moves the answer appreciably. That it
-also scales better than `mesolve` ($N^{2.5}$ / $N^{4.9}$) is worth noting but is
+also scales better than `mesolve` ($N^{2.6}$ / $N^{6.0}$) is worth noting but is
 not a claim of this work: `mesolve` remains the neutral, widely-used standard
 against which the cost argument is made. The
 oscillator is the stiffer system: its anharmonic ladder's frequencies grow
@@ -1616,7 +1664,7 @@ $M^\ast$ grows with $N$ but *sublinearly*: measured on **System B** across six
 dimensions (4 to 128, the last two reached via the native reference), the
 ladder runs $4\to16\to32\to32\to64\to64$ — fitted, $M^\ast\sim N^{0.74}$, and
 far short of the $M^\ast\propto N$ that would cost SLB a full power of $N$.
-This is what keeps the chain's iso-accuracy slope near $N^{3.6}$ rather than $N^4$, so this curve is steeper than fixed $M$:
+This is what keeps the chain's iso-accuracy slope near $N^{2.7}$ rather than $N^4$, so this curve is steeper than fixed $M$:
 holding accuracy costs about one extra power of $N$. But it still sits far below
 the exact solver, so SLB's advantage survives the honest accounting. It is
 computable only up to the reference wall, since tuning $M^\ast$ needs the exact
@@ -1640,8 +1688,8 @@ loose target on this system costs essentially every operator, which is the
 no-compression claim measured rather than asserted.
 
 The slopes make the same point more sharply. System A's iso-accuracy curve fits
-$N^{3.0}$ while its exact solver fits $N^{2.5}$: **holding accuracy fixed makes
-bundling grow faster than solving exactly.** The two curves are converging, and
+$N^{2.7}$ while its exact solver fits $N^{2.6}$: **holding accuracy fixed makes
+bundling grow about as fast as solving exactly.** The two curves are converging, and
 past some dimension the exact route simply wins. That is the clearest statement
 available of where this method should not be used — and it is the control system
 behaving exactly as a control should.
