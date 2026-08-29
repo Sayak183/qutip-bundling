@@ -79,6 +79,7 @@ def native_full_reference(H, rho0, c_ops):
     return np.real(res.expect[0])
 
 M_REP = 8               # representative fixed bundle size (matches other figures)
+TIMING_REPEATS = 1      # wall-clock samples per timed solve; see --timing-repeats
 N_ACC = 16              # SLB runs averaged to measure accuracy at each size
 M_SWEEP_GRID = [1, 2, 4, 8, 16, 32, 64, 128]  # ascending M grid for the sweep
 SWEEP_STOP_RMSE = 0.0025  # stop the sweep once the ENSEMBLE RMSE falls below
@@ -221,9 +222,18 @@ def run(name, build, sizes, full_budget=FULL_TIME_BUDGET,
         # since mesolve is no longer available to compare against).
         if dim <= native_ref_max:
             try:
+                # Timed REPEATS times when asked. The solve is
+                # deterministic, so only the first result is kept; the rest
+                # exist to measure how much the wall-clock itself wanders.
+                t_native_reps = []
                 t0 = time.perf_counter()
                 nat = native_full_reference(H, rho0, c_ops)
-                t_native = time.perf_counter() - t0
+                t_native_reps.append(time.perf_counter() - t0)
+                for _ in range(TIMING_REPEATS - 1):
+                    t0 = time.perf_counter()
+                    native_full_reference(H, rho0, c_ops)
+                    t_native_reps.append(time.perf_counter() - t0)
+                t_native = float(np.median(t_native_reps))
                 if reference is not None:
                     dev = float(np.max(np.abs(nat - reference)))
                     val_dims.append(dim); val_devs.append(dev)
@@ -301,11 +311,14 @@ def run(name, build, sizes, full_budget=FULL_TIME_BUDGET,
         # inflate exactly the costs the slope fit leans on.
         m_rep = min(M_REP, n_l)
         try:
-            t0 = time.perf_counter()
-            mesolve_ensemble(H, rho0, TLIST, c_ops, M=m_rep, e_ops=[H],
-                             n_realizations=1, rng=RNG_TIMING, backend="native",
-                             substeps=SUBSTEPS)
-            t_slb_fixed = time.perf_counter() - t0
+            t_slb_reps = []
+            for _ in range(TIMING_REPEATS):
+                t0 = time.perf_counter()
+                mesolve_ensemble(H, rho0, TLIST, c_ops, M=m_rep, e_ops=[H],
+                                 n_realizations=1, rng=RNG_TIMING,
+                                 backend="native", substeps=SUBSTEPS)
+                t_slb_reps.append(time.perf_counter() - t0)
+            t_slb_fixed = float(np.median(t_slb_reps))
         except SolverInstabilityError as err:
             stiff_dim = dim
             print(f"  dim={dim:4d}  RK4 unstable at {SUBSTEPS} substeps -- "
@@ -322,6 +335,7 @@ def run(name, build, sizes, full_budget=FULL_TIME_BUDGET,
                 "slb_unstable_at_substeps": SUBSTEPS,
                 "reference": reference, "reference_method": ref_method,
                 "t_native_ref": t_native, "native_ref_selfcheck": selfcheck,
+                "t_native_ref_repeats": t_native_reps,
                 "m_sweep": None,
             })
             break
@@ -337,8 +351,10 @@ def run(name, build, sizes, full_budget=FULL_TIME_BUDGET,
         points.append({
             "size": s, "dim": dim, "n_l": n_l, "t_davies": t_davies,
             "t_full": t_full, "t_slb_fixed": t_slb_fixed,
+            "t_slb_fixed_repeats": t_slb_reps,
             "reference": reference, "reference_method": ref_method,
             "t_native_ref": t_native, "native_ref_selfcheck": selfcheck,
+            "t_native_ref_repeats": t_native_reps,
             "m_sweep": m_sweep,
         })
 
@@ -359,7 +375,7 @@ def run(name, build, sizes, full_budget=FULL_TIME_BUDGET,
 
 
 def main():
-    global NATIVE_REF_SUBSTEPS, SUBSTEPS, MAX_FULL_DIM
+    global NATIVE_REF_SUBSTEPS, SUBSTEPS, MAX_FULL_DIM, TIMING_REPEATS
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[1])
     add_safety_arguments(ap, SYSTEMS)
     add_max_full_dim_argument(ap, MAX_FULL_DIM)
@@ -388,6 +404,16 @@ def main():
                          "cost by the same factor, so the fitted slope is "
                          "unchanged and only the intercept moves. The "
                          "value used is recorded in the data metadata.")
+    ap.add_argument("--timing-repeats", type=int, default=TIMING_REPEATS,
+                    help="wall-clock samples per timed solve (default 1). "
+                         "The published cost numbers rest on ONE sample each, "
+                         "and a controlled re-measurement of the mixed chain at "
+                         "dim 64 came back 5.8x faster on the reference and "
+                         "3.3x on the SLB solve, moving their ratio by 1.8x. "
+                         "The median goes into t_native_ref and t_slb_fixed; "
+                         "every sample is kept in the *_repeats fields. Costs "
+                         "N times the reference solve, which dominates the "
+                         "run.")
     ap.add_argument("--full-budget", type=float, default=FULL_TIME_BUDGET,
                     help="raise the exact-solver time budget (seconds) to push "
                          "the reference wall out one size, e.g. 2400 buys the "
@@ -419,6 +445,10 @@ def main():
         print(f"[config] exact-mesolve dimension cap raised to "
               f"{MAX_FULL_DIM} (one solve at this size cannot be "
               f"interrupted by --full-budget once started)")
+    if args.timing_repeats != TIMING_REPEATS:
+        TIMING_REPEATS = args.timing_repeats
+        print(f"[config] timing repeats set to {TIMING_REPEATS}; the median "
+              f"is published and every sample is kept beside it")
     if args.slb_substeps != SUBSTEPS:
         SUBSTEPS = args.slb_substeps
         print(f"[config] SLB substeps set to {SUBSTEPS} (uniform across "
