@@ -963,8 +963,21 @@ extra repeats of one method but not the other).
 The full `mesolve` reference and `mcsolve` both use QuTiP's **adaptive**
 integrator at stated tolerances (`atol=1e-8`, `rtol=1e-6`): they choose their
 own step sizes to hit an error target, so there is no single step size to quote.
-SLB's native backend uses **fixed-step RK4** with a small number of substeps per
-output step (4 here; the result is already converged by 2).
+SLB's native backend uses **fixed-step RK4** with a fixed number of substeps per
+output step. That number is 4 on both chains everywhere, and on the oscillator
+it is whatever stability requires, which grows with the Fock cutoff:
+
+| section | chains | oscillator |
+|---|---|---|
+| Result 1 | 4 | 4 to dim 32, 16 at dim 64, 32 at dim 128 |
+| Result 2 | 4 | **32 uniformly**, so the cost slopes stay comparable |
+| Result 3 | 4 | 16 to dim 64, 32 at dim 128 |
+| Result 4 | 4 | 4 to dim 32, 16 at dim 64, 32 at dim 128 |
+
+Every file records its own count in `meta.substeps`. On the chains 4 is already
+converged by 2; on the oscillator the counts above are the stable ones, and §6's
+substep-convergence check shows the integration error sitting orders of
+magnitude below the bundling error at those settings.
 
 This is a deliberate, disclosed asymmetry, not a hidden advantage:
 
@@ -1923,7 +1936,25 @@ operator count.** That is what a control is for.
 | system | SLB | `mcsolve` |
 |---|---|---|
 | B mixed chain | `N^1.62` | `N^2.60` |
-| C oscillator | `N^1.69` | `N^2.83` |
+| C oscillator | `N^1.69`* | `N^2.83` |
+
+\* **The oscillator's SLB exponent is not a uniform-substep number, and Result 2
+is the section that explains why that matters.** This sweep raises substeps with
+dimension for stability — 4 up to dim 32, 16 at dim 64, 32 at dim 128 — so the
+larger sizes are integrated 8× more finely than the smaller ones. A fixed-step
+integrator's cost is linear in that count, so the rise contributes roughly
+$+0.75$ to the fitted exponent on its own: at uniform substeps this curve would
+sit nearer $N^{0.94}$. Result 2 holds the oscillator at 32 substeps everywhere
+precisely to avoid this, and its slopes and these are therefore not
+interchangeable.
+
+Note the direction. Integrating the large sizes more finely makes SLB look
+*more* expensive there, so the speedups in the table above — 664× at the largest
+dimension — are **understated**, not flattered. What is overstated is the
+exponent, and the exponent is what gets compared against `mcsolve`'s $N^{2.83}$.
+The honest reading of the gap on this system is that it is real but narrower
+than one power of $N$. The chains are unaffected: both run at 4 substeps at
+every dimension.
 
 About one power of $N$ apart in both cases, which is why the gap widens with
 size: 39x to 322x on System B across dims 16 to 64, and 64x to 664x on System C.
