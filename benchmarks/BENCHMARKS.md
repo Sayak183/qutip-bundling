@@ -680,16 +680,37 @@ That is precisely why three systems are needed and two would not do.
 
 It is tempting to think locality works because sampling noise "cancels out." It doesn't. 
 
-Write out one bundled dissipator $R = M^{-1/2}\sum_\alpha r_\alpha c_\alpha$. The
-$r_\alpha$ are unit-modulus **complex phases** $e^{i\theta}$ by default —
+Write out the bundles $R_m = M^{-1/2}\sum_\alpha r_{m\alpha} c_\alpha$, where the
+$r_{m\alpha}$ are unit-modulus **complex phases** $e^{i\theta}$ by default —
 $\pm1$ signs are a separate option in `random_phases` and are not what these
-runs use — so the cross term below carries $r_\alpha r_\beta^\ast$:
+runs use. Summing the jump term over all $M$ bundles, and using
+$\sum_m r_{m\alpha} r_{m\beta}^\ast = M\,\delta_{\alpha\beta}$ in expectation:
 
 $$
-R \rho R^\dagger = \frac{1}{M}\sum_{\alpha}c_\alpha \rho c_\alpha^\dagger + \frac{1}{M}\sum_{\alpha\neq\beta} r_\alpha r_\beta \, c_\alpha \rho c_\beta^\dagger
+\sum_m R_m \rho R_m^\dagger
+= \sum_{\alpha} c_\alpha \rho c_\alpha^\dagger
++ \frac{1}{M}\sum_{m}\sum_{\alpha\neq\beta} r_{m\alpha} r_{m\beta}^\ast \,
+  c_\alpha \rho c_\beta^\dagger
 $$
 
-The first sum is the exact dissipator. **The second sum is the entire error.** Its average is zero, but at finite $M$ it survives. 
+The first sum is the exact jump term; it is recovered only after summing all $M$
+bundles, not from any single one. The second is what finite $M$ leaves behind:
+its expectation is zero, and it survives as a fluctuation of relative size
+$1/\sqrt{M}$ per draw.
+
+**That is not the whole error.** Each $c_\alpha$ also enters the anticommutator,
+so the generator's full discrepancy carries the matching cross terms there too:
+
+$$
+\frac{1}{M}\sum_{m}\sum_{\alpha\neq\beta} r_{m\alpha} r_{m\beta}^\ast
+\Big( c_\alpha \rho c_\beta^\dagger
+- \tfrac12 \{ c_\beta^\dagger c_\alpha, \rho \} \Big)
+$$
+
+Both halves vanish for the same reason and are governed by the same object —
+which pairs $(\alpha,\beta)$ have $c_\alpha \rho c_\beta^\dagger \ne 0$ — so
+counting the jump-term pairs is a **proxy** for the error, and the right one to
+count. It is not a complete evaluation of it. 
 
 The question isn't "how local are the operators," but **how many cross-terms survive to create noise?**
 
@@ -707,7 +728,7 @@ Yes, but it is still not a universal law.
 - **It fails across systems:** It massively under-predicts the gap between the oscillator and the chains.
 - **It gets A vs B backwards:** At dimension 64, System A has a much smaller ratio than B, but larger error. 
 
-The cross-term ratio is the exact algebraic origin of the error, but it still cannot quantitatively predict error across different systems. **Open Question 4 stays open.** 
+The cross-term ratio names where the error comes from, but it counts only the jump-term pairs — not the anticommutator cross terms that accompany them — and it still cannot quantitatively predict error across different systems. **Open Question 4 stays open.** 
 
 **A note on the rate.** The sweeps consistently confirm that the empirical error falls as $1/M$, not $1/\sqrt{M}$: doubling $M$ halves it, measured at 1.87x-2.04x per doubling across every system and dimension.
 
