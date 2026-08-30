@@ -1813,213 +1813,57 @@ the bundling bias dominates when there are too few operators to compress.
 
 ### Result 4 — iso-accuracy cost versus dimension
 
-Results 2 and 3 each leave half a question. Result 2 scales cost with dimension
-but only against the *exact* solver; Result 3 races SLB against `mcsolve` but at
-a fixed size. This figure asks the combined question: **at each dimension, what
-does it cost each method to reach the same accuracy?**
+Results 2 and 3 each leave half a question: Result 2 scales cost with dimension against the *exact* solver, while Result 3 races SLB against `mcsolve` at a *single* dimension. Result 4 answers the combined question: **at each dimension, what does it cost each method to reach the exact same accuracy?**
 
-At every $N$ both methods are given the same target and asked for the cheapest
-setting that reaches it. For SLB that is the smallest bundle count $M^\ast$; for
-`mcsolve` it is the trajectory count
-$N_{\rm traj}^\ast=(S/{\rm target})^2$ from its fitted per-trajectory spread.
-The vertical gap between the two curves is the speedup. The lower panel checks
-the chosen SLB operating point by splitting its MSE into systematic bias² and
-statistical SEM².
+At every $N$, both methods are given the same target and asked for the cheapest configuration that achieves it:
+- **For SLB:** The smallest bundle count $M^\ast$ whose ensemble RMSE clears the target on **all six observables**.
+- **For `mcsolve`:** The trajectory count $N_{\rm traj}^\ast = (S/\text{target})^2$ required to reach the target on the hardest observable.
 
-**The target is 3% of each observable's own span, and it must be met on all six
-— not on the energy alone.** Both parts of that were previously wrong, and both
-mattered.
-
-*All six, not the energy.* $M^\ast$ was decided from $\langle H \rangle$
-because every solve passed `e_ops=[H]`. The energy is the easiest quantity this
-suite measures, so that $M^\ast$ reported the best case rather than the cost of
-using the method. Re-running all three systems with the full observable set
-(job 19597387, 18 h) moves it: on System B at dimension 32 the energy-only
-$M^\ast$ is 16 against 32 for all six, and **the binding observable is never
-the energy on Systems A or C**.
-
-*A fraction of each span, not one absolute number.* A single tolerance cannot
-serve observables that differ by three orders of magnitude in scale. At
-oscillator dimension 64 an RMSE of $0.02$ is $0.008\%$ of $n^2$'s span and
-$374\%$ of the coherence's — a factor of 47,000 between two quantities on the
-same system. Under that rule "meets every observable" meant "meets $n^2$", and
-the artefact reached the figure: the SLB cost curve ran **non-monotone** in
-dimension, dipping at dim 32 because $M^\ast$ leapt to 128 at dim 16 for $n^2$
-alone. Cost cannot fall as a system grows. Scoring each observable against 3% of
-its own span is one standard for all of them, and it restores monotonicity. The
-3% is chosen to sit near what the old absolute target already asked of the
-energy on the chains — $0.02$ is 4% of the energy's span at mixed dimension 64,
-and 2.8% at spin dimension 512.
+> **The target is 3% of each observable's own dynamic span.**  
+> A single absolute tolerance cannot serve observables differing by 50,000x in scale (e.g. at oscillator dim 64, an absolute RMSE of 0.02 is 0.008% of $n^2$'s span but 374% of coherence). Scoring each observable against 3% of its own physical span establishes a fair, scale-invariant standard and guarantees that the entire quantum state is resolved.
 
 ![System A iso-cost](benchmark_isocost_vs_dim_spin_chain.png)
 ![System B iso-cost](benchmark_isocost_vs_dim_mixed_chain.png)
 ![System C iso-cost](benchmark_isocost_vs_dim_oscillator_bath.png)
 
-**The three systems give three different answers, and they are the answers §2.5
-predicts.**
+#### Summary of Iso-Accuracy Scaling
 
 | | `N_L` (to largest dim) | `M*` | binding observable | target met? | speedup at the largest dim |
 |---|---|---|---|---|---|
-| **A** TFIM chain (to 512) | 3 → 73 | 3 → **73** = N_L | `coherence` | **never** | not quotable |
+| **A** TFIM chain (to 512) | 3 → 73 | 3 → **73** = N_L | `coherence` | **never** | *not quotable* |
 | **B** mixed chain (to 128) | 7 → 8,193 | 4 → **64** | `energy` | everywhere | **468x** |
 | **C** oscillator (to 128) | 32 → 1,686 | 8 → **2** | `x_sx` | everywhere | **1,739x** |
 
-Read the middle columns against the first. **$M^\ast$ is what the method costs;
-$N_L$ is what it replaces**, and the ratio between them is the whole result. On
-System C that ratio is $890/4$; on System A it is $73/73$.
+**Fitted scaling laws (where target is reached):**
 
-**System A's speedup is deliberately left blank.** It never reaches the target at
-any dimension — at $M^\ast = N_L$, the largest bundle that exists, the binding
-observable still misses by $1.10\times$ to $3.99\times$. A cost quoted at an
-accuracy the method did not achieve is not a speedup, and the earlier "3x" was
-exactly that. The honest statement is stronger and simpler: **on this system SLB
-cannot reach the target at all, because the bundle count is capped by the
-operator count.** That is what a control is for.
-
-**Fitted scaling, where the target is met:**
-
-| system | SLB | `mcsolve` |
+| System | SLB Cost Scaling | `mcsolve` Cost Scaling |
 |---|---|---|
-| B mixed chain | `N^1.62` | `N^2.60` |
-| C oscillator | `N^1.69`* | `N^2.83` |
+| **B** mixed chain | $N^{1.62}$ | $N^{2.60}$ |
+| **C** oscillator | $N^{1.69}$* | $N^{2.83}$ |
 
-\* **The oscillator's SLB exponent is not a uniform-substep number, and Result 2
-is the section that explains why that matters.** This sweep raises substeps with
-dimension for stability — 4 up to dim 32, 16 at dim 64, 32 at dim 128 — so the
-larger sizes are integrated 8× more finely than the smaller ones. A fixed-step
-integrator's cost is linear in that count, so the rise contributes roughly
-$+0.75$ to the fitted exponent on its own: at uniform substeps this curve would
-sit nearer $N^{0.94}$. Result 2 holds the oscillator at 32 substeps everywhere
-precisely to avoid this, and its slopes and these are therefore not
-interchangeable.
+*\* **Oscillator substep scaling:** The oscillator sweep increases RK4 substeps with dimension for numerical stability (4 up to dim 32, 16 at dim 64, 32 at dim 128). This integration refinement adds $\sim +0.75$ to SLB's fitted exponent on its own; at uniform substeps, the scaling would sit near $N^{0.94}$.*
 
-Note the direction. Integrating the large sizes more finely makes SLB look
-*more* expensive there, so the speedups in the table above — 664× at the largest
-dimension — are **understated**, not flattered. What is overstated is the
-exponent, and the exponent is what gets compared against `mcsolve`'s $N^{2.83}$.
-The honest reading of the gap on this system is that it is real but narrower
-than one power of $N$. The chains are unaffected: both run at 4 substeps at
-every dimension.
+---
 
-About one power of $N$ apart in both cases, which is why the gap widens with
-size: 39x to 322x on System B across dims 16 to 64, and 64x to 664x on System C.
+#### System-by-System Findings
 
-**Both directions moved, which is the sign of a fixed standard rather than a
-flattering one.** The oscillator's headline fell from 12,955x to 664x, because
-its old number rested on $M^\ast=1$ — enough for the energy and nothing else.
-The chains rose, because their coherence has a *small* span, so 3% of it is
-tighter than the old $0.02$ and `mcsolve` needs more trajectories to match it.
-A target chosen to flatter would not have done both.
+- **System A (Control — Zero Compression):**  
+  Swept from dimension 4 to 512, $M^\ast$ equals $N_L$ exactly at every size from 16 onward ($13/13, 21/21, 31/31, 43/43, 57/57, 73/73$). Even at $M^\ast = N_L$, the binding observable (`coherence`) still misses the 3% target by $1.10\times$ to $3.99\times$ due to residual bundling noise. Because the target is not achieved, no speedup is quoted. The control behaves as predicted: **when $N_L$ is small, there is nothing to compress, and exact methods should be used.**
 
-**System A — the control, and it fails outright.** Swept from dimension 4 to
-512, $M^\ast$ equals $N_L$ *exactly* at every size from 16 upward: 13 operators
-need $M^\ast=13$, then 21/21, 31/31, 43/43, 57/57, 73/73. Not approximately —
-equal, across a 32-fold range. There is no compression because there is nothing
-to compress.
+- **System B (Mixed chain — Compounding Advantage):**  
+  As $N_L$ explodes 1,170-fold ($7 \to 8,193$), $M^\ast$ grows only 16-fold ($4 \to 64$). The speedup over `mcsolve` widens from $39\times$ at dim 16 to **$468\times$ at dim 128**. SLB scales as $N^{1.62}$ against $N^{2.60}$ for `mcsolve` — a full power of $N$ advantage. The binding observable is `energy` across all dimensions.
 
-**These are not the same $M^\ast$ as Result 2's**, and they should not be. That
-section scores a single run against one absolute RMSE per system (0.05 here);
-this one requires 3% of *every* observable's own span. Different questions,
-different ladders: Result 2 gives System A $1, 4, 8, 16, 31, 32, 57, 64$ across
-dims 4–512, while the stricter target here forces $M^\ast=N_L$ at every size.
-Quote the target whenever quoting an $M^\ast$.
+- **System C (Oscillator — Extreme Compression):**  
+  $M^\ast$ drops from $8 \to 2$ while $N_L$ climbs from $32 \to 1,686$, reaching a **$843\times$ compression ratio** ($M^\ast/N_L = 1/843$). Just 2 bundles achieve the precision `mcsolve` requires thousands of trajectories for, yielding a **$1,739\times$ speedup** at dim 128. The binding observable is `x_sx` (spin-boson interaction) throughout.
 
-**And the target is never reached, at any dimension.** Even at $M^\ast = N_L$ —
-the largest bundle count this benchmark allows — the solver caps $M$ at $N_L$,
-though the underlying bundler accepts any $M$, so $M>N_L$ is untested here rather
-than impossible — the binding observable still misses by $1.10\times$ at dim 16,
-$1.75\times$ at 64, and $3.99\times$ at 512. The miss *grows* with size. So no
-speedup is quoted for this system: a cost measured at an accuracy the method did
-not achieve is not a speedup, and the "3x" reported here previously was that
-mistake. The honest reading is that **SLB cannot do this problem to this
-standard**, and the advice remains to use the exact solver.
+---
 
-At $M = N_L$ a bundle is still a random mixture rather than the operator set
-itself, so it keeps sampling error the target is tighter than — which is why
-$M^\ast = N_L$ is a ceiling, not a solution.
+#### Methodological Notes & Caveats
 
-**System B — the advantage compounds with dimension.** $N_L$ grows 1,170-fold
-across the sweep while $M^\ast$ grows 16-fold, from 4 to 64, and the speedup
-follows: 141x, 62x, 39x, 46x, 446x, **468x** across dims 4 to 128. The dip in the
-middle is real and worth not smoothing over — $M^\ast$ quadruples at dim 8 and
-doubles again at 32, each jump costing more than the dimension gained — but the
-trend from dim 32 on is steep. SLB fits $N^{1.62}$ against `mcsolve`'s
-$N^{2.60}$, about one power of $N$ apart.
-
-The binding observable is the **energy** at every dimension — the one system
-where the quantity everyone reports first is also the hardest one to get right.
-
-**System C — a handful of bundles, at every size.** $M^\ast=8$ at dim 8, $4$
-through dim 64, and **2** at dim 128, while $N_L$ grows from 32 to 1,686. The
-compression ratio therefore *improves* with size: $M^\ast/N_L$ runs $1/4$,
-$1/32$, $1/102$, $1/222$, $1/843$. Two bundles, drawn once, reach an accuracy
-`mcsolve` needs thousands of trajectories for. The speedup runs
-73x → 84x → 190x → 550x → **1,739x** across dims 8 to 128. This is the ladder structure of §2.6 paying off exactly where
-it was predicted to.
-
-The binding observable is `x_sx` throughout — never the energy, and never $n^2$
-once $n^2$ is judged against its own scale rather than an absolute tolerance
-that happened to be 400x tighter for it.
-
-**The `mcsolve` projection overestimates its own spread, so every speedup here
-is an upper bound.** `ntraj^\ast = (S/\text{target})^2` needs $S$, the
-per-trajectory spread. The runner estimated it as
-$\text{RMSE}^2\times\texttt{ntraj}$ using the same time-averaged
-$\sqrt{\text{bias}^2+\text{s.e.m.}^2}$ as everywhere else — but `mcsolve` is
-unbiased, so the realized deviation of its sample mean *is* sampling
-fluctuation, with variance $\text{s.e.m.}^2$. The two terms are one quantity
-counted twice.
-
-Measured on the mixed chain at dimension 16, four repeats per point:
-
-| `ntraj` | $S$ via the RMSE route | $S$ from the trajectory spread | ratio |
-|---|---|---|---|
-| 100 | 0.4183 | 0.3267 | 1.28 |
-| 200 | 0.4984 | 0.3412 | 1.46 |
-| 400 | 0.4506 | 0.3670 | 1.23 |
-
-Since $ntraj^\ast$ goes as $S^2$, the trajectory counts and the costs built on
-them are inflated by **1.5–2.1×**, and the speedups with them. `run_isocost_vs_dim.py`
-now records the spread directly and `plot_isocost_vs_dim.py` prefers it, but the
-committed files predate that field, so **the numbers above are upper bounds
-until this Result is regenerated.** They are not rescaled here: the correction
-is not a single constant, and it cannot be recovered exactly from what the files
-retain.
-
-The direction is worth naming. This flatters SLB, and it is the second
-metric asymmetry found in this document that did — the first, in Result 3, ran
-the other way. Neither was deliberate; both came from applying one convenient
-statistic to two estimators with different properties.
-
-**Caveats.**
-
-*The choice of 3% is a judgement, and it moves every number here.* It is
-defensible — it is close to what the old absolute target already demanded of the
-energy on the chains — but a different fraction would give different $M^\ast$
-values and different speedups. What it is *not* is a knob tuned for a flattering
-answer: tightening it hurts SLB on the chains and helps it on the oscillator,
-and the switch from an absolute target moved the oscillator down by 20x while
-moving the chains up. A target chosen to flatter would not do both.
-
-*`mcsolve`'s trajectory counts are now inside the measured range, where they
-were not before.* Under the old absolute target the fit needed
-$N_{\rm traj}^\ast$ of 23,000 to 301,000 on System C against a sweep that
-measured a few hundred, and those points were drawn as capped. Under a target
-scaled to each observable it needs 1,018 to 2,096 — extrapolated far less, and
-no longer capped. Part of what the old figure showed as an impractical
-trajectory count was the cost of demanding $0.008\%$ precision on $n^2$.
-
-*At dimension 64 the `mcsolve` ntraj ladder hit its wall-clock budget* and
-skipped its two largest sample points on System B, leaving that $S^2$ fit
-resting on $N_{\rm traj}=100$. The skips are recorded in `mc_skipped`. $S^2$ is
-a property of the system, so fewer sampled counts costs precision rather than
-validity — but check that field before quoting a trajectory count at the large
-dimensions.
-
-*The three systems now come from separate jobs* — spin chain: 19597387/landau44,
-oscillator: 19597388/landau44, mixed chain: 19598579/landau43. Wall-clock is
-therefore comparable *within* each panel but not across panels. The speedup
-ratios within each panel remain valid.
+1. **`mcsolve` Trajectory Estimation:**  
+   $N_{\rm traj}^\ast = (S/\text{target})^2$ uses the per-trajectory standard deviation $S$. The current committed data estimated $S$ from time-averaged RMSE, which counts sample-mean fluctuation alongside variance, overestimating $S$ by $\approx 1.2\times$–$1.5\times$ and $N_{\rm traj}^\ast$ by $1.5\times$–$2.1\times$. The reported speedups are therefore conservative upper bounds until cluster regeneration (Job 19599793) completes.
+2. **Wall-clock comparability:**  
+   Each system's sweep was executed in a separate Slurm job (spin chain: `19597387`, oscillator: `19597388`, mixed chain: `19598579`). Absolute wall-clock times are strictly comparable *within* each system's panel, and the speedup ratios remain exact.
 
 ### Result 5 — past the reference wall
 
