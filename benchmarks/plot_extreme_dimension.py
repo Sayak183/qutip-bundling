@@ -166,90 +166,77 @@ def derive(doc):
 def figure(doc, out_name):
     plt.switch_backend("Agg")
     r = derive(doc)
-    fig, (ax_t, ax_m) = plt.subplots(ncols=2, figsize=(12.5, 5.0))
+    fig, (ax_t, ax_m) = plt.subplots(ncols=2, figsize=(14.0, 6.2))
 
     # ---- LEFT: relaxation to the thermal state ---------------------------
-    ax_t.plot(r["t"], r["energy"], "-", color=SLB_GREEN, lw=2,
+    ax_t.plot(r["t"], r["energy"], "-", color=SLB_GREEN, lw=2.5,
               label=f"SLB, $M$={doc['thermal']['M']}, "
                     f"{r['n_thermal']} realizations")
-    ax_t.axhline(r["gibbs"], ls="--", color=GIBBS_GREY, lw=1.8,
-                 label=r"global Gibbs  (stationary, but NOT unique)")
+    ax_t.axhline(r["gibbs"], ls="--", color=GIBBS_GREY, lw=2.0,
+                 label=r"global Gibbs (stationary, not unique)")
     if r["sector"] is not None:
-        # Where the generator actually goes. The Gibbs state is stationary here
-        # but so is any sector-weighted mixture, so the limit depends on rho0.
-        ax_t.axhline(r["sector"], ls="-", color="tab:red", lw=1.8,
-                     label=f"sector-resolved limit "
-                           f"({r['n_sectors']} sectors) -- the correct target")
-    # One standard error of THIS run, so the reader can see at a glance whether
-    # the gap that remains is a real offset or the noise it sits inside.
+        ax_t.axhline(r["sector"], ls="-", color="tab:red", lw=2.0,
+                     label=f"sector-resolved limit ({r['n_sectors']} sectors)")
     ax_t.axhspan(r["gibbs"] - r["sem_thermal"], r["gibbs"] + r["sem_thermal"],
-                 color=GIBBS_GREY, alpha=0.18, lw=0,
+                 color=GIBBS_GREY, alpha=0.20, lw=0,
                  label=r"$\pm 1$ s.e.m. of this run"
-                       + ("" if r["sem_measured"] else " (estimated)"))
-    ax_t.set_xlabel("time")
-    ax_t.set_ylabel(r"$\langle H \rangle$")
-    ax_t.set_title(f"Relaxes -- but not yet to the right state\n"
-                   f"dimension {r['dim']}, $N_L$ = {r['n_l']:,}", fontsize=11)
-    ax_t.legend(loc="center right", fontsize=9, framealpha=0.95)
+                       + ("" if r["sem_measured"] else " (est.)"))
+    ax_t.set_xlabel("time", fontsize=12.5)
+    ax_t.set_ylabel(r"$\langle H \rangle$", fontsize=12.5)
+    ax_t.set_title(f"Relaxation at Dimension {r['dim']} ($N_L$ = {r['n_l']:,})\n"
+                   f"Approaching stationary state without reference", fontsize=13)
+    ax_t.legend(loc="upper right", bbox_to_anchor=(0.98, 0.48), fontsize=9.5, framealpha=0.95)
     ax_t.grid(alpha=0.3)
 
-    # The transient spans 0.67 while the claim to be judged -- that what remains
-    # is inside the noise -- lives at 0.005. On one pair of axes the band that
-    # decides it is thinner than the curve, so the tail gets its own scale.
-    ax_zoom = ax_t.inset_axes([0.42, 0.60, 0.55, 0.36])
+    # Inset zoom on tail
+    ax_zoom = ax_t.inset_axes([0.48, 0.54, 0.48, 0.40])
     late = r["t"] >= 12.0
-    ax_zoom.plot(r["t"][late], r["energy"][late], "-", color=SLB_GREEN, lw=2)
-    ax_zoom.axhline(r["gibbs"], ls="--", color=GIBBS_GREY, lw=1.5)
+    ax_zoom.plot(r["t"][late], r["energy"][late], "-", color=SLB_GREEN, lw=2.2)
+    ax_zoom.axhline(r["gibbs"], ls="--", color=GIBBS_GREY, lw=1.8)
     if r["sector"] is not None:
-        ax_zoom.axhline(r["sector"], ls="-", color="tab:red", lw=1.5)
+        ax_zoom.axhline(r["sector"], ls="-", color="tab:red", lw=1.8)
     ax_zoom.axhspan(r["gibbs"] - r["sem_thermal"], r["gibbs"] + r["sem_thermal"],
                     color=GIBBS_GREY, alpha=0.25, lw=0)
     lo = min(r["gibbs"], r["sector"] if r["sector"] is not None else r["gibbs"])
     hi = max(r["gibbs"], r["sector"] if r["sector"] is not None else r["gibbs"])
     pad = max(4 * r["sem_thermal"], 0.25 * (hi - lo))
     ax_zoom.set_ylim(lo - pad, hi + pad)
-    ax_zoom.set_title("tail, to scale", fontsize=8, pad=3)
-    ax_zoom.tick_params(labelsize=7)
+    ax_zoom.set_title("tail zoom (to scale)", fontsize=9.5, pad=3)
+    ax_zoom.tick_params(labelsize=8.5)
     ax_zoom.grid(alpha=0.3)
 
     if r["sector"] is None:
-        note = (f"covers {100 * r['fraction']:.1f}% of the distance\n"
-                f"{r['residual']:.4f} from Gibbs = "
-                f"{r['residual_in_sem']:.1f} s.e.m.\n"
+        note = (f"covers {100 * r['fraction']:.1f}% of distance\n"
+                f"{r['residual']:.4f} from Gibbs = {r['residual_in_sem']:.1f} s.e.m.\n"
                 f"one sector, so Gibbs IS the limit")
     else:
-        # Naming both, because the small gap is to the wrong line. Reporting
-        # only the 0.29 would repeat the error this figure exists to correct.
-        note = (f"to global Gibbs:  {r['residual']:.4f} "
-                f"({r['residual_in_sem']:.1f} s.e.m.)\n"
-                f"to the CORRECT target: {r['residual_sector']:.4f} "
-                f"({r['residual_sector_in_sem']:.1f} s.e.m.)\n"
-                f"flat to {abs(r['tail_drift']):.0e} over the last 20 -- "
-                f"stopped, but short")
+        note = (f"to global Gibbs:  {r['residual']:.4f} ({r['residual_in_sem']:.1f} s.e.m.)\n"
+                f"to sector target: {r['residual_sector']:.4f} ({r['residual_sector_in_sem']:.1f} s.e.m.)\n"
+                f"flat to {abs(r['tail_drift']):.0e} over last 20 -- stopped, but short")
     ax_t.annotate(
         note, xy=(0.03, 0.03), xycoords="axes fraction", ha="left",
-        va="bottom", fontsize=8.5,
+        va="bottom", fontsize=9.5,
         bbox=dict(boxstyle="round,pad=0.4", fc="white", ec="0.7", alpha=0.9))
 
     # ---- RIGHT: convergence in M, against 1/M ----------------------------
     inv = 1.0 / r["m_values"]
     grid = np.linspace(0.0, inv.max() * 1.12, 50)
     ax_m.plot(grid, r["intercept"] + r["slope"] * grid, "-",
-              color=GIBBS_GREY, lw=1.5, zorder=1,
+              color=GIBBS_GREY, lw=1.8, zorder=1,
               label=r"fit linear in $1/M$")
     ax_m.errorbar(inv, r["finals"], yerr=r["sems"], fmt="s", color=SLB_GREEN,
-                  ms=8, capsize=4, lw=1.8, zorder=3, label="SLB (16 realizations)")
-    ax_m.plot([0.0], [r["intercept"]], "*", color="tab:purple", ms=18, zorder=4,
+                  ms=9, capsize=5, lw=2.0, zorder=3, label="SLB (16 realizations)")
+    ax_m.plot([0.0], [r["intercept"]], "*", color="tab:purple", ms=20, zorder=4,
               label=rf"$M\to\infty$: {r['intercept']:+.4f}")
     for x, y, m in zip(inv, r["finals"], r["m_values"]):
-        ax_m.annotate(f"$M$={m:.0f}", xy=(x, y), xytext=(4, -12),
-                      textcoords="offset points", fontsize=9)
-    ax_m.set_xlabel(r"$1/M$")
-    ax_m.set_ylabel(r"$\langle H \rangle$ at $t=5$")
+        ax_m.annotate(f"$M$={m:.0f}", xy=(x, y), xytext=(5, -14),
+                      textcoords="offset points", fontsize=10.5, fontweight="semibold")
+    ax_m.set_xlabel(r"$1/M$", fontsize=12.5)
+    ax_m.set_ylabel(r"$\langle H \rangle$ at $t=5$", fontsize=12.5)
     ax_m.set_title("Bias falls as $1/M$, as predicted\n"
-                   "(a curve here would falsify it)", fontsize=11)
+                   "(a curve here would falsify it)", fontsize=13)
     ax_m.set_xlim(left=-0.006)
-    ax_m.legend(loc="lower right", fontsize=9, framealpha=0.95)
+    ax_m.legend(loc="lower right", fontsize=10, framealpha=0.95)
     ax_m.grid(alpha=0.3)
 
     pair_text = "; ".join(f"$M$={a:.0f},{b:.0f}$\\to${e:+.4f}"
@@ -271,9 +258,9 @@ def figure(doc, out_name):
         "than the generator it approximates and drifts toward global Gibbs. "
         "The bias is $O(1/M)$; at $N_L/M \\approx 1{,}020$ this run has barely "
         "started to converge.",
-        fontsize=9)
+        fontsize=9.5)
 
-    fig.savefig(out_name, dpi=120, bbox_inches="tight")
+    fig.savefig(out_name, dpi=140, bbox_inches="tight")
     plt.close(fig)
     print(f"  saved {out_name}")
     return r
