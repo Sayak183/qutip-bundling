@@ -1990,7 +1990,7 @@ uncorrected estimator against the jackknife-2 one (same seeds at every $M$)
 separates the correction's two effects: it lowers the bias *level* everywhere,
 and — where the sampling floor is pushed low enough to see it — it **steepens
 its rate** from $M^{-1}$ toward the $M^{-2}$ that the leading-order cancellation
-the method predicts (Adhikari & Baer 2025; see `REFERENCES.md`). The three panels below, smallest to largest, show the
+the method predicts (Adhikari & Baer 2025; see `REFERENCES.md`). Energy $\langle H \rangle$ is plotted because its high signal-to-noise ratio resolves the steepened rate without drowning in sampling noise; because the cancellation occurs on $\rho_{\rm JK}$ itself, it applies to all observables. The three panels below, smallest to largest, show the
 whole story at once: the jackknife rate is resolved and clearly steepened only
 where enough points clear the noise floor.
 
