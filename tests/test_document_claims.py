@@ -209,6 +209,74 @@ def test_sizes_paragraph_matches_the_committed_files(doc):
             f"{system} spans {dims[0]}-{dims[-1]}, sentence says {bc_lo}-{bc_hi}")
 
 
+# --- 4. the two tables a cold reviewer caught, which nothing checked ---------
+
+SIZE_AT_DIM64 = {"spin_chain": 6, "mixed_chain": 6, "oscillator_bath": 32}
+
+
+def test_reference_table_quotes_the_sector_limit_not_global_gibbs(doc):
+    """The §5 profile table must not present global Gibbs as the t→∞ state.
+
+    It did, for weeks, in the section a reader meets first -- reintroducing the
+    exact error Result 5 exists to correct. Where the connectivity graph of
+    <e|X|e'> is disconnected the limit is Gibbs WITHIN the sector rho_0
+    occupies, and at dimension 64 that is -5.6490 for System A against a global
+    -5.5687. Recomputed here from plot_extreme_dimension's own helper, so the
+    table cannot drift back.
+    """
+    plot_extreme = pytest.importorskip("plot_extreme_dimension")
+    row = re.search(r"\|\s*\*\*Actual t→∞ limit\*\*[^|]*\|([^|]*)\|([^|]*)\|([^|]*)\|",
+                    doc)
+    assert row, ("the reference table has no 'Actual t→∞ limit' row -- if it was "
+                 "removed, global Gibbs is being presented as the limit again")
+
+    published = []
+    for cell in row.groups():
+        m = re.search(r"(-?[\d.]+)", cell.translate(MINUS))
+        assert m, f"cannot read a number from {cell!r}"
+        published.append(float(m.group(1)))
+
+    for value, system in zip(published, ("spin_chain", "mixed_chain",
+                                         "oscillator_bath")):
+        sector, n_sectors = plot_extreme.sector_resolved_energy(
+            {"meta": {"params": {"system": system,
+                                 "size": SIZE_AT_DIM64[system]}}})
+        if sector is None:                 # ergodic: the two targets coincide
+            assert n_sectors == 1
+            continue
+        assert value == pytest.approx(sector, abs=5e-4), (
+            f"{system}: table says {value}, sector-resolved limit is {sector:.4f}")
+
+
+def test_result4_summary_row_is_at_the_largest_dimension(doc):
+    """Result 4's summary said 'speedup at the largest dim' while quoting
+    dimension-64 values, for as long as the sweep had reached 128.
+
+    Checks the cheap, unambiguous half: the dimension each row claims, and the
+    N_L range, against the committed points. The speedups themselves depend on
+    an estimator convention this file deliberately does not re-implement.
+    """
+    rows = re.findall(r"\|\s*\*\*([ABC])\*\*[^|]*\(to (\d+)\)\s*\|"
+                      r"\s*([\d,]+)\s*→\s*([\d,]+)\s*\|", doc)
+    assert len(rows) == 3, f"expected three Result 4 rows, parsed {len(rows)}"
+
+    systems = {"A": "spin_chain", "B": "mixed_chain", "C": "oscillator_bath"}
+    for tag, dim_claimed, nl_lo, nl_hi in rows:
+        path = DATA / f"isocost_vs_dim_{systems[tag]}.json"
+        if not path.exists():
+            pytest.skip(f"{path.name} not committed")
+        points = json.loads(path.read_text(encoding="utf-8"))["points"]
+        dims = sorted(p["dim"] for p in points)
+        n_ls = [p["n_l"] for p in sorted(points, key=lambda q: q["dim"])]
+
+        assert int(dim_claimed) == dims[-1], (
+            f"System {tag}: row says 'to {dim_claimed}', data reaches {dims[-1]}")
+        assert int(nl_lo.replace(",", "")) == n_ls[0]
+        assert int(nl_hi.replace(",", "")) == n_ls[-1], (
+            f"System {tag}: row says N_L to {nl_hi}, data has {n_ls[-1]} "
+            f"at dim {dims[-1]}")
+
+
 def test_result5_sampling_row_matches_its_data(doc):
     """Parses section 3.3's row for Result 5. It claimed M = 16/32/64 with 128
     thermal realizations against a run of 8/16/32 with 16."""
