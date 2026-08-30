@@ -104,6 +104,34 @@ replaces the $N_L$ operators with $M$ random *bundled* combinations whose
 dissipator equals the full one in expectation, dropping the per-step cost to
 $O(M N^3)$.
 
+**What is a collapse operator? (Physical intuition)**
+In an isolated quantum system, the state evolves unitarily under the Schrödinger
+equation ($i\hbar \dot{\rho} = [H, \rho]$), keeping energy and quantum information
+strictly conserved. When the system is open to an external thermal bath or environment,
+energy and coherence leak out. The **collapse operators** (also called *jump
+operators* or *Lindblad operators*, denoted $c_\alpha$) represent the **microscopic
+channels of interaction** between the system and the environment:
+- **Spontaneous decay / emission:** Moving an excitation from the system to the
+  bath (e.g. lowering operator $a$ or $|g\rangle\langle e|$).
+- **Thermal excitation / absorption:** Gaining energy from thermal fluctuations in
+  the bath (e.g. raising operator $a^\dagger$).
+- **Pure dephasing:** Scrambling quantum phases without exchanging energy
+  (e.g. $\sigma^z$).
+
+In a microscopic thermal bath (the Davies/secular description used here), each
+collapse operator $c_\alpha = \sqrt{\gamma(\omega)} \, |e'\rangle\langle e|$
+represents a transition between energy eigenstates $|e\rangle \to |e'\rangle$ at
+Bohr transition frequency $\omega = E_{e'} - E_e$, weighted by the bath's response
+rate $\gamma(\omega)$. The total rate of change of the density matrix $\rho(t)$
+is governed by the **Lindblad dissipator**, which sums over all $N_L$ interaction
+channels:
+$$\mathcal{D}[\rho] = \sum_{\alpha=1}^{N_L} \left( c_\alpha \rho c_\alpha^\dagger - \frac{1}{2} \{ c_\alpha^\dagger c_\alpha, \rho \} \right)$$
+Because every single transition channel $c_\alpha$ must be applied as a matrix
+multiplication at every integration time step, a system with thousands of possible
+transitions ($N_L \sim 10^3\text{--}10^4$) becomes computationally intractable.
+**SLB replaces this massive sum of $N_L$ individual channels with $M \ll N_L$
+random bundled combinations.**
+
 That statement contains the two conditions that decide whether bundling is effective:
 
 1. **Cost.** Bundling can only pay when $M \ll N_L$. The operator count
