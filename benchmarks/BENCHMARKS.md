@@ -715,10 +715,7 @@ runs use. Summing the jump term over all $M$ bundles, and using
 $\sum_m r_{m\alpha} r_{m\beta}^\ast = M\,\delta_{\alpha\beta}$ in expectation:
 
 $$
-\sum_m R_m \rho R_m^\dagger
-= \sum_{\alpha} c_\alpha \rho c_\alpha^\dagger
-+ \frac{1}{M}\sum_{m}\sum_{\alpha\neq\beta} r_{m\alpha} r_{m\beta}^\ast \,
-  c_\alpha \rho c_\beta^\dagger
+\sum_m R_m \rho R_m^\dagger = \sum_{\alpha} c_\alpha \rho c_\alpha^\dagger + \frac{1}{M}\sum_{m}\sum_{\alpha\neq\beta} r_{m\alpha} r_{m\beta}^\ast \, c_\alpha \rho c_\beta^\dagger
 $$
 
 The first sum is the exact jump term; it is recovered only after summing all $M$
@@ -730,9 +727,7 @@ $1/\sqrt{M}$ per draw.
 so the generator's full discrepancy carries the matching cross terms there too:
 
 $$
-\frac{1}{M}\sum_{m}\sum_{\alpha\neq\beta} r_{m\alpha} r_{m\beta}^\ast
-\Big( c_\alpha \rho c_\beta^\dagger
-- \tfrac12 \{ c_\beta^\dagger c_\alpha, \rho \} \Big)
+\frac{1}{M}\sum_{m}\sum_{\alpha\neq\beta} r_{m\alpha} r_{m\beta}^\ast \left( c_\alpha \rho c_\beta^\dagger - \frac{1}{2} \{ c_\beta^\dagger c_\alpha, \rho \} \right)
 $$
 
 Both halves vanish for the same reason and are governed by the same object —
