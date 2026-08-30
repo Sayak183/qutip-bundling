@@ -1705,7 +1705,7 @@ dimension shown is cheaper by four to five orders of magnitude (chain, dim
 the sub-wall region where both methods are cheap, is the figure's claim. The required
 $M^\ast$ grows with $N$ but *sublinearly*: measured on **System B** across six
 dimensions (4 to 128, the last two reached via the native reference), the
-ladder runs $4\to16\to32\to32\to64\to64$ — fitted, $M^\ast\sim N^{0.74}$, and
+ladder runs $4\to16\to16\to32\to64\to64$ — fitted, $M^\ast\sim N^{0.77}$, and
 far short of the $M^\ast\propto N$ that would cost SLB a full power of $N$.
 This is what keeps the chain's iso-accuracy slope near $N^{2.7}$ rather than $N^4$, so this curve is steeper than fixed $M$:
 holding accuracy costs about one extra power of $N$. But it still sits far below
@@ -2106,6 +2106,13 @@ A target chosen to flatter would not have done both.
 need $M^\ast=13$, then 21/21, 31/31, 43/43, 57/57, 73/73. Not approximately —
 equal, across a 32-fold range. There is no compression because there is nothing
 to compress.
+
+**These are not the same $M^\ast$ as Result 2's**, and they should not be. That
+section scores a single run against one absolute RMSE per system (0.05 here);
+this one requires 3% of *every* observable's own span. Different questions,
+different ladders: Result 2 gives System A $1, 4, 8, 16, 31, 32, 57, 64$ across
+dims 4–512, while the stricter target here forces $M^\ast=N_L$ at every size.
+Quote the target whenever quoting an $M^\ast$.
 
 **And the target is never reached, at any dimension.** Even at $M^\ast = N_L$ —
 the largest bundle count this benchmark allows — the solver caps $M$ at $N_L$,

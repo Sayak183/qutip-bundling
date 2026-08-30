@@ -277,6 +277,39 @@ def test_result4_summary_row_is_at_the_largest_dimension(doc):
             f"at dim {dims[-1]}")
 
 
+def test_result2_bundle_ladder_matches_the_figure(doc):
+    """Result 2's M* ladder, reproduced the way the figure computes it.
+
+    This took three attempts to get right, and the reason is worth pinning. The
+    sweep entries carry an `rmse` field, but `plot_cost_scaling.get_metrics`
+    ignores it: it reads `mse` and `sem_sq` and rebuilds
+
+        bias^2 = mse - sem_sq,  var_single = sem_sq * N_ACC,
+        single rmse = sqrt(bias^2 + var_single)
+
+    with N_ACC from the file's own metadata. Reading `rmse` instead gives a
+    different ladder, which is how the published one came to say 32 at dim 16
+    where the figure says 16.
+    """
+    pcs = pytest.importorskip("plot_cost_scaling")
+
+    match = re.search(r"ladder runs \$((?:\d+\\to)+\d+)\$", doc)
+    assert match, "Result 2's ladder sentence has changed shape"
+    published = [int(v) for v in match.group(1).split(r"\to")]
+
+    path = DATA / "cost_scaling_mixed_chain.json"
+    if not path.exists():
+        pytest.skip("cost_scaling_mixed_chain.json not committed")
+    document = json.loads(path.read_text(encoding="utf-8"))
+    n_acc = document["meta"]["params"]["N_ACC"]
+    m_star = pcs.derive_iso(document["points"], 0.02, "single", "rmse", n_acc)[0]
+
+    measured = [int(v) for v in m_star if v == v]     # drop unreached (NaN)
+    assert measured == published, (
+        f"document quotes {published}, the figure's own derivation gives "
+        f"{measured}")
+
+
 def test_result5_sampling_row_matches_its_data(doc):
     """Parses section 3.3's row for Result 5. It claimed M = 16/32/64 with 128
     thermal realizations against a run of 8/16/32 with 16."""
