@@ -247,7 +247,7 @@ def figure(name, out, target, substeps_text, n_runs_list, est_type):
     ax_main.loglog(d, out["full_cost"], "o:", color="tab:gray", lw=1.5, ms=5, alpha=0.6,
                    label="exact mesolve (reference)")
     
-    greens = {4: "#a1d99b", 8: "#41ab5d", 16: "#006d2c", 32: "#00441b", 64: "#002a11"}
+    greens = {4: "#006d2c", 8: "#006d2c", 16: "#006d2c", 32: "#00441b", 64: "#002a11"}
     for n in n_runs_list:
         c = greens.get(n, "tab:green")
         if est_type == "single":
