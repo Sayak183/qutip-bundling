@@ -269,13 +269,13 @@ def figure(name, out, target, substeps_text, n_runs_list, est_type):
         # Name the observable M* satisfies LAST. Without it the reader sees a
         # larger M* than the energy-only figures reported, with no reason why.
         tag = f"M*={int(m)}" + (f"\n({bind})" if bind and bind != "energy" else "")
-        ax_main.annotate(tag, (x, y), xytext=(5, -12), textcoords="offset points",
-                         fontsize=10, color=greens.get(n_max, "tab:green"))
+        ax_main.annotate(tag, (x, y), xytext=(5, -15), textcoords="offset points",
+                         fontsize=10, color=greens.get(n_max, "#006d2c"), fontweight="semibold")
         
     for x, y, nt, ok in zip(d, out["mc_cost"], out["mc_star"], out["mc_ok"]):
         label = f"ntraj≈{int(round(nt)):,}" if (ok and np.isfinite(nt)) else f"ntraj≳{NTRAJ_EXTRAP_MAX:,}"
-        ax_main.annotate(label, (x, y), xytext=(5, 6), textcoords="offset points", 
-                         fontsize=11, color="tab:purple")
+        ax_main.annotate(label, (x, y), xytext=(5, 7), textcoords="offset points", 
+                         fontsize=10, color="tab:purple")
 
     ax_main.set_ylabel("wall-clock cost to reach target (s)", fontsize=13)
     ax_main.set_xlabel("Hilbert dimension N  (with Lindblad operator count $N_L$)",
@@ -288,25 +288,26 @@ def figure(name, out, target, substeps_text, n_runs_list, est_type):
     ax_main.set_title(
         f"{name}: cost to reach {TARGET_REL:.0%} of each observable's span"
         f" — SLB vs mcsolve", fontsize=14)
-    ax_main.legend(loc="upper left", fontsize=11)
+    ax_main.legend(loc="upper left", fontsize=11, framealpha=0.9)
     ax_main.grid(True, which="both", alpha=0.3)
 
 
     # --- BOTTOM PANEL: Error Budget Bar Chart ---
-    width = 0.8 / len(n_runs_list) if len(n_runs_list) > 0 else 0.4
+    width = 0.6 / len(n_runs_list) if len(n_runs_list) > 0 else 0.5
     offsets = np.linspace(-width*(len(n_runs_list)-1)/2, width*(len(n_runs_list)-1)/2, len(n_runs_list)) if len(n_runs_list) > 1 else [0]
     
-    color_bias = '#006400' 
+    color_bias = '#005a1e' 
     color_noise  = '#98FB98' 
     x_positions = np.arange(len(d))
     noise_str = "SEM²" if est_type == "ensemble" else "Std²"
 
+    all_bar_heights = []
     for idx, n in enumerate(n_runs_list):
         bias_sq_vals = out["slb"][n]["bias_sq"]
         noise_sq_vals  = out["slb"][n]["noise_sq"]
         
-        lbl_b = 'Systematic Bias²' if x_positions[0]==0 and idx==0 else ""
-        lbl_s = f'Statistical {noise_str}' if x_positions[0]==0 and idx==0 else ""
+        lbl_b = 'Systematic Bias²' if idx==0 else ""
+        lbl_s = f'Statistical {noise_str}' if idx==0 else ""
         
         ax_bar.bar(x_positions + offsets[idx], bias_sq_vals, width, 
                    color=color_bias, edgecolor='black', linewidth=0.7, label=lbl_b)
@@ -315,9 +316,11 @@ def figure(name, out, target, substeps_text, n_runs_list, est_type):
         
         for i, (bias, noise) in enumerate(zip(bias_sq_vals, noise_sq_vals)):
             total_height = bias + noise
-            y_offset = (target**2) * 0.02
-            ax_bar.text(x_positions[i] + offsets[idx], total_height + y_offset, f"N={n}", 
-                        ha='center', va='bottom', fontsize=9, color='black')
+            all_bar_heights.append(total_height)
+            if len(n_runs_list) > 1:
+                y_offset = (target**2) * 0.02
+                ax_bar.text(x_positions[i] + offsets[idx], total_height + y_offset, f"$N_r$={n}", 
+                            ha='center', va='bottom', fontsize=8, color='black')
 
     ax_bar.set_xticks(x_positions)
     ax_bar.set_xticklabels([f"{int(dd)}\n" + rf"$N_L$={int(nl)}"
@@ -329,7 +332,11 @@ def figure(name, out, target, substeps_text, n_runs_list, est_type):
     
     target_mse = target**2
     ax_bar.axhline(target_mse, color='red', linestyle='--', linewidth=1.5, label='Target MSE')
-    ax_bar.legend(fontsize=8, loc='center left', bbox_to_anchor=(1.02, 0.5))
+    
+    max_h = max(max(all_bar_heights, default=0), target_mse)
+    ax_bar.set_ylim(0, max_h * 1.22)
+    
+    ax_bar.legend(fontsize=9.5, loc='center left', bbox_to_anchor=(1.02, 0.5), framealpha=0.9)
     
     # Add explicit math string to footer
     footer_math = "Ens RMSE\u00b2 = bias\u00b2 + SEM\u00b2" if est_type == "ensemble" else "Single RMSE\u00b2 = bias\u00b2 + Std\u00b2"
