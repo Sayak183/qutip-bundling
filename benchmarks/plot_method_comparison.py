@@ -113,17 +113,26 @@ def method_errors(point: dict, observable: str):
         if not entry or "skipped" in entry:
             continue
         curve = mean_curve(entry["curves"][observable])
-        # A single deterministic curve: no ensemble, so the RMSE reduces to the
-        # time-averaged absolute deviation from the reference.
-        error = float(np.mean(np.abs(curve - reference)))
         samples = int(entry.get("ntraj", 1))
         note = f"ntraj={samples}" if name == "mcsolve" else None
         # mcsolve records the spread ACROSS trajectories, so the standard error
         # of its mean is that divided by sqrt(ntraj). The deterministic solvers
         # have no ensemble and therefore no such quantity.
         spread = entry.get("traj_std", {}).get(observable)
-        sem = (float(np.mean(np.asarray(spread, dtype=float))) / np.sqrt(samples)
-               if spread is not None and samples > 1 else None)
+        sem_curve = (np.asarray(spread, dtype=float) / np.sqrt(samples)
+                     if spread is not None and samples > 1 else None)
+        sem = float(np.mean(sem_curve)) if sem_curve is not None else None
+
+        # Score every STOCHASTIC method the same way: mean_t sqrt(bias^2+sem^2),
+        # which is what tavg_rmse gives SLB and what §3.2 argues for as the fair
+        # head-to-head choice, precisely so a bias-only number cannot "ignore
+        # mcsolve's large trajectory variance". mcsolve was previously scored
+        # bias-only while SLB carried its sampling term, which biased every
+        # published ratio AGAINST SLB. The deterministic solvers keep the plain
+        # deviation: with one sample there is no sem to fold in.
+        bias_curve = np.abs(curve - reference)
+        error = float(np.mean(np.hypot(bias_curve, sem_curve))
+                      if sem_curve is not None else np.mean(bias_curve))
         rows.append((name, float(entry["wall_s"]), error, note, samples, sem))
 
     for family in ("slb", "jackknife"):
