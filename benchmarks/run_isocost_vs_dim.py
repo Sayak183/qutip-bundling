@@ -187,14 +187,31 @@ def mc_fit(H, psi0, c_ops, reference, ops=None):
         ref2d = np.atleast_2d(np.asarray(reference, dtype=float))
         rs = []                                   # (repeat, observable)
         t0 = time.perf_counter()
+        ss = []                                   # (repeat, observable)
         for _ in range(MC_REPEATS):
             runs = _mcsolve_runs(H, psi0, c_ops, nt, ops)   # (n_obs, ntraj, nt)
             rs.append([tavg_rmse(runs[j], ref2d[j])
                        for j in range(ref2d.shape[0])])
+            # S DIRECTLY, from the spread ACROSS trajectories.
+            #
+            # rmse_repeats above cannot serve this purpose, though it did for a
+            # long time. tavg_rmse combines (sample mean - reference)^2 with
+            # SEM^2, and for an unbiased estimator the realized deviation of the
+            # sample mean IS sampling fluctuation with variance SEM^2 -- so the
+            # two terms are the same quantity counted twice. Measured on the
+            # mixed chain at dim 16, rmse * sqrt(ntraj) overestimates S by
+            # 1.23-1.46x, which inflates ntraj* = (S/target)^2 by 1.5-2.1x and
+            # every projected mcsolve cost with it.
+            #
+            # The spread across trajectories is what S actually means, so record
+            # it. Kept alongside rmse_repeats rather than replacing it, so files
+            # written before this change stay readable.
+            ss.append([float(np.mean(np.std(runs[j], axis=0, ddof=1)))
+                       for j in range(ref2d.shape[0])])
         dt = time.perf_counter() - t0
         spent += dt
         per_traj_est = dt / (MC_REPEATS * nt)
-        rows.append({"ntraj": nt, "rmse_repeats": rs,
+        rows.append({"ntraj": nt, "rmse_repeats": rs, "s_repeats": ss,
                      "per_traj_time": per_traj_est})
         worst = np.mean(rs, axis=0).max()
         print(f"      mcsolve ntraj={nt:4d}  worst RMSE~{worst:.3e}  "

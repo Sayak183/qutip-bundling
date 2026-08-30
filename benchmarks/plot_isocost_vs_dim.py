@@ -162,6 +162,24 @@ def derive_mc(point, target):
     # must, so S^2 is taken per observable and the binding one is whichever
     # needs the most trajectories -- not whichever has the largest raw error.
     def _s2_of(r):
+        # PREFER s_repeats: the spread ACROSS trajectories, which is what S
+        # means. Files written before that field existed fall back to
+        # rmse_repeats, which OVERESTIMATES S.
+        #
+        # tavg_rmse combines (sample mean - reference)^2 with SEM^2, and for an
+        # unbiased estimator the realized deviation of the sample mean IS
+        # sampling fluctuation with variance SEM^2 -- the same quantity counted
+        # twice. Measured on the mixed chain at dim 16, rmse * sqrt(ntraj)
+        # overestimates S by 1.23-1.46x, so ntraj* = (S/target)^2 comes out
+        # 1.5-2.1x too large and every projected mcsolve cost with it. On a
+        # fallback file the resulting speedups are upper bounds.
+        direct = r.get("s_repeats")
+        if direct is not None:
+            a = np.asarray(direct, dtype=float)
+            per_obs = (np.mean(a, axis=0) if a.ndim == 2
+                       else np.atleast_1d(np.mean(a)))
+            return np.square(np.asarray(per_obs, dtype=float))
+
         a = np.asarray(r["rmse_repeats"], dtype=float)
         per_obs = (np.mean(np.square(a), axis=0) if a.ndim == 2
                    else np.atleast_1d(np.mean(np.square(a))))

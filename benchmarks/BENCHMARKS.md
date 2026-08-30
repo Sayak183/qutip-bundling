@@ -2123,6 +2123,36 @@ The binding observable is `x_sx` throughout — never the energy, and never $n^2
 once $n^2$ is judged against its own scale rather than an absolute tolerance
 that happened to be 400x tighter for it.
 
+**The `mcsolve` projection overestimates its own spread, so every speedup here
+is an upper bound.** `ntraj^\ast = (S/\text{target})^2` needs $S$, the
+per-trajectory spread. The runner estimated it as
+$\text{RMSE}^2\times\texttt{ntraj}$ using the same time-averaged
+$\sqrt{\text{bias}^2+\text{s.e.m.}^2}$ as everywhere else — but `mcsolve` is
+unbiased, so the realized deviation of its sample mean *is* sampling
+fluctuation, with variance $\text{s.e.m.}^2$. The two terms are one quantity
+counted twice.
+
+Measured on the mixed chain at dimension 16, four repeats per point:
+
+| `ntraj` | $S$ via the RMSE route | $S$ from the trajectory spread | ratio |
+|---|---|---|---|
+| 100 | 0.4183 | 0.3267 | 1.28 |
+| 200 | 0.4984 | 0.3412 | 1.46 |
+| 400 | 0.4506 | 0.3670 | 1.23 |
+
+Since $ntraj^\ast$ goes as $S^2$, the trajectory counts and the costs built on
+them are inflated by **1.5–2.1×**, and the speedups with them. `run_isocost_vs_dim.py`
+now records the spread directly and `plot_isocost_vs_dim.py` prefers it, but the
+committed files predate that field, so **the numbers above are upper bounds
+until this Result is regenerated.** They are not rescaled here: the correction
+is not a single constant, and it cannot be recovered exactly from what the files
+retain.
+
+The direction is worth naming. This flatters SLB, and it is the second
+metric asymmetry found in this document that did — the first, in Result 3, ran
+the other way. Neither was deliberate; both came from applying one convenient
+statistic to two estimators with different properties.
+
 **Caveats.**
 
 *The choice of 3% is a judgement, and it moves every number here.* It is
