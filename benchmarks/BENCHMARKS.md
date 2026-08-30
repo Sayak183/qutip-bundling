@@ -155,8 +155,10 @@ against 6.2×10⁻² at the same $M$ and dimension, and by the same ordering und
 absolute error, error over span, and error over $|\langle H\rangle|$. Having
 few operators does not make them easy to bundle; System A's are as far-reaching
 as System B's and there are too few of them for a bundle to average over. Result
-1's height table, Result 3's tables, and §2.6's cross-term ratios all agree on
-this ordering.
+1's height table and Result 3's tables agree on this ordering. §2.6's
+cross-term ratio does **not** — it is smaller for A than for B and so predicts
+the opposite — which that section states plainly as one of the three ways the
+ratio fails as a predictor.
 
 ### Will bundling help *your* system?
 
@@ -1338,7 +1340,7 @@ the figure appears to show nothing. That *is* the result: even $M=2$ tracks a
 trajectory spanning $\langle H\rangle\approx13\to4$ to within $\sim\!10^{-2}$,
 so there is no visible discrepancy to plot. It is the same fact that Results 2
 and 4 report quantitatively (a handful of bundles suffices at every size —
-$M^\ast\le 4$ under Result 2's tightened target — and the speedup over
+$M^\ast\le 8$ under Result 2's tightened target — and the speedup over
 `mcsolve` reaches three to four orders of magnitude): this system's dense,
 stiff dissipator is exactly the structure bundling exploits. The error
 decomposition below is where the oscillator's behaviour becomes legible.
@@ -1468,9 +1470,11 @@ as good as this $M$ gets".
 Every swept dimension appears. Hatched bars are dimensions where the accuracy
 target was **not** reached; they are drawn at the largest $M$ the sweep tried,
 and they are the informative ones, because the split explains *why* the target
-was out of reach. On System A the bias share climbs from 17% at dim 4 to 55%
-by dim 64 and stays there — the error stops being noise you can average away
-and becomes a systematic floor set by $M$, which is capped at $N_L$. That is the
+was out of reach. On System A the bias share is already the larger half at the
+smallest size and stays there without a trend — 52%, 33%, 47%, 48%, 55%, 59%,
+54%, 45% across dims 4 to 512. The error is a systematic floor set by $M$,
+which is capped at $N_L$, rather than noise you can average away, and it is that
+from the beginning. That is the
 same "nothing to compress" conclusion the rest of this page reaches, arrived at
 from the error budget rather than from the operator count. On System C the bias
 share instead *grows with a falling* $M^\ast$ — 0% at dim 16, 26% at 32, 51% at
@@ -1486,9 +1490,12 @@ past it the exact solver is impractical.
 **The cost curves (top).** The exact full-dissipator `mesolve` evolves the
 density matrix with all $N_L$ collapse operators; its fitted slope is the
 steepest on the plot ($N^{6.0}$ on the chain, $N^{6.7}$ on the oscillator — both
-two-point local slopes, since `mesolve` reaches only dim 32 here), and
-past dim 32 it cannot run here at all — its superoperator construction exhausts
-even 32 GB. SLB at a *fixed* bundle size ($M=8$) only ever propagates $M$
+two-point local slopes, since this panel stops `mesolve` at dim 32. **That stop
+is a time budget, not a wall**: `max_full_dim = 32` with
+`full_time_budget_s = 60`, recorded in the metadata. `mesolve` does run at dim
+64 — Result 3 measures it at 219.63 s on the chain, the number §5.1 quotes when
+choosing a baseline — it is simply too slow to belong on a sweep that has to
+reach dim 512. SLB at a *fixed* bundle size ($M=8$) only ever propagates $M$
 operators, so one solve is cheap; the SLB and construction curves need no exact
 reference, so they extend well past the wall — on the oscillator all the way to
 dim 128, a $16\times$ span in dimension.
@@ -1570,8 +1577,10 @@ a natural ceiling — not because bundling fails at dimension 256, but because
 measuring it there on the same axis as dimension 8 stops being meaningful.
 
 The exact reference is subject to the same physics and shows it: at dimension
-128 it needed 32 substeps, and its certification escalated **upward** to 64 when
-the coarse partner diverged, agreeing to $3.6\times10^{-8}$. At dimension 256 it
+128 it runs at 64 substeps and is certified against its 32-substep partner,
+the two agreeing to $3.6\times10^{-8}$. Every certification in every sweep is a
+*downward* check of this kind — halve the substeps and see whether the answer
+moves — which is what `native_ref_selfcheck.direction` records. At dimension 256 it
 too runs out — 2,986 operators against a reference that would need finer
 integration still.
 
@@ -1702,7 +1711,7 @@ past some dimension the exact route simply wins. That is the clearest statement
 available of where this method should not be used — and it is the control system
 behaving exactly as a control should.
 
-At $0.005$ the oscillator ladder is $8/4/4/2$ across dim 16–128 — nearly flat,
+At $0.005$ the oscillator ladder is $8/8/4/2$ across dim 16–128 — nearly flat,
 consistent with a system whose bundling bias barely grows with size, and the
 reason its iso and fixed $M$ curves sit close together rather than the iso curve
 rising above.
@@ -1841,7 +1850,8 @@ a noise-limited point carries that point's noise.
 
 The claim that survives that objection is the one `mcsolve`'s own scaling
 supplies. Its error falls as $N_{\text{traj}}^{-1/2}$, so reaching SLB's
-$3.25\times10^{-4}$ on the oscillator at dimension 64 would take roughly
+$3.25\times10^{-4}$ on the oscillator at dimension 64 — the $M=32$ setting, one
+step above the $M=16$ this section otherwise quotes — would take roughly
 $5.6\times10^{8}$ trajectories against the 500 it was run with. **Result 4** is
 where that budget is tuned to hit a target rather than fixed, and is the right
 place to read iso-accuracy cost.
@@ -2207,9 +2217,10 @@ is stable for coupling thresholds from $10^{-10}$ to $10^{-4}$.
 The symmetry responsible is **left-right reflection**, $i \to n-1-i$. The
 chain is reflection-symmetric and so is $X = \sum_i \sigma^x_i$, so
 $\langle e|X|e'\rangle$ vanishes identically between states of opposite
-reflection parity, and sorting the levels by that parity reproduces the
-connected components exactly -- for both chains, at every size tested. System A
-fragments further, into 5 sectors of sizes 6, 4, 4, 1, 1 at dim 16 against
+reflection parity. For System B that single parity reproduces the connected
+components exactly, at every size tested: its two sectors hold 10 and 6 of the
+16 levels. System A fragments further than any one parity can explain — 5
+sectors of sizes 6, 4, 4, 1, 1 at dim 16 against
 System B's 10 and 6, because it also keeps the spin-flip parity
 $\prod_i \sigma^x_i$; the longitudinal field breaks that one in B, where
 $\|[H,P]\| = 3.2$ at $g=0.4$ against $0$ at $g=0$. Note that $X$ commutes with
