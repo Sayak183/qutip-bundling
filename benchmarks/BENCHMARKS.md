@@ -437,7 +437,9 @@ In code these are built via dedicated functions in `common.py`:
 ```python
 H, X, psi0 = build_spin_chain(6, g=0.0)      # System A  (dim 64, N_L=31)
 H, X, psi0 = build_spin_chain(6, g=0.4)      # System B  (dim 64, N_L=2017)
-H, X, psi0 = build_oscillator_bath(64)       # System C  (dim 64, N_L=890)
+H, X, psi0 = build_oscillator_bath(32)       # System C  (dim 64, N_L=890)
+                                             # the argument is the FOCK cutoff;
+                                             # dim = 2 x n_fock, so 32 -> 64
 c_ops = davies_operators(H, X, gamma)        # the collapse operators, length N_L
 ```
 
@@ -678,7 +680,10 @@ That is precisely why three systems are needed and two would not do.
 
 It is tempting to think locality works because sampling noise "cancels out." It doesn't. 
 
-Write out one bundled dissipator $R = M^{-1/2}\sum_\alpha r_\alpha c_\alpha$ with random signs $r_\alpha$:
+Write out one bundled dissipator $R = M^{-1/2}\sum_\alpha r_\alpha c_\alpha$. The
+$r_\alpha$ are unit-modulus **complex phases** $e^{i\theta}$ by default —
+$\pm1$ signs are a separate option in `random_phases` and are not what these
+runs use — so the cross term below carries $r_\alpha r_\beta^\ast$:
 
 $$
 R \rho R^\dagger = \frac{1}{M}\sum_{\alpha}c_\alpha \rho c_\alpha^\dagger + \frac{1}{M}\sum_{\alpha\neq\beta} r_\alpha r_\beta \, c_\alpha \rho c_\beta^\dagger
@@ -1316,7 +1321,7 @@ These plot $\langle O(t)\rangle$ against the exact reference as the system relax
 
 The systems differ dramatically in how fast they converge. The oscillator (System C) and mixed chain (System B) sit essentially on the reference at $M=8$, while the TFIM chain (System A) still shows visible deviation even at $M=16$. Convergence speed is set by the spread of the individual operator contributions and cross-terms, not by dimension alone, so it is worth checking on your own system.
 
-**Beyond energy: capturing coherence.** Energy is nearly diagonal in the energy eigenbasis, so matching $\langle H\rangle$ says little about off-diagonal structure. Notice the `coherence` panels: SLB tracks the magnitude of the off-diagonal density matrix elements with the same convergence in $M$. This confirms SLB reproduces the full density matrix, not merely its diagonal.
+**Beyond energy: capturing coherence.** Energy is nearly diagonal in the energy eigenbasis, so matching $\langle H\rangle$ says little about off-diagonal structure. Notice the `coherence` panels: SLB tracks the off-diagonal structure with the same convergence in $M$. Read that for exactly what it is — the observable is $|a\rangle\langle b| + |b\rangle\langle a|$, so it measures $2\,\mathrm{Re}\,\rho_{ab}$ for the single most-populated pair. It shows the method is not confined to the diagonal; it does not certify every coherence, the imaginary parts, or the full matrix.
 
 **Sizes.** This section spans dimensions 16 to 256 on System A and 16 to 128
 on Systems B and C, computed once per size and stored separately
@@ -2082,8 +2087,9 @@ equal, across a 32-fold range. There is no compression because there is nothing
 to compress.
 
 **And the target is never reached, at any dimension.** Even at $M^\ast = N_L$ —
-the largest bundle count that exists, since a bundle cannot hold more operators
-than there are — the binding observable still misses by $1.10\times$ at dim 16,
+the largest bundle count this benchmark allows — the solver caps $M$ at $N_L$,
+though the underlying bundler accepts any $M$, so $M>N_L$ is untested here rather
+than impossible — the binding observable still misses by $1.10\times$ at dim 16,
 $1.75\times$ at 64, and $3.99\times$ at 512. The miss *grows* with size. So no
 speedup is quoted for this system: a cost measured at an accuracy the method did
 not achieve is not a speedup, and the "3x" reported here previously was that
@@ -2250,11 +2256,26 @@ global Gibbs                -10.873710   ->  0.29 s.e.m.
 sector-resolved Gibbs       -10.890584   -> 10.26 s.e.m.
 ```
 
-The agreement with global Gibbs is not the method succeeding. A bundle
-$R_m \propto \sum_\alpha r_\alpha c_\alpha$ mixes operators from *different*
-sectors, so the bundled generator connects what the exact one cannot: at small
-$M$ the dynamics is **more ergodic than the generator it approximates**, and
-drifts to the global Gibbs state instead of the sector-resolved one.
+The agreement with global Gibbs is not the method succeeding — but neither is
+it the method leaking between sectors, which an earlier version of this section
+claimed. **Bundling cannot mix sectors.** Every $c_\alpha$ is block-diagonal in
+them, so every $R_m = \sum_\alpha r_\alpha c_\alpha$ is a linear combination of
+block-diagonal matrices and is block-diagonal too. Measured on System B at
+dimension 16, the largest cross-sector matrix element is $2.0\times10^{-16}$ for
+any single $c_\alpha$ and $1.6\times10^{-16}$ for any bundle over 50 draws.
+Sector populations are conserved exactly, at every $M$.
+
+**What finite $M$ perturbs is detailed balance *within* each sector.** The
+stationary state of one bundled draw, averaged over 8 draws at dimension 16,
+sits at $-4.9800$ for $M\ge16$ — against a sector limit of $-4.982237$ and a
+global Gibbs of $-4.968520$. It is four times closer to the sector value and
+moves toward it as $M$ grows, which is what a sector-preserving generator with
+an $O(1/M)$ imbalance should do.
+
+So the dimension-256 endpoint sitting near global Gibbs is **a coincidence of an
+unconverged run**, not a mechanism. At $M=32$ against $N_L=32{,}637$ the run has
+made essentially no progress, as the sweep below shows; where it happens to sit
+carries no information about which state it is heading for.
 
 **That artefact is $O(1/M)$ and it does converge.** Sweeping $M$ to $N_L$ on
 System B at dimension 16, against the exact limit of $-4.982237$:

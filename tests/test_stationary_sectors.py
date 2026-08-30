@@ -116,6 +116,74 @@ def test_sector_resolved_target_matches_the_actual_limit():
     assert abs(curve[-1] - global_gibbs) > 1e-3
 
 
+# --- 3b. bundling CANNOT mix sectors -------------------------------------
+
+def test_a_bundle_is_block_diagonal_in_the_sectors():
+    """Result 5 explained its dimension-256 endpoint by saying a bundle "mixes
+    operators from different sectors, so the bundled generator connects what the
+    exact one cannot". That is algebraically impossible and it stood for weeks.
+
+    Every c_alpha is block-diagonal in the sectors, so any linear combination of
+    them is too. Sector populations are conserved at every M, and whatever the
+    dim-256 run was doing, leaking between sectors was not it.
+    """
+    from scipy.sparse import csr_matrix
+    from scipy.sparse.csgraph import connected_components
+
+    from qutip_bundling import bundle
+
+    H, X, _psi0, c_ops = _generator(common.build_mixed_field_chain, 4)
+    _energies, vecs = H.eigenstates()
+    U = np.column_stack([v.full().ravel() for v in vecs])
+
+    coupling = np.abs(np.array([[complex(a.dag() * X * b) for b in vecs]
+                                for a in vecs]))
+    n_sectors, labels = connected_components(
+        csr_matrix(coupling > 1e-10), directed=False)
+    assert n_sectors == 2
+    cross = labels[:, None] != labels[None, :]
+
+    for c in c_ops:                       # the exact operators
+        block = np.abs(U.conj().T @ c.full() @ U)
+        assert block[cross].max() < 1e-12
+
+    for seed in range(8):                 # and any bundle built from them
+        for m in (4, 16, 64):
+            for R in bundle(c_ops, M=m, rng=seed):
+                block = np.abs(U.conj().T @ R.full() @ U)
+                assert block[cross].max() < 1e-12, (
+                    f"M={m} seed={seed}: a bundle acquired a cross-sector "
+                    f"element of {block[cross].max():.2e}")
+
+
+def test_the_bundled_stationary_state_tends_to_the_sector_limit():
+    """The corrected mechanism: finite M perturbs detailed balance WITHIN each
+    sector, so the stationary state of a bundled draw sits near the sector limit
+    and moves toward it -- it does not drift to the global Gibbs state."""
+    from qutip_bundling import bundle
+
+    H, _X, _psi0, c_ops = _generator(common.build_mixed_field_chain, 4)
+    Hf = H.full()
+
+    energies = np.real(H.eigenenergies())
+    w = np.exp(-(energies - energies.min()) / common.KT)
+    w /= w.sum()
+    global_gibbs = float(np.dot(w, energies))
+    sector = plot_extreme.sector_resolved_energy(
+        {"meta": {"params": {"system": "mixed_chain", "size": 4}}})[0]
+
+    stationary = []
+    for seed in range(8):
+        L = qutip.liouvillian(H, bundle(c_ops, M=32, rng=seed)).full()
+        rho = np.linalg.svd(L)[2][-1].conj().reshape(Hf.shape)
+        stationary.append(float(np.real(np.trace(rho / np.trace(rho) @ Hf))))
+    mean = float(np.mean(stationary))
+
+    assert abs(mean - sector) < abs(mean - global_gibbs), (
+        f"bundled stationary energy {mean:.6f} is closer to global Gibbs "
+        f"{global_gibbs:.6f} than to the sector limit {sector:.6f}")
+
+
 # --- 4. the sectors are reflection parity, not spin-flip parity -----------
 
 def _reflection(n):
