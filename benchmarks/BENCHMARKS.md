@@ -921,7 +921,7 @@ job:
 
 (The dynamics run to $t=5$ in natural units — $J=1$ for the chain,
 $\omega_0=1$ for the oscillator. Result 2 and the validation checks use 40
-output points; the accuracy-style Results 1, 3, and 4 use 80. In either grid,
+output points, as does Result 3; Results 1 and 4 use 80. In either grid,
 $t=2.5$ is the mid-relaxation sample, where the energy has substantially
 decayed but not yet saturated.)
 
@@ -1144,8 +1144,14 @@ which is the quantity under test.
 The solvers encounter two distinct, physical walls:
 
 1. **The `mesolve` Memory Wall (32 GB):**
-   - **Dimension Wall (Chain):** At dim 128, the chain's dense Liouvillian requires $> 32\text{ GB}$, triggering Out-Of-Memory (OOM).
-   - **Operator Count Wall (Oscillator):** At dim 64, the oscillator's Liouvillian matrix is small (268 MB), but summing 890 superoperator matrices during construction exhausts 32 GB RAM.
+   - **Operator Count Wall — both systems, and it is not the matrix size.** A
+     dense $N^2\times N^2$ complex128 Liouvillian is only 268 MB at dim 64 and
+     4.3 GB at dim 128; neither exhausts 32 GB on its own. What does is
+     *building* it: `mesolve` sums one superoperator per collapse operator, and
+     the peak footprint is that summation, not the result. It bites the
+     oscillator at dim 64 (890 operators) and the chain at dim 128 (8,193).
+   - **So the wall tracks $N_L$, not dimension**, which is the same quantity
+     that decides whether bundling helps at all.
 2. **The Oscillator Stiffness Ceiling:**
    - The anharmonicity $\chi n^2$ grows with the Fock cutoff, and the substeps needed for
      stability roughly double per dimension doubling. Quote these against the
@@ -1248,7 +1254,8 @@ deterministic at fixed seed and were never in question. `merge_retimed.py`
 checks exactly that before allowing a merge: same settings, same dimensions,
 same operator counts, same RMSE at every bundle size. All three files passed.
 
-Three samples per point now agree to **1.00–1.15×**. So these wall-clocks are
+Three samples per point now agree to **1.00–1.31×**, and to 1.03× or better at
+every point carrying a quoted headline. So these wall-clocks are
 reproducible to a few percent on a node the job does not share — the original
 numbers were not noisy, they were inflated, and by a diagnosable amount.
 
@@ -2210,8 +2217,8 @@ both symmetries in both systems -- it is $H$ that loses one, which is why the
 sectors are a property of the pair $(H_{\rm sys}, X)$ and not of either alone.
 
 That corrected target costs $O(N^2)$ on a matrix already formed, so it stays
-free — and it is exact. Against the *unbundled* dynamics, propagated to $t=600$
-and flat to $10^{-13}$:
+free — and it is exact. Against the *unbundled* dynamics, propagated to
+$t \approx 60$ and flat to $10^{-13}$:
 
 | system | dim | limit | global Gibbs off by | sector-resolved off by |
 |---|---|---|---|---|
@@ -2227,7 +2234,7 @@ a small-system artefact that washes out: it **grows**, from $0.0137$ at dimensio
 **Scored against the right target, the dimension-256 run has not converged.**
 
 ```
-SLB endpoint, M=32, t=600   -10.873221   (s.e.m. 0.001693)
+SLB endpoint, M=32, t=60    -10.873221   (s.e.m. 0.001693)
 global Gibbs                -10.873710   ->  0.29 s.e.m.
 sector-resolved Gibbs       -10.890584   -> 10.26 s.e.m.
 ```
@@ -2325,7 +2332,8 @@ The checks that answer the obvious doubts.
 > — $M=32$ and $64$ everywhere, and $M=16$ at dim 16 — is **above what the
 > shipped construction permits**. Those points are real measurements of the
 > pre-0.6.4 model and they are not reproducible now. The oscillator is
-> unaffected: its $N_L$ runs 408 to 1,686, far above the sweep.
+> unaffected: the files this section uses record $N_L$ of 128, 478 and 1,172
+> at dims 16, 32 and 64 — all far above the $M=64$ top of the sweep.
 >
 > Read the spin-chain panels with that in mind. The steepening to $M^{-1.78}$ at
 > dim 32 is fitted over a range whose top half is past the shipped cap, so it
@@ -2344,7 +2352,10 @@ The checks that answer the obvious doubts.
 > - **System coverage (A and C):** Systems A and C span the two structural extremes
 >   of the benchmark suite (discrete integrable chain vs continuous anharmonic ladder).
 >   Resolving the tiny $\mathcal{O}(1/M^2)$ jackknife bias requires pushing the Monte-Carlo
->   sampling floor down with 512 realizations per point; demonstrating the rate steepening
+>   sampling floor down with a heavy realization budget — the committed files hold
+>   256, 512 and 64 realizations at spin dims 16/32/64, and 4,000, 128 and 64 at
+>   the oscillator's, which is why the dim-32 spin panel resolves the effect and
+>   the largest sizes do not; demonstrating the rate steepening
 >   on these two contrasting architectures proves the mathematical cancellation without
 >   needing the heavy realization budget on System B (whose $1/M$ bias scaling is already
 >   extensively mapped across Results 1–5).
