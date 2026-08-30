@@ -156,7 +156,7 @@ quarter of the spectrum apart.** The definition is in §2.5.
 | `N_L` at dim 64 | 31 (collapses due to integrability) | 2,017 (~N²/2) | 890 (~N¹·⁴) |
 | How far operators reach, d̄ (dim 64) | 27% of the spectrum | 26% | **3.1% — neighbours only** |
 | Cost vs the exact solve, one SLB run at `M=16` | **1.6x** — and none at a usable accuracy | **96x cheaper** | **54x cheaper** |
-| Relative error, one run at `M=16` | 8.6×10⁻² | 6.2×10⁻² | **6.6×10⁻⁶** |
+| Relative error, one run at `M=16` | 8.6×10⁻² | 6.2×10⁻² | **6.0×10⁻⁶** |
 | Role here | **Control 1** — too few operators to bundle | **Control 2** — many operators, but each reaches far | **Demonstration** — many operators, each local |
 
 **System A** is a special case. Its bath couples to every spin in the same way,
@@ -1098,11 +1098,11 @@ the fixed 500-trajectory budget for `mcsolve` and the exact solvers.
 > 1. **Memory and Stiffness Walls (§5.2):** `mesolve` hits a hard 32 GB memory wall at dim 128 for the chain and dim 64 for the oscillator; the oscillator's fixed-step RK4 needs ever more substeps as it grows — 128 of
 >    them at dim 256, where 32 diverges — so dim 256 leaves the *uniform-substep*
 >    axis of Result 2 rather than defeating the method.
-> 2. **Results 1 and 2:** accuracy versus bundle size, and cost scaling with dimension, regenerated under 0.6.4 for all three systems. On the mixed chain, now complete to dim 128, SLB at matched accuracy fits $N^{2.7}$ against $N^{3.7}$ for the exact solver — about one power of $N$ apart, so the advantage widens with size. Measured directly: the exact solve costs $353\times$ one SLB solve at dim 64 and $1{,}013\times$ at dim 128. Those wall-clocks were re-measured on exclusive nodes in August 2026; §5.3 records what the earlier numbers were and why they were wrong.
+> 2. **Results 1 and 2:** accuracy versus bundle size, and cost scaling with dimension, regenerated under 0.6.4 for all three systems. On the mixed chain, now complete to dim 128, SLB at matched accuracy fits $N^{2.7}$ against $N^{4.6}$ for the certified native exact solver (and $N^{6.0}$ for superoperator `mesolve` up to dim 32). Measured directly: the exact solve costs $353\times$ one SLB solve at dim 64 and $1{,}013\times$ at dim 128. Those wall-clocks were re-measured on exclusive nodes in August 2026; §5.3 records what the earlier numbers were and why they were wrong.
 > 3. **Result 3 — the four-method comparison:** across three systems and six observables, SLB, `mcsolve`, and the exact solvers are compared head-to-head at dim 64. The advantage swings from 914x (oscillator energy at dim 64) to 8.3x *worse* than `mcsolve` (mixed chain coherence at $M=16$, same dimension). The weak case is a setting rather than a property: at dim 128, raising $M$ to 256 brings that same observable to 1.6x worse while the energy goes 13.5x better. No single number captures the method; the section presents the full range.
 > 4. **Result 4 — iso-accuracy cost versus dimension:** at each size, what does
 >    each method cost to reach the *same* accuracy? The advantage compounds:
->    322x on the mixed chain and 664x on the oscillator at the largest dimension,
+>    468x on the mixed chain and 1,739x on the oscillator at the largest dimension (dim 128),
 >    while System A never reaches the target at all.
 > 5. **Result 5 — past the reference wall:** System B at dimension 256, where
 >    the operator list alone would be 31.9 GB and no exact solve exists. Scored
@@ -1143,7 +1143,7 @@ where another is meant is the mistake to avoid.
 | **1.6x, 96x, 54x** | one SLB realization at `M=16` against one exact solve, dim 64 | §1's table, from Result 3 |
 | **0.1x, 6.0x, 3.4x** | the whole 16-realization ensemble against one exact solve | Result 3's tables |
 | **353x, 1013x** | one SLB solve at `M=8` against the *certified* reference, which runs at 2x SLB's substeps | Result 2 |
-| **322x, 664x** | SLB at `M*` against `mcsolve`'s *projected* trajectory count for the same accuracy | Result 4 |
+| **468x, 1,739x** | SLB at `M*` against `mcsolve`'s *projected* trajectory count for the same accuracy at dim 128 | Result 4 |
 | **620x, 19.3x** | SLB's error against `mcsolve`'s at a fixed budget, not a cost ratio at all | Result 3 |
 
 Three rules follow. **Say how many realizations** — the ensemble is 16x the work
@@ -1386,7 +1386,7 @@ $M$, and the fit is meaningful.
 **Why the oscillator's traces look featureless.** On the oscillator the SLB
 curves sit on top of the reference at every $M$, with bands too narrow to see —
 the figure appears to show nothing. That *is* the result: even $M=2$ tracks a
-trajectory spanning $\langle H\rangle\approx13\to4$ to within $\sim\!10^{-2}$,
+trajectory spanning $\langle H\rangle\approx128\to10$ at dim 64 (and $13\to4$ at dim 16) to within $\sim\!10^{-2}$,
 so there is no visible discrepancy to plot. It is the same fact that Results 2
 and 4 report quantitatively (a handful of bundles suffices at every size —
 $M^\ast\le 8$ under Result 2's tightened target — and the speedup over
