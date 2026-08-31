@@ -156,7 +156,7 @@ quarter of the spectrum apart.** The definition is in §2.5.
 | `N_L` at dim 64 | 31 (collapses due to integrability) | 2,017 (~N²/2) | 890 (~N¹·⁴) |
 | How far operators reach, d̄ (dim 64) | 27% of the spectrum | 26% | **3.1% — neighbours only** |
 | Cost vs the exact solve, one SLB run at `M=16` | **1.6x** — and none at a usable accuracy | **96x cheaper** | **54x cheaper** |
-| Relative error, one run at `M=16` | 8.6×10⁻² | 6.2×10⁻² | **6.0×10⁻⁶** |
+| Relative energy error, one run at `M=16` | 8.6×10⁻² | 6.2×10⁻² | **6.0×10⁻⁶** |
 | Role here | **Control 1** — too few operators to bundle | **Control 2** — many operators, but each reaches far | **Demonstration** — many operators, each local |
 
 **System A** is a special case. Its bath couples to every spin in the same way,
@@ -802,8 +802,8 @@ measured on its own. Two things come for free:
 
 1. **They have to add back up to the energy.** The identity
    $\langle H\rangle=\sum_k\lambda_k\langle O_k\rangle$ is checked on every run and holds to machine precision —
-   residual $9\times10^{-16}$ on the chains, $2\times10^{-15}$ on the
-   oscillator. That is a correctness test on the whole pipeline, at no extra
+   residual $<10^{-15}$ on the chains, $\le 1.4\times10^{-13}$ on the
+   oscillator (consistent with standard double-precision accumulation over $N$ levels). That is a correctness test on the whole pipeline, at no extra
    cost.
 2. **Each one already has a name.** $O_k$ is the susceptibility
    $\partial\langle H\rangle/\partial\lambda_k$, so these are quantities people
@@ -1240,9 +1240,9 @@ The solvers encounter two distinct, physical walls:
 
 ### 5.3 Provenance
 
-**Every Result runs on data regenerated under 0.6.4**, so every operator count
+**Results 1 through 5 run on data regenerated under 0.6.4**, so every operator count
 matches the shipped code, and every file records `degeneracy_tol = 1e-10`, the
-shipped default. Job IDs, read from the committed files rather than from
+shipped default (Section 6 validation preserves the original pre-0.6.4 convergence sweep to document the $M^{-1.78}$ rate steepening, as noted in §6). Job IDs, read from the committed files rather than from
 memory:
 
 | Result | Slurm jobs | dates |
@@ -1252,6 +1252,7 @@ memory:
 | **3** method comparison | 19559720, 19559854, 19559945, 19594145 | Aug 1 – 19 |
 | **4** iso-accuracy cost | 19597387, 19597388, 19598579 | Aug 22 – 25 |
 | **5** past the reference wall | 19592848 | Aug 18 |
+| **Certified References** | 19559570 | Aug 1 – 2 |
 
 Result 4's three systems *did* share a single allocation (19597387) when the
 figure stopped at dimension 64, which is what made its absolute wall-clocks
@@ -1552,7 +1553,7 @@ The target is chosen per system to establish a meaningful, discriminating operat
 
 **What the iso-accuracy curves reveal:**
 - **System A (Control 1):** $M^\ast$ tracks $N_L$ almost exactly ($1/3, 4/7, 8/13, 16/21, 31/31, 32/43, 57/57, 64/73$). Holding accuracy fixed causes bundling cost to scale as $N^{2.7}$ against $N^{2.6}$ for the exact solver. The curves converge, proving that when $N_L$ is small, **solving exactly is better than bundling** — the control behaves exactly as intended.
-- **System B (Generic):** $M^\ast$ grows sublinearly — the ladder runs $4\to16\to16\to32\to64\to64$ across dims 4 to 128 (fitted, $M^\ast \sim N^{0.77}$), far short of $M^\ast \propto N$. This keeps the chain's iso-accuracy cost near $N^{2.7}$ (vs $N^{4.6}$ for exact), preserving SLB's massive advantage at scale.
+- **System B (Generic):** $M^\ast$ grows sublinearly — the ladder runs $4\to16\to16\to32\to64\to64$ across dims 4 to 128 (fitted, $M^\ast \sim N^{0.77}$), far short of $M^\ast \propto N$. This keeps the chain's energy iso-accuracy cost near $N^{2.7}$ (vs $N^{4.6}$ for exact; distinct from Result 4's multi-observable target against `mcsolve`), preserving SLB's massive advantage at scale.
 - **System C (Demonstration):** The $M^\ast$ ladder is nearly flat ($8 \to 8 \to 4 \to 2$ across dims 16–128) because bundling bias barely grows with size on local ladder operators.
 
 ---
@@ -1843,6 +1844,8 @@ At every $N$, both methods are given the same target and asked for the cheapest 
 
 *\* **Oscillator substep scaling:** The oscillator sweep increases RK4 substeps with dimension for numerical stability (4 up to dim 32, 16 at dim 64, 32 at dim 128). This integration refinement adds $\sim +0.75$ to SLB's fitted exponent on its own; at uniform substeps, the scaling would sit near $N^{0.94}$.*
 
+> **Note on empirical scaling regimes:** The empirical exponents $N^{1.62}$–$N^{1.69}$ measured over $N \in [4, 128]$ reflect sub-asymptotic chunking and interpreter overhead before crossing into the asymptotic $O(N^3)$ dense linear algebra regime at larger $N$. Unlike Result 2 (which held accuracy on energy alone against exact RK4), Result 4 enforces the 3% target simultaneously across all six observables against `mcsolve`.
+
 ---
 
 #### System-by-System Findings
@@ -1990,7 +1993,7 @@ uncorrected estimator against the jackknife-2 one (same seeds at every $M$)
 separates the correction's two effects: it lowers the bias *level* everywhere,
 and — where the sampling floor is pushed low enough to see it — it **steepens
 its rate** from $M^{-1}$ toward the $M^{-2}$ that the leading-order cancellation
-the method predicts (Adhikari & Baer 2025; see `REFERENCES.md`). Energy $\langle H \rangle$ is plotted because its high signal-to-noise ratio resolves the steepened rate without drowning in sampling noise; because the cancellation occurs on $\rho_{\rm JK}$ itself, it applies to all observables. The three panels below, smallest to largest, show the
+the method predicts (Adhikari & Baer 2025; see `REFERENCES.md`). Energy $\langle H \rangle$ is plotted because its high signal-to-noise ratio resolves the steepened rate without drowning in sampling noise; because the cancellation occurs on $\rho_{\rm JK}$ itself, it applies to all linear observables (though in finite-sample runs, resolving $M^{-2}$ empirically requires observables whose signal clears the Monte Carlo sampling floor). The three panels below, smallest to largest, show the
 whole story at once: the jackknife rate is resolved and clearly steepened only
 where enough points clear the noise floor.
 
@@ -2044,7 +2047,7 @@ the reference tolerance ($\sim 10^{-10}$), while the *total* SLB error stays fla
 set by the bundling ($M$). At 4 substeps the integration error is orders of
 magnitude below the bundling error ($\sim 10^{8}\times$ smaller for these systems),
 so the substep choice cannot be where SLB's accuracy — or its speed — comes
-from; one could integrate far more crudely without moving the SLB error.
+from; on non-stiff systems (or within each dimension's numerical stability window as mapped in §5.2), one could integrate far more crudely without moving the SLB error.
 
 The plotted error is the absolute deviation from the adaptive reference at the
 fixed mid-point $t=2.5$, $|\langle H\rangle(2.5) - \langle H\rangle_{\rm ref}(2.5)|$
