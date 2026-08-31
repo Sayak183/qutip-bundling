@@ -1189,6 +1189,13 @@ which is the quantity under test.
 
 ### 5.2 Memory and Stiffness Walls
 
+| Solver Method | System A (TFIM Chain) | System B (Mixed Chain) | System C (Oscillator + Spin) | Limiting Wall / Bottleneck |
+|---|:---:|:---:|:---:|---|
+| **QuTiP `mesolve`** (Superoperator ODE) | **Dim 64** ($N_L=31$) | **Dim 32** ($N_L=513$) | **Dim 32** ($N_L=408$) | **32 GB RAM Wall:** Building superoperator sum $\sum c_\alpha \otimes c_\alpha^*$ exhausts 32 GB RAM at dim 64 ($N_L \ge 890$). |
+| **QuTiP `mcsolve`** (Trajectory Monte Carlo) | **Dim 64** | **Dim 64** (4,142 s) | **Dim 64** (7,118 s) | **Sampling Variance Wall:** Needs thousands of trajectories to beat $1/\sqrt{N_{\rm traj}}$ noise; cost explodes past dim 64. |
+| **Native RK4** (Dense Matrix ODE) | **Dim 512** ($N_L=73$) | **Dim 128** ($N_L=8,193$) | **Dim 128** ($N_L=1,686$) | **$O(N^5)$ CPU & RAM Wall:** At dim 256 ($N_L=32,637$), exact dissipator requires 34 GB RAM and weeks of compute. |
+| **SLB (Bundled)** (This Work) | **Dim 512** (376 s) | **Dim 256** ($N_L=32,637$) | **Dim 256** ($N_L=2,986$) | **Scales to Dim 256+ smoothly:** Runs dim 256 in 5.3 h on 1 node (System B) and 806 s at 128 substeps (System C). |
+
 The solvers encounter two distinct, physical walls:
 
 1. **The `mesolve` Memory Wall (32 GB):**
