@@ -156,7 +156,7 @@ quarter of the spectrum apart.** The definition is in §2.5.
 | `N_L` at dim 64 | 31 (collapses due to integrability) | 2,017 (~N²/2) | 890 (~N¹·⁴) |
 | How far operators reach, d̄ (dim 64) | 27% of the spectrum | 26% | **3.1% — neighbours only** |
 | Cost vs the exact solve, one SLB run at `M=16` | **1.6x** — and none at a usable accuracy | **96x cheaper** | **54x cheaper** |
-| Relative energy error, one run at `M=16` | 8.6×10⁻² | 6.2×10⁻² | **6.0×10⁻⁶** |
+| Span-normalized energy error, one run at `M=16` | 7.9×10⁻² | 5.4×10⁻² | **6.0×10⁻⁶** |
 | Role here | **Control 1** — too few operators to bundle | **Control 2** — many operators, but each reaches far | **Demonstration** — many operators, each local |
 
 **System A** is a special case. Its bath couples to every spin in the same way,
@@ -178,8 +178,8 @@ and a single run at $M=16$ lands at percent-level error.
 *and* operators that only connect neighbouring rungs of its ladder. It is the
 only system here that is cheap **and** accurate at small $M$.
 
-**Note which chain is the less accurate one.** System A, not System B — 8.6×10⁻²
-against 6.2×10⁻² at the same $M$ and dimension, and by the same ordering under
+**Note which chain is the less accurate one.** System A, not System B — 7.9×10⁻²
+against 5.4×10⁻² at the same $M=16$ and dimension (and 8.0×10⁻² vs 5.5×10⁻² at $M=8$), and by the same ordering under
 absolute error, error over span, and error over $|\langle H\rangle|$. Having
 few operators does not make them easy to bundle; System A's are as far-reaching
 as System B's and there are too few of them for a bundle to average over. Result
@@ -1170,15 +1170,12 @@ remove, so one realization lands within 1.3x of sixteen
 ($6.0\times10^{-6}$ against $4.7\times10^{-6}$). One realization is already the
 answer.
 
-| oscillator, dim 64 | samples it needs | cost of that | error |
+| oscillator, dim 64 | samples it needs | cost of that | span-normalized energy error |
 |---|---|---|---|
 | SLB, `M=16` | **1** realization | 2.3 s | 6.0×10⁻⁶ |
-| `mcsolve` | **500** trajectories | 7,118 s serial, 14.2 s on 500 cores | 2.9×10⁻³ |
+| `mcsolve` | **500** trajectories | 7,118 s serial (14.2 s / 500 traj) | 2.9×10⁻³ |
 
-So parallelism does not close the gap. Given unlimited cores `mcsolve` finishes
-in 14.2 s at $2.9\times10^{-3}$, while SLB finishes in 2.3 s at
-$6.0\times10^{-6}$ — still 6x faster and 490x more accurate. You cannot
-parallelize away a $1/\sqrt{N}$ error; you can only pay for it.
+So parallelism does not close the gap. In the ideal parallel limit of one core per trajectory, `mcsolve` finishes in 14.2 s at $2.9\times10^{-3}$ span-normalized energy error ($3.44\times10^{-1}$ absolute RMSE), while SLB finishes in 2.3 s at $6.0\times10^{-6}$ ($5.56\times10^{-4}$ absolute RMSE) — still 6x faster and 490x more accurate on the energy. You cannot parallelize away a $1/\sqrt{N_{\rm traj}}$ sampling variance; you can only pay for it.
 
 **On the choice of exact baseline.** The speedups below are quoted against the
 package's own native RK4 with the full dissipator, not against `mesolve`. That
@@ -1908,11 +1905,11 @@ Because transitions between sectors are forbidden, the true physical limit is **
 | C oscillator | 16 | +0.224910 | one sector, so the two agree | — |
 
 **Why Dim 256 sits near Global Gibbs at $M=32$:**  
-Bundling strictly preserves sector blocks (cross-sector matrix elements are $< 2.0\times 10^{-16}$). What finite $M$ perturbs is detailed balance *within* each sector ($O(1/M)$ bias). At $M=32$ against $N_L = 32{,}637$ ($N_L/M \approx 1{,}020$), the simulation has made only $\approx 0.1\%$ progress toward its stationary state. As $M$ approaches $N_L$, the gap converges as $1/M$:
+Bundling strictly preserves sector blocks (cross-sector matrix elements are $< 2.0\times 10^{-16}$). What finite $M$ perturbs is detailed balance *within* each sector ($O(1/M)$ bias). The simulation traverses 99.9% of the distance from initial energy $\langle H\rangle(0) = -10.2$ to equilibrium, leaving an unrelaxed gap of only $\approx 0.07\%$ to global Gibbs ($0.0005$, within $0.3\text{ s.e.m.}$). At $M=32$ against $N_L = 32{,}637$ ($N_L/M \approx 1{,}020$), the bundled generator has barely begun to resolve the subtle $\sim 0.017$ sector-resolved offset. As calibrated on System B at Dimension 16 (where exact reference is available), the gap to the sector limit converges steadily as $1/M$:
 
-| `M` | 4 | 8 | 16 | 32 | 64 | 121 = `N_L` |
+| `M` (System B, Dim 16 calibration) | 4 | 8 | 16 | 32 | 64 | 121 = `N_L` |
 |---|---|---|---|---|---|---|
-| gap | 0.0230 | 0.0110 | 0.0061 | 0.0033 | 0.0017 | 0.00094 |
+| gap to sector limit | 0.0230 | 0.0110 | 0.0061 | 0.0033 | 0.0017 | 0.00094 |
 
 ---
 
