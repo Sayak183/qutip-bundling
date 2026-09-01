@@ -67,27 +67,27 @@ def _to_array(op: qutip.Qobj) -> np.ndarray:
 
 
 def _dissipator_rhs(rho: np.ndarray,
-                     H: np.ndarray,
-                     C_list: list[np.ndarray],
-                     Cd_list: list[np.ndarray],
-                     CdC_sum: np.ndarray) -> np.ndarray:
+                    Heff: np.ndarray,
+                    Heff_dag: np.ndarray,
+                    C_list: list[np.ndarray],
+                    Cd_list: list[np.ndarray]) -> np.ndarray:
     """Compute drho/dt for a Lindblad master equation.
 
-    Surprisingly, an explicit Python ``for`` loop over the K operators
-    is the fastest option at the shapes we care about (N ~ 50-100,
-    K ~ 1000-3000). NumPy ``einsum`` and ``tensordot`` over the (K, N, N)
-    stack lose to cache-friendly per-op gemm calls.
+    Uses the precomputed non-Hermitian effective Hamiltonian
+    ``Heff = -i H - 0.5 sum_k C_k^dag C_k`` to combine the coherent
+    commutator and anti-commutator into a single pair of matrix multiplications:
+        Heff @ rho + rho @ Heff_dag
+    followed by the sandwich terms sum_k C_k @ rho @ C_k^dag.
 
     Parameters
     ----------
-    rho : (N, N) complex array, density matrix at this instant.
-    H   : (N, N) complex array, Hamiltonian (Hermitian).
+    rho      : (N, N) complex array, density matrix at this instant.
+    Heff     : (N, N) complex array, -i H - 0.5 CdC_sum.
+    Heff_dag : (N, N) complex array,  i H - 0.5 CdC_sum.
     C_list   : list of K dense (N, N) collapse-operator arrays.
     Cd_list  : list of their adjoints.
-    CdC_sum  : (N, N) precomputed sum_k C_k^dag C_k.
     """
-    out = -1j * (H @ rho - rho @ H)
-    out -= 0.5 * (CdC_sum @ rho + rho @ CdC_sum)
+    out = Heff @ rho + rho @ Heff_dag
     for C_k, Cd_k in zip(C_list, Cd_list):
         out += C_k @ rho @ Cd_k
     return out
@@ -156,6 +156,9 @@ def rk4_mesolve(
     else:
         CdC_sum = np.zeros((N, N), dtype=np.complex128)
 
+    Heff = -1j * H_arr - 0.5 * CdC_sum
+    Heff_dag = 1j * H_arr - 0.5 * CdC_sum
+
     e_ops = list(e_ops) if e_ops else []
     e_arrs = [_to_array(op) for op in e_ops]
     expect = [np.zeros(tlist.size, dtype=float) for _ in e_arrs]
@@ -176,10 +179,10 @@ def rk4_mesolve(
     for i in range(tlist.size - 1):
         dt = (tlist[i + 1] - tlist[i]) / substeps
         for _ in range(substeps):
-            k1 = _dissipator_rhs(rho,                H_arr, C_list, Cd_list, CdC_sum)
-            k2 = _dissipator_rhs(rho + 0.5 * dt * k1, H_arr, C_list, Cd_list, CdC_sum)
-            k3 = _dissipator_rhs(rho + 0.5 * dt * k2, H_arr, C_list, Cd_list, CdC_sum)
-            k4 = _dissipator_rhs(rho + dt * k3,       H_arr, C_list, Cd_list, CdC_sum)
+            k1 = _dissipator_rhs(rho,                 Heff, Heff_dag, C_list, Cd_list)
+            k2 = _dissipator_rhs(rho + 0.5 * dt * k1, Heff, Heff_dag, C_list, Cd_list)
+            k3 = _dissipator_rhs(rho + 0.5 * dt * k2, Heff, Heff_dag, C_list, Cd_list)
+            k4 = _dissipator_rhs(rho + dt * k3,       Heff, Heff_dag, C_list, Cd_list)
             rho = rho + (dt / 6.0) * (k1 + 2.0 * k2 + 2.0 * k3 + k4)
             rho = 0.5 * (rho + rho.conj().T)
         if not np.isfinite(rho).all():
