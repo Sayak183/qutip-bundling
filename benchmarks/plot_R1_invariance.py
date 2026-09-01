@@ -239,9 +239,18 @@ def plot_invariance(mode="relative", out_dir=None):
         plt.tight_layout()
         
         # Save as PNG
-        output_filename = out_dir / f"accuracy_vs_M_invariance_{system}{suffix}.png"
-        plt.savefig(output_filename, dpi=300, bbox_inches='tight')
-        print(f"Saved invariance plot to {output_filename}")
+        primary_filename = out_dir / f"accuracy_vs_M_invariance_{system}.png"
+        if mode == "relative":
+            plt.savefig(primary_filename, dpi=300, bbox_inches='tight')
+            print(f"Saved invariance plot to {primary_filename}")
+            rel_filename = out_dir / f"accuracy_vs_M_invariance_{system}_relative.png"
+            plt.savefig(rel_filename, dpi=300, bbox_inches='tight')
+            print(f"Saved invariance plot to {rel_filename}")
+        else:
+            output_filename = out_dir / f"accuracy_vs_M_invariance_{system}{suffix}.png"
+            plt.savefig(output_filename, dpi=300, bbox_inches='tight')
+            print(f"Saved invariance plot to {output_filename}")
+        
         plt.close(fig)
 
 
