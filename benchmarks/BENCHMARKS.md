@@ -1507,10 +1507,6 @@ Fitted exponents are quoted only where they clear the strict noise floor; with
 the full 200 realizations every point does, on all three systems at every size
 measured.
 
-![System A size invariance](accuracy_vs_M_invariance_spin_chain.png)
-![System B size invariance](accuracy_vs_M_invariance_mixed_chain.png)
-![System C size invariance](accuracy_vs_M_invariance_oscillator_bath.png)
-
 ### Result 2 — cost scaling versus the exact solver
 
 ![System A cost scaling](benchmark_cost_scaling_spin_chain.png)
