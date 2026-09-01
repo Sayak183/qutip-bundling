@@ -1434,6 +1434,10 @@ curve.
 sweep at every measured dimension on one axis separates two questions that are
 easy to conflate.
 
+![System A size invariance](accuracy_vs_M_invariance_spin_chain.png)
+![System B size invariance](accuracy_vs_M_invariance_mixed_chain.png)
+![System C size invariance](accuracy_vs_M_invariance_oscillator_bath.png)
+
 **The slope is invariant, and that is the useful part.** Every curve falls as
 $M^{-1}$, and the exponent settles as dimension grows. System A is now measured
 at **five** sizes spanning a sixteen-fold range:
