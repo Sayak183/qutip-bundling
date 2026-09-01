@@ -1119,7 +1119,7 @@ To understand where each simulation starts and where it relaxes, the table below
 | **Collapse operators (N_L)** | **31** (free-fermion grouped) | **2,017** (chaotic spectrum) | **890** (near-tridiagonal) |
 | **Initial pure state \|ψ₀⟩** | \|↑↑↑↑↑↑⟩ (\|000000⟩) | \|↑↑↑↑↑↑⟩ (\|000000⟩) | \|31⟩ ⊗ \|↑⟩ (highest Fock level) |
 | **Density matrix ρ(0)** | \|ψ₀⟩⟨ψ₀\| (pure, rank 1, Tr=1) | \|ψ₀⟩⟨ψ₀\| (pure, rank 1, Tr=1) | \|ψ₀⟩⟨ψ₀\| (pure, rank 1, Tr=1) |
-| **Eigenstate projection of \|ψ₀⟩** | 38.4% \|E₁⟩, 34.8% \|E₀⟩, 7.8% \|E₃⟩ | 85.5% \|E₀⟩, 8.1% \|E₁⟩, 1.5% \|E₇⟩ | 97.9% \|E₆₃⟩ (top of spectrum), 2.0% \|E₆₀⟩ |
+| **Eigenstate superposition of \|ψ₀⟩** | $0.620\|E_1\rangle + 0.590\|E_0\rangle - 0.280\|E_3\rangle + \dots$<br>*(38.4% \|E₁⟩, 34.8% \|E₀⟩, 7.8% \|E₃⟩)* | $0.925\|E_0\rangle - 0.284\|E_1\rangle - 0.122\|E_7\rangle + \dots$<br>*(85.5% \|E₀⟩, 8.1% \|E₁⟩, 1.5% \|E₇⟩)* | $0.990\|E_{63}\rangle - 0.143\|E_{60}\rangle + \dots$<br>*(97.9% \|E₆₃⟩, 2.0% \|E₆₀⟩)* |
 | **Ground state energy E₀** | -5.7709 | -7.9575 | -0.0216 |
 | **First excited energies (E₁, E₂, E₃)** | -5.7107, -4.5287, -4.4685 | -5.2567, -5.2541, -4.4212 | 0.8177, 1.2427, 1.9173 |
 | **Initial energy ⟨H⟩(0)** | -5.0000 | -7.4000 | +128.1000 |
