@@ -42,6 +42,7 @@ import numpy as np
 import qutip
 
 from common import (
+    observable_set,
     build_davies_operators,
     build_spin_chain, build_oscillator_bath, build_mixed_field_chain,
     TLIST_FINE, SUBSTEPS,
@@ -85,21 +86,36 @@ SYSTEMS = {
     # at dim 64, which is where the iso-accuracy question actually has teeth --
     # without it Result 4 compares only the two systems where N_L is either
     # tiny (TFIM) or ladder-structured (oscillator).
+    # Size 7 (dim 128) added: these two stopped at 64 while the spin chain
+    # spanned 4-512, so their fitted slopes rested on the fewest points of the
+    # three. The dim-128 reference is the whole cost here -- about 25 h on the
+    # mixed chain and 2 h on the oscillator, measured in Result 2.
     "mixed_chain":     (build_mixed_field_chain, [(2, 4), (3, 4), (4, 4),
-                                                  (5, 4), (6, 4)]), # dims 4..64
+                                                  (5, 4), (6, 4),
+                                                  (7, 4)]),         # dims 4..128
+    # dim 128 takes 32 substeps, not 16: the anharmonic ladder needs roughly
+    # double per octave (5.2), and 16 is what diverged at this size in Result 2.
     "oscillator_bath": (build_oscillator_bath, [(4, 4), (8, 4), (16, 4),
-                                                (32, 16)]),         # dims 8..64
+                                                (32, 16), (64, 32)]),  # dims 8..128
 }
 
 
 def slb_sweep(H, rho0, c_ops, reference, n_l, n_runs_max, sweep_min_runs,
-              substeps=SUBSTEPS):
+              substeps=SUBSTEPS, ops=None, labels=None):
     """Ascending M sweep at n_runs_max runs each; raw samples saved per M.
 
-    [{M, per_run_cost, samples: (n_runs_max, n_times)}, ...]. Stops once the
-    sweep_min_runs-level RMSE reaches SWEEP_STOP_RMSE or M reaches n_l (grid
-    values are capped at n_l and deduplicated).
+    ``reference`` is (n_obs, n_times) and ``samples`` is stored as
+    (n_runs_max, n_obs, n_times), so M* can afterwards be solved per observable
+    rather than for the energy alone.
+
+    The stop condition is the WORST observable, not the first. Stopping when
+    the energy clears the floor would leave the sweep short of the M that a
+    harder observable needs, and M* for that observable would then be
+    unreachable rather than merely expensive -- which is the failure mode this
+    change exists to remove.
     """
+    reference = np.atleast_2d(np.asarray(reference, dtype=float))
+    n_obs = reference.shape[0]
     rows, seen = [], set()
     for m in M_GRID:
         m_eff = min(m, n_l)
@@ -107,13 +123,13 @@ def slb_sweep(H, rho0, c_ops, reference, n_l, n_runs_max, sweep_min_runs,
             continue
         seen.add(m_eff)
         t0 = time.perf_counter()
-        ens = mesolve_ensemble(H, rho0, TLIST_FINE, c_ops, M=m_eff, e_ops=[H],
+        ens = mesolve_ensemble(H, rho0, TLIST_FINE, c_ops, M=m_eff, e_ops=ops,
                                n_realizations=n_runs_max, rng=RNG_SWEEP,
                                backend="native", substeps=substeps)
         per_run = (time.perf_counter() - t0) / n_runs_max
-        samples = np.real(ens.samples[:, 0, :])
-        rmse_min = tavg_rmse(samples[:sweep_min_runs], reference)
-        rmse_max = tavg_rmse(samples, reference)
+        samples = np.real(ens.samples)            # (n_runs, n_obs, n_times)
+        rmse_min = np.array([tavg_rmse(samples[:sweep_min_runs, j], reference[j])
+                             for j in range(n_obs)])
         if (not np.isfinite(samples).all()
                 or float(np.max(np.abs(samples)))
                 > 100.0 * (1.0 + float(np.max(np.abs(reference))))):
@@ -124,25 +140,30 @@ def slb_sweep(H, rho0, c_ops, reference, n_l, n_runs_max, sweep_min_runs,
             break
         rows.append({"M": m_eff, "per_run_cost": per_run,
                      "samples": np.round(samples, ROUND)})
-        print(f"      M={m_eff:4d}  RMSE(n={sweep_min_runs})={rmse_min:.3e}  "
-              f"RMSE(n={n_runs_max})={rmse_max:.3e}  per-run={per_run:.3g}s")
-        if rmse_min <= SWEEP_STOP_RMSE or m_eff >= n_l:
+        worst = int(np.argmax(rmse_min))
+        print(f"      M={m_eff:4d}  worst={labels[worst]} "
+              f"{rmse_min[worst]:.3e}  best={labels[int(np.argmin(rmse_min))]} "
+              f"{rmse_min.min():.3e}  per-run={per_run:.3g}s")
+        if float(rmse_min.max()) <= SWEEP_STOP_RMSE or m_eff >= n_l:
             break
     return rows
 
 
-def _mcsolve_runs(H, psi0, c_ops, ntraj):
+def _mcsolve_runs(H, psi0, c_ops, ntraj, ops=None):
+    """(n_obs, ntraj, n_times) per-trajectory expectations."""
+    ops = [H] if ops is None else ops
     try:
-        res = qutip.mcsolve(H, psi0, TLIST_FINE, c_ops, e_ops=[H], ntraj=ntraj,
+        res = qutip.mcsolve(H, psi0, TLIST_FINE, c_ops, e_ops=ops, ntraj=ntraj,
                             options=MC_OPTIONS)
     except (TypeError, KeyError):
-        res = qutip.mcsolve(H, psi0, TLIST_FINE, c_ops, e_ops=[H], ntraj=ntraj,
+        res = qutip.mcsolve(H, psi0, TLIST_FINE, c_ops, e_ops=ops, ntraj=ntraj,
                             options={"progress_bar": False,
                                      "keep_runs_results": True})
-    return np.real(np.array([res.runs_expect[0][k] for k in range(ntraj)]))
+    return np.real(np.array([[res.runs_expect[j][k] for k in range(ntraj)]
+                             for j in range(len(ops))]))
 
 
-def mc_fit(H, psi0, c_ops, reference):
+def mc_fit(H, psi0, c_ops, reference, ops=None):
     """Raw material for the S^2 fit: per sampled ntraj, each repeat's
     time-averaged RMSE and the per-trajectory wall-clock. mcsolve is unbiased,
     so rmse^2 * ntraj estimates S^2 at any ntraj; the plot script averages
@@ -163,16 +184,37 @@ def mc_fit(H, psi0, c_ops, reference):
                       f"{MC_TIME_BUDGET_S/60:.0f} min budget)")
                 skipped.append({"ntraj": nt, "projected_s": projected})
                 continue
-        rs = []
+        ref2d = np.atleast_2d(np.asarray(reference, dtype=float))
+        rs = []                                   # (repeat, observable)
         t0 = time.perf_counter()
+        ss = []                                   # (repeat, observable)
         for _ in range(MC_REPEATS):
-            rs.append(tavg_rmse(_mcsolve_runs(H, psi0, c_ops, nt), reference))
+            runs = _mcsolve_runs(H, psi0, c_ops, nt, ops)   # (n_obs, ntraj, nt)
+            rs.append([tavg_rmse(runs[j], ref2d[j])
+                       for j in range(ref2d.shape[0])])
+            # S DIRECTLY, from the spread ACROSS trajectories.
+            #
+            # rmse_repeats above cannot serve this purpose, though it did for a
+            # long time. tavg_rmse combines (sample mean - reference)^2 with
+            # SEM^2, and for an unbiased estimator the realized deviation of the
+            # sample mean IS sampling fluctuation with variance SEM^2 -- so the
+            # two terms are the same quantity counted twice. Measured on the
+            # mixed chain at dim 16, rmse * sqrt(ntraj) overestimates S by
+            # 1.23-1.46x, which inflates ntraj* = (S/target)^2 by 1.5-2.1x and
+            # every projected mcsolve cost with it.
+            #
+            # The spread across trajectories is what S actually means, so record
+            # it. Kept alongside rmse_repeats rather than replacing it, so files
+            # written before this change stay readable.
+            ss.append([float(np.mean(np.std(runs[j], axis=0, ddof=1)))
+                       for j in range(ref2d.shape[0])])
         dt = time.perf_counter() - t0
         spent += dt
         per_traj_est = dt / (MC_REPEATS * nt)
-        rows.append({"ntraj": nt, "rmse_repeats": rs,
+        rows.append({"ntraj": nt, "rmse_repeats": rs, "s_repeats": ss,
                      "per_traj_time": per_traj_est})
-        print(f"      mcsolve ntraj={nt:4d}  RMSE~{np.mean(rs):.3e}  "
+        worst = np.mean(rs, axis=0).max()
+        print(f"      mcsolve ntraj={nt:4d}  worst RMSE~{worst:.3e}  "
               f"per-traj={per_traj_est*1e3:.3g}ms")
     if skipped:
         rows.append({"_skipped": skipped})
@@ -205,9 +247,10 @@ def run(name, build, size_points, n_runs_list):
         if full_feasible and dim <= MAX_FULL_DIM:
             try:
                 t0 = time.perf_counter()
-                reference = np.real(qutip.mesolve(H, rho0, TLIST_FINE,
-                                                  c_ops=c_ops, e_ops=[H]).expect[0])
+                res = qutip.mesolve(H, rho0, TLIST_FINE, c_ops=c_ops,
+                                    e_ops=[], options={"store_states": True})
                 t_full = time.perf_counter() - t0
+                states = res.states
                 ref_method = "mesolve"
                 if t_full > FULL_TIME_BUDGET:
                     full_feasible = False
@@ -216,12 +259,15 @@ def run(name, build, size_points, n_runs_list):
         if reference is None:
             t0 = time.perf_counter()
             hi = rk4_mesolve(H, rho0, TLIST_FINE, c_ops=c_ops, e_ops=[H],
-                             substeps=ref_substeps)
+                             substeps=ref_substeps, store_states=True)
             t_native = time.perf_counter() - t0
             lo = rk4_mesolve(H, rho0, TLIST_FINE, c_ops=c_ops, e_ops=[H],
                              substeps=ref_substeps // 2)
-            reference = np.real(hi.expect[0])
-            dev = float(np.max(np.abs(reference - np.real(lo.expect[0]))))
+            states = hi.states
+            # The self-check stays on the energy: it certifies the INTEGRATION,
+            # and every observable is read off the same certified states.
+            dev = float(np.max(np.abs(np.real(hi.expect[0])
+                                      - np.real(lo.expect[0]))))
             ok = bool(np.isfinite(dev) and dev <= 1e-4)
             ref_selfcheck = {"substeps": ref_substeps, "max_abs_dev": dev,
                              "passed": ok}
@@ -232,17 +278,23 @@ def run(name, build, size_points, n_runs_list):
                 print(f"  dim={dim:4d}  reference uncertifiable -- skipping size.")
                 continue
 
+        # Observables are fixed here, from the certified reference, exactly as
+        # Result 3 fixes them -- so the two sections score the same quantities
+        # and their numbers can be compared.
+        labels, ops, coherence = observable_set(name, H, states)
+        reference = np.array([np.real(qutip.expect(op, states)) for op in ops])
         print(f"  dim={dim:4d}  N_L={n_l:4d}  reference={ref_method}  "
-              f"{substeps} substeps")
-        mc_rows, mc_skipped = mc_fit(H, psi0, c_ops, reference)
+              f"{substeps} substeps  observables={labels}")
+        mc_rows, mc_skipped = mc_fit(H, psi0, c_ops, reference, ops)
         points.append({
             "size": s, "dim": dim, "n_l": n_l, "t_full": t_full,
             "substeps": substeps, "reference_method": ref_method,
             "reference_selfcheck": ref_selfcheck,
+            "observables": labels, "coherence": coherence,
             "reference": np.round(reference, ROUND),
             "slb_sweep": slb_sweep(
                 H, rho0, c_ops, reference, n_l, n_runs_max,
-                sweep_min_runs, substeps,
+                sweep_min_runs, substeps, ops=ops, labels=labels,
             ),
             "mc_fit": mc_rows, "mc_skipped": mc_skipped,
         })
