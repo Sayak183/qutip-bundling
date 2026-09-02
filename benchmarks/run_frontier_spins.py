@@ -20,7 +20,15 @@ except ImportError:
             return 0.0
 
 import common
-from qutip_bundling import davies_operators, bundle, rk4_mesolve
+from qutip_bundling import rk4_mesolve
+from qutip_bundling.operators import (
+    davies_operators, davies_operator_count,
+    bundle, bundle_davies_from_phases, random_phases,
+)
+
+# Below this dimension we use the list path (davies_operators + bundle).
+# Above it we use the streaming path (bundle_davies_from_phases) to avoid OOM.
+STREAMING_THRESHOLD = 256
 
 
 def run_system_frontier(system_name: str, dims: list[int], m_values: list[int] = [16, 32, 64]):
@@ -28,6 +36,7 @@ def run_system_frontier(system_name: str, dims: list[int], m_values: list[int] =
     print(f"  FRONTIER BENCHMARK: {system_name.upper()}")
     print(f"  Dimensions to test: {dims}")
     print(f"  Bundle sizes (M): {m_values}")
+    print(f"  Streaming threshold: N > {STREAMING_THRESHOLD}")
     print(f"{'='*70}\n")
 
     results = []
@@ -53,14 +62,26 @@ def run_system_frontier(system_name: str, dims: list[int], m_values: list[int] =
 
         rho0 = psi0 * psi0.dag()
         tlist = np.linspace(0, 5.0, 101)
+        use_streaming = dim > STREAMING_THRESHOLD
+        davies_kw = dict(degeneracy_tol=common.DAVIES_DEGENERACY_TOL)
 
+        # --- [1] Davies operator count (lightweight, no memory) ---
         t0 = time.perf_counter()
-        c_ops = davies_operators(H, X, common.gamma, degeneracy_tol=common.DAVIES_DEGENERACY_TOL)
-        t_davies = time.perf_counter() - t0
-        n_l = len(c_ops)
-        mem_after_davies = get_mem_mb()
+        n_l = davies_operator_count(H, X, common.gamma, **davies_kw)
+        t_count = time.perf_counter() - t0
 
-        print(f"  [1] Davies Construction:")
+        if not use_streaming:
+            # Small dim: build the full operator list
+            t0 = time.perf_counter()
+            c_ops = davies_operators(H, X, common.gamma, **davies_kw)
+            t_davies = time.perf_counter() - t0
+        else:
+            t_davies = t_count  # streaming skips list construction
+
+        mem_after_davies = get_mem_mb()
+        route = "STREAMING (never holds N_L)" if use_streaming else "LIST (all in memory)"
+
+        print(f"  [1] Davies Construction ({route}):")
         print(f"      - Operators (N_L): {n_l:,}")
         print(f"      - Construction Time: {t_davies:.2f} s")
         print(f"      - Memory: {mem_after_davies - mem_start:.1f} MB (Total: {mem_after_davies:.1f} MB)")
@@ -69,12 +90,14 @@ def run_system_frontier(system_name: str, dims: list[int], m_values: list[int] =
             'dim': dim,
             'n_l': n_l,
             't_davies': t_davies,
+            'streaming': use_streaming,
             'm_runs': {}
         }
 
         substeps = 4 if dim <= 64 else (8 if dim <= 256 else 16)
         print(f"  [2] SLB Dynamics Propagation (substeps={substeps}):")
 
+        rng = np.random.default_rng(42)
         final_states = {}
         for M in m_values:
             if M > n_l:
@@ -82,7 +105,12 @@ def run_system_frontier(system_name: str, dims: list[int], m_values: list[int] =
                 continue
 
             t0_bundle = time.perf_counter()
-            b_ops = bundle(c_ops, M=M)
+            if use_streaming:
+                # Streaming: build M bundles without ever holding N_L operators
+                phases = random_phases(M, n_l, distribution="phase", rng=rng)
+                b_ops = bundle_davies_from_phases(H, X, common.gamma, phases, **davies_kw)
+            else:
+                b_ops = bundle(c_ops, M=M, rng=rng)
             t_bundle_prep = time.perf_counter() - t0_bundle
 
             t0_dyn = time.perf_counter()
@@ -116,7 +144,7 @@ def run_system_frontier(system_name: str, dims: list[int], m_values: list[int] =
 
 
 def main():
-    parser = argparse.ArgumentParser(description='Frontier large-dimension SLF benchmark')
+    parser = argparse.ArgumentParser(description='Frontier large-dimension SLB benchmark')
     parser.add_argument('--system', default='mixed_chain', choices=['mixed_chain', 'spin_chain', 'oscillator_bath'])
     parser.add_argument('--dims', type=int, nargs='+', default=[64, 128])
     parser.add_argument('--m-values', type=int, nargs='+', default=[16, 32, 64])
