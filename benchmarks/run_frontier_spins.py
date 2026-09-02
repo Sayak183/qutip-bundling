@@ -2,18 +2,25 @@ from __future__ import annotations
 
 import argparse
 import os
-import psutil
 import time
 import numpy as np
 import qutip
 
+try:
+    import resource
+    def get_mem_mb():
+        return resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024.0
+except ImportError:
+    try:
+        import psutil
+        def get_mem_mb():
+            return psutil.Process(os.getpid()).memory_info().rss / (1024 * 1024)
+    except ImportError:
+        def get_mem_mb():
+            return 0.0
+
 import common
 from qutip_bundling import davies_operators, bundle, rk4_mesolve
-
-
-def get_mem_mb():
-    process = psutil.Process(os.getpid())
-    return process.memory_info().rss / (1024 * 1024)
 
 
 def run_system_frontier(system_name: str, dims: list[int], m_values: list[int] = [16, 32, 64]):
