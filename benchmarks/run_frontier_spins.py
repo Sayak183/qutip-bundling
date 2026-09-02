@@ -94,7 +94,20 @@ def run_system_frontier(system_name: str, dims: list[int], m_values: list[int] =
             'm_runs': {}
         }
 
-        substeps = 4 if dim <= 64 else (8 if dim <= 256 else 16)
+        # System-dependent substeps: the oscillator is much stiffer and needs
+        # roughly double per octave. Values match run_isocost_vs_dim.py.
+        if system_name == 'oscillator_bath':
+            if dim <= 16:    substeps = 4
+            elif dim <= 64:  substeps = 16
+            elif dim <= 128: substeps = 32
+            elif dim <= 256: substeps = 64
+            elif dim <= 512: substeps = 128
+            else:            substeps = 256
+        else:
+            # Spin chains (System A and B)
+            if dim <= 64:    substeps = 4
+            elif dim <= 256: substeps = 8
+            else:            substeps = 16
         print(f"  [2] SLB Dynamics Propagation (substeps={substeps}):")
 
         rng = np.random.default_rng(42)
