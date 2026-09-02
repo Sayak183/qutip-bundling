@@ -313,17 +313,140 @@ def exercise_commands(scratch_dir: Path) -> None:
         raise RuntimeError("Dry runs changed JSON: " + ", ".join(changed))
 
 
+def validate_shell_scripts_lf() -> int:
+    """Slurm refuses a batch script containing CRLF, so guard it here.
+
+    Editing a script from Windows through Python text mode silently rewrites
+    every line ending, and the damage is invisible both in an editor and in
+    `git diff`. The failure then surfaces only at `sbatch`, on the cluster,
+    after a file transfer -- the slowest possible place to learn about it.
+    Three committed scripts were already broken this way before this existed.
+    """
+    scripts = sorted(BENCHMARK_DIR.glob("*.sh"))
+    broken = [s.name for s in scripts if b"\r\n" in s.read_bytes()]
+    if broken:
+        raise RuntimeError(
+            "Shell scripts contain CRLF line endings; sbatch rejects these "
+            "with 'Batch script contains DOS line breaks':\n  "
+            + "\n  ".join(broken)
+            + "\n\nFix with:  sed -i 's/\\r$//' <file>"
+        )
+    return len(scripts)
+
+
+def validate_result4_single_allocation() -> int:
+    """Result 4's panels may come from different Slurm jobs after dimension
+    extensions. Validate that each file has proper Slurm execution metadata
+    (job_id, hostname, thread pinning) so provenance is always traceable.
+
+    Section 5.3 documents that absolute seconds are comparable only *within*
+    each panel, not across panels. The speedup ratios within each panel remain
+    valid because both methods ran in the same allocation.
+    """
+    files = sorted(DATA_DIR.glob("isocost_vs_dim_*.json"))
+    if not files:
+        return 0
+    for path in files:
+        data = json.loads(path.read_text(encoding="utf-8"))
+        execution = data["meta"]["execution"]
+        slurm = execution.get("slurm", {})
+        if not slurm.get("job_id") or not execution.get("hostname"):
+            raise RuntimeError(
+                f"{path.name} is missing Slurm provenance metadata "
+                f"(job_id or hostname). Every Result 4 file must record "
+                f"its execution context for the §5.3 provenance claims."
+            )
+    return len(files)
+
+
+RESULT_DATA_GLOBS = {
+    "1": "accuracy_vs_M_*.json",
+    "2": "cost_scaling_*.json",
+    "3": "method_comparison_*.json",
+    "4": "isocost_vs_dim_*.json",
+    "5": "extreme_dimension_*.json",
+}
+
+
+def _job_ids_in_data(pattern: str) -> set[str]:
+    found = set()
+    for path in sorted(DATA_DIR.glob(pattern)):
+        execution = json.loads(path.read_text(encoding="utf-8"))["meta"]["execution"]
+        job = execution.get("slurm", {}).get("job_id")
+        if job:
+            found.add(str(job))
+    return found
+
+
+def validate_provenance_table() -> int:
+    """Section 5.3's job-ID table must agree with the data files it describes.
+
+    Every defect this section has had was prose disagreeing with a number in a
+    committed file, and every one of them survived a fully green test suite --
+    because the suite tests code, and nothing read the document. Three so far:
+    the table claimed Result 4 ran on landau29/92/51 after it had been rebuilt
+    as one job; then the paragraph was corrected to three jobs while the table
+    two rows up still said one; then Result 1 gained dimension 128 and its row
+    was never given the job that produced it.
+
+    Two directions are checked, because the section has now failed in both:
+
+      * a job in the table that no data file carries -- a stale row
+      * a job in the data that the DOCUMENT never mentions -- an unattributed
+        run, which is the direction that keeps happening after an extension
+
+    The second check reads the whole document, not just the table, because a
+    supporting probe may legitimately be cited in prose instead (19592849 is,
+    at section 5.2) and that is not an error.
+    """
+    text = (BENCHMARK_DIR / "BENCHMARKS.md").read_text(encoding="utf-8")
+    rows = dict(re.findall(r"^\|\s*\*\*(\d)\*\*[^|]*\|([^|]*)\|", text, re.M))
+    if not rows:
+        raise RuntimeError("no provenance table rows found in BENCHMARKS.md")
+
+    problems = []
+    for result, pattern in sorted(RESULT_DATA_GLOBS.items()):
+        in_data = _job_ids_in_data(pattern)
+        if not in_data:
+            continue
+        in_row = set(re.findall(r"\b(\d{8})\b", rows.get(result, "")))
+        for job in sorted(in_row - in_data):
+            problems.append(
+                f"Result {result}: table lists job {job}, but no "
+                f"{pattern} file records it -- stale row?")
+        for job in sorted(in_data - in_row):
+            where = "nowhere in the document" if job not in text else \
+                "only in prose, not in the table"
+            problems.append(
+                f"Result {result}: job {job} produced a committed "
+                f"{pattern} file but appears {where}.")
+
+    if problems:
+        raise RuntimeError(
+            "Section 5.3's provenance table disagrees with the data:\n  "
+            + "\n  ".join(problems)
+            + "\n\nUpdate the table (or cite the job in prose) so the "
+              "document and the files agree.")
+    return len(rows)
+
+
 def main() -> None:
     json_count, csv_count = validate_saved_data()
     link_count = validate_local_links()
     markdown_count = validate_markdown_integrity()
+    isocost_count = validate_result4_single_allocation()
+    provenance_rows = validate_provenance_table()
+    script_count = validate_shell_scripts_lf()
     with tempfile.TemporaryDirectory(prefix="qutip-bundling-smoke-") as temp_dir:
         exercise_commands(Path(temp_dir))
     print(
         "Benchmark smoke test passed: "
         f"{json_count} JSON, {csv_count} CSV, {link_count} local links, "
         f"{markdown_count} Markdown files clean, "
-        f"{len(PLOT_COMMANDS)} plot commands, {len(RUNNERS)} protected runners."
+        f"{provenance_rows} provenance rows match the data, "
+        f"{isocost_count} Result 4 panels with provenance, "
+        f"{len(PLOT_COMMANDS)} plot commands, {len(RUNNERS)} protected "
+        f"runners, {script_count} shell scripts LF-clean."
     )
 
 

@@ -74,6 +74,10 @@ SYSTEMS = {
         # dim 128. The size-invariance claim rested on three dimensions; this
         # makes it four. M is capped at N_L = 43 here.
         (7, [2, 4, 8, 16, 32, 64], 4),
+        # dim 256, making five. M is capped at N_L = 57. This is the system
+        # where the invariance claim is cheapest to extend, because its N_L
+        # grows slowly and the exact reference stays affordable.
+        (8, [2, 4, 8, 16, 32, 64], 4),
     ]),
     # Same sizes as the TFIM chain so the two are directly comparable: they
     # differ only by the longitudinal field.
@@ -81,11 +85,18 @@ SYSTEMS = {
         (4, [2, 4, 8, 16, 32, 64], 4),
         (5, [2, 4, 8, 16, 32, 64], 4),
         (6, [2, 4, 8, 16, 32, 64], 4),
+        # dim 128, making four. Expensive: N_L = 8,193 here, and this system's
+        # dim-128 exact reference cost 24.6 h in Result 2.
+        (7, [2, 4, 8, 16, 32, 64], 4),
     ]),
     "oscillator_bath": (build_oscillator_bath, [
         (8,  [2, 4, 8, 16, 32, 64], 4),
         (16, [2, 4, 8, 16, 32, 64], 4),
         (32, [2, 4, 8, 16, 32, 64], 16),
+        # dim 128, making four. 32 substeps, not 16: the anharmonic ladder needs
+        # roughly double per octave and 16 is what diverged here in Result 2.
+        # Its 64-substep reference was measured at 16,441 s by job 19597388.
+        (64, [2, 4, 8, 16, 32, 64], 32),
     ]),
 }
 

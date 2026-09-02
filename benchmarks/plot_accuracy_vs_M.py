@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import argparse
 import math
+from pathlib import Path
 import warnings
 
 import numpy as np
@@ -214,7 +215,7 @@ def accuracy_figure(plt, name, doc, tlist, reference, curves,
     print(f"  saved benchmark_{fname_suffix}_{name}.png")
 
 
-def peak_error_anatomy(doc, label, ref):
+def peak_error_anatomy(doc, label, ref, relative=True):
     """(t_star_index, m_values, bias(t*) per M, fluctuation(t*) per M)."""
     rows = sorted(doc["slb_sweep"], key=lambda r: r["M"])
     s0 = np.asarray(rows[0]["samples"][label], dtype=float)
@@ -229,13 +230,16 @@ def peak_error_anatomy(doc, label, ref):
         rmse0 = np.sqrt(bias0 ** 2 + sem0 ** 2)
         
     t_star = int(np.argmax(rmse0))
+    ref_star = ref[t_star]
+    span = np.max(ref) - np.min(ref)
+    norm = (abs(ref_star) if abs(ref_star) > 1e-4 else max(span, 1e-12)) if relative else 1.0
     
     m_values, bias, fluct = [], [], []
     for row in rows:
         s = np.asarray(row["samples"][label], dtype=float)
         m_values.append(row["M"])
-        bias.append(abs(float(s.mean(axis=0)[t_star]) - float(ref[t_star])))
-        fluct.append(float(s.std(axis=0, ddof=1)[t_star]))
+        bias.append(abs(float(s.mean(axis=0)[t_star]) - float(ref[t_star])) / norm)
+        fluct.append(float(s.std(axis=0, ddof=1)[t_star]) / norm)
     return t_star, np.array(m_values), np.array(bias), np.array(fluct)
 
 
@@ -263,7 +267,7 @@ def _fit_label_raw(base, m, y):
     return base + rf"  — $\propto M^{{{e:.2f}}}$"
 
 
-def decomposition_figure(plt, name, doc, tlist):
+def decomposition_figure(plt, name, doc, tlist, relative=True):
     """Bias, SEM, RMSE, and Std Dev vs M at the peak-error instant, per observable."""
     meta = doc["meta"]["params"]
     n_real = meta["N_REALIZATIONS"]
@@ -282,7 +286,7 @@ def decomposition_figure(plt, name, doc, tlist):
     for idx, label in enumerate(observables):
         ax = axes[idx // n_cols, idx % n_cols]
         ref = as_array(reference[label])
-        t_star, m, bias, fluct = peak_error_anatomy(doc, label, ref)
+        t_star, m, bias, fluct = peak_error_anatomy(doc, label, ref, relative=relative)
         t_stars[label] = tlist[t_star]
 
         # Calculate SEM and requested RMSE
@@ -290,10 +294,14 @@ def decomposition_figure(plt, name, doc, tlist):
 
         if USE_SINGLE_RUN_RMSE:
             rmse = np.sqrt(bias**2 + fluct**2)
-            rmse_label_prefix = "single-run RMSE"
+            rmse_label_prefix = "single-run Rel-RMSE" if relative else "single-run RMSE"
         else:
             rmse = np.sqrt(bias**2 + sem**2)
-            rmse_label_prefix = "total RMSE (ensemble)"
+            rmse_label_prefix = "total Rel-RMSE (ensemble)" if relative else "total RMSE (ensemble)"
+
+        bias_prefix = "rel bias  $|{\\rm mean}-{\\rm ref}|/|{\\rm ref}|$" if relative else "bias  $|{\\rm mean}-{\\rm ref}|$"
+        sem_prefix = "rel SEM  (fluct/$\\sqrt{N}$)" if relative else "SEM  (fluctuation/$\\sqrt{N}$)"
+        std_prefix = "rel Std Dev (fluct)" if relative else "Std Dev (fluctuation)"
 
         # Conditionally plot based on toggles
         if PLOT_RMSE:
@@ -301,14 +309,14 @@ def decomposition_figure(plt, name, doc, tlist):
                       label=_fit_label(rmse_label_prefix, m, rmse))
         if PLOT_BIAS:
             ax.loglog(m, bias, "o-", color="tab:red", lw=1.8, ms=6, zorder=3,
-                      label=_fit_label("bias  $|{\\rm mean}-{\\rm ref}|$", m, bias,
+                      label=_fit_label(bias_prefix, m, bias,
                                        floor=sem))
         if PLOT_SEM:
             ax.loglog(m, sem, "s-", color="tab:blue", lw=1.8, ms=6, zorder=2,
-                      label=_fit_label("SEM  (fluctuation/$\\sqrt{N}$)", m, sem))
+                      label=_fit_label(sem_prefix, m, sem))
         if PLOT_STD:
             ax.loglog(m, fluct, "d-", color="tab:green", lw=1.8, ms=6, zorder=1,
-                      label=_fit_label("Std Dev (fluctuation)", m, fluct))
+                      label=_fit_label(std_prefix, m, fluct))
 
         obs_math_str = _obs_math(label, doc)
         ax.set_xlabel("bundle size $M$")
@@ -319,14 +327,15 @@ def decomposition_figure(plt, name, doc, tlist):
 
     # y-axis label on leftmost column only
     for row in range(n_rows):
-        axes[row, 0].set_ylabel("error at $t^*$")
+        axes[row, 0].set_ylabel("relative error at $t^*$" if relative else "error at $t^*$")
 
     # Hide unused subplots
     for idx in range(n_obs, n_rows * n_cols):
         axes[idx // n_cols, idx % n_cols].set_visible(False)
 
+    title_rel = "relative error anatomy" if relative else "error anatomy"
     fig.suptitle(rf"{name} ({_size_str(name, doc['dim'])}, $N_L$={doc['n_l']}): "
-                 rf"error anatomy at the worst moment, fixed sampling")
+                 rf"{title_rel} at the worst moment, fixed sampling")
     fig.tight_layout()
 
     if USE_SINGLE_RUN_RMSE:
@@ -334,17 +343,27 @@ def decomposition_figure(plt, name, doc, tlist):
     else:
         footer_math = "RMSE\u00b2 = bias\u00b2 + SEM\u00b2; expected: bias \u221d 1/M, SEM \u221d 1/\u221aM"
 
+    norm_text = "; normalized by |ref(t*)| (or dynamic span)" if relative else ""
     add_settings_footer(
         fig,
         f"t* = argmax of RMSE(t) of the smallest-M estimate, held for all M; "
-        f"{n_real} realizations at every M",
+        f"{n_real} realizations at every M{norm_text}",
         f"{footer_math}; {doc['meta']['substeps']} RK4 substep(s)/step",
         _timing_caption(doc),
     )
 
     suffix = "" if USE_SINGLE_RUN_RMSE else "_ensRMSE"
+    out_dir = Path(__file__).resolve().parent
+    # Save primary file
+    fig.savefig(out_dir / f"benchmark_error_decomposition_{name}{suffix}.png", dpi=130,
+                bbox_inches="tight")
     fig.savefig(f"benchmark_error_decomposition_{name}{suffix}.png", dpi=130,
                 bbox_inches="tight")
+    if relative:
+        fig.savefig(out_dir / f"benchmark_error_decomposition_{name}{suffix}_relative.png", dpi=130,
+                    bbox_inches="tight")
+        fig.savefig(f"benchmark_error_decomposition_{name}{suffix}_relative.png", dpi=130,
+                    bbox_inches="tight")
     plt.close(fig)
     t_star_summary = ", ".join(f"{k}={v:.2f}" for k, v in t_stars.items())
     print(f"  saved benchmark_error_decomposition_{name}{suffix}.png  "
