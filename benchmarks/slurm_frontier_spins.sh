@@ -6,6 +6,7 @@
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=32
 #SBATCH --mem=128G
+#SBATCH --exclusive
 #SBATCH --output=/usr/people/roib/sayak/qutip-bundling-landau/logs/frontier-%j.out
 #SBATCH --error=/usr/people/roib/sayak/qutip-bundling-landau/logs/frontier-%j.err
 
