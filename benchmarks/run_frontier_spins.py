@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import math
 import os
 import time
 import numpy as np
@@ -30,8 +31,75 @@ from qutip_bundling.operators import (
 # Above it we use the streaming path (bundle_davies_from_phases) to avoid OOM.
 STREAMING_THRESHOLD = 256
 
+# RK4's stability limit on |lambda * dt| for eigenvalues near the imaginary
+# axis. A Lindblad generator sits close enough to that axis for this to be the
+# binding constraint in practice.
+RK4_STABILITY_LIMIT = 2.0 * math.sqrt(2.0)
 
-def run_system_frontier(system_name: str, dims: list[int], m_values: list[int] = [16, 32, 64]):
+
+def spectral_bound(H):
+    """Gershgorin upper bound on the largest |eigenvalue| of Hermitian H.
+
+    The spectral radius never exceeds the largest absolute row sum. Used in
+    place of an eigendecomposition because it is one pass over H and errs
+    high -- the safe direction for a step-size rule.
+    """
+    return float(np.abs(H.full()).sum(axis=1).max())
+
+
+def table_substeps(system_name, dim):
+    """The hand-tuned substeps this benchmark has always used."""
+    if system_name == 'oscillator_bath':
+        if dim <= 16:    return 4
+        elif dim <= 64:  return 16
+        elif dim <= 128: return 32
+        elif dim <= 256: return 64
+        elif dim <= 512: return 128
+        else:            return 256
+    if dim <= 64:  return 4
+    elif dim <= 256: return 8
+    else:          return 16
+
+
+def choose_substeps(H, tlist, system_name):
+    """Substeps per tlist interval: the table, raised where RK4 needs more.
+
+    WHY THIS IS NO LONGER JUST A TABLE. The oscillator Hamiltonian carries an
+    anharmonic `anh * n^2` term, so its top energy grows as the SQUARE of the
+    Fock cutoff -- doubling the cutoff quadruples the largest frequency. The
+    table doubled per octave, held on borrowed margin for four octaves, and
+    then failed: job 19602988 diverged at Fock 512 with substeps=256, matrix
+    entries reaching 1.7e184 by t=0.05.
+
+    Measured against the stability limit, at dt = 0.05:
+
+        Fock 128, substeps  64  ->  1.32   ran
+        Fock 256, substeps 128  ->  2.64   ran, 7% to spare
+        Fock 512, substeps 256  ->  5.20   diverged
+
+    Taking max(table, rule) rather than the rule alone is deliberate. The rule
+    on its own would halve substeps at Fock 128 -- defensible, but it would
+    make new runs incomparable with the ones already completed. This raises
+    substeps only where the table was too small to be stable.
+
+    Spin chains are left on the table: their spectral bound is about 17 at 11
+    spins, so the rule would ask for substeps=1 against the table's 16.
+    """
+    table = table_substeps(system_name, H.shape[0])
+    if system_name != 'oscillator_bath':
+        return table
+
+    dt = float(np.min(np.diff(np.asarray(tlist, dtype=float))))
+    needed = spectral_bound(H) * dt / RK4_STABILITY_LIMIT
+    substeps = 4
+    while substeps < needed:
+        substeps *= 2
+    return max(table, substeps)
+
+
+def run_system_frontier(system_name: str, dims: list[int],
+                        m_values: list[int] = [16, 32, 64],
+                        out_name: str | None = None):
     print(f"\n{'='*70}")
     print(f"  FRONTIER BENCHMARK: {system_name.upper()}")
     print(f"  Dimensions to test: {dims}")
@@ -40,6 +108,13 @@ def run_system_frontier(system_name: str, dims: list[int], m_values: list[int] =
     print(f"{'='*70}\n")
 
     results = []
+    out_name = out_name or f"frontier_spins_{system_name}.json"
+    meta = common.run_metadata(
+        tlist=np.linspace(0, 5.0, 101), substeps=None,
+        system=system_name, dims=list(dims), m_values=list(m_values),
+        streaming_threshold=STREAMING_THRESHOLD,
+        substeps_rule="max(table, RK4 stability bound); see choose_substeps",
+    )
 
     for dim in dims:
         print(f"\n--- Dimension N = {dim} ---")
@@ -94,21 +169,11 @@ def run_system_frontier(system_name: str, dims: list[int], m_values: list[int] =
             'm_runs': {}
         }
 
-        # System-dependent substeps: the oscillator is much stiffer and needs
-        # roughly double per octave. Values match run_isocost_vs_dim.py.
-        if system_name == 'oscillator_bath':
-            if dim <= 16:    substeps = 4
-            elif dim <= 64:  substeps = 16
-            elif dim <= 128: substeps = 32
-            elif dim <= 256: substeps = 64
-            elif dim <= 512: substeps = 128
-            else:            substeps = 256
-        else:
-            # Spin chains (System A and B)
-            if dim <= 64:    substeps = 4
-            elif dim <= 256: substeps = 8
-            else:            substeps = 16
-        print(f"  [2] SLB Dynamics Propagation (substeps={substeps}):")
+        substeps = choose_substeps(H, tlist, system_name)
+        dim_res['substeps'] = substeps
+        table = table_substeps(system_name, dim)
+        note = "" if substeps == table else f"  [raised from {table} for stability]"
+        print(f"  [2] SLB Dynamics Propagation (substeps={substeps}){note}")
 
         rng = np.random.default_rng(42)
         final_states = {}
@@ -147,8 +212,18 @@ def run_system_frontier(system_name: str, dims: list[int], m_values: list[int] =
             print(f"  [3] Self-Convergence (M=32 -> M=64 at t=5.0):")
             print(f"      - Frobenius distance: {frobenius_diff:.4e}")
             print(f"      - Trace distance:     {trace_diff:.4e}")
+            dim_res['self_convergence'] = {
+                'from_m': 32, 'to_m': 64,
+                'frobenius': float(frobenius_diff),
+                'trace': float(trace_diff),
+            }
 
         results.append(dim_res)
+
+        # Write after EVERY dimension, not at the end. Job 19602988 spent 24 h
+        # on Fock 32-256, diverged at Fock 512, and lost all of it because this
+        # runner used to return its results and never save them.
+        common.save_data(out_name, meta, points=results)
 
     print(f"\n{'='*70}")
     print(f"  BENCHMARK COMPLETE")
@@ -161,9 +236,12 @@ def main():
     parser.add_argument('--system', default='mixed_chain', choices=['mixed_chain', 'spin_chain', 'oscillator_bath'])
     parser.add_argument('--dims', type=int, nargs='+', default=[64, 128])
     parser.add_argument('--m-values', type=int, nargs='+', default=[16, 32, 64])
+    parser.add_argument('--out', default=None,
+                        help='output filename under data/ '
+                             '(default: frontier_spins_<system>.json)')
     args = parser.parse_args()
 
-    run_system_frontier(args.system, args.dims, args.m_values)
+    run_system_frontier(args.system, args.dims, args.m_values, args.out)
 
 
 if __name__ == '__main__':
