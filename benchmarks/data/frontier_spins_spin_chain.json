@@ -1,0 +1,147 @@
+{
+ "meta": {
+  "timestamp": "2026-09-05T12:24:04+00:00",
+  "python": "3.11.15",
+  "numpy": "2.4.6",
+  "qutip": "5.3.0",
+  "qutip_bundling": "0.6.4",
+  "platform": "Linux-4.15.0-213-generic-x86_64-with-glibc2.27",
+  "execution": {
+   "hostname": "landau42",
+   "cpu_count": 72,
+   "threads": {
+    "OMP_NUM_THREADS": "32",
+    "OPENBLAS_NUM_THREADS": "32",
+    "MKL_NUM_THREADS": "32",
+    "NUMEXPR_NUM_THREADS": "32"
+   },
+   "slurm": {
+    "job_id": "19603730",
+    "job_name": "frontier-A2",
+    "nodelist": "landau42",
+    "cpus_per_task": "32",
+    "partition": "roibq"
+   }
+  },
+  "tlist": {
+   "t0": 0.0,
+   "t1": 5.0,
+   "n": 101
+  },
+  "substeps": null,
+  "full_time_budget_s": 60.0,
+  "max_full_dim": 32,
+  "max_native_ref_dim": 128,
+  "davies": {
+   "construction": "grouped_frequency_sectors",
+   "degeneracy_tol": 1e-10,
+   "coupling_block_floor": "512 * eps * dim * frobenius_norm(X_in_energy_basis)"
+  },
+  "params": {
+   "system": "spin_chain",
+   "dims": [
+    128,
+    256,
+    512,
+    1024
+   ],
+   "m_values": [
+    16,
+    32,
+    64
+   ],
+   "streaming_threshold": 256,
+   "substeps_rule": "max(table, RK4 stability bound); see choose_substeps"
+  }
+ },
+ "points": [
+  {
+   "dim": 128,
+   "n_l": 43,
+   "t_davies": 0.1739551406353712,
+   "streaming": false,
+   "m_runs": {
+    "16": {
+     "t_dyn": 12.067200608551502,
+     "t_bundle_prep": 0.00900503620505333
+    },
+    "32": {
+     "t_dyn": 23.93678125180304,
+     "t_bundle_prep": 0.018561268225312233
+    }
+   },
+   "substeps": 8
+  },
+  {
+   "dim": 256,
+   "n_l": 57,
+   "t_davies": 0.6214262694120407,
+   "streaming": false,
+   "m_runs": {
+    "16": {
+     "t_dyn": 30.746865447610617,
+     "t_bundle_prep": 0.05202027969062328
+    },
+    "32": {
+     "t_dyn": 54.41031667590141,
+     "t_bundle_prep": 0.0812140479683876
+    }
+   },
+   "substeps": 8
+  },
+  {
+   "dim": 512,
+   "n_l": 73,
+   "t_davies": 1.5809167083352804,
+   "streaming": true,
+   "m_runs": {
+    "16": {
+     "t_dyn": 420.67222873307765,
+     "t_bundle_prep": 4.85764173604548
+    },
+    "32": {
+     "t_dyn": 789.7454329766333,
+     "t_bundle_prep": 7.609744027256966
+    },
+    "64": {
+     "t_dyn": 1506.3967553395778,
+     "t_bundle_prep": 13.093338558450341
+    }
+   },
+   "substeps": 16,
+   "self_convergence": {
+    "from_m": 32,
+    "to_m": 64,
+    "frobenius": 0.08199407347829026,
+    "trace": 0.08489715998820424
+   }
+  },
+  {
+   "dim": 1024,
+   "n_l": 91,
+   "t_davies": 6.181995734572411,
+   "streaming": true,
+   "m_runs": {
+    "16": {
+     "t_dyn": 2445.4634046200663,
+     "t_bundle_prep": 26.521441236138344
+    },
+    "32": {
+     "t_dyn": 4771.80242761597,
+     "t_bundle_prep": 43.5979609079659
+    },
+    "64": {
+     "t_dyn": 9502.71132225357,
+     "t_bundle_prep": 61.041722586378455
+    }
+   },
+   "substeps": 16,
+   "self_convergence": {
+    "from_m": 32,
+    "to_m": 64,
+    "frobenius": 0.1240645711026089,
+    "trace": 0.124138240028174
+   }
+  }
+ ]
+}
