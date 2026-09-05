@@ -360,21 +360,27 @@ def validate_result4_single_allocation() -> int:
 
 
 RESULT_DATA_GLOBS = {
-    "1": "accuracy_vs_M_*.json",
-    "2": "cost_scaling_*.json",
-    "3": "method_comparison_*.json",
-    "4": "isocost_vs_dim_*.json",
-    "5": "extreme_dimension_*.json",
+    "1": ("accuracy_vs_M_*.json",),
+    "2": ("cost_scaling_*.json",),
+    "3": ("method_comparison_*.json",),
+    "4": ("isocost_vs_dim_*.json",),
+    # Result 5 covers both the extreme-dimension run and the frontier sweeps:
+    # they are the same claim (no exact reference available) measured two ways.
+    # frontier_spins_*.json was invisible to this guard when it first landed,
+    # which is precisely the unattributed-run gap the guard exists to catch.
+    "5": ("extreme_dimension_*.json", "frontier_spins_*.json"),
 }
 
 
-def _job_ids_in_data(pattern: str) -> set[str]:
+def _job_ids_in_data(patterns) -> set[str]:
     found = set()
-    for path in sorted(DATA_DIR.glob(pattern)):
-        execution = json.loads(path.read_text(encoding="utf-8"))["meta"]["execution"]
-        job = execution.get("slurm", {}).get("job_id")
-        if job:
-            found.add(str(job))
+    for pattern in patterns:
+        for path in sorted(DATA_DIR.glob(pattern)):
+            execution = json.loads(
+                path.read_text(encoding="utf-8"))["meta"]["execution"]
+            job = execution.get("slurm", {}).get("job_id")
+            if job:
+                found.add(str(job))
     return found
 
 
@@ -410,16 +416,17 @@ def validate_provenance_table() -> int:
         if not in_data:
             continue
         in_row = set(re.findall(r"\b(\d{8})\b", rows.get(result, "")))
+        names = " / ".join(pattern)
         for job in sorted(in_row - in_data):
             problems.append(
                 f"Result {result}: table lists job {job}, but no "
-                f"{pattern} file records it -- stale row?")
+                f"{names} file records it -- stale row?")
         for job in sorted(in_data - in_row):
             where = "nowhere in the document" if job not in text else \
                 "only in prose, not in the table"
             problems.append(
                 f"Result {result}: job {job} produced a committed "
-                f"{pattern} file but appears {where}.")
+                f"{names} file but appears {where}.")
 
     if problems:
         raise RuntimeError(

@@ -324,3 +324,59 @@ def test_result5_sampling_row_matches_its_data(doc):
     data = json.loads(path.read_text(encoding="utf-8"))
     assert published_m == [s["M"] for s in data["sweep"]]
     assert published_r == data["thermal"]["n_realizations"]
+
+
+def test_result5_convergence_table_matches_the_frontier_data(doc):
+    """Parses Result 5's reference-free convergence table and recomputes every
+    cell from frontier_spins_oscillator_bath.json.
+
+    The section's claim is not only that these numbers are right but that they
+    FALL as the system grows -- four orders of magnitude, monotonically. A table
+    that still matched the file while the trend had reversed would be a
+    different result, so the ordering is asserted separately.
+    """
+    path = DATA / "frontier_spins_oscillator_bath.json"
+    if not path.exists():
+        pytest.skip("frontier oscillator sweep not committed")
+    points = {q["dim"]: q for q in json.loads(
+        path.read_text(encoding="utf-8"))["points"]}
+
+    superscripts = "\u2070\u00b9\u00b2\u00b3\u2074\u2075\u2076\u2077\u2078\u2079"
+    sci = r"\**([\d.]+) \u00d7 10\u207b([" + superscripts + r"])\**"
+    rows = re.findall(
+        r"^\|\s*(\d+)\s*\|\s*(\d+)\s*\|\s*([\d,]+)\s*\|\s*(\d+)\s*\|\s*"
+        + sci + r"\s*\|\s*" + sci + r"\s*\|",
+        doc, re.M)
+    assert len(rows) == 4, (
+        f"expected 4 rows in Result 5's convergence table, parsed {len(rows)}")
+
+    seen = []
+    for fock, dim, n_l, substeps, fro_m, fro_e, tr_m, tr_e in rows:
+        dim = int(dim)
+        assert dim in points, f"dimension {dim} is in the table but not the data"
+        point = points[dim]
+
+        assert int(fock) == dim // 2, f"Fock cutoff wrong for N={dim}"
+        assert int(n_l.replace(",", "")) == point["n_l"], f"N_L wrong for N={dim}"
+        assert int(substeps) == point["substeps"], f"substeps wrong for N={dim}"
+
+        convergence = point["self_convergence"]
+        published_fro = float(fro_m) * 10.0 ** -superscripts.index(fro_e)
+        published_tr = float(tr_m) * 10.0 ** -superscripts.index(tr_e)
+        # The table is quoted to three significant figures, so half a unit in
+        # the last digit is 0.5% -- 1.00e-2 in the document against 0.010033
+        # in the file is a correct rounding, not a drift.
+        assert published_fro == pytest.approx(
+            convergence["frobenius"], rel=5e-3), f"Frobenius wrong for N={dim}"
+        assert published_tr == pytest.approx(
+            convergence["trace"], rel=5e-3), f"trace distance wrong for N={dim}"
+        seen.append((dim, convergence["frobenius"]))
+
+    seen.sort()
+    values = [v for _, v in seen]
+    assert values == sorted(values, reverse=True), (
+        "Result 5 claims the convergence distance falls monotonically with "
+        f"dimension; the data gives {values}")
+    assert values[0] / values[-1] > 1e3, (
+        "Result 5 claims four orders of magnitude; the measured ratio is "
+        f"{values[0] / values[-1]:.3g}")
