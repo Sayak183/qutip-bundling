@@ -1252,7 +1252,7 @@ memory:
 | Result | Slurm jobs | dates |
 |---|---|---|
 | **1** accuracy vs `M` | 19585257, 19592647, 19597390, 19598577, 19598578 | Aug 7 – 26 |
-| **2** cost scaling | 19599550, 19599671, 19599672 | Aug 29 – 30 |
+| **2** cost scaling | 19599550, 19599671, 19599672, 19603810 | Aug 29 – Sep 6 |
 | **3** method comparison | 19559720, 19559854, 19559945, 19594145 | Aug 1 – 19 |
 | **4** iso-accuracy cost | 19599793 | Aug 30 – Sep 1 |
 | **5** past the reference wall | 19592848, 19603729, 19603730, 19603731 | Aug 18, Sep 5 |
@@ -1344,6 +1344,19 @@ conclusion from the older data survived. The *cost* comparisons did not:
 
 The pre-0.6.4 inputs are kept under `data/legacy/` rather than deleted, so the
 older figures remain reproducible and the difference is auditable.
+
+**Thread count is part of the measurement.** Job `19603810` re-measured System
+A's exact solver and SLB at 9 and 10 spins with 32 threads, where the Result 2
+data uses 4. Its 9-spin figures come out **2.3x faster for that reason alone** —
+331.7 s against 765.7 s on the reference, 26.2 s against 59.0 s on SLB, both
+moving by the same factor, with substeps, node exclusivity and every other
+setting identical. **Never compare a wall-clock across the two.** Each file
+records `meta.execution.threads`, so the check is always available. That run is
+kept as `cost_scaling_spin_chain_dim1024.json`, a name `plot_cost_scaling.py`
+cannot load, precisely so it cannot drift into Result 2's figures.
+
+It is worth reading the other way too: **8x the cores bought 2.3x the speed.**
+Core count is a weak lever here, and that is now measured rather than assumed.
 
 **Wall-clock comparability.** Times are comparable *within* a figure, where all
 methods ran in one Slurm allocation on one node, and in general **not between**
