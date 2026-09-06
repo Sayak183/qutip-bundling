@@ -1255,7 +1255,7 @@ memory:
 | **2** cost scaling | 19599550, 19599671, 19599672 | Aug 29 – 30 |
 | **3** method comparison | 19559720, 19559854, 19559945, 19594145 | Aug 1 – 19 |
 | **4** iso-accuracy cost | 19599793 | Aug 30 – Sep 1 |
-| **5** past the reference wall | 19592848, 19603729, 19603730 | Aug 18, Sep 5 |
+| **5** past the reference wall | 19592848, 19603729, 19603730, 19603731 | Aug 18, Sep 5 |
 | **Certified References** | 19559570 | Aug 1 – 2 |
 
 Result 4 spent a while split across three allocations, while the mixed chain
