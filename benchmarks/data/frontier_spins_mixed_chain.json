@@ -1,0 +1,139 @@
+{
+ "meta": {
+  "timestamp": "2026-09-05T12:27:41+00:00",
+  "python": "3.11.15",
+  "numpy": "2.4.6",
+  "qutip": "5.3.0",
+  "qutip_bundling": "0.6.4",
+  "platform": "Linux-4.15.0-213-generic-x86_64-with-glibc2.27",
+  "execution": {
+   "hostname": "landau44",
+   "cpu_count": 72,
+   "threads": {
+    "OMP_NUM_THREADS": "32",
+    "OPENBLAS_NUM_THREADS": "32",
+    "MKL_NUM_THREADS": "32",
+    "NUMEXPR_NUM_THREADS": "32"
+   },
+   "slurm": {
+    "job_id": "19603731",
+    "job_name": "frontier-B2",
+    "nodelist": "landau44",
+    "cpus_per_task": "32",
+    "partition": "roibq"
+   }
+  },
+  "tlist": {
+   "t0": 0.0,
+   "t1": 5.0,
+   "n": 101
+  },
+  "substeps": null,
+  "full_time_budget_s": 60.0,
+  "max_full_dim": 32,
+  "max_native_ref_dim": 128,
+  "davies": {
+   "construction": "grouped_frequency_sectors",
+   "degeneracy_tol": 1e-10,
+   "coupling_block_floor": "512 * eps * dim * frobenius_norm(X_in_energy_basis)"
+  },
+  "params": {
+   "system": "mixed_chain",
+   "dims": [
+    128,
+    256,
+    512
+   ],
+   "m_values": [
+    16,
+    32,
+    64
+   ],
+   "streaming_threshold": 256,
+   "substeps_rule": "max(table, RK4 stability bound); see choose_substeps"
+  }
+ },
+ "points": [
+  {
+   "dim": 128,
+   "n_l": 8193,
+   "t_davies": 7.856376552954316,
+   "streaming": false,
+   "m_runs": {
+    "16": {
+     "t_dyn": 14.6618334017694,
+     "t_bundle_prep": 2.197708236053586
+    },
+    "32": {
+     "t_dyn": 26.230192178860307,
+     "t_bundle_prep": 1.9386929236352444
+    },
+    "64": {
+     "t_dyn": 51.03578604198992,
+     "t_bundle_prep": 2.556072099134326
+    }
+   },
+   "substeps": 8,
+   "self_convergence": {
+    "from_m": 32,
+    "to_m": 64,
+    "frobenius": 0.06479285233493881,
+    "trace": 0.04752888495404231
+   }
+  },
+  {
+   "dim": 256,
+   "n_l": 32637,
+   "t_davies": 106.56370621547103,
+   "streaming": false,
+   "m_runs": {
+    "16": {
+     "t_dyn": 46.714247956871986,
+     "t_bundle_prep": 26.314877385273576
+    },
+    "32": {
+     "t_dyn": 84.80279307812452,
+     "t_bundle_prep": 42.06771403923631
+    },
+    "64": {
+     "t_dyn": 173.83441157452762,
+     "t_bundle_prep": 28.957918317988515
+    }
+   },
+   "substeps": 8,
+   "self_convergence": {
+    "from_m": 32,
+    "to_m": 64,
+    "frobenius": 0.0937046286982784,
+    "trace": 0.06847527466772149
+   }
+  },
+  {
+   "dim": 512,
+   "n_l": 131001,
+   "t_davies": 3.167503187432885,
+   "streaming": true,
+   "m_runs": {
+    "16": {
+     "t_dyn": 442.5353594124317,
+     "t_bundle_prep": 5508.563769416884
+    },
+    "32": {
+     "t_dyn": 827.6992891896516,
+     "t_bundle_prep": 10171.517956981435
+    },
+    "64": {
+     "t_dyn": 1614.7632064726204,
+     "t_bundle_prep": 19290.485252059996
+    }
+   },
+   "substeps": 16,
+   "self_convergence": {
+    "from_m": 32,
+    "to_m": 64,
+    "frobenius": 0.06918860240619394,
+    "trace": 0.051373444697121434
+   }
+  }
+ ]
+}
