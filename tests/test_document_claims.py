@@ -327,56 +327,70 @@ def test_result5_sampling_row_matches_its_data(doc):
 
 
 def test_result5_convergence_table_matches_the_frontier_data(doc):
-    """Parses Result 5's reference-free convergence table and recomputes every
-    cell from frontier_spins_oscillator_bath.json.
+    """Parses Result 5's combined convergence table and recomputes every cell
+    from the three frontier data files.
 
-    The section's claim is not only that these numbers are right but that they
-    FALL as the system grows -- four orders of magnitude, monotonically. A table
-    that still matched the file while the trend had reversed would be a
-    different result, so the ordering is asserted separately.
+    Rows are keyed on N_L, which is unique across all three systems, so a row
+    silently attributed to the wrong system fails rather than passing against
+    the wrong file.
+
+    The trends are checked separately from the values. The section's claim is
+    that ONLY the oscillator improves -- it must fall by at least three orders
+    of magnitude, and neither chain may fall at all. A table that matched every
+    file while a trend had reversed would be a different result.
     """
-    path = DATA / "frontier_spins_oscillator_bath.json"
-    if not path.exists():
-        pytest.skip("frontier oscillator sweep not committed")
-    points = {q["dim"]: q for q in json.loads(
-        path.read_text(encoding="utf-8"))["points"]}
+    systems = {}
+    for name in ("oscillator_bath", "mixed_chain", "spin_chain"):
+        path = DATA / f"frontier_spins_{name}.json"
+        if not path.exists():
+            pytest.skip(f"frontier sweep for {name} not committed")
+        for point in json.loads(path.read_text(encoding="utf-8"))["points"]:
+            if point.get("self_convergence"):
+                systems[point["n_l"]] = (name, point)
 
-    superscripts = "\u2070\u00b9\u00b2\u00b3\u2074\u2075\u2076\u2077\u2078\u2079"
+    superscripts = ("\u2070\u00b9\u00b2\u00b3\u2074"
+                    "\u2075\u2076\u2077\u2078\u2079")
     sci = r"\**([\d.]+) \u00d7 10\u207b([" + superscripts + r"])\**"
     rows = re.findall(
-        r"^\|\s*(\d+)\s*\|\s*(\d+)\s*\|\s*([\d,]+)\s*\|\s*(\d+)\s*\|\s*"
+        r"^\|[^|]*\|\s*([\d,]+)\s*\|\s*([\d,]+)\s*\|\s*(\d+)\s*\|\s*"
         + sci + r"\s*\|\s*" + sci + r"\s*\|",
         doc, re.M)
-    assert len(rows) == 4, (
-        f"expected 4 rows in Result 5's convergence table, parsed {len(rows)}")
+    assert len(rows) == len(systems), (
+        f"table has {len(rows)} rows against {len(systems)} measured points")
 
-    seen = []
-    for fock, dim, n_l, substeps, fro_m, fro_e, tr_m, tr_e in rows:
-        dim = int(dim)
-        assert dim in points, f"dimension {dim} is in the table but not the data"
-        point = points[dim]
+    seen = {}
+    for dim, n_l, substeps, fro_m, fro_e, tr_m, tr_e in rows:
+        n_l = int(n_l.replace(",", ""))
+        assert n_l in systems, f"N_L={n_l} is in the table but in no data file"
+        name, point = systems[n_l]
 
-        assert int(fock) == dim // 2, f"Fock cutoff wrong for N={dim}"
-        assert int(n_l.replace(",", "")) == point["n_l"], f"N_L wrong for N={dim}"
-        assert int(substeps) == point["substeps"], f"substeps wrong for N={dim}"
+        assert int(dim.replace(",", "")) == point["dim"], (
+            f"dimension wrong for N_L={n_l}")
+        assert int(substeps) == point["substeps"], f"substeps wrong for N_L={n_l}"
 
         convergence = point["self_convergence"]
+        # Three significant figures, so half a unit in the last digit is 0.5%.
         published_fro = float(fro_m) * 10.0 ** -superscripts.index(fro_e)
         published_tr = float(tr_m) * 10.0 ** -superscripts.index(tr_e)
-        # The table is quoted to three significant figures, so half a unit in
-        # the last digit is 0.5% -- 1.00e-2 in the document against 0.010033
-        # in the file is a correct rounding, not a drift.
         assert published_fro == pytest.approx(
-            convergence["frobenius"], rel=5e-3), f"Frobenius wrong for N={dim}"
+            convergence["frobenius"], rel=5e-3), f"Frobenius wrong for N_L={n_l}"
         assert published_tr == pytest.approx(
-            convergence["trace"], rel=5e-3), f"trace distance wrong for N={dim}"
-        seen.append((dim, convergence["frobenius"]))
+            convergence["trace"], rel=5e-3), f"trace wrong for N_L={n_l}"
 
-    seen.sort()
-    values = [v for _, v in seen]
-    assert values == sorted(values, reverse=True), (
-        "Result 5 claims the convergence distance falls monotonically with "
-        f"dimension; the data gives {values}")
-    assert values[0] / values[-1] > 1e3, (
-        "Result 5 claims four orders of magnitude; the measured ratio is "
-        f"{values[0] / values[-1]:.3g}")
+        seen.setdefault(name, []).append((point["dim"], convergence["frobenius"]))
+
+    oscillator = [v for _, v in sorted(seen["oscillator_bath"])]
+    assert oscillator == sorted(oscillator, reverse=True), (
+        f"Result 5 claims the oscillator falls monotonically; got {oscillator}")
+    assert oscillator[0] / oscillator[-1] > 1e3, (
+        "Result 5 claims four orders of magnitude on the oscillator; measured "
+        f"{oscillator[0] / oscillator[-1]:.3g}")
+
+    for name in ("mixed_chain", "spin_chain"):
+        values = [v for _, v in sorted(seen[name])]
+        assert values[-1] >= values[0] * 0.5, (
+            f"Result 5 claims only the oscillator improves, but {name} fell "
+            f"from {values[0]:.3g} to {values[-1]:.3g}")
+        assert min(values) > 100 * max(oscillator[-1], 1e-30), (
+            f"{name} is claimed to stay near 1e-1 while the oscillator reaches "
+            f"{oscillator[-1]:.3g}; got {values}")

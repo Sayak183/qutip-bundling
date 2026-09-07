@@ -1255,7 +1255,7 @@ memory:
 | **2** cost scaling | 19599550, 19599671, 19599672, 19603810 | Aug 29 – Sep 6 |
 | **3** method comparison | 19559720, 19559854, 19559945, 19594145 | Aug 1 – 19 |
 | **4** iso-accuracy cost | 19599793 | Aug 30 – Sep 1 |
-| **5** past the reference wall | 19592848, 19603729, 19603730, 19603731 | Aug 18, Sep 5 |
+| **5** past the reference wall | 19592848, 19603729, 19603731, 19603809 | Aug 18, Sep 5 – 7 |
 | **Certified References** | 19559570 | Aug 1 – 2 |
 
 Result 4 spent a while split across three allocations, while the mixed chain
@@ -1953,7 +1953,7 @@ Bundling strictly preserves sector blocks (cross-sector matrix elements are $< 2
 - **Wall-Clock Time:** 5.3 hours total on 1 node (4 CPUs) on Landau (`job 19592848`). Counting $N_L=32{,}637$ took 1.3 s with zero matrix allocations.
 - **Scope:** Transient benchmark results (§5.1–§5.4, $t \le 5$) are unaffected because they operate far from the stationary regime.
 
-#### A reference-free check that runs in both directions
+#### A reference-free check, run on all three systems
 
 Past the reference wall there is no exact answer to score against, so the
 question becomes what *can* still be measured. One thing can: how far apart two
@@ -1961,42 +1961,78 @@ different bundle counts land. If $M=32$ and $M=64$ agree, the answer has stopped
 depending on $M$ — necessary for convergence, though not sufficient for
 correctness.
 
-Swept across the oscillator at four sizes (job `19603729`, 17.5 h on one
-exclusive node, saved as `frontier_spins_oscillator_bath.json`), that distance
-collapses:
+Swept across all three systems on exclusive nodes (jobs `19603729`, `19603731`
+and `19603809`, saved as `frontier_spins_*.json`):
 
-| Fock cutoff | $N$ | $N_L$ | substeps | $\lVert\rho_{64}-\rho_{32}\rVert_F$ | trace distance |
+| system and size | $N$ | $N_L$ | substeps | $\lVert\rho_{64}-\rho_{32}\rVert_F$ | trace distance |
 |---|---|---|---|---|---|
-| 32 | 64 | 890 | 16 | 7.39 × 10⁻³ | 1.00 × 10⁻² |
-| 64 | 128 | 1,686 | 32 | 4.34 × 10⁻³ | 5.89 × 10⁻³ |
-| 128 | 256 | 2,986 | 64 | 4.53 × 10⁻⁴ | 1.14 × 10⁻³ |
-| 256 | 512 | 5,034 | 128 | **2.94 × 10⁻⁷** | 8.83 × 10⁻⁷ |
+| **C** oscillator, Fock 32 | 64 | 890 | 16 | 7.39 × 10⁻³ | 1.00 × 10⁻² |
+| **C** Fock 64 | 128 | 1,686 | 32 | 4.34 × 10⁻³ | 5.89 × 10⁻³ |
+| **C** Fock 128 | 256 | 2,986 | 64 | 4.53 × 10⁻⁴ | 1.14 × 10⁻³ |
+| **C** Fock 256 | 512 | 5,034 | 128 | **2.94 × 10⁻⁷** | 8.83 × 10⁻⁷ |
+| **B** mixed chain, 7 spins | 128 | 8,193 | 8 | 6.48 × 10⁻² | 4.75 × 10⁻² |
+| **B** 8 spins | 256 | 32,637 | 8 | 9.37 × 10⁻² | 6.85 × 10⁻² |
+| **B** 9 spins | 512 | 131,001 | 16 | 6.92 × 10⁻² | 5.14 × 10⁻² |
+| **A** simple chain, 9 spins | 512 | 73 | 16 | 8.20 × 10⁻² | 8.49 × 10⁻² |
+| **A** 10 spins | 1,024 | 91 | 16 | 1.24 × 10⁻¹ | 1.24 × 10⁻¹ |
+| **A** 11 spins | 2,048 | 111 | 16 | 1.26 × 10⁻¹ | 1.34 × 10⁻¹ |
 
-**Four orders of magnitude, monotonically, as the system grows.** Doubling the
-oscillator makes the difference between 32 bundles and 64 bundles *less*
-important, not more.
+**Only the oscillator improves.** Its distance falls by four orders of magnitude
+— a factor of 25,000 — as the system grows. Doubling it makes the difference
+between 32 bundles and 64 bundles *less* important, not more. Both chains sit
+near $10^{-1}$ and stay there: the mixed chain flat within a factor of 1.4 and
+without direction, the simple chain rising from $8.2\times10^{-2}$ and then
+levelling off. At its largest size the oscillator is **five orders of magnitude**
+below either of them.
 
-That is the same statement Result 4 makes with a different instrument. There,
-$M^\ast$ — the bundle count needed to hold 3% on every observable — runs
-$8 \to 4 \to 4 \to 4 \to \mathbf{2}$ as the oscillator grows from dimension 8 to
-128, while on System A it tracks $N_L$ upward at every size. **The two systems
-move in opposite directions**, and this check reproduces that without needing an
-exact solve anywhere.
+**The separator is not locality.** Systems A and B have almost the same mean
+transition distance — 27.6% against 26.8% — and behave differently. What
+distinguishes them is how much of the dissipator a fixed $M$ can capture:
+
+* **A** has 73 to 111 operators. At 9 spins $M=64$ is 88% of the whole list; by
+  11 spins it is 58%. A fixed bundle count captures steadily *less* as the system
+  grows, so 32 and 64 drift apart. Below 9 spins the comparison cannot be made at
+  all — $M=64$ exceeds $N_L$, and 64 bundles cannot be formed.
+* **B** has 8,193 to 131,001. Both 32 and 64 are a vanishing fraction of the
+  list — 0.05% at 9 spins — so both sit deep in the sampling regime and the gap
+  between them does not move.
+* **C** has 890 to 5,034, but its couplings are local (3.2% mean transition
+  distance). A handful of bundles carries the dynamics, so more of them makes the
+  answer converge rather than merely resample it.
+
+That agrees with Result 4 measured a different way. There $M^\ast$ — the bundle
+count needed to hold 3% on every observable — runs
+$8 \to 4 \to 4 \to 4 \to \mathbf{2}$ on the oscillator, while tracking
+$N_L$ upward on System A. Two
+instruments, no exact solve required by this one.
 
 **What it does not establish.** Two bundle counts agreeing means the answer has
 converged in $M$; it does not mean it converged to the right thing. A shared
 systematic error — a time step too coarse, a truncated Fock space — would move
 both together and go unseen. The check earns its place because it agrees with
-the reference-backed results at the sizes where both exist, not on its own.
+the reference-backed results at the sizes where both exist, not on its own. The
+absolute values are also not strictly comparable *across* systems, which run at
+different sizes and substep counts; what compares is the trend within each.
 
-Two properties of the run are worth recording. It reproduced an earlier,
-discarded run's values **exactly** at the two sizes they share (4.532 × 10⁻⁴ and
-2.943 × 10⁻⁷) on a different node, which is the reproducibility-at-fixed-seed
-this document relies on throughout. And its substep counts — 16, 32, 64, 128 —
-are set by RK4's stability limit against a Gershgorin bound on $H$, not by a
-lookup table; the anharmonic $n^2$ term makes the oscillator's top energy grow
-as the *square* of the Fock cutoff, so a rule that doubled substeps per octave
-held for four octaves and then diverged at Fock 512.
+Three properties of these runs are worth recording.
+
+**They reproduce exactly.** The oscillator sweep reproduced an earlier, discarded
+run's values to the digit at the two sizes they share (4.532 × 10⁻⁴ and
+2.943 × 10⁻⁷) on a different node, and the spin chain likewise reproduced
+8.199 × 10⁻² and 1.241 × 10⁻¹. Accuracy is deterministic at fixed seed
+throughout this document; only wall-clocks move.
+
+**Substeps are set by stability, not by a table.** The oscillator's counts — 16,
+32, 64, 128 — come from RK4's limit $|\lambda\,\Delta t| \le 2\sqrt{2}$ against a
+Gershgorin bound on $H$. Its anharmonic $n^2$ term makes the top energy grow as
+the *square* of the Fock cutoff, so a rule that doubled substeps per octave held
+for four octaves and then diverged at Fock 512.
+
+**Cost scales as $N^{2.6}$, not $N^3$.** The spin chain's three doublings cost
+5.4× to 6.4× each, consistently across all three $M$ values — below the $N^3$ of
+dense matrix multiplication, and firmly against an earlier reading of $N^{4.7}$
+taken from a job that had been sharing its node. The same sweep took 32 h on an
+exclusive node against more than 117 h without one.
 
 ---
 
