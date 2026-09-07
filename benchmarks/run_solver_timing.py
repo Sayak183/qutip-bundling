@@ -45,12 +45,20 @@ The same applies to node exclusivity. Wall-clocks from a job submitted without
 size. Use ``--exclusive`` for anything you intend to quote.
 
 ``mesolve`` IS CAPPED, and the cap is the point. Its superoperator has dimension
-``N^2``, so memory grows as ``N^4``: 268 MB at dim 64, 4.3 GB at 128, **68.7 GB
-at 256**, 1.1 TB at 512. Jobs 19604455 and 19604456 were OOM-killed at dim 256
-because an earlier version of this script had no cap. ``--max-full-dim``
-defaults to ``common.MAX_FULL_DIM`` exactly as in ``run_cost_scaling.py``; the
-projected size is printed so raising it is an informed choice. An OOM-kill is
-SIGKILL and cannot be caught, so the guard has to prevent the attempt.
+``N^2``, so that term alone grows as ``N^4``: 268 MB at dim 64, 4.3 GB at 128,
+**68.7 GB at 256**, 1.1 TB at 512. Jobs 19604455 and 19604456 were OOM-killed at
+dim 256 because an earlier version of this script had no cap.
+
+**And ``N^4`` is only a floor.** qutip builds one superoperator term per
+collapse operator, so a system with a large ``N_L`` exhausts memory at a
+dimension the formula calls trivial: job 19604462 died at 132.9 GB while working
+at **dimension 64**, where the floor is 268 MB, because the oscillator has 890
+operators there. The printed projection carries ``N_L`` alongside it for that
+reason.
+
+``--max-full-dim`` defaults to ``common.MAX_FULL_DIM`` exactly as in
+``run_cost_scaling.py``. An OOM-kill is SIGKILL and cannot be caught, so the
+guard has to prevent the attempt rather than handle the failure.
 
 Writes ``data/solver_timing_<system>.json`` **after every method**, so a crash
 keeps whatever completed. That is not a hypothetical: an earlier frontier runner
@@ -104,12 +112,18 @@ SYSTEMS = {
 METHODS = ("native", "mesolve", "slb", "mcsolve")
 
 
-def liouvillian_bytes(dim):
-    """Dense superoperator size for qutip.mesolve: (N^2)^2 complex128.
+def liouvillian_floor_bytes(dim):
+    """LOWER BOUND on qutip.mesolve's memory: the (N^2)^2 complex128
+    superoperator alone. 268 MB at dim 64, 68.7 GB at 256, 1.1 TB at 512.
 
-    qutip stores it sparsely, but with a large collapse-operator list it fills
-    in, and this is the number that decides whether the job survives. Jobs
-    19604455 and 19604456 were OOM-killed at dim 256, where this is 68.7 GB.
+    **This understates the requirement, sometimes by hundreds of times.** qutip
+    also builds one superoperator term per collapse operator, so a system with a
+    large N_L exhausts memory at a dimension this formula calls trivial. Job
+    19604462 was OOM-killed at 132.9 GB while working at dimension 64 -- where
+    this returns 268 MB -- because the oscillator has 890 operators there.
+
+    Treat it as a floor, never as an estimate. It is printed with N_L for
+    exactly that reason: the operator count is the multiplier it omits.
     """
     return (dim ** 4) * 16
 
@@ -174,7 +188,7 @@ def measure(system, size, methods, repeats, sub, native_sub,
     record("native", lambda: rk4_mesolve(
         H, rho0, TLIST, c_ops=c_ops, e_ops=[H], substeps=native_sub))
 
-    liou = liouvillian_bytes(dim)
+    liou = liouvillian_floor_bytes(dim)
     if "mesolve" in methods and dim > max_full_dim:
         row["timings"]["mesolve"] = {
             "skipped": True,
@@ -182,11 +196,13 @@ def measure(system, size, methods, repeats, sub, native_sub,
             "projected_liouvillian_bytes": liou,
         }
         print(f"  {'mesolve':>8}: SKIPPED -- dim {dim} exceeds --max-full-dim "
-              f"{max_full_dim}; its superoperator alone would need "
-              f"{liou / 1e9:.1f} GB")
+              f"{max_full_dim}; superoperator floor {liou / 1e9:.1f} GB, "
+              f"times {n_l:,} operator terms")
     else:
         if "mesolve" in methods:
-            print(f"           (mesolve superoperator ~{liou / 1e9:.2f} GB)")
+            print(f"           (mesolve: superoperator FLOOR {liou / 1e9:.2f} GB, "
+                  f"and qutip builds one term per operator -- {n_l:,} of them. "
+                  f"The floor is not the requirement.)")
         record("mesolve", lambda: qutip.mesolve(
             H, rho0, TLIST, c_ops=c_ops, e_ops=[H]))
 
