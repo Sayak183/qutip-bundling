@@ -44,21 +44,30 @@ The same applies to node exclusivity. Wall-clocks from a job submitted without
 ``--exclusive`` have been measured up to 10x slow, in proportion to problem
 size. Use ``--exclusive`` for anything you intend to quote.
 
-``mesolve`` IS CAPPED, and the cap is the point. Its superoperator has dimension
-``N^2``, so that term alone grows as ``N^4``: 268 MB at dim 64, 4.3 GB at 128,
-**68.7 GB at 256**, 1.1 TB at 512. Jobs 19604455 and 19604456 were OOM-killed at
-dim 256 because an earlier version of this script had no cap.
+``mesolve`` IS GUARDED TWICE, and it needed to be. qutip builds one full
+``(N^2)x(N^2)`` superoperator **per collapse operator**, so its memory is
+``N_L * N^4 * 16`` bytes -- the operator count multiplies the ``N^4`` term.
+Fitted to three OOM kills rather than assumed:
 
-**And ``N^4`` is only a floor.** qutip builds one superoperator term per
-collapse operator, so a system with a large ``N_L`` exhausts memory at a
-dimension the formula calls trivial: job 19604462 died at 132.9 GB while working
-at **dimension 64**, where the floor is 268 MB, because the oscillator has 890
-operators there. The printed projection carries ``N_L`` alongside it for that
-reason.
+    system   dim    N_L    N_L*N^4*16    outcome
+    C         64    890        239 GB    survived a 500 GB request
+    B         64  2,017        541 GB    died at 519 GB
+    A        256     57        3.9 TB    died at 470 GB
 
-``--max-full-dim`` defaults to ``common.MAX_FULL_DIM`` exactly as in
-``run_cost_scaling.py``. An OOM-kill is SIGKILL and cannot be caught, so the
-guard has to prevent the attempt rather than handle the failure.
+Five jobs were OOM-killed on 2026-09-07 getting to that formula. An earlier
+version of this script returned only ``N^4 * 16``, understating the requirement
+by up to **2,000x**, and printed a reassuring "0.27 GB" moments before a job
+died at 519 GB.
+
+The consequence is worth stating plainly: **mesolve is unusable well before the
+other solvers are.** System A cannot reach dim 256 on any single node -- 3.9 TB
+against 1.55 TB.
+
+Both guards are needed. ``--max-full-dim`` (defaulting to
+``common.MAX_FULL_DIM``, as in ``run_cost_scaling.py``) is the explicit one; the
+projection against the cgroup limit is the one that does not depend on a human
+having set the cap correctly. An OOM-kill is SIGKILL and cannot be caught, so
+both have to prevent the attempt rather than handle the failure.
 
 Writes ``data/solver_timing_<system>.json`` **after every method**, so a crash
 keeps whatever completed. That is not a hypothetical: an earlier frontier runner
@@ -70,6 +79,7 @@ Run:  python run_solver_timing.py --system spin_chain --sizes 9 10
 from __future__ import annotations
 
 import argparse
+import pathlib
 import time
 
 import numpy as np
@@ -112,20 +122,58 @@ SYSTEMS = {
 METHODS = ("native", "mesolve", "slb", "mcsolve")
 
 
-def liouvillian_floor_bytes(dim):
-    """LOWER BOUND on qutip.mesolve's memory: the (N^2)^2 complex128
-    superoperator alone. 268 MB at dim 64, 68.7 GB at 256, 1.1 TB at 512.
+def mesolve_bytes(dim, n_l):
+    """qutip.mesolve's memory: N_L * (N^2)^2 * 16 bytes.
 
-    **This understates the requirement, sometimes by hundreds of times.** qutip
-    also builds one superoperator term per collapse operator, so a system with a
-    large N_L exhausts memory at a dimension this formula calls trivial. Job
-    19604462 was OOM-killed at 132.9 GB while working at dimension 64 -- where
-    this returns 268 MB -- because the oscillator has 890 operators there.
+    qutip builds one full (N^2)x(N^2) superoperator PER COLLAPSE OPERATOR, so
+    the operator count multiplies the N^4 term. An earlier version of this
+    function returned only N^4 * 16 and understated the requirement by up to
+    2,000x, which is how three jobs came to be OOM-killed after it had printed a
+    reassuring number.
 
-    Treat it as a floor, never as an estimate. It is printed with N_L for
-    exactly that reason: the operator count is the multiplier it omits.
+    Fitted to those three failures rather than assumed:
+
+        system   dim    N_L    this formula    outcome
+        C         64    890         239 GB     survived a 500 GB request
+        B         64  2,017         541 GB     died at 519 GB
+        A        256     57         3.9 TB     died at 470 GB
+
+    The consequence worth knowing: mesolve is unusable well before the other
+    solvers are. System A cannot reach dim 256 on any single node -- 3.9 TB
+    against 1.55 TB.
     """
-    return (dim ** 4) * 16
+    return n_l * (dim ** 4) * 16
+
+
+def available_bytes():
+    """Memory this process may use, from the cgroup if Slurm set one.
+
+    Returns None when it cannot be determined, in which case the caller falls
+    back to --max-full-dim alone.
+    """
+    import os
+    for path in ("/sys/fs/cgroup/memory.max",
+                 "/sys/fs/cgroup/memory/memory.limit_in_bytes"):
+        try:
+            raw = pathlib.Path(path).read_text().strip()
+        except OSError:
+            continue
+        if raw and raw != "max":
+            try:
+                value = int(raw)
+            except ValueError:
+                continue
+            # Cgroup v1 reports an absurd sentinel when unlimited.
+            if 0 < value < (1 << 60):
+                return value
+    # No cgroup (a login shell, or a non-Linux machine): fall back to physical
+    # RAM. On Windows neither exists and this returns None, leaving
+    # --max-full-dim as the only guard -- acceptable because the long runs
+    # happen on the Linux cluster, but worth knowing when testing locally.
+    try:
+        return os.sysconf("SC_PHYS_PAGES") * os.sysconf("SC_PAGE_SIZE")
+    except (AttributeError, ValueError, OSError):
+        return None
 
 
 def timed(fn, repeats):
@@ -188,21 +236,28 @@ def measure(system, size, methods, repeats, sub, native_sub,
     record("native", lambda: rk4_mesolve(
         H, rho0, TLIST, c_ops=c_ops, e_ops=[H], substeps=native_sub))
 
-    liou = liouvillian_floor_bytes(dim)
-    if "mesolve" in methods and dim > max_full_dim:
+    need = mesolve_bytes(dim, n_l)
+    have = available_bytes()
+    reason = None
+    if dim > max_full_dim:
+        reason = f"dim {dim} > --max-full-dim {max_full_dim}"
+    elif have is not None and need > 0.8 * have:
+        # 80% rather than 100%: the projection is the Liouvillian, and qutip
+        # needs working space on top of it. This check does not depend on a
+        # human having set --max-full-dim correctly, which is the point.
+        reason = (f"projected {need / 1e9:.0f} GB exceeds 80% of the "
+                  f"{have / 1e9:.0f} GB available")
+    if "mesolve" in methods and reason:
         row["timings"]["mesolve"] = {
-            "skipped": True,
-            "reason": f"dim {dim} > --max-full-dim {max_full_dim}",
-            "projected_liouvillian_bytes": liou,
+            "skipped": True, "reason": reason,
+            "projected_bytes": need, "available_bytes": have,
         }
-        print(f"  {'mesolve':>8}: SKIPPED -- dim {dim} exceeds --max-full-dim "
-              f"{max_full_dim}; superoperator floor {liou / 1e9:.1f} GB, "
-              f"times {n_l:,} operator terms")
+        print(f"  {'mesolve':>8}: SKIPPED -- {reason} "
+              f"({n_l:,} operators x {dim}^4 x 16 B)")
     else:
         if "mesolve" in methods:
-            print(f"           (mesolve: superoperator FLOOR {liou / 1e9:.2f} GB, "
-                  f"and qutip builds one term per operator -- {n_l:,} of them. "
-                  f"The floor is not the requirement.)")
+            print(f"           (mesolve needs ~{need / 1e9:.0f} GB: "
+                  f"{n_l:,} superoperators of {dim}^2 x {dim}^2)")
         record("mesolve", lambda: qutip.mesolve(
             H, rho0, TLIST, c_ops=c_ops, e_ops=[H]))
 
