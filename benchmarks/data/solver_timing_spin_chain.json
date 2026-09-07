@@ -1,0 +1,215 @@
+{
+ "meta": {
+  "timestamp": "2026-09-07T19:23:41+00:00",
+  "python": "3.11.15",
+  "numpy": "2.4.6",
+  "qutip": "5.3.0",
+  "qutip_bundling": "0.6.4",
+  "platform": "Linux-4.15.0-213-generic-x86_64-with-glibc2.27",
+  "execution": {
+   "hostname": "landau44",
+   "cpu_count": 72,
+   "threads": {
+    "OMP_NUM_THREADS": "32",
+    "OPENBLAS_NUM_THREADS": "32",
+    "MKL_NUM_THREADS": "32",
+    "NUMEXPR_NUM_THREADS": "32"
+   },
+   "slurm": {
+    "job_id": "19604735",
+    "job_name": "timing-A",
+    "nodelist": "landau44",
+    "cpus_per_task": "32",
+    "partition": "roibq"
+   }
+  },
+  "tlist": {
+   "t0": 0.0,
+   "t1": 5.0,
+   "n": 40
+  },
+  "substeps": 4,
+  "full_time_budget_s": 60.0,
+  "max_full_dim": 128,
+  "max_native_ref_dim": 128,
+  "davies": {
+   "construction": "grouped_frequency_sectors",
+   "degeneracy_tol": 1e-10,
+   "coupling_block_floor": "512 * eps * dim * frobenius_norm(X_in_energy_basis)"
+  },
+  "params": {
+   "systems": [
+    "spin_chain"
+   ],
+   "sizes": {
+    "spin_chain": [
+     7,
+     8,
+     9,
+     10
+    ]
+   },
+   "methods": [
+    "native",
+    "mesolve",
+    "slb",
+    "mcsolve"
+   ],
+   "repeats": 1,
+   "m_rep": 8,
+   "native_substeps": 8,
+   "mc_ntraj_probe": 8,
+   "purpose": "wall-clock only; no accuracy data -- see module docstring"
+  }
+ },
+ "points": [
+  {
+   "size": 7,
+   "dim": 128,
+   "n_l": 43,
+   "t_operator_build": 0.4663562886416912,
+   "slb_substeps": 4,
+   "native_substeps": 8,
+   "timings": {
+    "native": {
+     "median_s": 31.912258006632328,
+     "samples_s": [
+      31.912258006632328
+     ]
+    },
+    "mesolve": {
+     "median_s": 2788.178595621139,
+     "samples_s": [
+      2788.178595621139
+     ]
+    },
+    "slb": {
+     "median_s": 1.4744263291358948,
+     "samples_s": [
+      1.4744263291358948
+     ]
+    },
+    "mcsolve": {
+     "median_s": 2.9507342632859945,
+     "samples_s": [
+      2.9507342632859945
+     ],
+     "ntraj_probe": 8,
+     "per_trajectory_s": 0.3688417829107493
+    }
+   },
+   "m_rep": 8
+  },
+  {
+   "size": 8,
+   "dim": 256,
+   "n_l": 57,
+   "t_operator_build": 0.775214072316885,
+   "slb_substeps": 4,
+   "native_substeps": 8,
+   "timings": {
+    "native": {
+     "median_s": 52.44156362302601,
+     "samples_s": [
+      52.44156362302601
+     ]
+    },
+    "mesolve": {
+     "skipped": true,
+     "reason": "dim 256 > --max-full-dim 128",
+     "projected_bytes": 3917010173952,
+     "available_bytes": 1621966110720
+    },
+    "slb": {
+     "median_s": 3.6327675506472588,
+     "samples_s": [
+      3.6327675506472588
+     ]
+    },
+    "mcsolve": {
+     "median_s": 8.72818474471569,
+     "samples_s": [
+      8.72818474471569
+     ],
+     "ntraj_probe": 8,
+     "per_trajectory_s": 1.0910230930894613
+    }
+   },
+   "m_rep": 8
+  },
+  {
+   "size": 9,
+   "dim": 512,
+   "n_l": 73,
+   "t_operator_build": 2.5766629930585623,
+   "slb_substeps": 4,
+   "native_substeps": 8,
+   "timings": {
+    "native": {
+     "median_s": 412.9298340715468,
+     "samples_s": [
+      412.9298340715468
+     ]
+    },
+    "mesolve": {
+     "skipped": true,
+     "reason": "dim 512 > --max-full-dim 128",
+     "projected_bytes": 80264348827648,
+     "available_bytes": 1621966110720
+    },
+    "slb": {
+     "median_s": 28.656031420454383,
+     "samples_s": [
+      28.656031420454383
+     ]
+    },
+    "mcsolve": {
+     "median_s": 37.42567912116647,
+     "samples_s": [
+      37.42567912116647
+     ],
+     "ntraj_probe": 8,
+     "per_trajectory_s": 4.6782098901458085
+    }
+   },
+   "m_rep": 8
+  },
+  {
+   "size": 10,
+   "dim": 1024,
+   "n_l": 91,
+   "t_operator_build": 10.191865757107735,
+   "slb_substeps": 4,
+   "native_substeps": 8,
+   "timings": {
+    "native": {
+     "median_s": 2685.4506009165198,
+     "samples_s": [
+      2685.4506009165198
+     ]
+    },
+    "mesolve": {
+     "skipped": true,
+     "reason": "dim 1024 > --max-full-dim 128",
+     "projected_bytes": 1600888930041856,
+     "available_bytes": 1621966110720
+    },
+    "slb": {
+     "median_s": 130.53276383690536,
+     "samples_s": [
+      130.53276383690536
+     ]
+    },
+    "mcsolve": {
+     "median_s": 168.77650114521384,
+     "samples_s": [
+      168.77650114521384
+     ],
+     "ntraj_probe": 8,
+     "per_trajectory_s": 21.09706264315173
+    }
+   },
+   "m_rep": 8
+  }
+ ]
+}

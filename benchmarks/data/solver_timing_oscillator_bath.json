@@ -1,0 +1,171 @@
+{
+ "meta": {
+  "timestamp": "2026-09-07T11:03:31+00:00",
+  "python": "3.11.15",
+  "numpy": "2.4.6",
+  "qutip": "5.3.0",
+  "qutip_bundling": "0.6.4",
+  "platform": "Linux-4.15.0-213-generic-x86_64-with-glibc2.27",
+  "execution": {
+   "hostname": "landau41",
+   "cpu_count": 72,
+   "threads": {
+    "OMP_NUM_THREADS": "32",
+    "OPENBLAS_NUM_THREADS": "32",
+    "MKL_NUM_THREADS": "32",
+    "NUMEXPR_NUM_THREADS": "32"
+   },
+   "slurm": {
+    "job_id": "19604462",
+    "job_name": "timing-C",
+    "nodelist": "landau41",
+    "cpus_per_task": "32",
+    "partition": "roibq"
+   }
+  },
+  "tlist": {
+   "t0": 0.0,
+   "t1": 5.0,
+   "n": 40
+  },
+  "substeps": 32,
+  "full_time_budget_s": 60.0,
+  "max_full_dim": 64,
+  "max_native_ref_dim": 128,
+  "davies": {
+   "construction": "grouped_frequency_sectors",
+   "degeneracy_tol": 1e-10,
+   "coupling_block_floor": "512 * eps * dim * frobenius_norm(X_in_energy_basis)"
+  },
+  "params": {
+   "systems": [
+    "oscillator_bath"
+   ],
+   "sizes": {
+    "oscillator_bath": [
+     32,
+     64,
+     128
+    ]
+   },
+   "methods": [
+    "native",
+    "mesolve",
+    "slb",
+    "mcsolve"
+   ],
+   "repeats": 1,
+   "m_rep": 8,
+   "native_substeps": 64,
+   "mc_ntraj_probe": 8,
+   "purpose": "wall-clock only; no accuracy data -- see module docstring"
+  }
+ },
+ "points": [
+  {
+   "size": 32,
+   "dim": 64,
+   "n_l": 890,
+   "t_operator_build": 0.2842178996652365,
+   "slb_substeps": 32,
+   "native_substeps": 64,
+   "timings": {
+    "native": {
+     "median_s": 571.9464346654713,
+     "samples_s": [
+      571.9464346654713
+     ]
+    },
+    "mesolve": {
+     "median_s": 7161.285597262904,
+     "samples_s": [
+      7161.285597262904
+     ]
+    },
+    "slb": {
+     "median_s": 2.9194256104528904,
+     "samples_s": [
+      2.9194256104528904
+     ]
+    },
+    "mcsolve": {
+     "median_s": 172.92207756079733,
+     "samples_s": [
+      172.92207756079733
+     ],
+     "ntraj_probe": 8,
+     "per_trajectory_s": 21.615259695099667
+    }
+   },
+   "m_rep": 8
+  },
+  {
+   "size": 64,
+   "dim": 128,
+   "n_l": 1686,
+   "t_operator_build": 1.5719033852219582,
+   "slb_substeps": 32,
+   "native_substeps": 64,
+   "timings": {
+    "native": {
+     "median_s": 4202.801776798442,
+     "samples_s": [
+      4202.801776798442
+     ]
+    },
+    "mesolve": {
+     "skipped": true,
+     "reason": "dim 128 > --max-full-dim 64",
+     "projected_liouvillian_bytes": 4294967296
+    },
+    "slb": {
+     "median_s": 11.34893648326397,
+     "samples_s": [
+      11.34893648326397
+     ]
+    },
+    "mcsolve": {
+     "median_s": 1531.1164571009576,
+     "samples_s": [
+      1531.1164571009576
+     ],
+     "ntraj_probe": 8,
+     "per_trajectory_s": 191.3895571376197
+    }
+   },
+   "m_rep": 8
+  },
+  {
+   "size": 128,
+   "dim": 256,
+   "n_l": 2986,
+   "t_operator_build": 10.399645417928696,
+   "slb_substeps": 32,
+   "native_substeps": 64,
+   "timings": {
+    "native": {
+     "diverged": true,
+     "error": "rk4_mesolve diverged near t=0.3846 with substeps=64: matrix entries grew to 3.06e+13 while still finite (soft divergence; a physical state has entries <= Tr(rho) = 1). The Lindblad generator is too st"
+    },
+    "mesolve": {
+     "skipped": true,
+     "reason": "dim 256 > --max-full-dim 64",
+     "projected_liouvillian_bytes": 68719476736
+    },
+    "slb": {
+     "diverged": true,
+     "error": "rk4_mesolve diverged near t=0.1282 with substeps=32: matrix entries grew to 1.92e+17 while still finite (soft divergence; a physical state has entries <= Tr(rho) = 1). The Lindblad generator is too st"
+    },
+    "mcsolve": {
+     "median_s": 22087.73790708743,
+     "samples_s": [
+      22087.73790708743
+     ],
+     "ntraj_probe": 8,
+     "per_trajectory_s": 2760.967238385929
+    }
+   },
+   "m_rep": 8
+  }
+ ]
+}
