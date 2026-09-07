@@ -32,6 +32,7 @@ RUNNERS = (
     "run_frontier.py",
     "run_isocost_vs_dim.py",
     "run_method_comparison.py",
+    "run_solver_timing.py",
 )
 LINK_PATTERN = re.compile(r"!?\[[^\]]*]\(([^)]+)\)")
 INLINE_CODE_PATTERN = re.compile(r"`[^`]*`")
