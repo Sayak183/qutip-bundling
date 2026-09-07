@@ -44,7 +44,15 @@ The same applies to node exclusivity. Wall-clocks from a job submitted without
 ``--exclusive`` have been measured up to 10x slow, in proportion to problem
 size. Use ``--exclusive`` for anything you intend to quote.
 
-Writes ``data/solver_timing_<system>.json`` **after every size**, so a crash
+``mesolve`` IS CAPPED, and the cap is the point. Its superoperator has dimension
+``N^2``, so memory grows as ``N^4``: 268 MB at dim 64, 4.3 GB at 128, **68.7 GB
+at 256**, 1.1 TB at 512. Jobs 19604455 and 19604456 were OOM-killed at dim 256
+because an earlier version of this script had no cap. ``--max-full-dim``
+defaults to ``common.MAX_FULL_DIM`` exactly as in ``run_cost_scaling.py``; the
+projected size is printed so raising it is an informed choice. An OOM-kill is
+SIGKILL and cannot be caught, so the guard has to prevent the attempt.
+
+Writes ``data/solver_timing_<system>.json`` **after every method**, so a crash
 keeps whatever completed. That is not a hypothetical: an earlier frontier runner
 built its results in memory and discarded them, losing 38 hours of compute.
 
@@ -61,11 +69,12 @@ import qutip
 
 from common import (
     build_spin_chain, build_oscillator_bath, build_mixed_field_chain,
-    build_davies_operators, TLIST, SUBSTEPS,
+    build_davies_operators, TLIST, SUBSTEPS, MAX_FULL_DIM,
     run_metadata, save_data, DATA_DIR,
 )
 from benchmark_cli import (
-    add_safety_arguments, preflight_run, selected_systems,
+    add_max_full_dim_argument, add_safety_arguments, preflight_run,
+    selected_systems,
 )
 from qutip_bundling import mesolve_ensemble
 try:
@@ -95,6 +104,16 @@ SYSTEMS = {
 METHODS = ("native", "mesolve", "slb", "mcsolve")
 
 
+def liouvillian_bytes(dim):
+    """Dense superoperator size for qutip.mesolve: (N^2)^2 complex128.
+
+    qutip stores it sparsely, but with a large collapse-operator list it fills
+    in, and this is the number that decides whether the job survives. Jobs
+    19604455 and 19604456 were OOM-killed at dim 256, where this is 68.7 GB.
+    """
+    return (dim ** 4) * 16
+
+
 def timed(fn, repeats):
     """Run fn `repeats` times; return (median, all samples).
 
@@ -110,7 +129,8 @@ def timed(fn, repeats):
     return float(np.median(samples)), samples
 
 
-def measure(system, size, methods, repeats, sub, native_sub):
+def measure(system, size, methods, repeats, sub, native_sub,
+            max_full_dim, out_name, meta, points):
     build = SYSTEMS[system][0]
     H, X, psi0 = build(size)
     dim = H.shape[0]
@@ -147,12 +167,28 @@ def measure(system, size, methods, repeats, sub, native_sub):
             entry.update(note)
         row["timings"][name] = entry
         print(f"  {name:>8}: {median:9.2f}s" + (f"   ({note})" if note else ""))
+        # After each METHOD, not each size: an OOM-kill is SIGKILL and cannot
+        # be caught, so both jobs that died lost a completed native solve too.
+        save_data(out_name, meta, points=points + [row])
 
     record("native", lambda: rk4_mesolve(
         H, rho0, TLIST, c_ops=c_ops, e_ops=[H], substeps=native_sub))
 
-    record("mesolve", lambda: qutip.mesolve(
-        H, rho0, TLIST, c_ops=c_ops, e_ops=[H]))
+    liou = liouvillian_bytes(dim)
+    if "mesolve" in methods and dim > max_full_dim:
+        row["timings"]["mesolve"] = {
+            "skipped": True,
+            "reason": f"dim {dim} > --max-full-dim {max_full_dim}",
+            "projected_liouvillian_bytes": liou,
+        }
+        print(f"  {'mesolve':>8}: SKIPPED -- dim {dim} exceeds --max-full-dim "
+              f"{max_full_dim}; its superoperator alone would need "
+              f"{liou / 1e9:.1f} GB")
+    else:
+        if "mesolve" in methods:
+            print(f"           (mesolve superoperator ~{liou / 1e9:.2f} GB)")
+        record("mesolve", lambda: qutip.mesolve(
+            H, rho0, TLIST, c_ops=c_ops, e_ops=[H]))
 
     # M cannot exceed the number of operators there are to bundle.
     m_rep = min(M_REP, n_l)
@@ -191,6 +227,7 @@ def main():
     ap.add_argument("--methods", nargs="+", default=list(METHODS),
                     choices=METHODS,
                     help="which solvers to time (default: all four)")
+    add_max_full_dim_argument(ap, MAX_FULL_DIM)
     ap.add_argument("--slb-substeps", type=int, default=SUBSTEPS,
                     help="RK4 substeps for the SLB solve. Default %(default)s "
                          "matches Result 2's spin and mixed chains. THE "
@@ -227,7 +264,8 @@ def main():
 
     sizes_for = {name: args.sizes or SYSTEMS[name][1] for name in names}
     plans = [(f"{name}: sizes {sizes_for[name]}, methods {args.methods}, "
-              f"SLB substeps {sub}, reference substeps {native_sub}",
+              f"SLB substeps {sub}, reference substeps {native_sub}, "
+              f"mesolve capped at dim {args.max_full_dim}",
               DATA_DIR / (args.out or f"solver_timing_{name}.json"))
              for name in names]
     if not preflight_run(plans, overwrite=args.overwrite, dry_run=args.dry_run):
@@ -238,6 +276,7 @@ def main():
         systems=names, sizes={k: list(v) for k, v in sizes_for.items()},
         methods=list(args.methods), repeats=args.repeats,
         m_rep=M_REP, native_substeps=native_sub,
+        max_full_dim=args.max_full_dim,
         mc_ntraj_probe=MC_NTRAJ_PROBE,
         purpose="wall-clock only; no accuracy data -- see module docstring",
     )
@@ -253,8 +292,8 @@ def main():
         points = []
         for size in sizes_for[name]:
             points.append(measure(name, size, set(args.methods),
-                                  args.repeats, sub, native_sub))
-            # After EVERY size, not at the end: a crash keeps what completed.
+                                  args.repeats, sub, native_sub,
+                                  args.max_full_dim, out_name, meta, points))
             save_data(out_name, meta, points=points)
 
     print("\ndone.")
