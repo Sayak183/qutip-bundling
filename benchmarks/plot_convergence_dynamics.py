@@ -22,10 +22,14 @@ Result 1's other two figure groups (error decomposition, size invariance) come
 from ``accuracy_vs_M_*`` with 200 realizations and are unaffected by any of
 this. Do not describe all three as one dataset.
 
-This script lived in an untracked ``scratch/`` directory until 2026-09-08,
-which meant the document's first Result 1 figure could not be regenerated from
-a clean checkout. Moved here unchanged apart from the paths, the CLI, and this
-note.
+This script lived in ``scratch/`` until 2026-09-08 -- tracked, but filed away
+from every other plotter and absent from the README, so the only way to find
+the generator of a published figure was to grep for the filename. Moved here
+unchanged apart from the paths, the CLI, and this note.
+
+(The commit that moved it, 96a27c5, claims the file was untracked and that a
+clean checkout could not regenerate the figure. Both are wrong: it was
+committed in 65f22db. The move stands on filing, not on reachability.)
 
 Run:  python plot_convergence_dynamics.py [--system ...] [--dim 64]
 """
