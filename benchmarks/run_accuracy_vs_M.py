@@ -27,6 +27,13 @@ For each system, at one fixed reference-feasible size, it records:
 
 Uses the fine 80-point time grid (TLIST_FINE), like the published Result 1.
 
+The data file is rewritten after EVERY M, not once at the end. These runs
+reach tens of hours (the chain at dim 512 is ~41 h; the mixed chain's dim-256
+reference alone is 25-35 h), and a job that dies before its single final write
+leaves nothing behind -- run_frontier_spins lost 38 hours of compute that way.
+``sweep_complete`` in the payload distinguishes a finished ladder from a file
+written mid-run.
+
 Writes, per system and dimension:  data/accuracy_vs_M_<system>_dim<D>.json
 Run:                 python run_accuracy_vs_M.py (--system ... | --all)
 """
@@ -78,6 +85,12 @@ SYSTEMS = {
         # where the invariance claim is cheapest to extend, because its N_L
         # grows slowly and the exact reference stays affordable.
         (8, [2, 4, 8, 16, 32, 64], 4),
+        # dim 512, making six, and the first size where the ladder is NOT
+        # capped: N_L = 73 here, so all six M values run as written. Roughly
+        # 41 h, and essentially all of it is the 1,200 SLB solves -- job
+        # 19604735 measured the native reference at 413 s on the 40-point
+        # grid, so ~830 s on this 80-point one, under 1% of the run.
+        (9, [2, 4, 8, 16, 32, 64], 4),
     ]),
     # Same sizes as the TFIM chain so the two are directly comparable: they
     # differ only by the longitudinal field.
@@ -171,6 +184,38 @@ def run(name, build, size, m_ladder, substeps):
     ref_energy = np.asarray(reference["energy"], dtype=float)
     guard = 100.0 * (1.0 + float(np.max(np.abs(ref_energy))))
     sweep = []
+
+    def persist():
+        """Write everything measured so far, reference included.
+
+        Called before the ladder and again after every M, rather than once at
+        the end. These runs are long -- ~41 h for the chain at dim 512, and on
+        the mixed chain the reference ALONE costs 25-35 h -- and a single
+        write at the end keeps nothing when a job does not reach it.
+        run_frontier_spins lost 38 hours of compute to exactly that.
+
+        Rewriting the file costs a few MB against ensemble solves of minutes
+        to hours, so it is free in practice. ``sweep_complete`` says whether
+        the ladder finished, because a file written mid-run is otherwise
+        indistinguishable from one whose later M values soft-diverged.
+        """
+        meta = run_metadata(
+            tlist=TLIST_FINE, max_full_dim=MAX_FULL_DIM,
+            system=name, size=size, M_LADDER=m_ladder, substeps=substeps,
+            N_REALIZATIONS=N_REALIZATIONS, rng=RNG,
+        )
+        save_data(f"accuracy_vs_M_{name}_dim{dim}.json", meta, compact=True,
+                  dim=dim, n_l=n_l, substeps=substeps,
+                  reference_method=ref_method,
+                  reference_selfcheck=ref_selfcheck,
+                  t_davies=t_davies, t_reference=t_reference,
+                  observables=labels, coherence=coherence_info,
+                  reference=reference,
+                  m_values_planned=m_values,
+                  sweep_complete=len(sweep) == len(m_values),
+                  slb_sweep=sweep)
+
+    persist()
     for m_eff in m_values:
         t0 = time.perf_counter()
         ens = mesolve_ensemble(H, rho0, TLIST_FINE, c_ops, M=m_eff, e_ops=e_ops,
@@ -189,20 +234,10 @@ def run(name, build, size, m_ladder, substeps):
         sweep.append({"M": m_eff, "cost": dt, "samples": samples})
         print(f"    M={m_eff:3d}  ensemble ({N_REALIZATIONS} realizations) "
               f"= {dt:.2f} s")
+        persist()
 
-    meta = run_metadata(
-        tlist=TLIST_FINE, max_full_dim=MAX_FULL_DIM,
-        system=name, size=size, M_LADDER=m_ladder, substeps=substeps,
-        N_REALIZATIONS=N_REALIZATIONS, rng=RNG,
-    )
-    save_data(f"accuracy_vs_M_{name}_dim{dim}.json", meta, compact=True,
-              dim=dim, n_l=n_l, substeps=substeps,
-              reference_method=ref_method, reference_selfcheck=ref_selfcheck,
-              t_davies=t_davies, t_reference=t_reference,
-              observables=labels, coherence=coherence_info,
-              reference=reference,
-              slb_sweep=sweep)
-    print(f"  -> wrote accuracy_vs_M_{name}_dim{dim}.json")
+    print(f"  -> accuracy_vs_M_{name}_dim{dim}.json complete "
+          f"({len(sweep)}/{len(m_values)} bundle sizes)")
 
 
 def main():
