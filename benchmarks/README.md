@@ -28,6 +28,8 @@ seconds:
 
 ```bash
 python plot_accuracy_vs_M.py
+python plot_convergence_dynamics.py
+python plot_R1_invariance.py
 python plot_cost_scaling.py
 python plot_frontier.py
 python plot_isocost_vs_dim.py
@@ -37,11 +39,13 @@ They regenerate the corresponding tracked PNG files in this directory.
 
 | Result | Data generator | Plotter | Saved data |
 |---|---|---|---|
-| 1. Accuracy versus bundle size | `run_accuracy_vs_M.py` | `plot_accuracy_vs_M.py` | `data/accuracy_vs_M_<system>_dim<D>.json` |
+| 1a. Convergence dynamics | `run_method_comparison.py` | `plot_convergence_dynamics.py` | `data/method_comparison_<system>_dim<D>.json` |
+| 1b. Error decomposition | `run_accuracy_vs_M.py` | `plot_accuracy_vs_M.py` | `data/accuracy_vs_M_<system>_dim<D>.json` |
+| 1c. Size invariance | `run_accuracy_vs_M.py` | `plot_R1_invariance.py` | `data/accuracy_vs_M_<system>_dim<D>.json` (all dims) |
 | 2. Cost scaling | `run_cost_scaling.py` | `plot_cost_scaling.py` | `data/cost_scaling_<system>.json` |
 | 3. Accuracy/cost frontier | `run_frontier.py` | `plot_frontier.py` | `data/frontier_<system>_dim<D>.json` |
 | 4. Iso-accuracy cost | `run_isocost_vs_dim.py` | `plot_isocost_vs_dim.py` | `data/isocost_vs_dim_<system>.json` |
-| Four-method comparison | `run_method_comparison.py` | (plotter pending) | `data/method_comparison_<system>_dim<D>.json` |
+| Four-method comparison | `run_method_comparison.py` | `plot_method_comparison.py` | `data/method_comparison_<system>_dim<D>.json` |
 
 The four-method comparison puts native RK4, `mesolve`, `mcsolve`, and SLB on
 one footing at each dimension: same Hamiltonian, Davies construction, initial

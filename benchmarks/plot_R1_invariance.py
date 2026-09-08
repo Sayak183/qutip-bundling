@@ -17,18 +17,28 @@ SYSTEM_TITLES = {
     "mixed_chain": "System B - mixed-field chain",
     "oscillator_bath": "System C - oscillator + spin",
 }
-# Dimension 256 added for the spin chain (job 19597390). Systems without a file
-# at a given dimension are skipped with a notice, so this list can lead the data.
-DIMS = [16, 32, 64, 128, 256]
+# Dimension 256 added for the spin chain (job 19597390), 512 for the same
+# system (job 19604740). Systems without a file at a given dimension are
+# skipped with a notice, so this list can lead the data -- and it must, because
+# a dimension missing from here is dropped in silence, which is
+# indistinguishable from a run that failed.
+DIMS = [16, 32, 64, 128, 256, 512]
 COLORS = {16: '#1f77b4', 32: '#ff7f0e', 64: '#2ca02c', 128: '#d62728',
-          256: '#9467bd'}
-MARKERS = {16: 'o', 32: 's', 64: '^', 128: 'D', 256: 'v'}
+          256: '#9467bd', 512: '#8c564b'}
+MARKERS = {16: 'o', 32: 's', 64: '^', 128: 'D', 256: 'v', 512: 'P'}
 
 # Toggle: True = evaluate at the worst-time slice t* (standard R1 anatomy)
 #         False = use the overall time-averaged error across the full trajectory
 EVALUATE_AT_WORST_TIME = True
 
-# Bundle (M) Range Toggles
+# Bundle (M) Range Toggles.
+#
+# MAX_M stays at 32 as dimensions are added. The fitted slope is only
+# meaningful if every dimension is fitted over the same range of M, and 32 is
+# the largest value all of them reach -- the ladder is capped at N_L, which is
+# 13 at dim 16 and 57 at dim 256. Dim 512 runs the full ladder to 64; fitting
+# it over that wider range would not be comparable with the points it sits
+# beside.
 MIN_M = 2
 MAX_M = 32
 
