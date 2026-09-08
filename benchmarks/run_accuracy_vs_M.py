@@ -101,6 +101,15 @@ SYSTEMS = {
         # dim 128, making four. Expensive: N_L = 8,193 here, and this system's
         # dim-128 exact reference cost 24.6 h in Result 2.
         (7, [2, 4, 8, 16, 32, 64], 4),
+        # dim 256, making five, and this is System B's LAST possible Result 1
+        # size. N_L = 32,637 here, and the exact reference -- not the SLB
+        # sweep -- is what costs: it grew 19x from dim 64 to 128 (600 s ->
+        # 11,354 s) because N_L quadruples on top of the dimension, so dim 256
+        # projects to 25-35 h against ~10-16 h for the whole M ladder. One step
+        # further is out of reach for a different reason: at dim 512 the
+        # operator list alone is 549 GB, and at dim 1024 it is 8.8 TB, more
+        # than all four nodes hold.
+        (8, [2, 4, 8, 16, 32, 64], 4),
     ]),
     "oscillator_bath": (build_oscillator_bath, [
         (8,  [2, 4, 8, 16, 32, 64], 4),
