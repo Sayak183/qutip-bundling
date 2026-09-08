@@ -172,7 +172,12 @@ def _decode(cell: str) -> float:
 def test_height_row_and_exponent_match_the_data(doc, label, system):
     """Each row quotes a value per dimension and a fitted N exponent. Both are
     recomputed. The System C row lost its exponent once, to the word 'flat'."""
-    row = re.search(rf"\|\s*\*\*{re.escape(label)}\s*\|([^|]*)\|([^|]*)\|", doc)
+    # The first cell must contain an arrow: these rows read
+    # "2.6x10-2 -> 3.4x10-2 -> ...". Without that guard the search binds to
+    # whichever table using this label comes first in the document, which is
+    # how section 5.2's solver grid silently captured the B and C rows once.
+    row = re.search(
+        rf"\|\s*\*\*{re.escape(label)}\s*\|([^|]*→[^|]*)\|([^|]*)\|", doc)
     assert row, f"height row for {label} not found"
 
     values = [_decode(c.strip()) for c in row.group(1).split("→")
@@ -394,3 +399,87 @@ def test_result5_convergence_table_matches_the_frontier_data(doc):
         assert min(values) > 100 * max(oscillator[-1], 1e-30), (
             f"{name} is claimed to stay near 1e-1 while the oscillator reaches "
             f"{oscillator[-1]:.3g}; got {values}")
+
+
+def _rounding_tolerance(published):
+    """Half a unit in the last decimal the document actually prints.
+
+    A fixed relative tolerance cannot serve both "1.47 s" (three significant
+    figures, so 0.3% of rounding on its own) and "33,725.5 s" (seven, so
+    0.0001%). Deriving it from the printed string means the check is exactly as
+    strict as the number claims to be, and gets stricter if the table is ever
+    published to more decimals.
+    """
+    decimals = len(published.split(".")[1]) if "." in published else 0
+    return 0.5 * 10.0 ** -decimals
+
+
+def test_solver_timing_grid_matches_the_three_timing_files(doc):
+    """Parses section 5.2's four-solver grid and recomputes every cell.
+
+    Rows are keyed on (dim, N_L), which is unique across all three systems, so
+    a row silently attributed to the wrong system fails rather than passing
+    against the wrong file.
+
+    The memory table below the grid is checked too, and against the formula
+    rather than against itself: the whole point of `N_L * N^4 * 16` is that it
+    was fitted to five OOM kills and then predicted three successes. A
+    published "predicted" column that had drifted from the formula would make
+    that claim unverifiable, which is the failure this file exists to catch.
+    """
+    measured = {}
+    for name in ("spin_chain", "mixed_chain", "oscillator_bath"):
+        path = DATA / f"solver_timing_{name}.json"
+        if not path.exists():
+            pytest.skip(f"solver timing for {name} not committed")
+        for point in json.loads(path.read_text(encoding="utf-8"))["points"]:
+            measured[(point["dim"], point["n_l"])] = point
+
+    # dim | N_L | native | mesolve | slb | mcsolve-per-trajectory. Cells are
+    # either a bolded/plain number with unit, or italic prose (a projection or
+    # a divergence), and only the numeric ones are recomputable.
+    cell = r"\s*\**\*?([\d,]+\.\d+) s\**\s*|\s*\*[^|]*\*\s*"
+    rows = re.findall(
+        r"^\|[^|]*\|\s*(\d+)\s*\|\s*([\d,]+)\s*\|(" + cell + r")\|("
+        + cell + r")\|(" + cell + r")\|(" + cell + r")\|",
+        doc, re.M)
+    assert len(rows) == len(measured), (
+        f"grid has {len(rows)} rows against {len(measured)} measured points")
+
+    for dim, n_l, _, native, _, mesolve, _, slb, _, mcsolve in rows:
+        key = (int(dim), int(n_l.replace(",", "")))
+        assert key in measured, f"row dim={dim} N_L={n_l} is in no data file"
+        timings = measured[key]["timings"]
+
+        for label, published in (("native", native), ("mesolve", mesolve),
+                                 ("slb", slb)):
+            entry = timings.get(label, {})
+            if not published:                       # italic: projection or divergence
+                assert entry.get("skipped") or "diverged" in entry, (
+                    f"{label} at dim {dim} is prose in the document but the "
+                    f"data holds a real measurement")
+                continue
+            assert "median_s" in entry, (
+                f"{label} at dim {dim} is a number in the document but the "
+                f"data records no measurement")
+            assert float(published.replace(",", "")) == pytest.approx(
+                entry["median_s"], abs=_rounding_tolerance(published)), (
+                f"{label} wrong at dim {dim}")
+
+        if mcsolve:
+            assert float(mcsolve.replace(",", "")) == pytest.approx(
+                timings["mcsolve"]["per_trajectory_s"],
+                abs=_rounding_tolerance(mcsolve)), (
+                f"mcsolve per-trajectory wrong at dim {dim}")
+
+    # The memory model, checked against the formula it claims to be.
+    memory = re.findall(
+        r"^\| 19604\d{3} \| [ABC] \| (\d+) \| ([\d,]+) \| ([\d,]+) GB \|",
+        doc, re.M)
+    assert len(memory) == 3, f"expected 3 memory rows, found {len(memory)}"
+    for dim, n_l, predicted in memory:
+        expected = int(n_l.replace(",", "")) * int(dim) ** 4 * 16 / 1e9
+        assert float(predicted.replace(",", "")) == pytest.approx(
+            expected, rel=5e-3), (
+            f"published prediction for dim {dim} is {predicted} GB; "
+            f"N_L * N^4 * 16 gives {expected:.0f} GB")

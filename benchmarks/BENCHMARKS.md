@@ -1191,9 +1191,9 @@ which is the quantity under test.
 
 | Solver Method | System A (TFIM Chain) | System B (Mixed Chain) | System C (Oscillator + Spin) | Limiting Wall / Bottleneck |
 |---|:---:|:---:|:---:|---|
-| **QuTiP `mesolve`** (Superoperator ODE) | **Dim 64** ($N_L=31$) | **Dim 32** ($N_L=513$) | **Dim 32** ($N_L=408$) | **32 GB RAM Wall:** Building superoperator sum $\sum c_\alpha \otimes c_\alpha^*$ exhausts 32 GB RAM at dim 64 ($N_L \ge 890$). |
+| **QuTiP `mesolve`** (Superoperator ODE) | **Dim 64** ($N_L=31$) | **Dim 32** ($N_L=513$) | **Dim 32** ($N_L=408$) | **32 GB RAM Wall:** Building superoperator sum $\sum c_\alpha \otimes c_\alpha^*$ exhausts 32 GB RAM at dim 64 ($N_L \ge 890$). On a 1.55 TB node the measured ceilings are one step higher; see the grid below. |
 | **QuTiP `mcsolve`** (Trajectory Monte Carlo) | **Dim 64** | **Dim 64** (4,142 s) | **Dim 64** (7,118 s) | **Sampling Variance Wall:** Needs thousands of trajectories to beat $1/\sqrt{N_{\rm traj}}$ noise; cost explodes past dim 64. |
-| **Native RK4** (Dense Matrix ODE) | **Dim 512** ($N_L=73$) | **Dim 128** ($N_L=8,193$) | **Dim 128** ($N_L=1,686$) | **$O(N^5)$ CPU & RAM Wall:** At dim 256 ($N_L=32,637$), exact dissipator requires 34 GB RAM and weeks of compute. |
+| **Native RK4** (Dense Matrix ODE) | **Dim 1024** ($N_L=91$) | **Dim 256** ($N_L=32,637$) | **Dim 128** ($N_L=1,686$) | **$O(N^5)$ CPU Wall:** dim 256 on System B needs 34 GB and **9.4 h** (measured, job 19604736); the oscillator diverges at dim 256 on these substeps. |
 | **SLB (Bundled)** (This Work) | **Dim 512** (376 s) | **Dim 256** ($N_L=32,637$) | **Dim 256** ($N_L=2,986$) | **Scales to Dim 256+ smoothly:** Runs dim 256 in 5.3 h on 1 node (System B) and 806 s at 128 substeps (System C). |
 
 The solvers encounter two distinct, physical walls:
@@ -1239,6 +1239,88 @@ The solvers encounter two distinct, physical walls:
    - `certified_reference` now escalates the check upward rather than discarding a good
      reference when the halved comparison diverges.
 
+#### All four solvers, measured on one node each
+
+The table opening this section was assembled from runs on a 32 GB machine and
+from projections. Three jobs then measured every cell directly — 19604735
+(System A), 19604736 (System B), 19604462 (System C) — each on an exclusive
+32-thread node, on the 40-point grid, with **SLB at $M=8$ and one realization**
+and `mcsolve` probed at **8 trajectories**.
+
+**Read this as a stopwatch, not as a speedup.** One realization has no error
+bar, and $M=8$ is not the bundle count any of these systems needs to be
+correct. What the grid establishes is what each solver *costs* at a fixed
+setting, and where each one stops existing.
+
+| system | dim | $N_L$ | native RK4 | `mesolve` | SLB ($M=8$) | `mcsolve` / traj |
+|---|---|---|---|---|---|---|
+| **A** simple chain | 128 | 43 | 31.9 s | **2,788.2 s** | **1.47 s** | 0.37 s |
+| | 256 | 57 | 52.4 s | *3.9 TB* | 3.63 s | 1.09 s |
+| | 512 | 73 | 412.9 s | *80 TB* | 28.7 s | 4.68 s |
+| | 1024 | 91 | 2,685.5 s | *1.6 PB* | 130.5 s | 21.1 s |
+| **B** mixed-field chain | 64 | 2,017 | 212.4 s | **6,404.9 s** | **0.66 s** | 13.8 s |
+| | 128 | 8,193 | 2,631.1 s | *35 TB* | 3.51 s | 102.2 s |
+| | 256 | 32,637 | **33,725.5 s** | *2,243 TB* | 52.6 s | 733.1 s |
+| **C** oscillator + spin | 64 | 890 | 571.9 s | **7,161.3 s** | **2.92 s** | 21.6 s |
+| | 128 | 1,686 | 4,202.8 s | *7.2 TB* | 11.3 s | 191.4 s |
+| | 256 | 2,986 | *diverged* | *205 TB* | *diverged* | 2,761.0 s |
+
+Italicised `mesolve` entries are projected requirements, not attempts: the run
+refuses the call rather than being killed by the kernel, for the reason below.
+The oscillator's dim-256 divergences are the stiffness rule above doing what
+it says — SLB reaches that size at 64 substeps, and this grid ran it at 32.
+
+**SLB is propagated at half the reference's substeps** (4 against 8 on the
+chains, 32 against 64 on the oscillator), so a factor of two in every SLB
+column is the resolution, not the bundling. Stated because the remaining factor
+is the part that is actually about the method.
+
+**`mesolve` memory: $N_L \times N^4 \times 16$ bytes, fitted to failures and
+then confirmed on successes.** qutip builds one full $(N^2)\times(N^2)$
+superoperator *per collapse operator*, so the operator count multiplies the
+$N^4$ term. Five jobs were OOM-killed on 2026-09-07 arriving at this; an
+earlier projection omitting $N_L$ understated the requirement by up to
+$2{,}000\times$. The three completed runs then tested it in the direction it
+had never been tested in:
+
+| job | system | dim | $N_L$ | predicted | peak RSS | error |
+|---|---|---|---|---|---|---|
+| 19604735 | A | 128 | 43 | 185 GB | 196 GB | 6% |
+| 19604462 | C | 64 | 890 | 239 GB | 234 GB | 2% |
+| 19604736 | B | 64 | 2,017 | 541 GB | 529 GB | 2% |
+
+The last row is the same solve that was OOM-killed at 519 GB against a 500 GB
+request. **The consequence worth carrying:** `mesolve` becomes unusable well
+before the other solvers do, and it is $N_L$ that decides when. System A cannot
+reach dim 256 on any single node — 3.9 TB against 1.55 TB — so its `mesolve`
+ceiling is 7 spins, not the 8 a dimension-only argument gives.
+
+**Where the ratios come from, and where they do not.** Replacing $N_L$
+operators with $M$ bundles at half the substeps predicts a factor
+$2N_L/M$ against native RK4. On System A at dim 1024 that is $22.8$ against
+$20.6$ measured; on System C at dim 128, $421$ against $370$. Both within 10%,
+which is a check on the mechanism rather than a tuned result. **System B does
+not follow it** — at dim 256 the naive prediction is $8{,}159$ and the
+measurement is $641$. The departure is real and is not explained here; SLB's
+bundle construction from 32,637 operators is a candidate, but it has not been
+isolated, and the number is quoted as measured.
+
+**And the direction reverses on the control.** Result 4 measured
+$M^\ast = N_L$ on System A — 43 bundles at 7 spins, 91 at 10 — and even there
+the 3% target is missed by $1.1\times$ to $4\times$. Priced against the
+frontier data, SLB at $M=91$ costs $\sim13{,}800$ s at dim 1024 while the exact
+solve at matched substeps costs $\sim5{,}400$: **at the bundle count accuracy
+demands, SLB is $\sim2.6\times$ slower than solving System A exactly.** The
+$1{,}891\times$ in the table above and this $2.6\times$ penalty are the same
+run, answering different questions. Quote the first only as a cost, and never
+without the second.
+
+`mcsolve`'s column is per trajectory at 8 trajectories, which is a probe rather
+than a solve. At a converged 500, the largest cells become 2.9 h (System A,
+dim 1024), **4.2 days** (System B, dim 256) and **16 days** (System C,
+dim 256) — the last reached only because `mcsolve` steps adaptively where this
+project's fixed-step RK4 diverges.
+
 ---
 
 
@@ -1257,6 +1339,7 @@ memory:
 | **4** iso-accuracy cost | 19599793 | Aug 30 – Sep 1 |
 | **5** past the reference wall | 19592848, 19603729, 19603731, 19603809 | Aug 18, Sep 5 – 7 |
 | **Certified References** | 19559570 | Aug 1 – 2 |
+| **§5.2** four-solver timing grid | 19604462, 19604735, 19604736 | Sep 7 – 8 |
 
 Result 4 spent a while split across three allocations, while the mixed chain
 and the oscillator were extended to dimension 128 one job at a time, and its
