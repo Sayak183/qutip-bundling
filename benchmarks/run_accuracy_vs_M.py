@@ -35,6 +35,13 @@ leaves nothing behind -- run_frontier_spins lost 38 hours of compute that way.
 written mid-run.
 
 Writes, per system and dimension:  data/accuracy_vs_M_<system>_dim<D>.json
+``--realizations`` sets the ensemble size per M (default 200). Bias
+resolution -- the measured bias divided by its own standard error -- grows as
+``sqrt(R)``, and at dim 128 the oscillator's falls to ~1.8 from M=16 upward,
+which is why Result 1 reports its fitted slope as untrustworthy there. A
+non-default count writes ``accuracy_vs_M_<system>_dim<D>_r<R>.json`` rather
+than sharing the default file, since every error bar scales as ``1/sqrt(R)``.
+
 Run:                 python run_accuracy_vs_M.py (--system ... | --all)
 """
 
@@ -59,9 +66,13 @@ from benchmark_cli import (
 from qutip_bundling import mesolve_ensemble
 from qutip_bundling.native_solver import rk4_mesolve, SolverInstabilityError
 
-N_REALIZATIONS = 200    # realizations per M (fixed across the ladder: nothing
+DEFAULT_REALIZATIONS = 200
+N_REALIZATIONS = DEFAULT_REALIZATIONS
+                        # realizations per M (fixed across the ladder: nothing
                         # about the sampling is tuned, so any trend with M is
-                        # purely the effect of M)
+                        # purely the effect of M). --realizations overrides it;
+                        # see output_name for why a different count does not
+                        # share a file with the default one.
 RNG = 0                 # seed (matches prior runs)
 ROUND = 8               # decimals kept for saved curves
 
@@ -121,6 +132,24 @@ SYSTEMS = {
         (64, [2, 4, 8, 16, 32, 64], 32),
     ]),
 }
+
+
+def output_name(system, dim):
+    """Data file for one sweep, carrying the realization count when it is not
+    the default.
+
+    A run at a different R gets its own file instead of overwriting the
+    200-realization one, because the two are not interchangeable: every error
+    bar in this data scales as 1/sqrt(R), so a figure that assumes 200 would
+    silently misreport a run of 800.
+
+    The consequence is deliberate and worth knowing: the plotters read the
+    unsuffixed name, so a non-default run does NOT appear in any figure until
+    something is written to ask for it. Better that than a plot quietly mixing
+    two ensemble sizes on one axis.
+    """
+    suffix = "" if N_REALIZATIONS == DEFAULT_REALIZATIONS else f"_r{N_REALIZATIONS}"
+    return f"accuracy_vs_M_{system}_dim{dim}{suffix}.json"
 
 
 def capped_unique_m_values(requested, n_lindblad):
@@ -213,7 +242,7 @@ def run(name, build, size, m_ladder, substeps):
             system=name, size=size, M_LADDER=m_ladder, substeps=substeps,
             N_REALIZATIONS=N_REALIZATIONS, rng=RNG,
         )
-        save_data(f"accuracy_vs_M_{name}_dim{dim}.json", meta, compact=True,
+        save_data(output_name(name, dim), meta, compact=True,
                   dim=dim, n_l=n_l, substeps=substeps,
                   reference_method=ref_method,
                   reference_selfcheck=ref_selfcheck,
@@ -245,19 +274,31 @@ def run(name, build, size, m_ladder, substeps):
               f"= {dt:.2f} s")
         persist()
 
-    print(f"  -> accuracy_vs_M_{name}_dim{dim}.json complete "
+    print(f"  -> {output_name(name, dim)} complete "
           f"({len(sweep)}/{len(m_values)} bundle sizes)")
 
 
 def main():
-    global MAX_FULL_DIM
+    global MAX_FULL_DIM, N_REALIZATIONS
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[1])
     add_safety_arguments(ap, SYSTEMS)
     add_max_full_dim_argument(ap, MAX_FULL_DIM)
     ap.add_argument("--dims", type=int, nargs="+", default=None,
                     help="only these Hilbert dims (default: all configured "
                          "sizes; each saved to its own file).")
+    ap.add_argument("--realizations", type=int, default=DEFAULT_REALIZATIONS,
+                    help=f"realizations per M (default {DEFAULT_REALIZATIONS}). "
+                         "Bias resolution grows as sqrt(R), so 4x the "
+                         "realizations doubles it. A non-default value writes "
+                         "to accuracy_vs_M_<system>_dim<D>_r<R>.json and is "
+                         "not read by the plotters.")
     args = ap.parse_args()
+    if args.realizations != DEFAULT_REALIZATIONS:
+        N_REALIZATIONS = args.realizations
+        print(f"[config] {N_REALIZATIONS} realizations per M "
+              f"({N_REALIZATIONS / DEFAULT_REALIZATIONS:.1f}x the default cost, "
+              f"{(N_REALIZATIONS / DEFAULT_REALIZATIONS) ** 0.5:.1f}x the bias "
+              f"resolution); output carries _r{N_REALIZATIONS}")
     if args.max_full_dim != MAX_FULL_DIM:
         MAX_FULL_DIM = args.max_full_dim
         print(f"[config] exact-mesolve dimension cap raised to {MAX_FULL_DIM}")
@@ -275,7 +316,7 @@ def main():
             work.append((name, build, size, m_ladder, substeps))
             plans.append((
                 f"Result 1: {name}, dim {probe_dim}, M={m_ladder}",
-                DATA_DIR / f"accuracy_vs_M_{name}_dim{probe_dim}.json",
+                DATA_DIR / output_name(name, probe_dim),
             ))
         if args.dims:
             missing = sorted(set(args.dims) - available_dims)
