@@ -1,0 +1,177 @@
+{
+ "meta": {
+  "timestamp": "2026-09-07T19:23:56+00:00",
+  "python": "3.11.15",
+  "numpy": "2.4.6",
+  "qutip": "5.3.0",
+  "qutip_bundling": "0.6.4",
+  "platform": "Linux-4.15.0-213-generic-x86_64-with-glibc2.27",
+  "execution": {
+   "hostname": "landau42",
+   "cpu_count": 72,
+   "threads": {
+    "OMP_NUM_THREADS": "32",
+    "OPENBLAS_NUM_THREADS": "32",
+    "MKL_NUM_THREADS": "32",
+    "NUMEXPR_NUM_THREADS": "32"
+   },
+   "slurm": {
+    "job_id": "19604736",
+    "job_name": "timing-B",
+    "nodelist": "landau42",
+    "cpus_per_task": "32",
+    "partition": "roibq"
+   }
+  },
+  "tlist": {
+   "t0": 0.0,
+   "t1": 5.0,
+   "n": 40
+  },
+  "substeps": 4,
+  "full_time_budget_s": 60.0,
+  "max_full_dim": 64,
+  "max_native_ref_dim": 128,
+  "davies": {
+   "construction": "grouped_frequency_sectors",
+   "degeneracy_tol": 1e-10,
+   "coupling_block_floor": "512 * eps * dim * frobenius_norm(X_in_energy_basis)"
+  },
+  "params": {
+   "systems": [
+    "mixed_chain"
+   ],
+   "sizes": {
+    "mixed_chain": [
+     6,
+     7,
+     8
+    ]
+   },
+   "methods": [
+    "native",
+    "mesolve",
+    "slb",
+    "mcsolve"
+   ],
+   "repeats": 1,
+   "m_rep": 8,
+   "native_substeps": 8,
+   "mc_ntraj_probe": 8,
+   "purpose": "wall-clock only; no accuracy data -- see module docstring"
+  }
+ },
+ "points": [
+  {
+   "size": 6,
+   "dim": 64,
+   "n_l": 2017,
+   "t_operator_build": 0.7468268498778343,
+   "slb_substeps": 4,
+   "native_substeps": 8,
+   "timings": {
+    "native": {
+     "median_s": 212.43571314960718,
+     "samples_s": [
+      212.43571314960718
+     ]
+    },
+    "mesolve": {
+     "median_s": 6404.910027787089,
+     "samples_s": [
+      6404.910027787089
+     ]
+    },
+    "slb": {
+     "median_s": 0.661540562286973,
+     "samples_s": [
+      0.661540562286973
+     ]
+    },
+    "mcsolve": {
+     "median_s": 110.76473472453654,
+     "samples_s": [
+      110.76473472453654
+     ],
+     "ntraj_probe": 8,
+     "per_trajectory_s": 13.845591840567067
+    }
+   },
+   "m_rep": 8
+  },
+  {
+   "size": 7,
+   "dim": 128,
+   "n_l": 8193,
+   "t_operator_build": 7.4217305816709995,
+   "slb_substeps": 4,
+   "native_substeps": 8,
+   "timings": {
+    "native": {
+     "median_s": 2631.1272701844573,
+     "samples_s": [
+      2631.1272701844573
+     ]
+    },
+    "mesolve": {
+     "skipped": true,
+     "reason": "dim 128 > --max-full-dim 64",
+     "projected_bytes": 35188667056128,
+     "available_bytes": 1621966110720
+    },
+    "slb": {
+     "median_s": 3.505563721060753,
+     "samples_s": [
+      3.505563721060753
+     ]
+    },
+    "mcsolve": {
+     "median_s": 817.8469639699906,
+     "samples_s": [
+      817.8469639699906
+     ],
+     "ntraj_probe": 8,
+     "per_trajectory_s": 102.23087049624883
+    }
+   },
+   "m_rep": 8
+  },
+  {
+   "size": 8,
+   "dim": 256,
+   "n_l": 32637,
+   "t_operator_build": 105.34568649530411,
+   "slb_substeps": 4,
+   "native_substeps": 8,
+   "timings": {
+    "native": {
+     "median_s": 33725.54111285694,
+     "samples_s": [
+      33725.54111285694
+     ]
+    },
+    "mesolve": {
+     "skipped": true,
+     "reason": "dim 256 > --max-full-dim 64",
+     "projected_bytes": 2242797562232832,
+     "available_bytes": 1621966110720
+    },
+    "slb": {
+     "median_s": 52.56995966657996,
+     "samples_s": [
+      52.56995966657996
+     ]
+    },
+    "mcsolve": {
+     "median_s": 5864.693048877642,
+     "samples_s": [
+      5864.693048877642
+     ],
+     "ntraj_probe": 8,
+     "per_trajectory_s": 733.0866311097052
+    }
+   },
+   "m_rep": 8
+  }
+ ]
+}
