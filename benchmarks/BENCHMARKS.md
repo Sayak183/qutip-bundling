@@ -1275,6 +1275,33 @@ chains, 32 against 64 on the oscillator), so a factor of two in every SLB
 column is the resolution, not the bundling. Stated because the remaining factor
 is the part that is actually about the method.
 
+**The SLB column includes bundle construction, and on System B that is most of
+it.** `run_solver_timing` times the whole `mesolve_ensemble` call: drawing the
+phases, building $M$ bundles out of the $N_L$ collapse operators, then
+propagating them. `run_frontier_spins` reports those two separately, as
+`t_bundle_prep` and `t_dyn`, and only the second reaches its tables. The gap is
+not incidental. Fitting the frontier's own $M=16$ and $M=64$ points at System B
+dimension 256 to a fixed-plus-linear form in $M$ — which reproduces its
+untouched $M=32$ point to 5% — and evaluating it on this grid predicts **5.1 s
+of propagation against the 52.6 s measured**. The residual, 47.5 s, is bundle
+construction: combining 32,637 operators into 8. The frontier's directly
+measured prep at that dimension is 26.3 to 42.1 s, the same range.
+
+**The timing column is the fairer of the two, and they must never be
+compared.** Bundling is a cost SLB pays that the exact solvers do not, so
+excluding it would flatter the method. What the split does do is change
+character between systems: System A at dimension 512 has $N_L = 73$ and
+construction is negligible, while System B at 256 has 32,637 and construction
+is roughly nine tenths of the call. The same method, opposite cost structure —
+and it is $N_L$ that decides, the same quantity that decides everything else
+here.
+
+One measured oddity, quoted as measured rather than explained: at System B
+dimension 256 the construction time shows no $M$ dependence at all — 26.3,
+42.1 and 29.0 s at $M = 16$, 32 and 64 — where building $M$ bundles from $N_L$
+operators should scale with $M$. Whatever dominates it is done once per
+realization regardless of the bundle count. That has not been isolated.
+
 **`mesolve` memory: $N_L \times N^4 \times 16$ bytes, fitted to failures and
 then confirmed on successes.** qutip builds one full $(N^2)\times(N^2)$
 superoperator *per collapse operator*, so the operator count multiplies the

@@ -102,6 +102,23 @@ SYSTEMS = {
         # 19604735 measured the native reference at 413 s on the 40-point
         # grid, so ~830 s on this 80-point one, under 1% of the run.
         (9, [2, 4, 8, 16, 32, 64], 4),
+        # dim 1024, making seven, and System A's LAST Result 1 size: dim 2048
+        # costs ~60 days at 200 realizations. About 9 days here, of which the
+        # native reference is 3.7 h.
+        #
+        # Priced from the frontier's own points rather than extrapolated. Its
+        # dim-1024 timings decompose into a fixed Hamiltonian term and a term
+        # linear in M (0.0162 and 0.0937 s per RK4 step); on this section's
+        # 80-point, 4-substep grid that is 3,808 s per realization across the
+        # whole ladder, so 761,600 s for 200. The same decomposition at dim 512
+        # predicted 35.0 h against 36.1 h measured by job 19604740 -- 3%.
+        #
+        # Worth doing because two trends now need testing, not one. The bias
+        # slope drifts shallower after dim 64 (-0.98, -0.98, -0.97, -0.94) and
+        # the height exponent falls on every extension (+0.64, +0.61, +0.58).
+        # A seventh point tests both; before dim 512 landed there was only a
+        # constant to confirm, and confirming a constant is worth much less.
+        (10, [2, 4, 8, 16, 32, 64], 4),
     ]),
     # Same sizes as the TFIM chain so the two are directly comparable: they
     # differ only by the longitudinal field.
