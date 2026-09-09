@@ -1333,7 +1333,7 @@ memory:
 
 | Result | Slurm jobs | dates |
 |---|---|---|
-| **1** accuracy vs `M` | 19585257, 19592647, 19597390, 19598577, 19598578 | Aug 7 – 26 |
+| **1** accuracy vs `M` | 19585257, 19592647, 19597390, 19598577, 19598578, 19604740 | Aug 7 – Sep 9 |
 | **2** cost scaling | 19599550, 19599671, 19599672, 19603810 | Aug 29 – Sep 6 |
 | **3** method comparison | 19559720, 19559854, 19559945, 19594145 | Aug 1 – 19 |
 | **4** iso-accuracy cost | 19599793 | Aug 30 – Sep 1 |
@@ -1464,7 +1464,7 @@ The systems differ dramatically in how fast they converge. The oscillator (Syste
 
 **Beyond energy: capturing coherence.** Energy is nearly diagonal in the energy eigenbasis, so matching $\langle H\rangle$ says little about off-diagonal structure. Notice the `coherence` panels: SLB tracks the off-diagonal structure with the same convergence in $M$. Read that for exactly what it is — the observable is $|a\rangle\langle b| + |b\rangle\langle a|$, so it measures $2\,\mathrm{Re}\,\rho_{ab}$ for the single most-populated pair. It shows the method is not confined to the diagonal; it does not certify every coherence, the imaginary parts, or the full matrix.
 
-**Sizes.** This section spans dimensions 16 to 256 on System A and 16 to 128
+**Sizes.** This section spans dimensions 16 to 512 on System A and 16 to 128
 on Systems B and C, computed once per size and stored separately
 (`accuracy_vs_M_<system>_dim<D>.json`); the plot script's `PLOT_DIM` selects
 which to draw. Past dim 32 `mesolve` can no longer build its superoperator
@@ -1530,21 +1530,37 @@ easy to conflate.
 ![System B size invariance](accuracy_vs_M_invariance_mixed_chain.png)
 ![System C size invariance](accuracy_vs_M_invariance_oscillator_bath.png)
 
-**The slope is invariant, and that is the useful part.** Every curve falls as
-$M^{-1}$, and the exponent settles as dimension grows. System A is now measured
-at **five** sizes spanning a sixteen-fold range:
+**The slope is invariant to within $0.07$, but it does not sit still.** Every
+curve falls as $M^{-1}$. System A is now measured at **six** sizes spanning a
+thirty-two-fold range:
 
-| dim | 16 | 32 | 64 | 128 | 256 |
-|---|---|---|---|---|---|
-| bias slope | −0.91 | −0.97 | −0.98 | −0.98 | −0.97 |
+| dim | 16 | 32 | 64 | 128 | 256 | 512 |
+|---|---|---|---|---|---|---|
+| bias slope | −0.91 | −0.97 | −0.98 | −0.98 | −0.97 | −0.94 |
 
-It stops moving after dim 32 and stays put through a further eightfold increase,
-with a total spread of $0.07$ across the five. System B gives $M^{-1.00}$,
-$M^{-1.00}$, $M^{-1.02}$, $M^{-0.98}$ across its four sizes, the last from
-dimension 128 (job 19598578). So **doubling M halves the
-error at any size**, and that rule needs no recalibration as the system grows.
+The total spread across the six is $0.069$, essentially what it was across
+five, so **doubling M halves the error at any size** and that rule needs no
+recalibration. But an earlier version of this paragraph said the exponent
+"stops moving after dim 32", and the sixth point retires that: from dim 64
+onward it drifts monotonically shallower — $M^{-0.98}$, $M^{-0.98}$,
+$M^{-0.97}$, $M^{-0.94}$ — a total of $0.046$ over three doublings, all in
+one direction.
 
-Five points is where this stops being a line through three and starts being a
+**About half of that drift is one point.** At dim 512 the $M=2$ bias is only
+$1.81\times$ the $M=4$ bias, where every other step on that ladder still comes
+within a few percent of halving; the same ratio is $1.91\times$ at dim 256 and
+$1.93\times$ at dim 64. Fit $M \ge 4$ only and dim 512 reads $M^{-0.96}$
+rather than $M^{-0.94}$. So the small $M$ end is leaving the asymptotic
+regime as the system grows, which is a statement about where the $1/M$ law starts rather than
+about the law. **It is not the sampling floor:** every point at dim 512 clears
+its own standard error by $43\times$ to $96\times$. The residual $0.02$ after
+removing $M=2$ is unexplained and quoted as measured.
+
+System B gives $M^{-1.00}$, $M^{-1.00}$,
+$M^{-1.02}$, $M^{-0.98}$ across its four sizes, the last from dimension 128
+(job 19598578).
+
+Six points is where this stops being a line through three and starts being a
 measurement. The prediction was $M^{-1}$ before any of them were taken.
 
 **The height is not invariant, and the difference is systematic.** At fixed
@@ -1552,7 +1568,7 @@ $M=8$ the bias moves with dimension:
 
 | system | dim 16 → 32 → 64 | scaling |
 |---|---|---|
-| **A** TFIM chain | 3.3×10⁻² → 5.0×10⁻² → 8.0×10⁻² → 1.24×10⁻¹ → 1.74×10⁻¹ (to dim 256) | ~ N^+0.61 |
+| **A** TFIM chain | 3.3×10⁻² → 5.0×10⁻² → 8.0×10⁻² → 1.24×10⁻¹ → 1.74×10⁻¹ → 2.44×10⁻¹ (to dim 512) | ~ N^+0.58 |
 | **B** mixed chain | 2.6×10⁻² → 3.4×10⁻² → 5.5×10⁻² → 8.8×10⁻² (to dim 128) | ~ N^+0.61 |
 | **C** oscillator | 2.6×10⁻³ → 2.3×10⁻³ → 2.0×10⁻³ → 1.5×10⁻³ (to dim 128) | ~ N^-0.26 |
 
@@ -1561,23 +1577,26 @@ as the slope table above and as the figure's axis. An earlier version of this
 table measured System A by its *time-averaged* error instead, which read about
 10% lower and made the two chains look like they grew at different rates.
 
-System A's height exponent is now measured over five dimensions, and the extra
-points pull it *down* rather than confirming it unchanged: $N^{+0.64}$ over dims
-16–64, and $N^{+0.61}$ once dims 128 and 256 are included. Stated plainly
-because it cuts against the earlier reading — the growth is real and it is a
-trend rather than a three-point artefact, but the exponent itself was
-overestimated by the short sweep, and the curve is flattening as the system
-grows rather than holding a fixed power. System B moves the *other* way over its own four
-dimensions, $N^{+0.55}$ over dims 16–64 against $N^{+0.61}$ out to 128. So the
-two chains converge on the same exponent from opposite sides, and neither short
-sweep predicted it: A's was too steep, B's too shallow. What generalises is that
-a three-point fit is not to be trusted here, not the direction of its error.
+System A's height exponent is now measured over six dimensions, and **every
+size added has pulled it down**: $N^{+0.64}$ over dims 16–64, $N^{+0.61}$ with
+128 and 256, and $N^{+0.58}$ with 512. Three fits, each shallower than the
+last, on a quantity that a fixed power law would leave unchanged. The growth is
+real and is not a three-point artefact, but the curve is flattening as the
+system grows rather than holding a fixed exponent, and the short sweep
+overestimated it. System B moves the *other* way over its own four dimensions,
+$N^{+0.55}$ over dims 16–64 against $N^{+0.61}$ out to 128.
 
-**The two chains grow at the same rate**, $N^{+0.61}$ against $N^{+0.61}$. The
-earlier $+0.64$ against $+0.55$, and the difference read into it, was the mixed
-convention rather than the physics.
+**An earlier version of this section claimed the two chains grow at the same
+rate, $N^{+0.61}$ against $N^{+0.61}$. The sixth point on System A breaks
+that** — it is $N^{+0.58}$ against B's $N^{+0.61}$, and the agreement was an
+artefact of stopping both fits at the size that happened to make them meet.
+Whether the chains genuinely differ is not yet answerable: B has four sizes to
+A's six, and by A's own pattern B's exponent should fall too when extended. Job
+19604858 is measuring B at dimension 256 and will settle it. Until then the
+honest statement is that **both chains grow near $N^{+0.6}$ and neither
+exponent has stopped moving.**
 
-On the chains the bias grows as $N^{+0.61}$ — a little faster than
+On the chains the bias grows near $N^{+0.6}$ — a little faster than
 $\sqrt N$ — so holding a fixed *accuracy*
 target requires $M$ to grow with the system — which is precisely what Result 4's
 iso-accuracy curve measures, and why its curve sits above the fixed $M$ one. The
