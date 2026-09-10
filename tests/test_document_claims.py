@@ -31,6 +31,7 @@ directions have now happened, so both are checked.
 from __future__ import annotations
 
 import json
+import math
 import re
 import sys
 from pathlib import Path
@@ -483,3 +484,152 @@ def test_solver_timing_grid_matches_the_three_timing_files(doc):
             expected, rel=5e-3), (
             f"published prediction for dim {dim} is {predicted} GB; "
             f"N_L * N^4 * 16 gives {expected:.0f} GB")
+
+# --- 5. section 2, checked against the CODE rather than against data ---------
+#
+# Everything above compares the document to a data file. These compare it to
+# the code, which is the failure mode section 2 actually has: its numbers come
+# from build_spin_chain's parameters, MIXED_FIELD_G, build_oscillator_bath's
+# anharmonicity and the Davies grouping tolerance. Change one of those and this
+# section goes stale with no job having run, so nothing above would notice.
+
+SECTION2_BUILDERS = {
+    # label in the document -> (builder, size at dim 16, size at dim 64)
+    "A": ("spin_chain", 4, 6),
+    "B": ("mixed_chain", 4, 6),
+    "C": ("oscillator_bath", 8, 32),
+}
+
+
+def _build(system, size):
+    import common
+    return {"spin_chain": common.build_spin_chain,
+            "mixed_chain": common.build_mixed_field_chain,
+            "oscillator_bath": common.build_oscillator_bath}[system](size)
+
+
+def test_section2_worked_example_matches_the_code(doc):
+    """Section 2.6's dimension-16 table, every cell recomputed.
+
+    Parses:
+
+        | **System A** (...) | 62 of 256 (24%) | **13** | 4.8 |
+
+    and recomputes the connected-pair count, N_L and the packing ratio through
+    explain_structure.gap_census -- the same function that printed the numbers
+    the table was written from.
+    """
+    import explain_structure as es
+
+    rows = re.findall(
+        r"^\|\s*\*\*System ([ABC])\*\*[^|]*\|\s*(\d+) of (\d+)\s*\((\d+)%\)"
+        r"\s*\|\s*\*\*([\d,]+)\*\*\s*\|\s*([\d.]+)\s*\|",
+        doc, re.M)
+    assert len(rows) == 3, (
+        f"section 2.6's breakdown table has {len(rows)} parseable rows, not 3")
+
+    for label, connected, pairs, percent, n_l, packing in rows:
+        system, size16, _ = SECTION2_BUILDERS[label]
+        H, X, _ = _build(system, size16)
+        total, _, n_connected, n_connected_gaps = es.gap_census(H, X)
+
+        assert int(pairs) == total, (
+            f"System {label}: table says {pairs} level pairs, code gives {total}")
+        assert int(connected) == n_connected, (
+            f"System {label}: table says {connected} connected pairs, "
+            f"code gives {n_connected}")
+        assert int(n_l.replace(",", "")) == n_connected_gaps, (
+            f"System {label}: table says N_L = {n_l}, code gives "
+            f"{n_connected_gaps}")
+
+        assert round(100 * n_connected / total) == int(percent), (
+            f"System {label}: table says {percent}% of pairs connect, "
+            f"code gives {100 * n_connected / total:.1f}%")
+        assert float(packing) == pytest.approx(
+            n_connected / n_connected_gaps,
+            abs=_rounding_tolerance(packing)), (
+            f"System {label}: table says {packing} transitions per operator")
+
+
+def test_section2_gap_collision_sentence_matches_the_code(doc):
+    """Section 2.6 claims System A's 256 transitions carry only 81 distinct gaps
+    before symmetry, and that 62 survive symmetry carrying 13.
+
+    That "81" is the whole point of the section -- it is the degeneracy that
+    makes System A compress -- and nothing else in the document checks it.
+    """
+    import explain_structure as es
+
+    match = re.search(
+        r"there are (\d+) possible transitions\.[^.]*?"
+        r"produce only (\d+) distinct gaps rather than (\d+)", doc, re.S)
+    assert match, "section 2.6's gap-collision sentence has changed shape"
+    stated_pairs, distinct, repeated_pairs = (int(g) for g in match.groups())
+
+    H, X, _ = _build("spin_chain", 4)
+    total, total_gaps, _, _ = es.gap_census(H, X)
+    assert stated_pairs == total == repeated_pairs, (
+        f"sentence says {stated_pairs}/{repeated_pairs} pairs, code gives {total}")
+    assert distinct == total_gaps, (
+        f"sentence says {distinct} distinct gaps among all pairs, code gives "
+        f"{total_gaps}")
+
+
+def test_section2_locality_sentence_matches_the_code(doc):
+    """Section 2.5: "At dimension 64 this gives 27% (A), 26% (B) and 3.1% (C)
+    -- raw distances of 17.4, 16.9 and 2.0 levels."
+
+    Recomputed at dimension 64, where the claim is made. Percentages are d_bar
+    divided by N, which is how section 2.6 says to convert them.
+    """
+    import common
+    import explain_structure as es
+
+    match = re.search(
+        r"At dimension 64 this gives ([\d.]+)% \(A\), ([\d.]+)% \(B\) and "
+        r"([\d.]+)% \(C\)\s*\u2014 raw distances of\s*([\d.]+), ([\d.]+) and "
+        r"([\d.]+) levels", doc, re.S)
+    assert match, "section 2.5's locality sentence has changed shape"
+    percents = match.groups()[:3]
+    raws = match.groups()[3:]
+
+    for label, percent, raw in zip("ABC", percents, raws):
+        system, _, size64 = SECTION2_BUILDERS[label]
+        H, X, _ = _build(system, size64)
+        assert H.shape[0] == 64, f"System {label} builder did not give dim 64"
+        c_ops = common.build_davies_operators(H, X)
+        d_bar = es.mean_offdiagonal_distance(es.transition_weight(H, c_ops))
+
+        assert float(raw) == pytest.approx(
+            d_bar, abs=_rounding_tolerance(raw)), (
+            f"System {label}: sentence says d_bar = {raw} levels, code gives "
+            f"{d_bar:.2f}")
+        assert float(percent) == pytest.approx(
+            100 * d_bar / 64, abs=_rounding_tolerance(percent)), (
+            f"System {label}: sentence says {percent}%, code gives "
+            f"{100 * d_bar / 64:.2f}%")
+
+
+def test_section2_operator_count_law_matches_the_code(doc):
+    """Section 2.3 states N_L = n^2 - n + 1 for System A and quotes two values.
+
+    The formula is the reason System A is the control, so it is worth checking
+    as a formula and not only at the two sizes the sentence happens to name.
+    """
+    import common
+
+    match = re.search(r"n\^2-n\+1\}?\$?\s*\((\d+) at dim (\d+), "
+                      r"(\d+) at dim (\d+)\)", doc)
+    assert match, "section 2.3's N_L formula sentence has changed shape"
+    a_nl, a_dim, b_nl, b_dim = (int(g) for g in match.groups())
+
+    for quoted_nl, dim in ((a_nl, a_dim), (b_nl, b_dim)):
+        n = int(math.log2(dim))
+        H, X, _ = common.build_spin_chain(n)
+        assert H.shape[0] == dim
+        measured = len(common.build_davies_operators(H, X))
+        assert measured == quoted_nl, (
+            f"dim {dim}: sentence says N_L = {quoted_nl}, code gives {measured}")
+        assert measured == n * n - n + 1, (
+            f"dim {dim}: N_L = {measured} breaks the stated n^2-n+1 law "
+            f"({n * n - n + 1})")
