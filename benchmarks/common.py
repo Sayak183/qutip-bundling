@@ -426,6 +426,21 @@ def format_mcsolve_settings(*, ntraj, atol=None, rtol=None,
     return s
 
 
+def size_label(system: str, dim: int) -> str:
+    """How a system's size reads on a figure: the physical size, then the dim.
+
+    A Hilbert dimension alone is not what anyone thinks in -- 512 means nine
+    spins on the chains and a Fock cutoff of 256 on the oscillator, and those
+    are the numbers a reader compares against their own model. Every Result 1
+    figure goes through here so they cannot disagree with each other.
+    """
+    if system in ("spin_chain", "mixed_chain"):
+        return f"{int(round(math.log2(dim)))} spins, dim {dim}"
+    if system == "oscillator_bath":
+        return f"Fock cutoff {dim // 2}, dim {dim}"
+    return f"dim {dim}"
+
+
 def add_settings_footer(fig, *segments, y=-0.02, fontsize=9, wrap_chars=170):
     """Place one uniform settings caption centred below the whole figure.
 

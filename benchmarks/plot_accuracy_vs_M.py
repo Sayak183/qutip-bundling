@@ -34,6 +34,7 @@ import numpy as np
 
 from common import (
     DATA_DIR, add_settings_footer, as_array, format_slb_settings, load_data,
+    size_label,
 )
 
 # --- CONFIGURATION (TOGGLES FOR DECOMPOSITION PLOT) ---
@@ -117,14 +118,6 @@ def _timing_caption(doc):
             f"{t_prop:.1f} s total ({n_real} realizations per M)")
 
 
-def _size_str(name, dim):
-    if name in ("spin_chain", "mixed_chain"):
-        return f"{int(round(math.log2(dim)))} spins, dim {dim}"
-    if name == "oscillator_bath":
-        return f"Fock cutoff {dim // 2}, dim {dim}"
-    return f"dim {dim}"
-
-
 def _reference_label(doc):
     """Human-readable provenance for the exact reference saved with the data."""
     method = doc.get("reference_method")
@@ -193,7 +186,7 @@ def accuracy_figure(plt, name, doc, tlist, reference, curves,
         
     ax.set_xlabel("time")
     ax.set_ylabel(rf"${obs_math}$")
-    ax.set_title(rf"{name} ({_size_str(name, doc['dim'])}, "
+    ax.set_title(rf"{name} ({size_label(name, doc['dim'])}, "
                  rf"$N_L$={doc['n_l']}): {subtitle}")
     ax.legend(frameon=False)
     fig.tight_layout()
@@ -334,7 +327,7 @@ def decomposition_figure(plt, name, doc, tlist, relative=True):
         axes[idx // n_cols, idx % n_cols].set_visible(False)
 
     title_rel = "relative error anatomy" if relative else "error anatomy"
-    fig.suptitle(rf"{name} ({_size_str(name, doc['dim'])}, $N_L$={doc['n_l']}): "
+    fig.suptitle(rf"{name} ({size_label(name, doc['dim'])}, $N_L$={doc['n_l']}): "
                  rf"{title_rel} at the worst moment, fixed sampling")
     fig.tight_layout()
 

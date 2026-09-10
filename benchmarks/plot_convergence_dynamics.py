@@ -49,7 +49,7 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import numpy as np
 
-from common import add_settings_footer, format_slb_settings
+from common import add_settings_footer, format_slb_settings, size_label
 
 DATA_DIR = Path(__file__).resolve().parent / "data"
 OUT_DIR = Path(__file__).resolve().parent
@@ -195,7 +195,9 @@ def plot_convergence_system_huge(system_name, display_name, observables, dim,
             if i == n_obs - 1:
                 ax.legend(bbox_to_anchor=(1.03, 1.0), loc='upper left', framealpha=0.95, fontsize=16, edgecolor='lightgray')
 
-    fig.suptitle(f"{display_name} (dim {dim}, $N_L={point.get('n_l', '?')}$): Convergence with Bundle Size $M$",
+    fig.suptitle(f"{display_name} ({size_label(system_name, dim)}, "
+                 f"$N_L={point.get('n_l', '?')}$): "
+                 f"Convergence with Bundle Size $M$",
                  fontsize=25, fontweight='heavy', y=0.99 if n_obs == 4 else 1.05)
 
     plt.tight_layout()
