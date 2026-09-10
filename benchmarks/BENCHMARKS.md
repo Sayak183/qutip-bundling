@@ -2031,7 +2031,11 @@ At high precision ($\le 1\%$), Monte Carlo trajectory methods hit a hard statist
 
 ### Result 5 — past the reference wall
 
-Every benchmark above compares SLB against an exact reference, capping studies at dimensions where an exact solve is computationally viable ($N \le 128$). Result 5 steps past this reference wall into the regime SLB was built for: **where the Lindblad operator list cannot fit in RAM.**
+Every benchmark above compares SLB against an exact reference, which caps each study at the dimension where an exact solve is still affordable. **That wall is per system, not global.** Measured from the committed Result 1 files, the largest dimension carrying an exact reference is **512 on System A** (native RK4 at 8 substeps, job 19604740), **128 on System B**, and **128 on the oscillator**, which the fixed-step reference cannot pass at these substeps.
+
+The solvers themselves run further than the *certified* reference does: §5.2 timed native RK4 at dimension 1024 on System A and 256 on System B. What sets the ceiling is certification rather than propagation — a reference is only usable once a second run at a different resolution agrees with it, and that second run is what becomes unaffordable first. §5.2 makes the same argument for the oscillator, where a dimension-256 reference propagates in ~2.4 days but certifying it costs about a week.
+
+Result 5 steps past that wall into the regime SLB was built for: **where the Lindblad operator list cannot fit in RAM.**
 
 At dimension 256 for System B (8 spins), there are $N_L = 32{,}637$ Davies operators. Storing them as dense matrices would consume **31.9 GB** — just for the operator list before simulation begins. `mesolve_ensemble_davies` avoids this entirely: operators are streamed, accumulated into bundles on the fly, and immediately discarded, keeping memory constant at a small chunk buffer.
 
