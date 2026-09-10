@@ -49,6 +49,8 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import numpy as np
 
+from common import add_settings_footer, format_slb_settings
+
 DATA_DIR = Path(__file__).resolve().parent / "data"
 OUT_DIR = Path(__file__).resolve().parent
 
@@ -197,6 +199,26 @@ def plot_convergence_system_huge(system_name, display_name, observables, dim,
                  fontsize=25, fontweight='heavy', y=0.99 if n_obs == 4 else 1.05)
 
     plt.tight_layout()
+
+    # Settings on the figure, not only in the prose. These figures are read
+    # away from the document -- in talks, in issues -- and the two questions
+    # they kept raising were how many runs each curve averages and whether the
+    # spread is drawn. Both are answered here, from the file's own metadata.
+    # fontsize 15, not the helper's default 9: these panels carry 22pt titles
+    # and 20pt axis labels, so the default caption is a fifth the size of
+    # everything around it and unreadable at normal viewing scale. wrap_chars
+    # is lowered to match, so the caption breaks into two balanced lines
+    # instead of running past the figure edge.
+    add_settings_footer(
+        fig,
+        format_slb_settings(M=m_values, substeps=d.get("meta", {}).get("substeps"),
+                            n_realizations=n_real, swept=True),
+        "mean curves only, no band drawn",
+        f"reference: {ref.get('method', 'unknown')}",
+        f"source: {path.name}",
+        fontsize=15, wrap_chars=105, y=-0.04,
+    )
+
     out_file = OUT_DIR / f"convergence_dynamics_{system_name}.png"
     plt.savefig(out_file, bbox_inches='tight', dpi=300)
     print(f"  saved {out_file.name}  (dim {dim}, M={m_values}, "

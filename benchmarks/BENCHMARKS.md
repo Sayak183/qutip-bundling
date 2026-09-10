@@ -1554,8 +1554,10 @@ should be read as upper bounds. At dim 32 the bias stays measurable at every
 $M$, and the fit is meaningful.
 
 **Why the oscillator's traces look featureless.** On the oscillator the SLB
-curves sit on top of the reference at every $M$, with bands too narrow to see —
-the figure appears to show nothing. That *is* the result: even $M=2$ tracks a
+mean curves sit on top of the reference at every $M$, and the convergence
+figures draw means only — where a spread *is* drawn, in
+`benchmark_accuracy_oscillator_bath.png` at 200 realizations, the band is too
+narrow to see. Either way the figure appears to show nothing. That *is* the result: even $M=2$ tracks a
 trajectory spanning $\langle H\rangle\approx128\to10$ at dim 64 (and $13\to4$ at dim 16) to within $\sim\!10^{-2}$,
 so there is no visible discrepancy to plot. It is the same fact that Results 2
 and 4 report quantitatively (a handful of bundles suffices at every size —
