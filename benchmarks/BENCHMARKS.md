@@ -1487,7 +1487,38 @@ To see exactly *how* SLB converges to the exact solution as the bundle size $M$ 
 
 These plot $\langle O(t)\rangle$ against the exact reference as the system relaxes. As $M$ grows, the bundled mean tightens onto the reference—the approximation is a dial, not a fixed compromise. 
 
-The systems differ dramatically in how fast they converge. The oscillator (System C) and mixed chain (System B) sit essentially on the reference at $M=8$, while the TFIM chain (System A) still shows visible deviation even at $M=16$. Convergence speed is set by the spread of the individual operator contributions and cross-terms, not by dimension alone, so it is worth checking on your own system.
+The systems differ dramatically in how fast they converge, and the worst of
+each figure's own plotted panels puts a number on it — as a percentage of that
+observable's reference span, at the dimension 64 these panels are drawn at:
+
+| worst plotted panel | $M=1$ | $M=8$ | $M=16$ | top rung |
+|---|---|---|---|---|
+| **A** TFIM chain | 97.2% | 21.5% | 17.5% | 6.7% at $M=31$ |
+| **B** mixed chain | — | **16.0%** | 7.1% | 3.9% at $M=32$ |
+| **C** oscillator | *every rung below its own sampling scatter* | | | |
+
+**Only the oscillator cannot be seen to deviate at all.** Every rung of its
+ladder sits within three standard errors of its own 16-realization scatter, so
+this figure cannot resolve its bias — which is precisely why its panels look
+featureless, discussed below. **Both chains are visibly off at $M=8$, and by
+similar amounts.** What separates them is how far the dial goes: System B
+reaches 3.9% by $M=32$ and keeps improving, while System A's ladder ends at
+$M=31$ — that is $N_L$ at this size — still 6.7% out and noise-limited itself
+by then.
+
+*An earlier version of this paragraph grouped System B with the oscillator,
+saying both "sit essentially on the reference at $M=8$". They do not resemble
+each other: at $M=8$ System B's worst panel is 16.0% of the span against System
+A's 21.5%, so the data groups B with A. The grouping also contradicted §2.5,
+which measures System B's error at $6.2\times10^{-2}$ against the oscillator's
+$6.6\times10^{-6}$ — four orders of magnitude apart — and §2.5 is the section
+that argues B and C are alike in cost and unalike in accuracy.*
+
+**The ordering matches Result 4's independently fitted $M^\ast$:** 2 for the
+oscillator, 64 for System B, and $N_L$ for System A, which still misses the 3%
+target even there. Convergence speed is set by the spread of the individual
+operator contributions and cross-terms, not by dimension alone, so it is worth
+checking on your own system.
 
 **Beyond energy: capturing coherence.** Energy is nearly diagonal in the energy eigenbasis, so matching $\langle H\rangle$ says little about off-diagonal structure. Notice the `coherence` panels: SLB tracks the off-diagonal structure with the same convergence in $M$. Read that for exactly what it is — the observable is $|a\rangle\langle b| + |b\rangle\langle a|$, so it measures $2\,\mathrm{Re}\,\rho_{ab}$ for the single most-populated pair. It shows the method is not confined to the diagonal; it does not certify every coherence, the imaginary parts, or the full matrix.
 
