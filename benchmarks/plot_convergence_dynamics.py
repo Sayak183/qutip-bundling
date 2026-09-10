@@ -11,12 +11,18 @@ Result 1's -- because that file stores per-realization curves for every
 observable at a single dimension, which is exactly what a time-trace panel
 needs. The practical consequences:
 
-  * the dimension is **64** by default, not the largest size Result 1 reaches;
+  * the dimension defaults to the LARGEST ``method_comparison`` file on disk
+    for each system, chosen per system rather than globally -- currently 512
+    for the chain and 128 for the other two. That matches what
+    ``plot_accuracy_vs_M.py`` and ``plot_R1_invariance.py`` already do, so all
+    three of Result 1's figure groups now show the same sizes;
   * there are **16 realizations** per M, not the 200 behind
     ``benchmark_accuracy_<system>.png`` and the error-decomposition figures;
-  * the M values are Result 3's grid (1, 2, 4, 8, 16, 32, 64, 128, 256) capped
-    at N_L, so they differ per system: A stops at 31, C at 32, and **B runs the
-    full grid to 256**.
+  * the M values are Result 3's grid capped at N_L, so they differ per system:
+    A and C run 2 to 32, and **B runs 2 to 256**;
+  * ``M=1`` is omitted by default (``--min-m``). One unaveraged operator
+    combination says nothing the rest of the ladder does not, and on System A
+    at dimension 512 it costs the coherence panel most of its readable range.
 
 Result 1's other two figure groups (error decomposition, size invariance) come
 from ``accuracy_vs_M_*`` with 200 realizations and are unaffected by any of
@@ -31,7 +37,7 @@ unchanged apart from the paths, the CLI, and this note.
 clean checkout could not regenerate the figure. Both are wrong: it was
 committed in 65f22db. The move stands on filing, not on reachability.)
 
-Run:  python plot_convergence_dynamics.py [--system ...] [--dim 64]
+Run:  python plot_convergence_dynamics.py [--system ...] [--dim auto|N] [--min-m 2]
 """
 
 from __future__ import annotations
@@ -98,7 +104,22 @@ def mean_curve(c):
     return np.mean(c, axis=0) if isinstance(c, (list, np.ndarray)) and np.ndim(c) == 2 else np.asarray(c)
 
 
-def plot_convergence_system_huge(system_name, display_name, observables, dim):
+def largest_dim(system_name):
+    """Largest committed method_comparison dimension for this system.
+
+    Per system, not global: the systems do not reach the same sizes, and
+    pinning all three to the smallest would waste the data the others have.
+    """
+    dims = [int(p.stem.split("dim")[-1])
+            for p in DATA_DIR.glob(f"method_comparison_{system_name}_dim*.json")]
+    return max(dims) if dims else None
+
+
+def plot_convergence_system_huge(system_name, display_name, observables, dim,
+                                 min_m=2):
+    if dim is None:
+        print(f"  SKIPPED {system_name}: no method_comparison files")
+        return
     path = DATA_DIR / f"method_comparison_{system_name}_dim{dim}.json"
     if not path.exists():
         print(f"  SKIPPED {system_name}: no {path.name}")
@@ -116,6 +137,7 @@ def plot_convergence_system_huge(system_name, display_name, observables, dim):
     slb = point['methods'].get('slb', [])
     obs_names = point.get('observables', [])
 
+    slb = [x for x in slb if x['M'] >= min_m]
     slb.sort(key=lambda x: x['M'])
     m_values = [x['M'] for x in slb]
     n_real = np.asarray(slb[0]["samples"]).shape[0] if slb else 0
@@ -186,14 +208,23 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[4])
     ap.add_argument("--system", action="append", choices=sorted(CONFIGS),
                     help="repeatable; default is all three.")
-    ap.add_argument("--dim", type=int, default=64,
-                    help="Hilbert dimension to draw (default 64 -- the size "
-                         "method_comparison covers on all three systems).")
+    ap.add_argument("--dim", default="auto",
+                    help="Hilbert dimension to draw, or 'auto' (the default) "
+                         "for the largest method_comparison file each system "
+                         "has. 'auto' matches plot_accuracy_vs_M.py and "
+                         "plot_R1_invariance.py, so Result 1's three figure "
+                         "groups show the same sizes.")
+    ap.add_argument("--min-m", type=int, default=2,
+                    help="lowest bundle size to draw (default 2). M=1 is one "
+                         "unaveraged operator combination and adds nothing the "
+                         "rest of the ladder does not.")
     args = ap.parse_args()
 
     for name in (args.system or sorted(CONFIGS)):
         display_name, observables = CONFIGS[name]
-        plot_convergence_system_huge(name, display_name, observables, args.dim)
+        dim = largest_dim(name) if args.dim == "auto" else int(args.dim)
+        plot_convergence_system_huge(name, display_name, observables, dim,
+                                     min_m=args.min_m)
 
 
 if __name__ == "__main__":

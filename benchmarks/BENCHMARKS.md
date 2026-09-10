@@ -1479,7 +1479,14 @@ cost axis across files that disagree unless forced.
 
 ### Result 1 — convergence dynamics versus the bundle size $M$
 
-To see exactly *how* SLB converges to the exact solution as the bundle size $M$ grows, we can plot the time-evolution of several observables for each system. The dashed black line is the exact reference dynamics, and the colored lines are SLB at $M \in \{1, 2, 4, 8, 16, 32\}$, darkening as $M$ increases.
+To see exactly *how* SLB converges to the exact solution as the bundle size $M$ grows, we can plot the time-evolution of several observables for each system. The dashed black line is the exact reference dynamics, and the coloured lines are SLB at increasing $M$, darkening as $M$ increases.
+
+**Each system is drawn at its own largest available size**, matching the two
+figure groups below: **dimension 512 for System A** (9 spins), 128 for System B
+and 128 for the oscillator. The ladders therefore differ — $M = 2$ to $32$ on A
+and the oscillator, $M = 2$ to $256$ on System B. $M=1$ is omitted throughout:
+a single unaveraged operator combination adds nothing the rest of the ladder
+does not.
 
 ![System A convergence](convergence_dynamics_spin_chain.png)
 ![System B convergence](convergence_dynamics_mixed_chain.png)
@@ -1487,38 +1494,46 @@ To see exactly *how* SLB converges to the exact solution as the bundle size $M$ 
 
 These plot $\langle O(t)\rangle$ against the exact reference as the system relaxes. As $M$ grows, the bundled mean tightens onto the reference—the approximation is a dial, not a fixed compromise. 
 
-The systems differ dramatically in how fast they converge, and the worst of
-each figure's own plotted panels puts a number on it — as a percentage of that
-observable's reference span, at the dimension 64 these panels are drawn at:
+**The three systems behave in three different ways, and the figures show it
+directly.** Taking the worst of each figure's own plotted panels, as a
+percentage of that panel's reference span:
 
-| worst plotted panel | $M=1$ | $M=8$ | $M=16$ | top rung |
-|---|---|---|---|---|
-| **A** TFIM chain | 97.2% | 21.5% | 17.5% | 6.7% at $M=31$ |
-| **B** mixed chain | — | **16.0%** | 7.1% | 3.9% at $M=32$ |
-| **C** oscillator | *every rung below its own sampling scatter* | | | |
+| worst plotted panel | $M=2$ | $M=8$ | $M=32$ | top rung | resolved? |
+|---|---|---|---|---|---|
+| **A** TFIM chain, dim 512 | **179%** | 78% | **22%** | 22% at $M=32$ | resolved at every rung |
+| **B** mixed chain, dim 128 | 62% | 17% | 4.7% | **0.81%** at $M=256$ | resolved to $M=16$ |
+| **C** oscillator, dim 128 | 4.7% | 1.2% | 0.7% | 0.7% at $M=32$ | **never** — always inside its own scatter |
 
-**Only the oscillator cannot be seen to deviate at all.** Every rung of its
-ladder sits within three standard errors of its own 16-realization scatter, so
-this figure cannot resolve its bias — which is precisely why its panels look
-featureless, discussed below. **Both chains are visibly off at $M=8$, and by
-similar amounts.** What separates them is how far the dial goes: System B
-reaches 3.9% by $M=32$ and keeps improving, while System A's ladder ends at
-$M=31$ — that is $N_L$ at this size — still 6.7% out and noise-limited itself
-by then.
+**System A is a system starved of bundles, and that is the point of showing
+it.** Result 4 measures its $M^\ast$ as $N_L = 73$ at this size, while the
+ladder available here stops at 32. The panels converge at the right *rate* —
+roughly halving per doubling of $M$ — from a starting point so high that the
+dial runs out before arriving. This is the clearest picture in the document of
+what bundling looks like on a system it cannot help.
 
-*An earlier version of this paragraph grouped System B with the oscillator,
-saying both "sit essentially on the reference at $M=8$". They do not resemble
-each other: at $M=8$ System B's worst panel is 16.0% of the span against System
-A's 21.5%, so the data groups B with A. The grouping also contradicted §2.5,
-which measures System B's error at $6.2\times10^{-2}$ against the oscillator's
-$6.6\times10^{-6}$ — four orders of magnitude apart — and §2.5 is the section
-that argues B and C are alike in cost and unalike in accuracy.*
+**System B converges into its own noise floor.** Resolved and visibly off up to
+$M=16$, then indistinguishable from sampling scatter from $M=32$ onward,
+reaching 0.81% at $M=256$. That is a dial closing.
 
-**The ordering matches Result 4's independently fitted $M^\ast$:** 2 for the
-oscillator, 64 for System B, and $N_L$ for System A, which still misses the 3%
-target even there. Convergence speed is set by the spread of the individual
+**The oscillator cannot be seen to deviate at any $M$.** Every rung sits within
+three standard errors of its 16-realization scatter, so this figure cannot
+resolve its bias at all — which is exactly why its panels look featureless,
+discussed below. Read the 4.7% and 0.7% as upper bounds, not measurements.
+
+**All three orderings match Result 4's independently fitted $M^\ast$** — 73 for
+System A, which the ladder never reaches; 64 for System B, which is about where
+it disappears into the floor; and 2 for the oscillator, which is below the
+floor from the start. Convergence speed is set by the spread of the individual
 operator contributions and cross-terms, not by dimension alone, so it is worth
 checking on your own system.
+
+*An earlier version of this paragraph said the oscillator and System B both
+"sit essentially on the reference at $M=8$". They do not resemble each other:
+System B is resolved and 17% out at that $M$, while the oscillator is
+unresolvable at every $M$. It also contradicted §2.5, which measures System B's
+error at $6.2\times10^{-2}$ against the oscillator's $6.6\times10^{-6}$ — four
+orders of magnitude apart — and §2.5 is the section arguing that B and C are
+alike in cost and unalike in accuracy.*
 
 **Beyond energy: capturing coherence.** Energy is nearly diagonal in the energy eigenbasis, so matching $\langle H\rangle$ says little about off-diagonal structure. Notice the `coherence` panels: SLB tracks the off-diagonal structure with the same convergence in $M$. Read that for exactly what it is — the observable is $|a\rangle\langle b| + |b\rangle\langle a|$, so it measures $2\,\mathrm{Re}\,\rho_{ab}$ for the single most-populated pair. It shows the method is not confined to the diagonal; it does not certify every coherence, the imaginary parts, or the full matrix.
 
