@@ -2008,6 +2008,19 @@ solve costs the same as bundling ($M=16$). SLB provides no speed advantage
 when $N_L$ is small, and **is worse than `mcsolve` on every observable** —
 the bundling bias dominates when there are too few operators to compress.
 
+**The same conclusion holds four doublings later.** Job 19606788 ran `mcsolve`
+at 500 trajectories on this system at dimension 1024 (10 spins), scored against
+the archived certified reference: energy error 3.5×10⁻², of which
+2.7×10⁻² is the sampling s.e.m. — noise-limited, exactly as at every
+smaller size, because that floor is set by $1/\sqrt{500}$ rather than by the
+system. It took **9,502 s**, against 2,685 s for native RK4 at the same
+size on the same grid (§5.2), so on the control system `mcsolve` is
+**3.5× slower than the exact solve** at an error it cannot bring below its own
+noise. SLB at the bundle count accuracy demands is ~2.6× slower than exact here
+(§5.2). Neither stochastic method beats the exact solve on System A at any size
+measured; that is what a control is for. No SLB was run at this size on this
+grid, so no SLB/`mcsolve` ratio is quoted.
+
 ### Result 4 — iso-accuracy cost versus dimension
 
 Results 2 and 3 each leave half a question: Result 2 scales cost with dimension against the *exact* solver, while Result 3 races SLB against `mcsolve` at a *single* dimension. Result 4 answers the combined question: **at each dimension, what does it cost each method to reach the exact same accuracy?**

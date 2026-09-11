@@ -634,3 +634,31 @@ def test_section2_operator_count_law_matches_the_code(doc):
         assert measured == n * n - n + 1, (
             f"dim {dim}: N_L = {measured} breaks the stated n^2-n+1 law "
             f"({n * n - n + 1})")
+
+def test_result3_dim1024_mcsolve_sentence_matches_the_data(doc):
+    """Result 3's System A section quotes mcsolve at dimension 1024: an energy
+    error, its s.e.m., and a wall-clock. All three recomputed from the file,
+    the error through plot_method_comparison.method_errors -- the same scoring
+    the figures use -- so the sentence cannot quote a number the figure would
+    not."""
+    import plot_method_comparison as pmc
+
+    path = DATA / "method_comparison_spin_chain_dim1024.json"
+    if not path.exists():
+        pytest.skip("dim-1024 mcsolve run not committed")
+    point = json.loads(path.read_text(encoding="utf-8"))["point"]
+    mc = point["methods"]["mcsolve"]
+
+    match = re.search(
+        r"dimension 1024 \(10 spins\).*?energy error ([\d.]+)\u00d710\u207b\u00b2, "
+        r"of which\s+([\d.]+)\u00d710\u207b\u00b2 is the sampling s\.e\.m\..*?"
+        r"It took \*\*([\d,]+) s\*\*", doc, re.S)
+    assert match, "Result 3's dim-1024 mcsolve sentence has changed shape"
+    q_err, q_sem, q_wall = match.groups()
+
+    error = [r for r in pmc.method_errors(point, "energy") if r[0] == "mcsolve"][0][2]
+    sem = float(np.mean(np.asarray(mc["traj_std"]["energy"]) / np.sqrt(mc["ntraj"])))
+    assert float(q_err) == pytest.approx(100 * error, abs=0.05), (
+        f"sentence says {q_err}e-2, file gives {100 * error:.2f}e-2")
+    assert float(q_sem) == pytest.approx(100 * sem, abs=0.05)
+    assert int(q_wall.replace(",", "")) == pytest.approx(mc["wall_s"], abs=0.5)
