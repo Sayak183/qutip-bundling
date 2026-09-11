@@ -1360,9 +1360,9 @@ memory:
 
 | Result | Slurm jobs | dates |
 |---|---|---|
-| **1** accuracy vs `M` | 19585257, 19592647, 19597390, 19598577, 19598578, 19604740 | Aug 7 – Sep 9 |
+| **1** accuracy vs `M` | 19585257, 19592647, 19597390, 19598577, 19598578, 19604740, 19604858 | Aug 7 – Sep 11 |
 | **2** cost scaling | 19599550, 19599671, 19599672, 19603810 | Aug 29 – Sep 6 |
-| **3** method comparison | 19559720, 19559854, 19559945, 19594145 | Aug 1 – 19 |
+| **3** method comparison | 19559720, 19559854, 19559945, 19594145, 19606788 | Aug 1 – Sep 10 |
 | **4** iso-accuracy cost | 19599793 | Aug 30 – Sep 1 |
 | **5** past the reference wall | 19592848, 19603729, 19603731, 19603809 | Aug 18, Sep 5 – 7 |
 | **Certified References** | 19559570 | Aug 1 – 2 |
@@ -1537,8 +1537,8 @@ alike in cost and unalike in accuracy.*
 
 **Beyond energy: capturing coherence.** Energy is nearly diagonal in the energy eigenbasis, so matching $\langle H\rangle$ says little about off-diagonal structure. Notice the `coherence` panels: SLB tracks the off-diagonal structure with the same convergence in $M$. Read that for exactly what it is — the observable is $|a\rangle\langle b| + |b\rangle\langle a|$, so it measures $2\,\mathrm{Re}\,\rho_{ab}$ for the single most-populated pair. It shows the method is not confined to the diagonal; it does not certify every coherence, the imaginary parts, or the full matrix.
 
-**Sizes.** This section spans dimensions 16 to 512 on System A and 16 to 128
-on Systems B and C, computed once per size and stored separately
+**Sizes.** This section spans dimensions 16 to 512 on System A, 16 to 256 on
+System B and 16 to 128 on the oscillator, computed once per size and stored separately
 (`accuracy_vs_M_<system>_dim<D>.json`); the plot script's `PLOT_DIM` selects
 which to draw. Past dim 32 `mesolve` can no longer build its superoperator
 here, so the reference at dim 64 is the certified native full-dissipator route
@@ -1632,8 +1632,10 @@ its own standard error by $43\times$ to $96\times$. The residual $0.02$ after
 removing $M=2$ is unexplained and quoted as measured.
 
 System B gives $M^{-1.00}$, $M^{-1.00}$,
-$M^{-1.02}$, $M^{-0.98}$ across its four sizes, the last from dimension 128
-(job 19598578).
+$M^{-1.02}$, $M^{-0.98}$, $M^{-0.99}$ across its five sizes, the last from
+dimension 256 (job 19604858) — a spread of $0.045$, with none of the drift
+System A shows at its largest size. The $1/M$ shape holds better on the chain
+whose height behaves worse.
 
 Six points is where this stops being a line through three and starts being a
 measurement. The prediction was $M^{-1}$ before any of them were taken.
@@ -1644,7 +1646,7 @@ $M=8$ the bias moves with dimension:
 | system | dim 16 → 32 → 64 | scaling |
 |---|---|---|
 | **A** TFIM chain | 3.3×10⁻² → 5.0×10⁻² → 8.0×10⁻² → 1.24×10⁻¹ → 1.74×10⁻¹ → 2.44×10⁻¹ (to dim 512) | ~ N^+0.58 |
-| **B** mixed chain | 2.6×10⁻² → 3.4×10⁻² → 5.5×10⁻² → 8.8×10⁻² (to dim 128) | ~ N^+0.61 |
+| **B** mixed chain | 2.6×10⁻² → 3.4×10⁻² → 5.5×10⁻² → 8.8×10⁻² → 1.07×10⁻¹ (to dim 256) | ~ N^+0.55 |
 | **C** oscillator | 2.6×10⁻³ → 2.3×10⁻³ → 2.0×10⁻³ → 1.5×10⁻³ (to dim 128) | ~ N^-0.26 |
 
 All three rows are the error at the worst-time slice $t^\ast$, the same measure
@@ -1652,24 +1654,28 @@ as the slope table above and as the figure's axis. An earlier version of this
 table measured System A by its *time-averaged* error instead, which read about
 10% lower and made the two chains look like they grew at different rates.
 
-System A's height exponent is now measured over six dimensions, and **every
-size added has pulled it down**: $N^{+0.64}$ over dims 16–64, $N^{+0.61}$ with
-128 and 256, and $N^{+0.58}$ with 512. Three fits, each shallower than the
-last, on a quantity that a fixed power law would leave unchanged. The growth is
-real and is not a three-point artefact, but the curve is flattening as the
-system grows rather than holding a fixed exponent, and the short sweep
-overestimated it. System B moves the *other* way over its own four dimensions,
-$N^{+0.55}$ over dims 16–64 against $N^{+0.61}$ out to 128.
+**Both chains' height exponents fall as sizes are added, and by the same
+amount.** System A over six dimensions: $N^{+0.64}$ to dim 64, $N^{+0.61}$ to
+256, $N^{+0.58}$ to 512. System B over five: $N^{+0.55}$ to dim 64,
+$N^{+0.61}$ to 128, **$N^{+0.55}$ to 256** — the last point pulled it back
+down, and its local exponent between dims 128 and 256 is $0.27$, the flattest
+step on either chain. So neither is a fixed power law. The growth is real and
+not a short-sweep artefact, but on both chains it is *slowing* as the system
+grows, and any exponent quoted from three or four sizes overstates it.
 
-**An earlier version of this section claimed the two chains grow at the same
-rate, $N^{+0.61}$ against $N^{+0.61}$. The sixth point on System A breaks
-that** — it is $N^{+0.58}$ against B's $N^{+0.61}$, and the agreement was an
-artefact of stopping both fits at the size that happened to make them meet.
-Whether the chains genuinely differ is not yet answerable: B has four sizes to
-A's six, and by A's own pattern B's exponent should fall too when extended. Job
-19604858 is measuring B at dimension 256 and will settle it. Until then the
-honest statement is that **both chains grow near $N^{+0.6}$ and neither
-exponent has stopped moving.**
+*An earlier version of this section said the two chains grow at the same rate,
+$N^{+0.61}$ against $N^{+0.61}$. When System A's sixth point arrived it read
+$+0.58$ against B's $+0.61$, and the section said the question was open until
+B was extended. It now is, and B fell to $+0.55$.* **"The same rate" was
+right; "$N^{+0.61}$" as a fixed exponent was not.** The chains agree to within
+$0.03$ at every stage of extension, and what they agree on is a rate that
+keeps dropping.
+
+What does separate them is the slope, not the height: B's bias falls as
+$M^{-1}$ to within $0.045$ across all five sizes, while A's drifts to
+$M^{-0.94}$ at its largest — the shape in $M$ holds better on the chain whose
+height behaves worse, which is a reminder that the two are different
+quantities.
 
 On the chains the bias grows near $N^{+0.6}$ — a little faster than
 $\sqrt N$ — so holding a fixed *accuracy*

@@ -200,19 +200,20 @@ def test_height_row_and_exponent_match_the_data(doc, label, system):
 # --- 3. claims about which sizes exist at all ----------------------------
 
 def test_sizes_paragraph_matches_the_committed_files(doc):
-    """Parses: 'spans dimensions 16 to 256 on System A and 16 to 128 on
-    Systems B and C'. This sentence was stale for weeks."""
-    match = re.search(r"spans dimensions (\d+) to (\d+) on System A and "
-                      r"(\d+) to (\d+)\s*\non Systems B and C", doc)
+    """Parses: 'spans dimensions 16 to 512 on System A, 16 to 256 on
+    System B and 16 to 128 on the oscillator'. This sentence was stale for
+    weeks once, and its shape changed on 2026-09-11 when System B stopped
+    sharing a range with the oscillator."""
+    match = re.search(r"spans dimensions (\d+) to (\d+) on System A, "
+                      r"(\d+) to (\d+) on\s+System B and (\d+) to (\d+) on "
+                      r"the oscillator", doc)
     assert match, "Result 1's 'Sizes' sentence has changed shape"
-    a_lo, a_hi, bc_lo, bc_hi = (int(g) for g in match.groups())
-
-    spin = committed_dims("spin_chain")
-    assert (spin[0], spin[-1]) == (a_lo, a_hi)
-    for system in ("mixed_chain", "oscillator_bath"):
+    quoted = [int(g) for g in match.groups()]
+    for system, (lo, hi) in zip(("spin_chain", "mixed_chain", "oscillator_bath"),
+                                zip(quoted[0::2], quoted[1::2])):
         dims = committed_dims(system)
-        assert (dims[0], dims[-1]) == (bc_lo, bc_hi), (
-            f"{system} spans {dims[0]}-{dims[-1]}, sentence says {bc_lo}-{bc_hi}")
+        assert (dims[0], dims[-1]) == (lo, hi), (
+            f"{system} spans {dims[0]}-{dims[-1]}, sentence says {lo}-{hi}")
 
 
 # --- 4. the two tables a cold reviewer caught, which nothing checked ---------
