@@ -5,7 +5,7 @@ from pathlib import Path
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.stats import linregress
-from common import (add_settings_footer, result1_reference,
+from common import (add_settings_footer, physical_size, result1_reference,
                     result1_samples)
 
 # =====================================================================
@@ -195,18 +195,25 @@ def plot_invariance(mode="relative", out_dir=None):
             bias_exp, bias_cert = calculate_exponent(M_vals, bias, sem)
             bias_suffix = rf" ($\propto M^{{{bias_exp:.2f}}}$)" if bias_cert else " (Level/Marginal)"
             
+            # Dimension AND the physical size it stands for: nobody thinks
+            # in Hilbert dimensions. N_r is deliberately NOT here -- it is
+            # uniform across every curve, and the caption states it once
+            # instead of repeating it down ten legend entries.
+            size = physical_size(system, dim)
+            stem = f"Dim {dim}, {size}" if size else f"Dim {dim}"
+
             sem_exp, sem_cert = calculate_sem_exponent(M_vals, sem)
             sem_suffix = rf" ($\propto M^{{{sem_exp:.2f}}}$)" if sem_cert else ""
             
             # Bias (Solid Line with Markers)
             ax.plot(M_vals, bias, color=COLORS[dim], linestyle='-', linewidth=2, 
                     marker=MARKERS[dim], markersize=6,
-                    label=f"Dim {dim} Bias{bias_suffix}")
+                    label=f"{stem} — Bias{bias_suffix}")
             
             # SEM Line (Dashed Line with Markers)
             ax.plot(M_vals, sem, color=COLORS[dim], linestyle='--', linewidth=1.5, 
                     marker=MARKERS[dim], markersize=5, alpha=0.85,
-                    label=rf"Dim {dim} SEM{sem_suffix} ($N_r={realizations}$)")
+                    label=rf"{stem} — SEM{sem_suffix}")
 
         # =====================================================================
         # Formatting & Output
@@ -238,13 +245,17 @@ def plot_invariance(mode="relative", out_dir=None):
         ax.legend(loc='center left', bbox_to_anchor=(1.02, 0.5), frameon=False, fontsize=10)
         ax.grid(True, which="both", ls="--", alpha=0.4)
 
-        # Add suite-style settings footer caption
-        footer_text = (
-            f"t* = argmax of error of lowest-M estimate, held for all M; {norm_desc}; "
-            f"uniform {realizations} realizations at every M | "
-            rf"expected scaling: bias $\propto 1/M$, SEM $\propto 1/\sqrt{{M}}$"
+        # Two segments, not one string. add_settings_footer only wraps when
+        # given two or more, so passing this as a single 165-character line
+        # stretched it across the whole 9-inch figure and forced a font too
+        # small to read. Split, it balances over two lines at 13pt.
+        add_settings_footer(
+            fig,
+            f"$t^*$ = argmax of the error of the lowest-$M$ estimate, held for "
+            f"all $M$; {norm_desc}; uniform {realizations} realizations at every $M$",
+            rf"expected scaling: bias $\propto 1/M$, SEM $\propto 1/\sqrt{{M}}$",
+            fontsize=13, wrap_chars=95,
         )
-        add_settings_footer(fig, footer_text, fontsize=10, wrap_chars=130)
 
         plt.tight_layout()
         

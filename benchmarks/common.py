@@ -426,19 +426,29 @@ def format_mcsolve_settings(*, ntraj, atol=None, rtol=None,
     return s
 
 
-def size_label(system: str, dim: int) -> str:
-    """How a system's size reads on a figure: the physical size, then the dim.
+def physical_size(system: str, dim: int) -> str:
+    """The size a reader actually thinks in, without the Hilbert dimension.
 
-    A Hilbert dimension alone is not what anyone thinks in -- 512 means nine
-    spins on the chains and a Fock cutoff of 256 on the oscillator, and those
-    are the numbers a reader compares against their own model. Every Result 1
-    figure goes through here so they cannot disagree with each other.
+    Dimension 512 is nine spins on the chains and a Fock cutoff of 256 on the
+    oscillator, and those are the numbers someone compares against their own
+    model. Returns an empty string for an unknown system so callers can append
+    it unconditionally.
     """
     if system in ("spin_chain", "mixed_chain"):
-        return f"{int(round(math.log2(dim)))} spins, dim {dim}"
+        return f"{int(round(math.log2(dim)))} spins"
     if system == "oscillator_bath":
-        return f"Fock cutoff {dim // 2}, dim {dim}"
-    return f"dim {dim}"
+        return f"Fock cutoff {dim // 2}"
+    return ""
+
+
+def size_label(system: str, dim: int) -> str:
+    """How a system's size reads on a figure title: physical size, then dim.
+
+    Every Result 1 figure goes through here or through physical_size, so a
+    title and a legend cannot disagree about what dimension 512 means.
+    """
+    physical = physical_size(system, dim)
+    return f"{physical}, dim {dim}" if physical else f"dim {dim}"
 
 
 def add_settings_footer(fig, *segments, y=-0.02, fontsize=9, wrap_chars=170):
