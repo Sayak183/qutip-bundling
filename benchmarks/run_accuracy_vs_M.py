@@ -129,15 +129,33 @@ SYSTEMS = {
         # dim 128, making four. Expensive: N_L = 8,193 here, and this system's
         # dim-128 exact reference cost 24.6 h in Result 2.
         (7, [2, 4, 8, 16, 32, 64], 4),
-        # dim 256, making five, and this is System B's LAST possible Result 1
-        # size. N_L = 32,637 here, and the exact reference -- not the SLB
-        # sweep -- is what costs: it grew 19x from dim 64 to 128 (600 s ->
-        # 11,354 s) because N_L quadruples on top of the dimension, so dim 256
-        # projects to 25-35 h against ~10-16 h for the whole M ladder. One step
-        # further is out of reach for a different reason: at dim 512 the
-        # operator list alone is 549 GB, and at dim 1024 it is 8.8 TB, more
-        # than all four nodes hold.
+        # dim 256, making five. N_L = 32,637 here, and the exact reference --
+        # not the SLB sweep -- is what costs: it grew 19x from dim 64 to 128
+        # (600 s -> 11,354 s) because N_L quadruples on top of the dimension.
+        # Measured by job 19604858: reference 9.4 h, whole job 2.8 d.
         (8, [2, 4, 8, 16, 32, 64], 4),
+        # dim 512, making six, and System B's LAST Result 1 size: dim 1024 has
+        # an 8.8 TB operator list, more than all four nodes hold.
+        #
+        # This size was first written off as unreachable on memory grounds.
+        # The operator list is 549 GB nominal (N_L = 131,001), and B's dim-256
+        # job had peaked at 2.9x its nominal list, which scales to ~1.6 TB
+        # against a 1.55 TB node. Two things changed that. probe_memory.py
+        # measured the construction at this size directly: 1.88x, a 1.1 TB
+        # peak (job 19607139, 25 min). And native_solver.py stopped caching a
+        # second dense copy of every operator (the adjoint list), which is
+        # where the third 1x had been going. The reference now holds the Qobj
+        # list plus ONE dense copy, ~1.1 TB, the same as the construction
+        # peak. The sweep streams operators one at a time and never holds a
+        # second copy at all. Submit with --mem=1450G --exclusive.
+        #
+        # Time: ~3 weeks serial on one node. The reference is ~12.5 days --
+        # the dim-256 solve took 9.4 h and each spin has cost ~13x, times the
+        # self-check's extra 1.5 solves. The ladder is ~9 days: bundle
+        # construction dominates at ~7 min per realization and is roughly
+        # independent of M, so the six rungs cost about an hour each per
+        # realization. Saved after every M, so a partial ladder is kept.
+        (9, [2, 4, 8, 16, 32, 64], 4),
     ]),
     "oscillator_bath": (build_oscillator_bath, [
         (8,  [2, 4, 8, 16, 32, 64], 4),
