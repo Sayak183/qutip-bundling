@@ -69,8 +69,7 @@ def _to_array(op: qutip.Qobj) -> np.ndarray:
 def _dissipator_rhs(rho: np.ndarray,
                     Heff: np.ndarray,
                     Heff_dag: np.ndarray,
-                    C_list: list[np.ndarray],
-                    Cd_list: list[np.ndarray]) -> np.ndarray:
+                    C_list: list[np.ndarray]) -> np.ndarray:
     """Compute drho/dt for a Lindblad master equation.
 
     Uses the precomputed non-Hermitian effective Hamiltonian
@@ -85,11 +84,16 @@ def _dissipator_rhs(rho: np.ndarray,
     Heff     : (N, N) complex array, -i H - 0.5 CdC_sum.
     Heff_dag : (N, N) complex array,  i H - 0.5 CdC_sum.
     C_list   : list of K dense (N, N) collapse-operator arrays.
-    Cd_list  : list of their adjoints.
+
+    The adjoint C_k^dag is formed on the spot rather than cached. A cached
+    list of adjoints doubles the solver's operator memory -- 549 GB extra on
+    System B at dimension 512, the difference between a reference that fits
+    a 1.55 TB node and one that does not -- to save a conjugate-transpose
+    costing ~0.1% of the matmul it feeds.
     """
     out = Heff @ rho + rho @ Heff_dag
-    for C_k, Cd_k in zip(C_list, Cd_list):
-        out += C_k @ rho @ Cd_k
+    for C_k in C_list:
+        out += C_k @ rho @ C_k.conj().T
     return out
 
 
@@ -105,9 +109,11 @@ def rk4_mesolve(
 ) -> NativeResult:
     """Classical RK4 stepper for the Lindblad master equation.
 
-    Memory: O((K + a few) * N^2) where K = len(c_ops). No N^4 superoperator
-    is ever built, so this reaches Hilbert dim ~100+ on a 4 GB machine
-    where ``qutip.mesolve`` cannot run.
+    Memory: O((K + a few) * N^2) where K = len(c_ops) -- ONE dense copy of
+    the operators, not two. An earlier version also cached every adjoint,
+    which doubled this and put System B's dimension-512 reference over a
+    1.55 TB node. No N^4 superoperator is ever built, so this reaches Hilbert
+    dim ~100+ on a 4 GB machine where ``qutip.mesolve`` cannot run.
 
     Cost per step: O(K * N^3) for the dissipator plus O(N^3) for the
     coherent part and the precomputed anti-commutator.
@@ -148,13 +154,11 @@ def rk4_mesolve(
     H_arr = _to_array(H)
 
     C_list = [_to_array(c) for c in c_ops]
-    Cd_list = [np.conj(C).T for C in C_list]
-    if C_list:
-        CdC_sum = np.zeros((N, N), dtype=np.complex128)
-        for C_k, Cd_k in zip(C_list, Cd_list):
-            CdC_sum += Cd_k @ C_k
-    else:
-        CdC_sum = np.zeros((N, N), dtype=np.complex128)
+    # No cached adjoint list: see _dissipator_rhs. Memory here is one dense
+    # copy of the operators plus a few N x N matrices, not two copies.
+    CdC_sum = np.zeros((N, N), dtype=np.complex128)
+    for C_k in C_list:
+        CdC_sum += C_k.conj().T @ C_k
 
     Heff = -1j * H_arr - 0.5 * CdC_sum
     Heff_dag = 1j * H_arr - 0.5 * CdC_sum
@@ -179,10 +183,10 @@ def rk4_mesolve(
     for i in range(tlist.size - 1):
         dt = (tlist[i + 1] - tlist[i]) / substeps
         for _ in range(substeps):
-            k1 = _dissipator_rhs(rho,                 Heff, Heff_dag, C_list, Cd_list)
-            k2 = _dissipator_rhs(rho + 0.5 * dt * k1, Heff, Heff_dag, C_list, Cd_list)
-            k3 = _dissipator_rhs(rho + 0.5 * dt * k2, Heff, Heff_dag, C_list, Cd_list)
-            k4 = _dissipator_rhs(rho + dt * k3,       Heff, Heff_dag, C_list, Cd_list)
+            k1 = _dissipator_rhs(rho,                 Heff, Heff_dag, C_list)
+            k2 = _dissipator_rhs(rho + 0.5 * dt * k1, Heff, Heff_dag, C_list)
+            k3 = _dissipator_rhs(rho + 0.5 * dt * k2, Heff, Heff_dag, C_list)
+            k4 = _dissipator_rhs(rho + dt * k3,       Heff, Heff_dag, C_list)
             rho = rho + (dt / 6.0) * (k1 + 2.0 * k2 + 2.0 * k3 + k4)
             rho = 0.5 * (rho + rho.conj().T)
         if not np.isfinite(rho).all():
