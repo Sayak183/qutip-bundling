@@ -163,7 +163,9 @@ def output_name(system, dim):
     The consequence is deliberate and worth knowing: the plotters read the
     unsuffixed name, so a non-default run does NOT appear in any figure until
     something is written to ask for it. Better that than a plot quietly mixing
-    two ensemble sizes on one axis.
+    two ensemble sizes on one axis. (This was only half true until 2026-09-12:
+    plot_accuracy_vs_M's auto-pick globbed _dim*.json and could have chosen
+    the suffixed file by glob order. It now matches the canonical name only.)
     """
     suffix = "" if N_REALIZATIONS == DEFAULT_REALIZATIONS else f"_r{N_REALIZATIONS}"
     return f"accuracy_vs_M_{system}_dim{dim}{suffix}.json"

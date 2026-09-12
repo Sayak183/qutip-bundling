@@ -106,8 +106,14 @@ def height(system: str, dim: int, m_fixed: int = 8) -> float:
 
 
 def committed_dims(system: str) -> list[int]:
-    return sorted(int(p.stem.split("dim")[-1])
-                  for p in DATA.glob(f"accuracy_vs_M_{system}_dim*.json"))
+    """Dimensions with a CANONICAL Result 1 file -- _dim<D>.json and nothing
+    after the number. A file like _dim128_r800.json is a deliberate side-run
+    at a non-default realization count and is not a committed dimension; the
+    old split("dim") crashed on it."""
+    canonical = re.compile(rf"^accuracy_vs_M_{re.escape(system)}_dim(\d+)$")
+    return sorted(int(m.group(1))
+                  for p in DATA.glob(f"accuracy_vs_M_{system}_dim*.json")
+                  if (m := canonical.match(p.stem)))
 
 
 # --- 1. the bias-slope table ---------------------------------------------
@@ -662,3 +668,49 @@ def test_result3_dim1024_mcsolve_sentence_matches_the_data(doc):
         f"sentence says {q_err}e-2, file gives {100 * error:.2f}e-2")
     assert float(q_sem) == pytest.approx(100 * sem, abs=0.05)
     assert int(q_wall.replace(",", "")) == pytest.approx(mc["wall_s"], abs=0.5)
+
+def test_result1_oscillator_resolution_claims_match_the_decomposition(doc):
+    """Result 1 says the oscillator's bias is resolved at dim 128 (52-61x its
+    s.e.m. at 200 realizations, 109-120x at 800) and at the floor at dim 64
+    (0.2-2.0x). All three ranges recomputed through
+    plot_accuracy_vs_M.peak_error_anatomy -- the function that draws the
+    error-decomposition figure -- at its t*, so the sentence describes the
+    panel that is actually shown.
+
+    This caveat once described dim 64 while the figure showed dim 128. Both
+    were true; they were about different panels. Pinning the numbers to the
+    plotter's own t* keeps them attached to the right one.
+    """
+    import plot_accuracy_vs_M as P
+
+    def resolution_range(path):
+        d = json.loads(path.read_text(encoding="utf-8"))
+        if "reference_energy" in d and "reference" not in d:   # older schema
+            d["reference"] = {"energy": d["reference_energy"]}
+            for r in d["slb_sweep"]:
+                r["samples"] = {"energy": r["samples_energy"]}
+        ref = np.asarray(d["reference"]["energy"], dtype=float)
+        _, _, bias, fluct = P.peak_error_anatomy(d, "energy", ref, relative=False)
+        n = np.asarray(d["slb_sweep"][0]["samples"]["energy"]).shape[0]
+        ratio = bias / (fluct / np.sqrt(n))
+        return float(ratio.min()), float(ratio.max())
+
+    match = re.search(
+        r"resolved at every \$M\$ \u2014 \*\*(\d+) to (\d+)\*\* times its own standard "
+        r"error across 200\s+realizations, and \*\*(\d+) to (\d+)\*\* times across 800"
+        r".*?\*\*([\d.]+) to ([\d.]+)\*\* standard errors", doc, re.S)
+    assert match, "Result 1's oscillator resolution sentence has changed shape"
+    q = [float(g) for g in match.groups()]
+
+    for (lo_q, hi_q), name, tol in (
+            ((q[0], q[1]), "accuracy_vs_M_oscillator_bath_dim128.json", 0.5),
+            ((q[2], q[3]), "accuracy_vs_M_oscillator_bath_dim128_r800.json", 0.5),
+            ((q[4], q[5]), "accuracy_vs_M_oscillator_bath_dim64.json", 0.05)):
+        path = DATA / name
+        if not path.exists():
+            pytest.skip(f"{name} not committed")
+        lo, hi = resolution_range(path)
+        assert lo_q == pytest.approx(lo, abs=tol), (
+            f"{name}: sentence says min {lo_q}x, decomposition gives {lo:.2f}x")
+        assert hi_q == pytest.approx(hi, abs=tol), (
+            f"{name}: sentence says max {hi_q}x, decomposition gives {hi:.2f}x")

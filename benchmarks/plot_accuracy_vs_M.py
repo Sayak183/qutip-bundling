@@ -380,14 +380,19 @@ def main():
     def _resolve(name):
         if PLOT_DIM is not None:
             return f"accuracy_vs_M_{name}_dim{PLOT_DIM}.json"
-        paths = list(DATA_DIR.glob(f"accuracy_vs_M_{name}_dim*.json"))
+        # Canonical files only: accuracy_vs_M_<name>_dim<D>.json with nothing
+        # after the dimension. A run at a non-default realization count is
+        # written as _dim<D>_r<R>.json precisely so it is NOT drawn here --
+        # its error bars scale as 1/sqrt(R) and would be misreported by a
+        # figure that assumes the default. The earlier glob-and-max matched
+        # "128" inside "dim128_r800" too, and picked between them by glob
+        # order. That happened to be right; it was not designed to be.
+        canonical = re.compile(rf"^accuracy_vs_M_{re.escape(name)}_dim(\d+)\.json$")
+        paths = [(int(m.group(1)), p) for p in DATA_DIR.glob(f"accuracy_vs_M_{name}_dim*.json")
+                 if (m := canonical.match(p.name))]
         if not paths:
             return f"accuracy_vs_M_{name}.json"
-        best = max(
-            paths,
-            key=lambda path: int(re.search(r"_dim(\d+)", path.name).group(1)),
-        )
-        return best.name
+        return max(paths)[1].name
 
     for name in names:
         fname = _resolve(name)

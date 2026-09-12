@@ -1360,7 +1360,7 @@ memory:
 
 | Result | Slurm jobs | dates |
 |---|---|---|
-| **1** accuracy vs `M` | 19585257, 19592647, 19597390, 19598577, 19598578, 19604740, 19604858 | Aug 7 – Sep 11 |
+| **1** accuracy vs `M` | 19585257, 19592647, 19597390, 19598577, 19598578, 19604740, 19604858, 19604940 | Aug 7 – Sep 12 |
 | **2** cost scaling | 19599550, 19599671, 19599672, 19603810 | Aug 29 – Sep 6 |
 | **3** method comparison | 19559720, 19559854, 19559945, 19594145, 19606788 | Aug 1 – Sep 10 |
 | **4** iso-accuracy cost | 19599793 | Aug 30 – Sep 1 |
@@ -1546,12 +1546,18 @@ here, so the reference at dim 64 is the certified native full-dissipator route
 because its stiffness demands it. The convergence laws survive the jump: on
 the chain at dim 64 ($N_L=31$) the energy
 bias still falls as $M^{-0.98}$ and the
-statistical spread as $M^{-0.73}$, essentially unchanged from dim 16. On the
-oscillator at dim 64 the bias is *comparable to* the sampling floor rather than
-cleanly above it — it sits below at $M=4$, 32 and 64 and above at $M=2$, 8 and
-16 — so the fitted slope there is not trustworthy and the individual points
-should be read as upper bounds. At dim 32 the bias stays measurable at every
-$M$, and the fit is meaningful.
+statistical spread as $M^{-0.73}$, essentially unchanged from dim 16. The
+oscillator's error-decomposition panel is drawn at dim 128, where its bias is
+resolved at every $M$ — **53 to 61** times its own standard error across 200
+realizations, and **109 to 120** times across 800 (job 19604940, run to confirm
+exactly this), with the fitted slope $M^{-1.00}$ either way. **Dim 64 is the
+one oscillator size where that fails:** there the bias sits at the sampling
+floor — **0.2 to 2.0** standard errors at the decomposition's $t^\ast$, below
+one at $M=4$, 32 and 64 — so its decomposition points are upper bounds and no
+slope is quoted from it. That is not the method failing. It is SLB's bias on
+the oscillator being so small there, of order $10^{-4}$, that 200 realizations
+cannot see it; resolving it would take roughly fifty times as many. At dim 32
+and dim 128 the bias is measurable at every $M$ and the fits are meaningful.
 
 **Why the oscillator's traces look featureless.** On the oscillator the SLB
 mean curves sit on top of the reference at every $M$, and the convergence
