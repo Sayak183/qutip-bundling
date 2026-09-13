@@ -669,6 +669,48 @@ def test_result3_dim1024_mcsolve_sentence_matches_the_data(doc):
     assert float(q_sem) == pytest.approx(100 * sem, abs=0.05)
     assert int(q_wall.replace(",", "")) == pytest.approx(mc["wall_s"], abs=0.5)
 
+def test_result3_dim2048_sentence_matches_the_data(doc):
+    """Result 3's 11-spin paragraph quotes eight numbers from two files: the
+    reference self-check deviation, mcsolve's energy error and s.e.m., both
+    wall-clocks, their ratio, and the per-trajectory cost at 11 spins -- all
+    from the dim-2048 file, the error through
+    plot_method_comparison.method_errors as for the 10-spin sentence -- and
+    the per-trajectory cost at 10 spins, from the dim-1024 file."""
+    import plot_method_comparison as pmc
+
+    path = DATA / "method_comparison_spin_chain_dim2048.json"
+    if not path.exists():
+        pytest.skip("dim-2048 run not committed")
+    point = json.loads(path.read_text(encoding="utf-8"))["point"]
+    mc, nat = point["methods"]["mcsolve"], point["methods"]["native"]
+
+    match = re.search(
+        r"dimension 2048 \(11 spins\).*?deviation of ([\d.]+)\u00d710\u207b\u2078"
+        r".*?energy error is ([\d.]+)\u00d710\u207b\u00b2, of which ([\d.]+)\u00d710\u207b\u00b2 "
+        r"is the sampling s\.e\.m\..*?It\s+took \*\*([\d,]+) s\*\*, against "
+        r"\*\*([\d,]+) s\*\* for native RK4.*?\*\*([\d.]+)\u00d7 slower than the exact"
+        r".*?\(([\d]+) s to ([\d]+) s\)", doc, re.S)
+    assert match, "Result 3's dim-2048 paragraph has changed shape"
+    q_dev, q_err, q_sem, q_mc, q_nat, q_ratio, q_traj10, q_traj11 = match.groups()
+
+    dev = point["reference"]["selfcheck"]["max_abs_dev"]
+    assert point["reference"]["selfcheck"]["passed"] is True
+    assert float(q_dev) == pytest.approx(dev * 1e8, abs=0.05)
+    error = [r for r in pmc.method_errors(point, "energy") if r[0] == "mcsolve"][0][2]
+    sem = float(np.mean(np.asarray(mc["traj_std"]["energy"]) / np.sqrt(mc["ntraj"])))
+    assert float(q_err) == pytest.approx(100 * error, abs=0.005)
+    assert float(q_sem) == pytest.approx(100 * sem, abs=0.005)
+    assert int(q_mc.replace(",", "")) == pytest.approx(mc["wall_s"], abs=0.5)
+    assert int(q_nat.replace(",", "")) == pytest.approx(nat["wall_s"], abs=0.5)
+    assert float(q_ratio) == pytest.approx(mc["wall_s"] / nat["wall_s"], abs=0.05)
+    assert int(q_traj11) == pytest.approx(mc["wall_s"] / mc["ntraj"], abs=0.5)
+
+    p10 = DATA / "method_comparison_spin_chain_dim1024.json"
+    if p10.exists():
+        mc10 = json.loads(p10.read_text(encoding="utf-8"))["point"]["methods"]["mcsolve"]
+        assert int(q_traj10) == pytest.approx(mc10["wall_s"] / mc10["ntraj"], abs=0.5)
+
+
 def test_result1_oscillator_resolution_claims_match_the_decomposition(doc):
     """Result 1 says the oscillator's bias is resolved at dim 128 (52-61x its
     s.e.m. at 200 realizations, 109-120x at 800) and at the floor at dim 64

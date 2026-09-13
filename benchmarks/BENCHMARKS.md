@@ -1362,7 +1362,7 @@ memory:
 |---|---|---|
 | **1** accuracy vs `M` | 19585257, 19592647, 19597390, 19598577, 19598578, 19604740, 19604858, 19604940 | Aug 7 – Sep 12 |
 | **2** cost scaling | 19599550, 19599671, 19599672, 19603810 | Aug 29 – Sep 6 |
-| **3** method comparison | 19559720, 19559854, 19559945, 19594145, 19606788 | Aug 1 – Sep 10 |
+| **3** method comparison | 19559720, 19559854, 19559945, 19594145, 19606788, 19607136 | Aug 1 – Sep 13 |
 | **4** iso-accuracy cost | 19599793 | Aug 30 – Sep 1 |
 | **5** past the reference wall | 19592848, 19603729, 19603731, 19603809 | Aug 18, Sep 5 – 7 |
 | **Certified References** | 19559570 | Aug 1 – 2 |
@@ -2026,6 +2026,23 @@ noise. SLB at the bundle count accuracy demands is ~2.6× slower than exact here
 (§5.2). Neither stochastic method beats the exact solve on System A at any size
 measured; that is what a control is for. No SLB was run at this size on this
 grid, so no SLB/`mcsolve` ratio is quoted.
+
+**And five doublings later, with the exact solve run in the same job.** Job
+19607136 ran the certified native reference and `mcsolve` at 500 trajectories
+at dimension 2048 (11 spins) — the first exact solve at that size in this
+project. The reference is native RK4 at 8 substeps, certified against its
+4-substep partner at a deviation of 1.4×10⁻⁸ (tolerance 10⁻⁴). `mcsolve`'s
+energy error is 3.45×10⁻², of which 3.13×10⁻² is the sampling s.e.m. — the
+same $1/\sqrt{500}$ floor as at 10 spins, and at every size before that. It
+took **44,184 s**, against **8,948 s** for native RK4 at 4 substeps on the
+same grid in the same allocation, so `mcsolve` is **4.9× slower than the exact
+solve** here, up from 3.5× at 10 spins: its cost per trajectory rose 4.6× for
+the doubling (19 s to 88 s) while the exact solve rose 3.3× (from 2,685 s in
+§5.2's grid). The frontier's
+three SLB solves at this size (Result 5) ran on a different grid with 16
+substeps and store no curves, so they cannot be scored against this reference;
+what the reference buys is that any future SLB run at 11 spins on this grid
+can be.
 
 ### Result 4 — iso-accuracy cost versus dimension
 
