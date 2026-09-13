@@ -28,15 +28,17 @@ Run:           python benchmark_convergence.py
 
 from __future__ import annotations
 
+import time
+
 import numpy as np
 import qutip
 
 from common import (
     build_davies_operators,
     build_spin_chain, build_oscillator_bath, TLIST,
-    MAX_FULL_DIM, format_slb_settings, add_settings_footer,
+    MAX_FULL_DIM, format_slb_settings, add_settings_footer, run_metadata,
 )
-from qutip_bundling import mesolve_ensemble, mesolve_jackknife
+from qutip_bundling import mesolve_jackknife
 from qutip_bundling.native_solver import rk4_mesolve
 
 # ===========================================================================
@@ -58,7 +60,22 @@ M_VALUES = [2, 4, 8, 16, 32, 64]
 # must sit below the corrected bias -- and larger systems are far more
 # expensive, so the counts are tuned rather than uniform.
 SYSTEMS = [
-    ("spin_chain",      build_spin_chain,  [(4, 4, 256), (5, 4, 128), (6, 4, 64)]),
+    ("spin_chain",      build_spin_chain,  [(4, 4, 256), (5, 4, 128), (6, 4, 64),
+                                            # dims 128, 256, 512 -- the sizes
+                                            # Result 1 lives at. On the shipped
+                                            # construction N_L is 43, 57, 73, so
+                                            # M = 64 exists only at dim 512; the
+                                            # runner skips M > N_L. 200
+                                            # realizations, Result 1's count:
+                                            # its dim-512 file resolves the
+                                            # uncorrected bias at 78x to 11x
+                                            # its s.e.m. across the ladder,
+                                            # the same as the legacy dim-32
+                                            # panel that resolved the
+                                            # steepening at 512 realizations.
+                                            # The bias grows with dimension,
+                                            # so fewer draws are needed here.
+                                            (7, 4, 200), (8, 4, 200), (9, 4, 200)]),
     ("oscillator_bath", build_oscillator_bath, [(8, 4, 256), (16, 4, 128),
                                                 (32, 16, 64)]),
 ]
@@ -93,34 +110,43 @@ def run(name, build, size, n_real=N_REALIZATIONS, substeps=SUBSTEPS):
             print(f"  dim={dim}: reference uncertifiable -- skipping size.")
             return None
 
-    Ms, stat, bias, bias_jk = [], [], [], []
+    Ms, stat, bias, bias_jk, cost = [], [], [], [], []
+    meta = run_metadata(tlist=TLIST, substeps=substeps, system=name, size=size,
+                        M_VALUES=M_VALUES, n_realizations=n_real, seed=SEED,
+                        reference=ref_method)
     print(f"\n[{name}] dim={dim}, N_L={len(c_ops)}")
-    print(f"{'M':>5}  {'stat spread':>12}  {'bias':>12}  {'bias (jackknife)':>16}")
+    print(f"{'M':>5}  {'stat spread':>12}  {'bias':>12}  {'bias (jackknife)':>16}  {'cost':>8}")
     for M in M_VALUES:
         if M > len(c_ops):
             continue
-        # SAME seed for both estimators at each M, so the comparison isolates
-        # the jackknife correction rather than sampling luck.
-        ens = mesolve_ensemble(H, rho0, TLIST, c_ops, M=M, e_ops=[H],
-                               n_realizations=n_real, rng=SEED,
-                               backend="native", substeps=substeps)
+        # One call gives both estimators from the SAME phase draws: the
+        # jackknife returns its uncorrected per-realization samples alongside
+        # the corrected ones, so the comparison isolates the correction rather
+        # than sampling luck. (An earlier version also ran mesolve_ensemble at
+        # the same seed; its samples equal extra["direct_samples"] to 0.0 and
+        # the call was a third of the run.)
+        t0 = time.perf_counter()
         jk = mesolve_jackknife(H, rho0, TLIST, c_ops, M=M, e_ops=[H],
                                n_realizations=n_real, rng=SEED,
                                backend="native", substeps=substeps)
-        mean = np.real(ens.expect[0])
+        dt = time.perf_counter() - t0
+        direct = np.real(jk.extra["direct_samples"][:, 0, :])   # (n_real, n_t)
+        mean = direct.mean(axis=0)
         mean_jk = np.real(jk.expect[0])
-        std = np.asarray(ens.std[0], float)
+        std = direct.std(axis=0, ddof=1)
         s = float(np.max(std))
         b = float(np.max(np.abs(mean - ref)))
         b_jk = float(np.max(np.abs(mean_jk - ref)))
         Ms.append(M); stat.append(s); bias.append(b); bias_jk.append(b_jk)
-        print(f"{M:>5}  {s:>12.3e}  {b:>12.3e}  {b_jk:>16.3e}", flush=True)
+        cost.append(dt)
+        print(f"{M:>5}  {s:>12.3e}  {b:>12.3e}  {b_jk:>16.3e}  {dt:>8.1f}", flush=True)
         # incremental save: a multi-hour run must survive an interrupt, so dump
         # progress after every M rather than only at the end.
         import json
         json.dump({"system":name,"dim":dim,"n_l":len(c_ops),"n_real":n_real,
                    "substeps":substeps,"reference":ref_method,
-                   "M":Ms,"stat":stat,"bias":bias,"bias_jk":bias_jk},
+                   "M":Ms,"stat":stat,"bias":bias,"bias_jk":bias_jk,
+                   "cost":cost,"meta":meta},
                   open(f"convergence_progress_{name}_dim{dim}.json","w"))
     return (np.array(Ms), np.array(stat), np.array(bias),
             np.array(bias_jk), dim, len(c_ops))
@@ -135,9 +161,14 @@ def analyze_and_plot(name, Ms, stat, bias, bias_jk, dim, n_l, n_real,
     it) from an existing convergence_progress_*.json in seconds, without
     repeating the multi-hour compute.
     """
-    import matplotlib
-    matplotlib.use("Agg")
-    import matplotlib.pyplot as plt
+    try:
+        import matplotlib
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt
+    except ImportError:
+        # The cluster env has no matplotlib. The data file is already written;
+        # the figure is drawn later with --replot. The verdict still prints.
+        plt = None
 
     Ms, stat, bias, bias_jk = (np.asarray(Ms, float), np.asarray(stat),
                                np.asarray(bias), np.asarray(bias_jk))
@@ -164,6 +195,31 @@ def analyze_and_plot(name, Ms, stat, bias, bias_jk, dim, n_l, n_real,
         bjk_slope = float("nan")
         bjk_slope_note = " (<3 points clear 2x SEM -- upper bound only)"
 
+    out_png = out_png or f"benchmark_convergence_{name}_dim{dim}.png"
+    if plt is None:
+        print(f"  figure NOT drawn (no matplotlib here) -- run --replot for {out_png}")
+    else:
+        _draw_figure(plt, name, dim, n_l, n_real, substeps, Ms, stat, bias,
+                     bias_jk, sem, s_slope, b_slope, bjk_slope, bjk_slope_note,
+                     out_png)
+        print(f"  saved {out_png}")
+    # ---- self-diagnosing verdict, so a run on any machine reports whether
+    # ---- this figure actually "worked" without needing a second pair of eyes
+    n_clear = int(np.sum(bias_jk > 2.0 * sem))  # documented quoting threshold
+    red_vs_green = (bias / np.where(bias_jk > 0, bias_jk, np.nan))
+    # below the floor the jackknife "bias" is noise, which deflates the
+    # denominator and inflates the ratio -- so quote the gain only where
+    # the corrected bias is actually measured
+    above = bias_jk > 2.0 * sem
+    best_gain = float(np.nanmax(red_vs_green[above])) if n_clear else \
+        float(np.nanmax(red_vs_green))
+    print(f"  --- JACKKNIFE FIGURE SELF-CHECK [{name}] ---")
+    _print_verdict(name, Ms, n_clear, bjk_slope, b_slope, best_gain)
+
+
+def _draw_figure(plt, name, dim, n_l, n_real, substeps, Ms, stat, bias,
+                 bias_jk, sem, s_slope, b_slope, bjk_slope, bjk_slope_note,
+                 out_png):
     fig, ax = plt.subplots(figsize=(8.8, 5.4))
     ax.loglog(Ms, stat, "o-", color="tab:blue", lw=1.8,
               label=fr"statistical spread (fit slope {s_slope:.2f})")
@@ -218,21 +274,11 @@ def analyze_and_plot(name, Ms, stat, bias, bias_jk, dim, n_l, n_real,
         "bias term,\nso its slope should steepen from ~-1 toward ~-2.",
         fontsize=12, wrap_chars=1, y=-0.02,  # force settings/caption onto separate lines
     )
-    out_png = out_png or f"benchmark_convergence_{name}_dim{dim}.png"
     fig.savefig(out_png, dpi=130, bbox_inches="tight")
     plt.close(fig)
-    # ---- self-diagnosing verdict, so a run on any machine reports whether
-    # ---- this figure actually "worked" without needing a second pair of eyes
-    n_clear = int(np.sum(bias_jk > 2.0 * sem))  # documented quoting threshold
-    red_vs_green = (bias / np.where(bias_jk > 0, bias_jk, np.nan))
-    # below the floor the jackknife "bias" is noise, which deflates the
-    # denominator and inflates the ratio -- so quote the gain only where
-    # the corrected bias is actually measured
-    above = bias_jk > 2.0 * sem
-    best_gain = float(np.nanmax(red_vs_green[above])) if n_clear else \
-        float(np.nanmax(red_vs_green))
-    print(f"  saved {out_png}")
-    print(f"  --- JACKKNIFE FIGURE SELF-CHECK [{name}] ---")
+
+
+def _print_verdict(name, Ms, n_clear, bjk_slope, b_slope, best_gain):
     print(f"    points where corrected bias clears 2x the SEM floor: "
           f"{n_clear} of {len(Ms)}")
     if n_clear >= 3 and not np.isnan(bjk_slope):
