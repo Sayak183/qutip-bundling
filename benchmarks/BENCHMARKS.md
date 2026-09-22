@@ -25,16 +25,17 @@ Everything below is produced by self-contained scripts in this folder:
   bundle-size sweep, and the substeps used for each reference); the plot script
   derives the figure from that file in seconds.
 - `run_method_comparison.py` + `plot_method_comparison.py` — accuracy versus
-  cost against `mcsolve` (Result 3). One Slurm allocation runs all four solvers
-  at each dimension so the wall-clocks are comparable, and
+  cost against `mcsolve` (Result 3). One Slurm allocation runs up to four solvers
+  at each dimension (each drops out at its own wall), so the wall-clocks are comparable, and
   `data/method_comparison_<system>_dim<D>.json` keeps the per-realization samples
   for every `M` alongside `mcsolve`'s trajectory statistics; each run records
   whether its fixed-step integrator stayed stable at the chosen substep count,
   so an under-resolved reference is flagged rather than trusted.
-- `run_extreme_dimension.py` + `plot_extreme_dimension.py` — the regime with no
-  exact reference (Result 5), where the operator list no longer fits in memory
-  and the run is scored on convergence, trace preservation, and the thermal
-  limit instead of against an exact answer.
+- `run_extreme_dimension.py` + `plot_extreme_dimension.py` — past the reference
+  wall as it stood when the run was made (Result 5), where the operator list no
+  longer fits in memory; the run is scored on convergence, trace preservation,
+  and the thermal limit, and has since been checked against two exact solves
+  at its size.
 
 `run_frontier.py` + `plot_frontier.py` produced an earlier version of Result 3
 and are kept so the superseded figures stay reproducible; new work should use
@@ -1105,9 +1106,11 @@ the fixed 500-trajectory budget for `mcsolve` and the exact solvers.
 >    394x on the mixed chain and 850x on the oscillator at the largest dimension (dim 128),
 >    while System A never reaches the target at all.
 > 5. **Result 5 — past the reference wall:** System B at dimension 256, where
->    the operator list alone would be 31.9 GB and no exact solve exists. Scored
->    on convergence rate, trace preservation, and the thermal limit rather than
->    against an exact answer.
+>    the operator list alone would be 31.9 GB and no exact solve existed when it
+>    ran. Scored on convergence rate, trace preservation, and the thermal limit
+>    rather than against an exact answer — and checked since against two exact
+>    solves made later, which its extrapolated energy matches to 8.6×10⁻⁴ —
+>    0.14% of the energy's change over the run.
 
 ### Reference state and spectrum profiles
 
@@ -1192,9 +1195,9 @@ which is the quantity under test.
 | Solver Method | System A (TFIM Chain) | System B (Mixed Chain) | System C (Oscillator + Spin) | Limiting Wall / Bottleneck |
 |---|:---:|:---:|:---:|---|
 | **QuTiP `mesolve`** (Superoperator ODE) | **Dim 64** ($N_L=31$) | **Dim 32** ($N_L=513$) | **Dim 32** ($N_L=408$) | **32 GB RAM Wall:** Building superoperator sum $\sum c_\alpha \otimes c_\alpha^*$ exhausts 32 GB RAM at dim 64 ($N_L \ge 890$). On a 1.55 TB node the measured ceilings are one step higher; see the grid below. |
-| **QuTiP `mcsolve`** (Trajectory Monte Carlo) | **Dim 64** | **Dim 64** (4,142 s) | **Dim 64** (7,118 s) | **Sampling Variance Wall:** Needs thousands of trajectories to beat $1/\sqrt{N_{\rm traj}}$ noise; cost explodes past dim 64. |
-| **Native RK4** (Dense Matrix ODE) | **Dim 1024** ($N_L=91$) | **Dim 256** ($N_L=32,637$) | **Dim 128** ($N_L=1,686$) | **$O(N^5)$ CPU Wall:** dim 256 on System B needs 34 GB and **9.4 h** (measured, job 19604736); the oscillator diverges at dim 256 on these substeps. |
-| **SLB (Bundled)** (This Work) | **Dim 512** (376 s) | **Dim 256** ($N_L=32,637$) | **Dim 256** ($N_L=2,986$) | **Scales to Dim 256+ smoothly:** Runs dim 256 in 5.3 h on 1 node (System B) and 806 s at 128 substeps (System C). |
+| **QuTiP `mcsolve`** (Trajectory Monte Carlo) | **Dim 2048** (44,184 s) | **Dim 256** (331,305 s) | **Dim 64** (7,118 s) | **Sampling Variance Wall:** at $N_{\rm traj}=500$ (the times shown, Result 3) the error stays within about $2\times$ of its $1/\sqrt{N_{\rm traj}}$ noise floor at every size (error/s.e.m. 1.0 to 2.1 across observables), so some points are bias-limited by Result 3's $\sqrt{2}$ rule; cost per trajectory grows with $N_L$, since every jump tests every collapse operator — 663 s per trajectory on System B at dim 256. |
+| **Native RK4** (Dense Matrix ODE) | **Dim 2048** ($N_L=111$) | **Dim 256** ($N_L=32,637$) | **Dim 128** ($N_L=1,686$) | **$O(N^5)$ CPU Wall:** dim 256 on System B needs 34 GB and **9.4 h** (measured, job 19604736); the oscillator diverges at dim 256 on these substeps. |
+| **SLB (Bundled)** (This Work) | **Dim 2048** ($N_L=111$) | **Dim 512** ($N_L=131{,}001$) | **Dim 512** ($N_L=5{,}034$) | **No wall reached:** the frontier (Result 5) ran one solve at each of $M$ = 16, 32, 64 at the largest size tried on every system — at $M=16$, bundle construction included, 15,115 s on System A, 5,951 s on System B (5,509 s of it streaming the 131,001 operators into bundles) and 6,109 s on the oscillator at 128 substeps per interval of the frontier's 101-point grid. Reach, not accuracy: Result 1 carries the error bars. |
 
 The solvers encounter two distinct, physical walls:
 
@@ -1343,10 +1346,12 @@ run, answering different questions. Quote the first only as a cost, and never
 without the second.
 
 `mcsolve`'s column is per trajectory at 8 trajectories, which is a probe rather
-than a solve. At a converged 500, the largest cells become 2.9 h (System A,
-dim 1024), **4.2 days** (System B, dim 256) and **16 days** (System C,
+than a solve. At a converged 500, the largest cells project to 2.9 h (System A,
+dim 1024), 4.2 days (System B, dim 256) and **16 days** (System C,
 dim 256) — the last reached only because `mcsolve` steps adaptively where this
-project's fixed-step RK4 diverges.
+project's fixed-step RK4 diverges. The first two have since been run at 500:
+**2.6 h** (job 19606788) and **3.8 days** (job 19607138), so the probe
+projected about 10% high on both.
 
 ---
 
@@ -1355,18 +1360,19 @@ project's fixed-step RK4 diverges.
 
 **Results 1 through 5 run on data regenerated under 0.6.4**, so every operator count
 matches the shipped code, and every file records `degeneracy_tol = 1e-10`, the
-shipped default (Section 6 validation preserves the original pre-0.6.4 convergence sweep to document the $M^{-1.78}$ rate steepening, as noted in §6). Job IDs, read from the committed files rather than from
+shipped default. Section 6's spin-chain jackknife check was re-run under 0.6.4 at dims 128–512 (job 19609868); its oscillator panels and its seed and substep figures are preserved from the original pre-0.6.4 runs, as §6 notes. Job IDs, read from the committed files rather than from
 memory:
 
 | Result | Slurm jobs | dates |
 |---|---|---|
-| **1** accuracy vs `M` | 19585257, 19592647, 19597390, 19598577, 19598578, 19604740, 19604858, 19604940 | Aug 7 – Sep 12 |
+| **1** accuracy vs `M` | 19585257, 19592647, 19597390, 19598577, 19598578, 19604740, 19604858, 19604940, 19605304 | Aug 7 – Sep 18 |
 | **2** cost scaling | 19599550, 19599671, 19599672, 19603810 | Aug 29 – Sep 6 |
-| **3** method comparison | 19559720, 19559854, 19559945, 19594145, 19606788, 19607136 | Aug 1 – Sep 13 |
+| **3** method comparison | 19559720, 19559854, 19559945, 19594145, 19606788, 19607136, 19607138 | Aug 1 – Sep 17 |
 | **4** iso-accuracy cost | 19599793 | Aug 30 – Sep 1 |
 | **5** past the reference wall | 19592848, 19603729, 19603731, 19603809 | Aug 18, Sep 5 – 7 |
 | **Certified References** | 19559570 | Aug 1 – 2 |
 | **§5.2** four-solver timing grid | 19604462, 19604735, 19604736 | Sep 7 – 8 |
+| **6** jackknife rate check, spin chain | 19609868 | Sep 16 – 18 |
 
 Result 4 spent a while split across three allocations, while the mixed chain
 and the oscillator were extended to dimension 128 one job at a time, and its
@@ -1472,8 +1478,13 @@ Core count is a weak lever here, and that is now measured rather than assumed.
 methods ran in one Slurm allocation on one node, and in general **not between**
 figures. Result 4's three panels come from one exclusive Slurm allocation
 (19599793), so their absolute seconds are comparable across panels as well as
-within them. The speedup *ratios* were never at risk either way, because SLB
-and `mcsolve` always ran together at each dimension. Every data file records its hostname, job ID and thread
+within them. The speedup *ratios* were never at risk either way: at every
+dimension where both SLB and `mcsolve` ran, they ran in the same allocation.
+The Result 3 points that ran no SLB — System A at 1024 and 2048, System B at
+256 — quote no SLB ratio. They also ran on 32 threads where the rest of their
+sweeps ran on 8 (A) or 4 (B), so they are reported in text. The committed
+figures predate them, and redrawing must pass `--dims` to keep them off: the
+allocation guard checks host and job, not threads. Every data file records its hostname, job ID and thread
 settings for exactly this check — `plot_method_comparison.py` refuses to draw a
 cost axis across files that disagree unless forced.
 
@@ -1481,9 +1492,13 @@ cost axis across files that disagree unless forced.
 
 To see exactly *how* SLB converges to the exact solution as the bundle size $M$ grows, we can plot the time-evolution of several observables for each system. The dashed black line is the exact reference dynamics, and the coloured lines are SLB at increasing $M$, darkening as $M$ increases.
 
-**Each system is drawn at its own largest available size**, matching the two
-figure groups below: **dimension 512 for System A** (9 spins), 128 for System B
-and 128 for the oscillator. The ladders therefore differ — $M = 2$ to $32$ on A
+**Each system is drawn at its largest size that carries SLB curves in Result
+3's data:** **dimension 512 for System A** (9 spins), 128 for System B and 128
+for the oscillator. Result 3 has since run further — System A to 2048, System
+B to 256 — but only with the exact solver and `mcsolve`, so there is no bundle
+ladder to draw there. The error-decomposition figures further down read Result
+1's own files instead, and sit one size higher on both chains: 1024 for System
+A, 256 for System B. The ladders here differ — $M = 2$ to $32$ on A
 and the oscillator, $M = 2$ to $256$ on System B. $M=1$ is omitted throughout:
 a single unaveraged operator combination adds nothing the rest of the ladder
 does not.
@@ -1537,7 +1552,7 @@ alike in cost and unalike in accuracy.*
 
 **Beyond energy: capturing coherence.** Energy is nearly diagonal in the energy eigenbasis, so matching $\langle H\rangle$ says little about off-diagonal structure. Notice the `coherence` panels: SLB tracks the off-diagonal structure with the same convergence in $M$. Read that for exactly what it is — the observable is $|a\rangle\langle b| + |b\rangle\langle a|$, so it measures $2\,\mathrm{Re}\,\rho_{ab}$ for the single most-populated pair. It shows the method is not confined to the diagonal; it does not certify every coherence, the imaginary parts, or the full matrix.
 
-**Sizes.** This section spans dimensions 16 to 512 on System A, 16 to 256 on
+**Sizes.** This section spans dimensions 16 to 1024 on System A, 16 to 256 on
 System B and 16 to 128 on the oscillator, computed once per size and stored separately
 (`accuracy_vs_M_<system>_dim<D>.json`); the plot script's `PLOT_DIM` selects
 which to draw. Past dim 32 `mesolve` can no longer build its superoperator
@@ -1550,14 +1565,18 @@ statistical spread as $M^{-0.73}$, essentially unchanged from dim 16. The
 oscillator's error-decomposition panel is drawn at dim 128, where its bias is
 resolved at every $M$ — **53 to 61** times its own standard error across 200
 realizations, and **109 to 120** times across 800 (job 19604940, run to confirm
-exactly this), with the fitted slope $M^{-1.00}$ either way. **Dim 64 is the
-one oscillator size where that fails:** there the bias sits at the sampling
-floor — **0.2 to 2.0** standard errors at the decomposition's $t^\ast$, below
-one at $M=4$, 32 and 64 — so its decomposition points are upper bounds and no
-slope is quoted from it. That is not the method failing. It is SLB's bias on
-the oscillator being so small there, of order $10^{-4}$, that 200 realizations
-cannot see it; resolving it would take roughly fifty times as many. At dim 32
-and dim 128 the bias is measurable at every $M$ and the fits are meaningful.
+exactly this), with the fitted slope $M^{-1.00}$ either way. **Below dim 128
+it fails at the decomposition's $t^\ast$:** at dim 64 the bias sits at the sampling
+floor — **0.2 to 2.0** standard errors, below one at $M=4$, 32 and 64 — and
+dims 16 and 32 fare little better at that
+instant, at 0.9 to 2.2 and 1.1 to 2.5, so below dim 128 the oscillator's
+decomposition points are upper bounds and no slope is quoted from them. That
+is not the method failing. It is SLB's bias on the oscillator being so small
+there, of order $10^{-4}$ at dim 64, that 200 realizations cannot see it at
+that instant; resolving it would take roughly fifty times as many. At the
+size-invariance $t^\ast$ — the worst instant of the smallest $M$ *bias* rather
+than of its RMSE — every oscillator size is resolved, 12 to 61 standard
+errors, which is why the invariance figure quotes a slope at all four.
 
 **Why the oscillator's traces look featureless.** On the oscillator the SLB
 mean curves sit on top of the reference at every $M$, and the convergence
@@ -1582,11 +1601,17 @@ realizations). The realization count is the same at every $M$ — nothing about
 the sampling is tuned — so the trends are purely the effect of $M$: the bias
 should fall like $1/M$ (the bundling systematic) and the fluctuation like
 $1/\sqrt{M}$ (the bundling noise). On the chain the energy shows exactly this
-($M^{-0.98}$ and $M^{-0.73}$ fitted at dim 64), and the pattern holds across
-every system and size measured: the bias exponent lands between $-0.91$ and
-$-1.09$, and the fluctuation exponent between $-0.46$ and $-1.05$ — the steep
-end of that second range is the oscillator, discussed below, which genuinely
-beats $M^{-1/2}$. One honest caveat: once the true bias drops
+($M^{-0.98}$ and $M^{-0.73}$ fitted at dim 64), and for the energy the
+pattern holds on every system and size measured by the size-invariance fit
+further down — whose $t^\ast$ is the worst instant of the smallest $M$ *bias*,
+fitted over $2\le M\le 32$ — with the bias exponent between $-0.91$ and $-1.02$
+and the fluctuation exponent between $-0.58$ and $-1.09$; the steep end of
+that second range is the oscillator, discussed below, which genuinely beats
+$M^{-1/2}$. The figures here use this paragraph's own $t^\ast$ and fit every
+panel over the whole ladder, so their legends differ slightly ($-0.92$ for the
+energy bias at dim 1024), and at this $t^\ast$ the oscillator's bias sits at the
+floor below dim 128 (Sizes, above). The other observables read shallower
+where their bias meets the floor, per the caveat that follows. One honest caveat: once the true bias drops
 below the statistical floor of the run-mean (SEM $=$ fluctuation $/\sqrt{200}$),
 the *measured* bias flattens into that noise — visible for the coherence at
 large $M$, where the fitted bias slope is shallower for exactly this reason.
@@ -1611,31 +1636,37 @@ easy to conflate.
 ![System B size invariance](accuracy_vs_M_invariance_mixed_chain.png)
 ![System C size invariance](accuracy_vs_M_invariance_oscillator_bath.png)
 
-**The slope is invariant to within $0.07$, but it does not sit still.** Every
-curve falls as $M^{-1}$. System A is now measured at **six** sizes spanning a
-thirty-two-fold range:
+**The slope is invariant to within $0.08$, but it does not sit still.** Every
+curve falls as $M^{-1}$. System A is now measured at **seven** sizes spanning a
+sixty-four-fold range:
 
-| dim | 16 | 32 | 64 | 128 | 256 | 512 |
-|---|---|---|---|---|---|---|
-| bias slope | −0.91 | −0.97 | −0.98 | −0.98 | −0.97 | −0.94 |
+| dim | 16 | 32 | 64 | 128 | 256 | 512 | 1024 |
+|---|---|---|---|---|---|---|---|
+| bias slope | −0.91 | −0.97 | −0.98 | −0.98 | −0.97 | −0.94 | −0.91 |
 
-The total spread across the six is $0.069$, essentially what it was across
-five, so **doubling M halves the error at any size** and that rule needs no
-recalibration. But an earlier version of this paragraph said the exponent
-"stops moving after dim 32", and the sixth point retires that: from dim 64
-onward it drifts monotonically shallower — $M^{-0.98}$, $M^{-0.98}$,
-$M^{-0.97}$, $M^{-0.94}$ — a total of $0.046$ over three doublings, all in
-one direction.
+The total spread across the seven is $0.074$. It was $0.069$ across both five
+and six sizes, so the seventh is the first extension to widen it. **Doubling
+$M$ still very nearly halves the error at any size** — by $2^{0.91}=1.88$ at the
+shallowest — and that rule needs no recalibration. But an earlier version of
+this paragraph said the exponent "stops moving after dim 32", and the sixth
+and seventh points retire that: from dim 64 onward it drifts monotonically
+shallower — $M^{-0.98}$, $M^{-0.98}$, $M^{-0.97}$, $M^{-0.94}$, $M^{-0.91}$ —
+a total of $0.074$ over four doublings, all in one direction.
 
-**About half of that drift is one point.** At dim 512 the $M=2$ bias is only
-$1.81\times$ the $M=4$ bias, where every other step on that ladder still comes
-within a few percent of halving; the same ratio is $1.91\times$ at dim 256 and
-$1.93\times$ at dim 64. Fit $M \ge 4$ only and dim 512 reads $M^{-0.96}$
-rather than $M^{-0.94}$. So the small $M$ end is leaving the asymptotic
-regime as the system grows, which is a statement about where the $1/M$ law starts rather than
-about the law. **It is not the sampling floor:** every point at dim 512 clears
-its own standard error by $43\times$ to $96\times$. The residual $0.02$ after
-removing $M=2$ is unexplained and quoted as measured.
+**About a quarter of that drift is one point.** At dim 1024 the $M=2$ bias is
+only $1.76\times$ the $M=4$ bias, while the later steps on that ladder run
+$1.85\times$ to $1.99\times$; the same first ratio is $1.81\times$ at dim 512,
+$1.91\times$ at dim 256 and $1.92\times$ at dim 64. Fit $M \ge 4$ only, at every
+size, and the slopes read $M^{-0.99}$ at dim 64, $M^{-0.96}$ at dim 512 and
+$M^{-0.94}$ at dim 1024: the drift from dim 64 shrinks from $0.074$ to
+$0.057$. So the $M=2$ point accounts for about a quarter of it, and the rest of
+the ladder carries the other three quarters — the small $M$ end is leaving the
+asymptotic regime as the system grows, but that is not the whole story.
+**It is not the sampling floor:** every point at dim 1024 clears its own
+standard error by $50\times$ to $114\times$. The remaining $0.057$ is quoted as
+measured, not explained. *Earlier versions of this paragraph said "about
+half", by setting the largest size's $M \ge 4$ refit against dim 64's
+full-ladder slope; like with like, it was about a quarter at six sizes too.*
 
 System B gives $M^{-1.00}$, $M^{-1.00}$,
 $M^{-1.02}$, $M^{-0.98}$, $M^{-0.99}$ across its five sizes, the last from
@@ -1643,16 +1674,16 @@ dimension 256 (job 19604858) — a spread of $0.045$, with none of the drift
 System A shows at its largest size. The $1/M$ shape holds better on the chain
 whose height behaves worse.
 
-Six points is where this stops being a line through three and starts being a
+Seven points is where this stops being a line through three and starts being a
 measurement. The prediction was $M^{-1}$ before any of them were taken.
 
 **The height is not invariant, and the difference is systematic.** At fixed
 $M=8$ the bias moves with dimension:
 
-| system | dim 16 → 32 → 64 | scaling |
+| system | $M=8$ bias at $t^\ast$, dim 16 upward | scaling |
 |---|---|---|
-| **A** TFIM chain | 3.3×10⁻² → 5.0×10⁻² → 8.0×10⁻² → 1.24×10⁻¹ → 1.74×10⁻¹ → 2.44×10⁻¹ (to dim 512) | ~ N^+0.58 |
-| **B** mixed chain | 2.6×10⁻² → 3.4×10⁻² → 5.5×10⁻² → 8.8×10⁻² → 1.07×10⁻¹ (to dim 256) | ~ N^+0.55 |
+| **A** TFIM chain | 3.3×10⁻² → 5.0×10⁻² → 8.0×10⁻² → 1.24×10⁻¹ → 1.74×10⁻¹ → 2.44×10⁻¹ → 3.24×10⁻¹ (to dim 1024) | ~ N^+0.555 |
+| **B** mixed chain | 2.6×10⁻² → 3.4×10⁻² → 5.5×10⁻² → 8.8×10⁻² → 1.06×10⁻¹ (to dim 256) | ~ N^+0.55 |
 | **C** oscillator | 2.6×10⁻³ → 2.3×10⁻³ → 2.0×10⁻³ → 1.5×10⁻³ (to dim 128) | ~ N^-0.26 |
 
 All three rows are the error at the worst-time slice $t^\ast$, the same measure
@@ -1660,9 +1691,8 @@ as the slope table above and as the figure's axis. An earlier version of this
 table measured System A by its *time-averaged* error instead, which read about
 10% lower and made the two chains look like they grew at different rates.
 
-**Both chains' height exponents fall as sizes are added, and by the same
-amount.** System A over six dimensions: $N^{+0.64}$ to dim 64, $N^{+0.61}$ to
-256, $N^{+0.58}$ to 512. System B over five: $N^{+0.55}$ to dim 64,
+**Neither chain's height grows as a fixed power law.** System A over seven dimensions: $N^{+0.64}$ to dim 64, $N^{+0.61}$ to
+256, $N^{+0.58}$ to 512, $N^{+0.555}$ to 1024. System B over five: $N^{+0.55}$ to dim 64,
 $N^{+0.61}$ to 128, **$N^{+0.55}$ to 256** — the last point pulled it back
 down, and its local exponent between dims 128 and 256 is $0.27$, the flattest
 step on either chain. So neither is a fixed power law. The growth is real and
@@ -1672,38 +1702,43 @@ grows, and any exponent quoted from three or four sizes overstates it.
 *An earlier version of this section said the two chains grow at the same rate,
 $N^{+0.61}$ against $N^{+0.61}$. When System A's sixth point arrived it read
 $+0.58$ against B's $+0.61$, and the section said the question was open until
-B was extended. It now is, and B fell to $+0.55$.* **"The same rate" was
-right; "$N^{+0.61}$" as a fixed exponent was not.** The chains agree to within
-$0.03$ at every stage of extension, and what they agree on is a rate that
-keeps dropping.
+B was extended. B fell to $+0.55$, A's seventh point to $+0.555$, and the
+section then called the chains the same.* **That compared unequal ranges.**
+Each exponent falls as its range of dimensions lengthens, so two exponents
+compare only over the same dimensions. On the one range both chains cover,
+dims 16 to 256, System A grows as $N^{+0.61}$ and System B as $N^{+0.55}$ — a
+gap of $0.06$, twice the $0.03$ this section once treated as agreement. A's
+$+0.555$ is fitted over two more doublings than B's $+0.55$. Whether the
+chains share a rate is open again, and a second matched range needs System B
+at dimension 512.
 
-What does separate them is the slope, not the height: B's bias falls as
+They also differ in slope, and in the same direction: B's bias falls as
 $M^{-1}$ to within $0.045$ across all five sizes, while A's drifts to
-$M^{-0.94}$ at its largest — the shape in $M$ holds better on the chain whose
-height behaves worse, which is a reminder that the two are different
-quantities.
+$M^{-0.91}$ at its largest.
 
-On the chains the bias grows near $N^{+0.6}$ — a little faster than
-$\sqrt N$ — so holding a fixed *accuracy*
+On the chains the bias grows as roughly $N^{+0.55}$ to $N^{+0.61}$ — a little
+faster than $\sqrt N$ — so holding a fixed *accuracy*
 target requires $M$ to grow with the system — which is precisely what Result 4's
 iso-accuracy curve measures, and why its curve sits above the fixed $M$ one. The
 oscillator is the genuinely invariant case: flat, in fact slightly improving
 with size. **A fixed bundle count buys a fixed *convergence rate* at any
 dimension; it buys a fixed *error* only where the structure is favourable.**
 
-**The fluctuation.** SEM curves fall as expected on the chains — time-averaged
-exponents of $-0.52$ to $-0.58$ against the predicted $M^{-1/2}$. The steeper
-values in the legends ($-0.58$ to $-0.73$) come from evaluating at the fixed
-$t^\ast$ rather than across the trajectory, and are an artefact of that choice.
-The oscillator is the exception: it falls at $M^{-0.77}$ to $M^{-1.05}$ either
-way, genuinely faster than $1/\sqrt M$. A plausible cause is its cross-term
+**The fluctuation.** SEM curves fall close to the predicted $M^{-1/2}$ on the
+chains — time-averaged exponents of $-0.41$ to $-0.55$ — though on System A
+they run shallower at the largest sizes, reaching $-0.41$ at dim 1024. The
+steeper values in the legends ($-0.58$ to $-0.80$) come from evaluating at the
+fixed $t^\ast$ rather than across the trajectory, and are an artefact of that
+choice. The oscillator is the exception: it falls at $M^{-0.75}$ to $M^{-1.09}$
+either way, genuinely faster than $1/\sqrt M$. A plausible cause is its cross-term
 structure — only 11% of its operator pairs produce a surviving cross term
 (§2.6), so the bundling noise is not a sum of many independent contributions and
 central-limit scaling need not hold. **That explanation is untested.**
 
-Fitted exponents are quoted only where they clear the strict noise floor; with
-the full 200 realizations every point does, on all three systems at every size
-measured.
+Fitted exponents are quoted only where they clear the strict noise floor. At
+the size-invariance $t^\ast$, with the full 200 realizations, every point does,
+on all three systems at every size measured; at the decomposition's $t^\ast$
+the oscillator's do not below dim 128 (Sizes, above).
 
 ### Result 2 — cost scaling versus the exact solver
 
@@ -1779,8 +1814,13 @@ It deliberately leaves `mcsolve` out: a Monte-Carlo trajectory solver's cost sca
 
 ### Result 3 — accuracy versus cost: SLB against mcsolve
 
-`run_method_comparison.py` executes **four solvers in a single Slurm
-allocation** at each dimension, so every wall-clock is from the same node:
+`run_method_comparison.py` executes up to **four solvers in a single Slurm
+allocation** at each dimension, so every wall-clock at a given dimension is from
+the same node — except System A at 1024, whose exact-solve time comes from
+§5.2's timing grid (same 32 threads and 40-point grid, a different node). Not
+every solver runs at every size — each drops out where its
+own wall sits (§5.2) — and the three points past the figures' range (System A
+at 1024 and 2048, System B at 256) ran no SLB and are reported in text:
 
 1. **Native RK4 (`native`):** Full-dissipator dense RK4 on the density matrix without superoperators. Serves as certified reference past `mesolve` limits.
 2. **`mesolve`:** QuTiP's standard exact solver, constructing the full $N^2 \times N^2$ Liouvillian.
@@ -1788,8 +1828,8 @@ allocation** at each dimension, so every wall-clock is from the same node:
 4. **SLB:** Stochastically bundled dissipators, $M$ swept from 2 up to 256 where the sweep reached it, 16 realizations per point.
 
 **The figures compare the two approximate methods; the exact ones are the
-yardstick.** All four solvers above run, and their wall-clocks are quoted in the
-tables below. But only SLB and `mcsolve` are *drawn*: `native` is the certified
+yardstick.** `native`'s cost enters the tables below as the SLB speed ratio;
+`mesolve`'s times are in §5.2's timing grid. But only SLB and `mcsolve` are *drawn*: `native` is the certified
 reference every error on the plot is measured against, and `mesolve` is its
 cross-check. Plotting them as competing points placed two deterministic dots
 several decades below SLB on the same error axis, which reads as SLB being the
@@ -1862,7 +1902,8 @@ lowers it and pushes the crossover to larger $M$. And it **grows with dimension*
 carried over.
 
 **Where `mcsolve` sits against its own noise, by the same rule.** Scored on the
-same $\sqrt{\text{bias}^2+\text{s.e.m.}^2}$ as SLB:
+same $\sqrt{\text{bias}^2+\text{s.e.m.}^2}$ as SLB, at dimension 64 on each
+system (System B at 256, below, sits right on the line):
 
 | system | `mcsolve` error | its s.e.m. | ratio | verdict |
 |---|---|---|---|---|
@@ -1995,6 +2036,26 @@ count that was ample at dimension 64 is badly short at 128, because the bias
 scales with how much of $N_L$ each bundle has to stand in for. That is precisely
 the quantity **Result 4** measures.
 
+**One doubling further, with no SLB but the exact solve alongside.** Job
+19607138 ran a fresh certified native reference and `mcsolve` at 500
+trajectories at dimension 256 (8 spins, $N_L = 32{,}637$). The reference is
+native RK4 at 8 substeps, certified against its 4-substep partner at a
+deviation of 4.0×10⁻⁹ — the second certified exact solve at this size, after
+Result 1's (job 19604858); the two agree on the energy at $t=5$ to all eight
+decimals Result 1's file stores.
+`mcsolve` took **331,305 s**, 663 s per trajectory, against **17,294 s** for
+native RK4 at 4 substeps in the same allocation: **19.2× slower than the exact
+solve** (9.4× against the 8-substep reference solve, 35,285 s). Its energy
+error is 3.29×10⁻², of which 2.31×10⁻² is the sampling s.e.m. — a ratio of
+1.43, just past the $\sqrt{2}$ line above. Across the six observables the
+ratio runs from 1.38 to 1.91 — energy, sx and coherence above the line; zz, sz
+and zz_per_bond below it, the last being zz divided by the bond count — so at
+this size `mcsolve` on System B is neither cleanly noise-limited nor cleanly
+biased. This job ran on 32 threads where dims 4–128 ran on 4 (job 19594145),
+so its wall-clocks are not drawn on the figures above and no growth from dim
+128 is quoted: the 38× there and the 19.2× here were measured under different
+thread counts. No SLB ran at this size, so no SLB/`mcsolve` ratio is quoted.
+
 #### System A — TFIM chain (dim 64, $N_L = 31$)
 
 ![Accuracy versus cost, TFIM chain, energy](benchmark_comparison_spin_chain_energy.png)
@@ -2017,10 +2078,11 @@ the bundling bias dominates when there are too few operators to compress.
 **The same conclusion holds four doublings later.** Job 19606788 ran `mcsolve`
 at 500 trajectories on this system at dimension 1024 (10 spins), scored against
 the archived certified reference: energy error 3.5×10⁻², of which
-2.7×10⁻² is the sampling s.e.m. — noise-limited, exactly as at every
-smaller size, because that floor is set by $1/\sqrt{500}$ rather than by the
-system. It took **9,502 s**, against 2,685 s for native RK4 at the same
-size on the same grid (§5.2), so on the control system `mcsolve` is
+2.7×10⁻² is the sampling s.e.m. — noise-limited by the $\sqrt{2}$ rule on all
+six observables (energy ratio 1.32). At smaller sizes on this system the
+energy point sits either side of that line, at ratios 1.13 to 2.03; the floor
+itself is set by $1/\sqrt{500}$, not by the size. It took **9,502 s**, against 2,685 s for native RK4 at 8
+substeps at the same size on the same grid (§5.2), so on the control system `mcsolve` is
 **3.5× slower than the exact solve** at an error it cannot bring below its own
 noise. SLB at the bundle count accuracy demands is ~2.6× slower than exact here
 (§5.2). Neither stochastic method beats the exact solve on System A at any size
@@ -2032,13 +2094,18 @@ grid, so no SLB/`mcsolve` ratio is quoted.
 at dimension 2048 (11 spins) — the first exact solve at that size in this
 project. The reference is native RK4 at 8 substeps, certified against its
 4-substep partner at a deviation of 1.4×10⁻⁸ (tolerance 10⁻⁴). `mcsolve`'s
-energy error is 3.45×10⁻², of which 3.13×10⁻² is the sampling s.e.m. — the
-same $1/\sqrt{500}$ floor as at 10 spins, and at every size before that. It
+energy error is 3.45×10⁻², of which 3.13×10⁻² is the sampling s.e.m. — at
+the floor on the energy (ratio 1.10), though sz and coherence sit just past
+the $\sqrt{2}$ line (1.46 and 1.55). It
 took **44,184 s**, against **8,948 s** for native RK4 at 4 substeps on the
 same grid in the same allocation, so `mcsolve` is **4.9× slower than the exact
-solve** here, up from 3.5× at 10 spins: its cost per trajectory rose 4.6× for
-the doubling (19 s to 88 s) while the exact solve rose 3.3× (from 2,685 s in
-§5.2's grid). The frontier's
+solve** here. That is not up from the 3.5× at 10 spins, which was measured
+against an 8-substep solve: against this job's own 8-substep reference solve,
+**17,426 s**, the ratio is **2.5×**, so at matched substeps `mcsolve`'s
+disadvantage *shrank* with the doubling (3.5× to 2.5×). Its cost per
+trajectory rose 4.7× (19 s to 88 s) while the 8-substep exact solve rose 6.5×
+(2,685 s to 17,426 s). *An earlier version of this paragraph set the 4-substep
+4.9× against the 8-substep 3.5× and read a growing gap into it.* The frontier's
 three SLB solves at this size (Result 5) ran on a different grid with 16
 substeps and store no curves, so they cannot be scored against this reference;
 what the reference buys is that any future SLB run at 11 spins on this grid
@@ -2121,15 +2188,15 @@ At high precision ($\le 1\%$), Monte Carlo trajectory methods hit a hard statist
 
 ### Result 5 — past the reference wall
 
-Every benchmark above compares SLB against an exact reference, which caps each study at the dimension where an exact solve is still affordable. **That wall is per system, not global.** Measured from the committed Result 1 files, the largest dimension carrying an exact reference is **512 on System A** (native RK4 at 8 substeps, job 19604740), **128 on System B**, and **128 on the oscillator**, which the fixed-step reference cannot pass at these substeps.
+Every benchmark above compares SLB against an exact reference, which caps each study at the dimension where an exact solve is still affordable. **That wall is per system, not global.** Measured from the committed Result 1 files, the largest dimension carrying an exact reference is **1024 on System A** (native RK4 at 8 substeps, job 19605304), **256 on System B** (job 19604858), and **128 on the oscillator**, which the fixed-step reference cannot pass at these substeps. Result 3 also certifies System A at 2048 (job 19607136).
 
-The solvers themselves run further than the *certified* reference does: §5.2 timed native RK4 at dimension 1024 on System A and 256 on System B. What sets the ceiling is certification rather than propagation — a reference is only usable once a second run at a different resolution agrees with it, and that second run is what becomes unaffordable first. §5.2 makes the same argument for the oscillator, where a dimension-256 reference propagates in ~2.4 days but certifying it costs about a week.
+On the two chains, certification has caught up with the sizes §5.2 first timed, so there the wall is now plain cost. The oscillator is where propagation still outruns certification: a reference is only usable once a second run at a different resolution agrees with it, and that second run is what becomes unaffordable first. §5.2 makes the argument there, where a dimension-256 reference propagates in ~2.4 days but certifying it costs about a week.
 
-Result 5 steps past that wall into the regime SLB was built for: **where the Lindblad operator list cannot fit in RAM.**
+Result 5 stepped past that wall as it stood when it ran — System B's first certified dim-256 reference came later (job 19604858) — into the regime SLB was built for: **where the Lindblad operator list cannot fit in RAM.**
 
 At dimension 256 for System B (8 spins), there are $N_L = 32{,}637$ Davies operators. Storing them as dense matrices would consume **31.9 GB** — just for the operator list before simulation begins. `mesolve_ensemble_davies` avoids this entirely: operators are streamed, accumulated into bundles on the fly, and immediately discarded, keeping memory constant at a small chunk buffer.
 
-Without an exact reference at dimension 256, the run is validated on **three physical consistency checks**:
+Without an exact reference at dimension 256 when it ran, the run was validated on **three physical consistency checks** — and has been checked since against the exact answer, at the end of Checks 1 and 2:
 
 ![Extreme dimension](benchmark_extreme_dimension_mixed_chain.png)
 
@@ -2142,10 +2209,20 @@ Without an exact reference at dimension 256, the run is validated on **three phy
    |---|---|---|---|
    | 8 | −10.74198 | | |
    | 16 | −10.78844 | 0.04646 | |
-   | 32 | −10.81238 | 0.02394 | **0.515** |
+   | 32 | −10.81238 | 0.02395 | **0.515** |
 
    The observed ratio of 0.515 closely matches the theoretical 0.500. Independent pairwise extrapolations give $-10.8349$ and $-10.8363$ (agreeing to $0.0014$), with a three-point intercept at $-10.8356$.
 2. **Trace Preservation:** Max $|\mathrm{Tr}(\rho)-1| = 4.4 \times 10^{-16}$ across all sweeps (machine precision).
+
+**Checked since against the exact answer.** Two certified exact solves now
+exist at this size — job 19604858 for Result 1 and job 19607138 for Result 3,
+which agree on the energy at $t=5$ to all eight decimals Result 1's file
+stores — and the second is on this run's own 40-point grid. Against its $\langle H\rangle(5) = -10.83476$, the
+three endpoints above sit $0.0928$, $0.0463$ and $0.0224$ high, each deviation
+roughly halving (ratios $0.499$ and $0.483$), and the three-point intercept
+lands $8.6\times10^{-4}$ from the exact answer — 0.14% of the energy's change
+over the run, $\langle H\rangle$ falling from $-10.20$ to $-10.83$. The
+reference-free extrapolation was right.
 
 ---
 
@@ -2178,8 +2255,9 @@ Bundling strictly preserves sector blocks (cross-sector matrix elements are $< 2
 
 #### A reference-free check, run on all three systems
 
-Past the reference wall there is no exact answer to score against, so the
-question becomes what *can* still be measured. One thing can: how far apart two
+Past the reference wall there was no exact answer to score against when these
+ran — System A's dim 2048 has one now (Result 3), but the frontier stored no
+curves to score — so the question becomes what *can* still be measured. One thing can: how far apart two
 different bundle counts land. If $M=32$ and $M=64$ agree, the answer has stopped
 depending on $M$ — necessary for convergence, though not sufficient for
 correctness.
@@ -2263,9 +2341,13 @@ exclusive node against more than 117 h without one.
 
 The checks that answer the obvious doubts.
 
-> **Provenance, and what it does and does not undermine.** These validation
-> figures were computed before the 0.6.4 Davies correction, from the
-> `convergence_progress_*.json` files, and every claim here is about
+> **Provenance, and what it does and does not undermine.** The spin-chain
+> jackknife strip was re-run on the shipped 0.6.4 construction at dims 128,
+> 256 and 512 (job 19609868). The oscillator strip (from its
+> `convergence_progress_oscillator_bath*.json` files) and the seed and substep
+> figures (drawn directly by `benchmark_seed_robustness.py` and
+> `benchmark_substep_convergence.py`) predate the 0.6.4 Davies correction, and
+> every claim here is about
 > *convergence rates* — how the bias falls with $M$, whether the jackknife
 > steepens that rate, whether results move under a different seed or a finer
 > integrator.
@@ -2281,21 +2363,18 @@ The checks that answer the obvious doubts.
 > $2.6146\times10^{-2}$, a difference of **0.36 s.e.m.** Rates measured on one
 > are rates on the other.
 >
-> **One caveat that does bite, stated because the section would otherwise hide
-> it.** `benchmark_convergence.py` sweeps $M = 2, 4, 8, 16, 32, 64$, and 0.6.4
-> cut the spin chain's operator count hard: $N_L$ fell from 64 to **13** at
-> dim 16, 218 to **21** at dim 32, and 869 to **31** at dim 64. A bundle cannot
-> hold more operators than exist, so on that system the upper half of the sweep
-> — $M=32$ and $64$ everywhere, and $M=16$ at dim 16 — is **above what the
-> shipped construction permits**. Those points are real measurements of the
-> pre-0.6.4 model and they are not reproducible now. The oscillator is
+> **Why the spin panels were re-run.** `benchmark_convergence.py` sweeps
+> $M = 2, 4, 8, 16, 32, 64$, and 0.6.4 cut the spin chain's operator count
+> hard: $N_L$ fell from 64 to **13** at dim 16, 218 to **21** at dim 32, and
+> 869 to **31** at dim 64. A bundle cannot hold more operators than exist, so
+> on the old spin panels $M=32$ and $64$ everywhere, and $M=16$ at dim 16, sat
+> **above what the shipped construction permits** — real measurements of the pre-0.6.4 model,
+> not reproducible now. The re-run sizes have $N_L$ = 43, 57 and 73; the runner
+> skips $M > N_L$, so dims 128 and 256 stop at $M=32$ and dim 512 runs all six.
+> Every point on the spin jackknife strip is inside the shipped cap, and the
+> steepening is now measured at operating points a reader can reach. The oscillator is
 > unaffected: the files this section uses record $N_L$ of 128, 478 and 1,172
 > at dims 16, 32 and 64 — all far above the $M=64$ top of the sweep.
->
-> Read the spin-chain panels with that in mind. The steepening to $M^{-1.78}$ at
-> dim 32 is fitted over a range whose top half is past the shipped cap, so it
-> demonstrates the jackknife's leading-order cancellation without being an
-> operating point anyone could reach today.
 >
 > What *would* be affected is any cost statement, and this section makes none.
 >
@@ -2309,10 +2388,13 @@ The checks that answer the obvious doubts.
 > - **System coverage (A and C):** Systems A and C span the two structural extremes
 >   of the benchmark suite (discrete integrable chain vs continuous anharmonic ladder).
 >   Resolving the tiny $\mathcal{O}(1/M^2)$ jackknife bias requires pushing the Monte-Carlo
->   sampling floor down with a heavy realization budget — the committed files hold
->   256, 512 and 64 realizations at spin dims 16/32/64, and 4,000, 128 and 64 at
->   the oscillator's, which is why the dim-32 spin panel resolves the effect and
->   the largest sizes do not; demonstrating the rate steepening
+>   sampling floor below it. The spin panels carry 200 realizations each, which is
+>   enough because the chain's bias grows with dimension — at dim 512 the
+>   jackknife-corrected bias clears its own s.e.m. by $39\times$ at $M=2$ and
+>   $8\times$ at $M=8$, and stays above the $2\times$ floor through $M=16$ — and
+>   all three resolve the steepening. The oscillator's files hold
+>   4,000, 128 and 64 realizations at dims 16/32/64, and its much smaller bias
+>   leaves those panels at level-only or marginal. Demonstrating the rate steepening
 >   on these two contrasting architectures proves the mathematical cancellation without
 >   needing the heavy realization budget on System B (whose $1/M$ bias scaling is already
 >   extensively mapped across Results 1–5).
@@ -2320,7 +2402,7 @@ The checks that answer the obvious doubts.
 **Convergence at the predicted rates, and the jackknife correction.** The
 uncorrected bias should fall as $M^{-1}$ and the statistical spread as
 $M^{-1/2}$ — both visible in every panel of the strips below (green and blue
-curves), and the fitted bias exponent sits at $M^{-0.95}$ to $M^{-1.00}$
+curves), and the fitted bias exponent sits at $M^{-0.94}$ to $M^{-1.00}$
 across all sizes, the strongest single check that the estimator behaves as
 derived.
 
@@ -2329,36 +2411,57 @@ uncorrected estimator against the jackknife-2 one (same seeds at every $M$)
 separates the correction's two effects: it lowers the bias *level* everywhere,
 and — where the sampling floor is pushed low enough to see it — it **steepens
 its rate** from $M^{-1}$ toward the $M^{-2}$ that the leading-order cancellation
-the method predicts (Adhikari & Baer 2025; see `REFERENCES.md`). Energy $\langle H \rangle$ is plotted because its high signal-to-noise ratio resolves the steepened rate without drowning in sampling noise; because the cancellation occurs on $\rho_{\rm JK}$ itself, it applies to all linear observables (though in finite-sample runs, resolving $M^{-2}$ empirically requires observables whose signal clears the Monte Carlo sampling floor). The three panels below, smallest to largest, show the
-whole story at once: the jackknife rate is resolved and clearly steepened only
-where enough points clear the noise floor.
+the method predicts (Adhikari & Baer 2025; see `REFERENCES.md`). Energy $\langle H \rangle$ is plotted because its high signal-to-noise ratio resolves the steepened rate without drowning in sampling noise; because the cancellation occurs on $\rho_{\rm JK}$ itself, it applies to all linear observables (though in finite-sample runs, resolving $M^{-2}$ empirically requires observables whose signal clears the Monte Carlo sampling floor). Each strip below runs smallest to
+largest. The spin strip steepens at every size; the oscillator strip shows the
+other half of the rule — at dim 16 the corrected rate is resolved but does not
+steepen (level only), and at dims 32 and 64 too few points clear the floor to
+fit a rate at all (marginal).
 
 ![spin chain jackknife rate strip](benchmark_jackknife_rate_strip_spin_chain.png)
 ![oscillator jackknife rate strip](benchmark_jackknife_rate_strip_oscillator_bath.png)
 
 | system | dim | uncorrected | jackknife | reduction | verdict |
 |---|---|---|---|---|---|
-| Spin Chain | 16 | `M^-0.96` | `M^-1.45` | 3.3–6.7× | rate steepens |
-| Spin Chain | 32 | `M^-0.96` | `M^-1.78` | 3.0–9.7× | rate steepens |
-| Spin Chain | 64 | `M^-0.95` | `M^-1.04` | 2.8–4.1× | level only |
+| Spin Chain | 128 | `M^-0.96` | `M^-1.64` | 2.3–6.2× | rate steepens |
+| Spin Chain | 256 | `M^-0.95` | `M^-1.71` | 2.2–6.3× | rate steepens |
+| Spin Chain | 512 | `M^-0.94` | `M^-1.61` | 2.0–8.8× | rate steepens |
 | Oscillator Bath | 16 | `M^-1.00` | `M^-0.87` | 5.6–8.9× | level only |
 | Oscillator Bath | 32 | `M^-1.00` | — | 1.4–3.0× | marginal |
 | Oscillator Bath | 64 | `M^-0.97` | — | 2.1× | marginal |
 
 Only where at least three points clear **twice** the SEM is a corrected rate
 quoted; below that the corrected "bias" is Monte-Carlo noise and its ratio
-inflates, so it is reported as an upper bound. Spin dim 32 (512 realizations)
-is where the floor is low enough to see the full effect — the corrected bias
-falls monotonically to $M^{-1.78}$, up to $9.7\times$ below the uncorrected one;
-dim 16 shows the same steepening ($M^{-0.96}\to M^{-1.45}$). At the largest
-sizes the realization budgets leave a higher floor, and the correction then
-acts as a level reduction without a resolved change of law. The self-check in
-`benchmark_convergence.py`, and the strip in `plot_jackknife_rate_strip.py`,
-apply exactly this rule — steepening is claimed only where the data support it.
-Reading across the panels of each strip, the uncorrected bias (green) also
-rises with dimension while the jackknife keeps the corrected bias comparatively
-flat — so Result 2's growth of the bias with system size is a known,
-correctable effect, not a breakdown.
+inflates, so it is reported as an upper bound. On the spin chain all three
+sizes clear it at 200 realizations each: the corrected bias steepens to
+$M^{-1.64}$, $M^{-1.71}$ and $M^{-1.61}$ at dims 128, 256 and 512, from
+uncorrected rates of $M^{-0.96}$, $M^{-0.95}$ and $M^{-0.94}$, and falls up to
+$8.8\times$ below the uncorrected bias. Dim 512, the only size where all six
+$M$ exist on the shipped construction, clears the floor on four points of
+six, the most of any panel; its last two corrected points sit below the floor
+and tick upward at $M=64$, and neither enters the fit. On the oscillator the
+realization budgets leave a higher floor relative to its bias, and the
+correction there acts as a level reduction without a resolved change of law.
+The self-check in `benchmark_convergence.py`, and the strip in
+`plot_jackknife_rate_strip.py`, apply exactly this rule — steepening is claimed
+only where the data support it.
+
+**The correction lowers the bias at every size; it does not stop the bias
+growing with size.** Across the spin strip, from dim 128 to dim 512, at the
+bundle sizes where the corrected bias clears the floor at both ($M$ = 2, 4, 8),
+the uncorrected bias grows 1.8–1.9× and the corrected bias grows
+2.1–3.1× — at least as fast. So Result 2's growth of the bias with
+system size is not something the jackknife removes; what it removes is the
+leading $1/M$ term at each size, which is what it claims to do. *An earlier
+version of this paragraph, written on the dim 16–64 panels, said the jackknife
+keeps the corrected bias comparatively flat across dimension. The re-run panels
+do not show that, and on inspection neither did the old ones.*
+
+**These exponents are not Result 1's.** Section 6 fits the *maximum-over-time*
+bias over each panel's whole ladder, from `convergence_progress_*.json`; Result
+1's slope table fits the bias at the single worst instant $t^\ast$ over
+$2\le M\le32$, from `accuracy_vs_M_*.json`. The two tables now share dims 128,
+256 and 512, and at dim 512 both print $-0.94$ — by coincidence, from different
+files measuring different things.
 
 **Seed robustness.** Recomputing the accuracy-versus-cost frontier across four
 independent master seeds leaves the picture unchanged: per-seed frontiers
@@ -2368,8 +2471,9 @@ wins** — `benchmark_seed_robustness.py` runs the spin chain at dimension 16 wi
 $M \in \{2,8,32\}$ against $\texttt{ntraj} \in \{50,200,1000\}$, a different
 size and a different budget from Result 3's System A comparison at dimension 64
 ($M=16$ against $\texttt{ntraj}=500$), where SLB loses on every observable.
-The two are not in conflict and neither generalises to the other. As with the
-convergence sweeps above, $M=32$ sits past the shipped $N_L=13$ at this size.
+The two are not in conflict and neither generalises to the other. Unlike the
+re-run spin panels above, this figure predates 0.6.4, and its $M=32$ sits past
+the shipped $N_L=13$ at this size.
 
 ![spin chain seed robustness](benchmark_seed_robustness_spin_chain.png)
 

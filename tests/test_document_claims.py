@@ -168,9 +168,20 @@ def _decode(cell: str) -> float:
     Matched rather than split, because the final cell of a row carries a
     trailing annotation like '(to dim 128)'.
     """
+    return _decode_with_precision(cell)[0]
+
+
+def _decode_with_precision(cell: str) -> tuple[float, float]:
+    """The value and half a unit in its last printed digit: '1.07x10^-1' ->
+    (0.107, 0.0005). A value must round to what is printed, so that is the
+    tolerance. rel=0.03 used to stand in for it and let 1.07 stand for a
+    measured 1.0647."""
     match = re.match(r"\s*([\d.]+)×10([⁻⁰¹²³⁴⁵⁶⁷⁸⁹]+)", cell)
     assert match, f"cannot read a value from {cell!r}"
-    return float(match.group(1)) * 10 ** int(match.group(2).translate(SUPERSCRIPT))
+    mantissa, exponent = match.group(1), int(match.group(2).translate(SUPERSCRIPT))
+    decimals = len(mantissa.split(".")[1]) if "." in mantissa else 0
+    return (float(mantissa) * 10 ** exponent,
+            0.5 * 10 ** (exponent - decimals) * (1 + 1e-9))
 
 
 @pytest.mark.parametrize("label,system", [("A** TFIM chain", "spin_chain"),
@@ -187,13 +198,16 @@ def test_height_row_and_exponent_match_the_data(doc, label, system):
         rf"\|\s*\*\*{re.escape(label)}\s*\|([^|]*→[^|]*)\|([^|]*)\|", doc)
     assert row, f"height row for {label} not found"
 
-    values = [_decode(c.strip()) for c in row.group(1).split("→")
-              if "×10" in c]
+    cells = [_decode_with_precision(c.strip()) for c in row.group(1).split("→")
+             if "×10" in c]
+    values = [v for v, _ in cells]
     dims = committed_dims(system)
     assert len(values) == len(dims), (
         f"{system}: row quotes {len(values)} values, data has {len(dims)}: {dims}")
     measured = [height(system, d) for d in dims]
-    assert measured == pytest.approx(values, rel=0.03)
+    for d, m, (v, half) in zip(dims, measured, cells):
+        assert abs(m - v) <= half, (
+            f"{system} dim {d}: measured {m:.4e} does not round to the printed {v:.4e}")
 
     exponent = re.search(r"N\^([+-][\d.]+)", row.group(2).translate(MINUS))
     assert exponent, (
@@ -711,6 +725,294 @@ def test_result3_dim2048_sentence_matches_the_data(doc):
         assert int(q_traj10) == pytest.approx(mc10["wall_s"] / mc10["ntraj"], abs=0.5)
 
 
+def test_result3_dim2048_growth_is_quoted_at_matched_substeps(doc):
+    """The dim-2048 paragraph once set a 4-substep ratio (4.9x) against an
+    8-substep one (3.5x at 10 spins) and read a growing gap into it. At
+    matched substeps the gap shrank. This pins the corrected comparison AND
+    the fact that makes it valid: both denominators really are 8 substeps --
+    the dim-2048 reference solve and section 5.2's dim-1024 grid timing."""
+    import plot_method_comparison as pmc  # noqa: F401  (same import path as above)
+
+    p11 = DATA / "method_comparison_spin_chain_dim2048.json"
+    p10 = DATA / "method_comparison_spin_chain_dim1024.json"
+    pgrid = DATA / "solver_timing_spin_chain.json"
+    if not (p11.exists() and p10.exists() and pgrid.exists()):
+        pytest.skip("dim-1024 / dim-2048 / timing-grid files not all committed")
+    point = json.loads(p11.read_text(encoding="utf-8"))["point"]
+    mc11, ref11 = point["methods"]["mcsolve"], point["reference"]
+    mc10 = json.loads(p10.read_text(encoding="utf-8"))["point"]["methods"]["mcsolve"]
+    grid = {p["dim"]: p for p in
+            json.loads(pgrid.read_text(encoding="utf-8"))["points"]}[1024]
+
+    assert ref11["selfcheck"]["primary_substeps"] == 8
+    assert grid["native_substeps"] == 8, "the 10-spin denominator is no longer 8 substeps"
+    g10 = grid["timings"]["native"]["median_s"]
+
+    match = re.search(
+        r"8-substep reference solve,\s+\*\*([\d,]+) s\*\*, the ratio is "
+        r"\*\*([\d.]+)\u00d7\*\*.*?\(([\d.]+)\u00d7 to ([\d.]+)\u00d7\)\. Its cost per\s+"
+        r"trajectory rose ([\d.]+)\u00d7 \((\d+) s to (\d+) s\) while the 8-substep "
+        r"exact solve rose ([\d.]+)\u00d7\s+\(([\d,]+) s to ([\d,]+) s\)", doc, re.S)
+    assert match, "the dim-2048 matched-substep comparison has changed shape"
+    (q_ref, q_r11, q_r10, q_r11b, q_traj_growth, q_t10, q_t11,
+     q_exact_growth, q_g10, q_ref_b) = match.groups()
+
+    num = lambda s: float(s.replace(",", ""))
+    assert num(q_ref) == pytest.approx(ref11["wall_s"], abs=0.5)
+    assert num(q_ref_b) == pytest.approx(ref11["wall_s"], abs=0.5)
+    assert num(q_g10) == pytest.approx(g10, abs=0.5)
+    assert float(q_r11) == pytest.approx(mc11["wall_s"] / ref11["wall_s"], abs=0.05)
+    assert float(q_r11b) == pytest.approx(mc11["wall_s"] / ref11["wall_s"], abs=0.05)
+    assert float(q_r10) == pytest.approx(mc10["wall_s"] / g10, abs=0.05)
+    t10, t11 = mc10["wall_s"] / mc10["ntraj"], mc11["wall_s"] / mc11["ntraj"]
+    assert int(q_t10) == pytest.approx(t10, abs=0.5)
+    assert int(q_t11) == pytest.approx(t11, abs=0.5)
+    assert float(q_traj_growth) == pytest.approx(t11 / t10, abs=0.05)
+    assert float(q_exact_growth) == pytest.approx(ref11["wall_s"] / g10, abs=0.05)
+    assert float(q_r11) < float(q_r10), "the paragraph says the gap shrank"
+    first = re.search(r"That is not up from the ([\d.]+)\u00d7 at 10 spins", doc)
+    assert first, "the dim-2048 paragraph no longer names the 10-spin ratio"
+    assert float(first.group(1)) == pytest.approx(mc10["wall_s"] / g10, abs=0.05)
+
+
+def test_result3_mixed_chain_dim256_paragraph_matches_the_data(doc):
+    """Result 3's System B dim-256 paragraph: the reference's self-check and
+    its agreement with Result 1's independent reference at the same size,
+    both wall-clocks and both ratios (against the 4-substep native solve and
+    the 8-substep reference), mcsolve's energy error and s.e.m., and the
+    spread of its error/s.e.m. ratio across all six observables against the
+    sqrt(2) line -- all through plot_method_comparison.method_errors, the
+    scoring the figures use."""
+    import plot_method_comparison as pmc
+
+    path = DATA / "method_comparison_mixed_chain_dim256.json"
+    r1path = DATA / "accuracy_vs_M_mixed_chain_dim256.json"
+    if not (path.exists() and r1path.exists()):
+        pytest.skip("System B dim-256 files not committed")
+    point = json.loads(path.read_text(encoding="utf-8"))["point"]
+    mc, nat, ref = point["methods"]["mcsolve"], point["methods"]["native"], point["reference"]
+    r1 = json.loads(r1path.read_text(encoding="utf-8"))
+
+    match = re.search(
+        r"dimension 256 \(8 spins.*?deviation of ([\d.]+)\u00d710\u207b\u2079"
+        r".*?Result 1's \(job (\d{8})\); the two agree on the energy at \$t=5\$ to all "
+        r"eight\s+decimals Result 1's file stores"
+        r".*?took \*\*([\d,]+) s\*\*, (\d+) s per trajectory, against \*\*([\d,]+) s\*\*"
+        r".*?\*\*([\d.]+)\u00d7 slower than the exact\s+solve\*\* \(([\d.]+)\u00d7 against "
+        r"the 8-substep reference solve, ([\d,]+) s\)\. Its energy\s+error is "
+        r"([\d.]+)\u00d710\u207b\u00b2, of which ([\d.]+)\u00d710\u207b\u00b2 is the "
+        r"sampling s\.e\.m\. \u2014 a ratio of\s+([\d.]+),.*?ratio runs from "
+        r"([\d.]+) to ([\d.]+) \u2014 energy, sx and coherence above the line; zz, sz"
+        r"\s+and zz_per_bond below it.*?the 38\u00d7 there and the ([\d.]+)\u00d7 here",
+        doc, re.S)
+    assert match, "Result 3's System B dim-256 paragraph has changed shape"
+    (q_dev, q_r1job, q_mc, q_traj, q_nat, q_r_nat, q_r_ref, q_ref, q_err, q_sem,
+     q_ratio, q_lo, q_hi, q_here) = match.groups()
+    num = lambda s: float(s.replace(",", ""))
+
+    assert ref["selfcheck"]["passed"] is True
+    assert float(q_dev) == pytest.approx(ref["selfcheck"]["max_abs_dev"] * 1e9, abs=0.05)
+    e3 = float(np.mean(np.atleast_2d(ref["curves"]["energy"]), axis=0)[-1])
+    e1 = float(r1["reference"]["energy"][-1])
+    # Result 1 stores 8 decimals; "agree to all of them" means this, exactly.
+    assert round(e3, 8) == e1, f"Result 3 {e3!r} does not round to Result 1's {e1!r}"
+    assert q_r1job == str(r1["meta"]["execution"]["slurm"]["job_id"])
+    assert float(q_here) == pytest.approx(mc["wall_s"] / nat["wall_s"], abs=0.05)
+
+    assert num(q_mc) == pytest.approx(mc["wall_s"], abs=0.5)
+    assert num(q_traj) == pytest.approx(mc["wall_s"] / mc["ntraj"], abs=0.5)
+    assert num(q_nat) == pytest.approx(nat["wall_s"], abs=0.5)
+    assert num(q_ref) == pytest.approx(ref["wall_s"], abs=0.5)
+    assert float(q_r_nat) == pytest.approx(mc["wall_s"] / nat["wall_s"], abs=0.05)
+    assert float(q_r_ref) == pytest.approx(mc["wall_s"] / ref["wall_s"], abs=0.05)
+
+    ratios = {}
+    for obs in point["observables"]:
+        row = [r for r in pmc.method_errors(point, obs) if r[0] == "mcsolve"][0]
+        ratios[obs] = row[2] / row[5]
+        if obs == "energy":
+            assert float(q_err) == pytest.approx(100 * row[2], abs=0.005)
+            assert float(q_sem) == pytest.approx(100 * row[5], abs=0.005)
+    assert float(q_ratio) == pytest.approx(ratios["energy"], abs=0.005)
+    assert float(q_lo) == pytest.approx(min(ratios.values()), abs=0.005)
+    assert float(q_hi) == pytest.approx(max(ratios.values()), abs=0.005)
+    above = {o for o, r in ratios.items() if r > math.sqrt(2)}
+    assert above == {"energy", "sx", "coherence"}, (
+        f"the paragraph names energy, sx and coherence above sqrt(2); data: {sorted(above)}")
+
+
+def test_result5_reference_wall_sentence_matches_the_data(doc):
+    """Result 5 opens by naming, per system, the largest dimension whose
+    Result 1 file carries a certified exact reference, and the job behind it.
+    This sentence said 512 / 128 / 128 while the data had moved to 1024 / 256
+    -- System B's for eleven days -- because nothing read it."""
+    match = re.search(
+        r"largest dimension carrying an exact reference is \*\*(\d+) on System A\*\* "
+        r"\(native RK4 at 8 substeps, job (\d{8})\), \*\*(\d+) on System B\*\* "
+        r"\(job (\d{8})\), and \*\*(\d+) on the oscillator\*\*", doc)
+    assert match, "Result 5's reference-wall sentence has changed shape"
+    a_dim, a_job, b_dim, b_job, c_dim = match.groups()
+
+    def wall(system):
+        for dim in sorted(committed_dims(system), reverse=True):
+            d = json.loads((DATA / f"accuracy_vs_M_{system}_dim{dim}.json")
+                           .read_text(encoding="utf-8"))
+            method = d.get("reference_method") or ""
+            check = d.get("reference_selfcheck") or {}
+            if method.startswith("mesolve") or check.get("passed"):
+                job = d.get("meta", {}).get("execution", {}).get("slurm", {}).get("job_id")
+                return dim, str(job) if job else None
+        return None, None
+
+    for system, q_dim, q_job in (("spin_chain", a_dim, a_job),
+                                 ("mixed_chain", b_dim, b_job),
+                                 ("oscillator_bath", c_dim, None)):
+        dim, job = wall(system)
+        assert int(q_dim) == dim, f"{system}: sentence says {q_dim}, data certifies {dim}"
+        if q_job is not None:
+            assert q_job == job, f"{system}: sentence names job {q_job}, file records {job}"
+
+
+# --- 6. section 6, which had no guard until its data moved without it --------
+
+SECTION6_PRETTY = {"Spin Chain": "spin_chain", "Oscillator Bath": "oscillator_bath"}
+SECTION6_ROW = re.compile(
+    r"^\|\s*(Spin Chain|Oscillator Bath)\s*\|\s*(?:dim\s*)?(\d+)\s*\|"
+    r"\s*`M\^(-?[\d.]+)`\s*\|"
+    r"\s*(?:`M\^(-?[\d.]+)`|\u2014)\s*\|"
+    r"\s*(?:([\d.]+)(?:\u2013([\d.]+))?\u00d7|\u2014)\s*\|"
+    r"\s*([a-z ]+?)\s*\|\s*$", re.M)
+
+
+def _section6_panels():
+    """(system, dim) -> file, with the dim read from the FILE, not the panel's
+    label, so a mislabelled panel cannot check the table against the wrong
+    data."""
+    import plot_jackknife_rate_strip as strip
+    panels = {}
+    for key, cfg in strip.SYSTEMS.items():
+        for fname, _label in cfg["panels"]:
+            d = json.loads((BENCHMARKS / fname).read_text(encoding="utf-8"))
+            panels[(key, int(d["dim"]))] = fname
+    return strip, panels
+
+
+def test_section6_jackknife_rate_table_matches_the_progress_files(doc):
+    """Section 6's rate table, row by row, recomputed through
+    plot_jackknife_rate_strip.fit_stats -- the function the strip figure draws
+    with, so the table cannot disagree with its own figure.
+
+    The size-set check is the one that matters most. Section 6 sat at dims
+    16/32/64 on pre-0.6.4 data while every other section moved to 512 and
+    beyond, and no test noticed, because none existed. This one fails in both
+    directions: the plotter moving without the table, or the table without the
+    plotter."""
+    strip, panels = _section6_panels()
+    rows = SECTION6_ROW.findall(doc.translate(MINUS))
+    assert rows, "section 6's jackknife rate table is not where this test expects it"
+
+    quoted = {(SECTION6_PRETTY[p], int(d)) for p, d, *_ in rows}
+    assert quoted == set(panels), (
+        f"the table quotes {sorted(quoted)} but plot_jackknife_rate_strip.py "
+        f"draws {sorted(panels)}")
+
+    for pretty, dim, b, jk, lo, hi, verdict in rows:
+        fname = panels[(SECTION6_PRETTY[pretty], int(dim))]
+        f = strip.fit_stats(json.loads((BENCHMARKS / fname).read_text(encoding="utf-8")))
+        where = f"{pretty} dim {dim} ({fname})"
+        assert f["b_slope"] == pytest.approx(float(b), abs=0.005), where
+        if jk:
+            assert f["quotable"], f"{where}: table quotes a slope the 2xSEM/3-point rule refuses"
+            assert f["jk_slope"] == pytest.approx(float(jk), abs=0.005), where
+        else:
+            assert not f["quotable"], f"{where}: table withholds a quotable slope"
+        if lo:
+            assert f["gain_hi"] == pytest.approx(float(hi or lo), abs=0.05), where
+            # A single printed reduction must be the whole range, not its top.
+            assert f["gain_lo"] == pytest.approx(float(lo), abs=0.05), where
+        assert verdict == f["verdict"], (
+            f"{where}: table says {verdict!r}, fit_stats says {f['verdict']!r}")
+
+
+def test_section6_uncorrected_exponent_range_matches_the_panels(doc):
+    """'the fitted bias exponent sits at M^-a to M^-b across all sizes' --
+    the min and max of the drawn panels' uncorrected slopes."""
+    strip, panels = _section6_panels()
+    match = re.search(r"fitted bias exponent sits at \$M\^\{(-[\d.]+)\}\$ to "
+                      r"\$M\^\{(-[\d.]+)\}\$\s+across all sizes", doc)
+    assert match, "section 6's exponent-range sentence has changed shape"
+    slopes = [strip.fit_stats(json.loads((BENCHMARKS / f).read_text(encoding="utf-8")))["b_slope"]
+              for f in panels.values()]
+    shallow, steep = (float(x) for x in match.groups())
+    assert shallow == pytest.approx(max(slopes), abs=0.005)
+    assert steep == pytest.approx(min(slopes), abs=0.005)
+
+
+def test_section6_prose_repeats_the_table_faithfully(doc):
+    """The paragraph under section 6's table restates its exponents, the most
+    floor-clearing panel, the corrected bias's clearance at dim 512, and the
+    growth of both biases across dimension. The table test cannot see any of
+    that, and a copy corrected in one place and not the other is this
+    project's most common defect."""
+    strip, panels = _section6_panels()
+    F = {d: strip.fit_stats(json.loads((BENCHMARKS / panels[("spin_chain", d)])
+                                       .read_text(encoding="utf-8")))
+         for d in (128, 256, 512)}
+    m = re.search(r"steepens to\s+\$M\^\{(-[\d.]+)\}\$, \$M\^\{(-[\d.]+)\}\$ and "
+                  r"\$M\^\{(-[\d.]+)\}\$ at dims 128, 256 and 512, from\s+uncorrected rates "
+                  r"of \$M\^\{(-[\d.]+)\}\$, \$M\^\{(-[\d.]+)\}\$ and \$M\^\{(-[\d.]+)\}\$, "
+                  r"and falls up to\s+\$([\d.]+)\\times\$", doc)
+    assert m, "section 6's restatement of the table has changed shape"
+    q = [float(x) for x in m.groups()]
+    for i, d in enumerate((128, 256, 512)):
+        assert q[i] == pytest.approx(F[d]["jk_slope"], abs=0.005)
+        assert q[3 + i] == pytest.approx(F[d]["b_slope"], abs=0.005)
+    assert q[6] == pytest.approx(max(f["gain_hi"] for f in F.values()), abs=0.05)
+
+    m = re.search(r"clears the floor on (\w+) points of\s+(\w+)", doc)
+    words = {"three": 3, "four": 4, "five": 5, "six": 6}
+    assert m and words[m.group(1)] == F[512]["n_above"] and words[m.group(2)] == len(F[512]["M"])
+
+    m = re.search(r"corrected bias clears its own s\.e\.m\. by \$(\d+)\\times\$ at \$M=2\$ "
+                  r"and\s+>?\s*\$(\d+)\\times\$ at \$M=8\$", doc)
+    assert m, "section 6's corrected-bias clearance sentence has changed shape"
+    ratio = F[512]["bjk"] / F[512]["sem"]
+    M = list(F[512]["M"])
+    assert int(m.group(1)) == round(ratio[M.index(2)])
+    assert int(m.group(2)) == round(ratio[M.index(8)])
+
+    m = re.search(r"uncorrected bias grows ([\d.]+)\u2013([\d.]+)\u00d7 and the corrected "
+                  r"bias grows\s+([\d.]+)\u2013([\d.]+)\u00d7", doc)
+    assert m, "section 6's growth-across-dimension sentence has changed shape"
+    a, c = F[128], F[512]
+    both = [M_ for M_ in a["M"] if a["bjk"][list(a["M"]).index(M_)] > 2 * a["sem"][list(a["M"]).index(M_)]
+            and c["bjk"][list(c["M"]).index(M_)] > 2 * c["sem"][list(c["M"]).index(M_)]]
+    unc = [c["bias"][list(c["M"]).index(x)] / a["bias"][list(a["M"]).index(x)] for x in both]
+    jk = [c["bjk"][list(c["M"]).index(x)] / a["bjk"][list(a["M"]).index(x)] for x in both]
+    q = [float(x) for x in m.groups()]
+    assert (q[0], q[1]) == pytest.approx((min(unc), max(unc)), abs=0.05)
+    assert (q[2], q[3]) == pytest.approx((min(jk), max(jk)), abs=0.05)
+    assert min(jk) >= min(unc), "the sentence says the corrected bias grows at least as fast"
+
+
+def test_result1_chains_are_compared_on_their_common_range(doc):
+    """Result 1 once called the two chains' height growth the same by setting
+    System A's exponent over seven sizes against System B's over five. Each
+    exponent falls as its range lengthens, so only a common range compares.
+    This pins the matched-range numbers the section now quotes."""
+    m = re.search(r"dims 16 to 256, System A grows as \$N\^\{\+([\d.]+)\}\$ and System B as "
+                  r"\$N\^\{\+([\d.]+)\}\$ \u2014 a\s+gap of \$([\d.]+)\$", doc)
+    assert m, "Result 1's matched-range comparison has changed shape"
+    common = sorted(set(committed_dims("spin_chain")) & set(committed_dims("mixed_chain")))
+    assert (common[0], common[-1]) == (16, 256), f"common range is now {common}"
+    fit = lambda s: linregress(np.log10(common),
+                               np.log10([height(s, d) for d in common])).slope
+    a, b = fit("spin_chain"), fit("mixed_chain")
+    assert float(m.group(1)) == pytest.approx(a, abs=0.005)
+    assert float(m.group(2)) == pytest.approx(b, abs=0.005)
+    assert float(m.group(3)) == pytest.approx(a - b, abs=0.005)
+
+
 def test_result1_oscillator_resolution_claims_match_the_decomposition(doc):
     """Result 1 says the oscillator's bias is resolved at dim 128 (52-61x its
     s.e.m. at 200 realizations, 109-120x at 800) and at the floor at dim 64
@@ -744,10 +1046,17 @@ def test_result1_oscillator_resolution_claims_match_the_decomposition(doc):
     assert match, "Result 1's oscillator resolution sentence has changed shape"
     q = [float(g) for g in match.groups()]
 
+    small = re.search(r"dims 16 and 32 fare little better at that\s+instant, at "
+                      r"([\d.]+) to ([\d.]+) and ([\d.]+) to ([\d.]+)", doc)
+    assert small, "Result 1's dims-16-and-32 resolution clause has changed shape"
+    s = [float(g) for g in small.groups()]
+
     for (lo_q, hi_q), name, tol in (
             ((q[0], q[1]), "accuracy_vs_M_oscillator_bath_dim128.json", 0.5),
             ((q[2], q[3]), "accuracy_vs_M_oscillator_bath_dim128_r800.json", 0.5),
-            ((q[4], q[5]), "accuracy_vs_M_oscillator_bath_dim64.json", 0.05)):
+            ((q[4], q[5]), "accuracy_vs_M_oscillator_bath_dim64.json", 0.05),
+            ((s[0], s[1]), "accuracy_vs_M_oscillator_bath_dim16.json", 0.05),
+            ((s[2], s[3]), "accuracy_vs_M_oscillator_bath_dim32.json", 0.05)):
         path = DATA / name
         if not path.exists():
             pytest.skip(f"{name} not committed")

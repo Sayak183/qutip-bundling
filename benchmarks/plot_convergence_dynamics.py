@@ -11,11 +11,13 @@ Result 1's -- because that file stores per-realization curves for every
 observable at a single dimension, which is exactly what a time-trace panel
 needs. The practical consequences:
 
-  * the dimension defaults to the LARGEST ``method_comparison`` file on disk
-    for each system, chosen per system rather than globally -- currently 512
-    for the chain and 128 for the other two. That matches what
-    ``plot_accuracy_vs_M.py`` and ``plot_R1_invariance.py`` already do, so all
-    three of Result 1's figure groups now show the same sizes;
+  * the dimension defaults to the largest ``method_comparison`` file on disk
+    that carries SLB curves, chosen per system rather than globally --
+    currently 512 for the chain and 128 for the other two. Result 3 has larger
+    files (System A to 2048, B to 256) that ran only the exact solver and
+    mcsolve. The error-decomposition figures read Result 1's files and sit one
+    size higher on both chains (1024 and 256), so the figure groups no longer
+    show the same sizes, and BENCHMARKS.md says so;
   * there are **16 realizations** per M, not the 200 behind
     ``benchmark_accuracy_<system>.png`` and the error-decomposition figures;
   * the M values are Result 3's grid capped at N_L, so they differ per system:
@@ -107,13 +109,23 @@ def mean_curve(c):
 
 
 def largest_dim(system_name):
-    """Largest committed method_comparison dimension for this system.
+    """Largest committed method_comparison dimension for this system that
+    carries SLB curves -- the only thing these figures draw.
 
     Per system, not global: the systems do not reach the same sizes, and
     pinning all three to the smallest would waste the data the others have.
+
+    It must check for SLB, not just take the largest file. Result 3 has since
+    added sizes that ran only the exact solver and mcsolve (System A at 1024
+    and 2048, System B at 256), so the largest file is no longer one with a
+    bundle ladder in it, and "auto" silently jumped System A from 512 to 2048
+    -- a figure with nothing to plot.
     """
-    dims = [int(p.stem.split("dim")[-1])
-            for p in DATA_DIR.glob(f"method_comparison_{system_name}_dim*.json")]
+    dims = []
+    for p in DATA_DIR.glob(f"method_comparison_{system_name}_dim*.json"):
+        point = json.loads(p.read_text(encoding="utf-8"))["point"]
+        if "slb" in point.get("methods", {}):
+            dims.append(int(p.stem.split("dim")[-1]))
     return max(dims) if dims else None
 
 
@@ -235,9 +247,7 @@ def main():
     ap.add_argument("--dim", default="auto",
                     help="Hilbert dimension to draw, or 'auto' (the default) "
                          "for the largest method_comparison file each system "
-                         "has. 'auto' matches plot_accuracy_vs_M.py and "
-                         "plot_R1_invariance.py, so Result 1's three figure "
-                         "groups show the same sizes.")
+                         "has that carries SLB curves.")
     ap.add_argument("--min-m", type=int, default=2,
                     help="lowest bundle size to draw (default 2). M=1 is one "
                          "unaveraged operator combination and adds nothing the "

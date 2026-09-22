@@ -370,16 +370,35 @@ RESULT_DATA_GLOBS = {
     # frontier_spins_*.json was invisible to this guard when it first landed,
     # which is precisely the unattributed-run gap the guard exists to catch.
     "5": ("extreme_dimension_*.json", "frontier_spins_*.json"),
+    # Section 6's jackknife check. Its files live beside the figures in
+    # benchmarks/, not in data/, which is why this guard was blind to them:
+    # job 19609868 re-ran the spin panels at dims 128/256/512 and appeared
+    # nowhere in the document, and nothing complained.
+    "6": ("convergence_progress_*.json",),
 }
+# Where each Result's files live, when that is not data/.
+RESULT_DATA_DIRS = {"6": BENCHMARK_DIR}
 
 
-def _job_ids_in_data(patterns) -> set[str]:
+def _job_ids_in_data(patterns, directory=None) -> set[str]:
+    """Slurm job IDs recorded by the files matching ``patterns``.
+
+    Only outside data/ may a file lack a ``meta`` block: section 6's pre-0.6.4
+    convergence files in benchmarks/ predate metadata stamping and record no
+    job, so there is nothing to attribute. Under data/ a missing ``meta`` is
+    still fatal -- a run with no provenance is exactly what this guard exists
+    to catch, and skipping it would hide one.
+    """
     found = set()
     for pattern in patterns:
-        for path in sorted(DATA_DIR.glob(pattern)):
-            execution = json.loads(
-                path.read_text(encoding="utf-8"))["meta"]["execution"]
-            job = execution.get("slurm", {}).get("job_id")
+        for path in sorted((directory or DATA_DIR).glob(pattern)):
+            meta = json.loads(path.read_text(encoding="utf-8")).get("meta")
+            if not meta:
+                if directory is None:
+                    raise RuntimeError(f"{path.name} has no meta block: "
+                                       "its run cannot be attributed")
+                continue
+            job = meta.get("execution", {}).get("slurm", {}).get("job_id")
             if job:
                 found.add(str(job))
     return found
@@ -413,7 +432,7 @@ def validate_provenance_table() -> int:
 
     problems = []
     for result, pattern in sorted(RESULT_DATA_GLOBS.items()):
-        in_data = _job_ids_in_data(pattern)
+        in_data = _job_ids_in_data(pattern, RESULT_DATA_DIRS.get(result))
         if not in_data:
             continue
         in_row = set(re.findall(r"\b(\d{8})\b", rows.get(result, "")))

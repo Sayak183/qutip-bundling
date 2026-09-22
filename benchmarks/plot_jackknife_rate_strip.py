@@ -1,9 +1,11 @@
 """Jackknife rate strips (Result 6 validation), one per system.
 
 For each system, collapses the per-dimension jackknife-rate convergence panels
-(dim 16 / 32 / 64) into ONE shared-axis strip, so the "steepening resolves
-where the sampling floor allows" story reads as a single small-to-large
-comparison instead of loose PNGs.
+into ONE shared-axis strip, so each system's small-to-large comparison reads as
+one figure instead of loose PNGs. The spin chain is drawn at dims 128 / 256 /
+512, re-run on the shipped 0.6.4 construction (job 19609868); the oscillator at
+dims 16 / 32 / 64, the pre-0.6.4 originals, which stay reproducible because
+their N_L is far above the M = 64 top of the sweep.
 
 Plot-only: reads the committed convergence_progress_*.json files that
 benchmark_convergence.py already wrote -- no recompute. The per-panel fit uses
@@ -21,17 +23,27 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
-from common import add_settings_footer
+from common import add_settings_footer, size_label
 
-# One strip per system, panels small-to-large. The unsuffixed progress file is
-# dim 16 (original convergence run); _dim32/_dim64 are the larger sizes.
+# One strip per system, panels small-to-large.
+#
+# Spin chain: dims 128 / 256 / 512 on the shipped construction. The old dim
+# 16 / 32 / 64 panels (convergence_progress_spin_chain.json, _dim32, _dim64)
+# were computed before 0.6.4, when N_L was 64 / 218 / 869; the shipped
+# construction gives 13 / 21 / 31, so half their M ladder sat above what ships.
+# They stay committed as history and are no longer drawn. At the new sizes N_L
+# is 43 / 57 / 73 and the runner skips M > N_L, so every drawn point exists on
+# the shipped code.
+#
+# Oscillator: the unsuffixed file is dim 16 (original convergence run);
+# _dim32 / _dim64 are the larger sizes. Pre-0.6.4, still reproducible.
 SYSTEMS = {
     "spin_chain": {
         "pretty": "Spin Chain",
         "panels": [
-            ("convergence_progress_spin_chain.json",       "dim 16"),
-            ("convergence_progress_spin_chain_dim32.json", "dim 32"),
-            ("convergence_progress_spin_chain_dim64.json", "dim 64"),
+            ("convergence_progress_spin_chain_dim128.json", "dim 128"),
+            ("convergence_progress_spin_chain_dim256.json", "dim 256"),
+            ("convergence_progress_spin_chain_dim512.json", "dim 512"),
         ],
     },
     "oscillator_bath": {
@@ -82,7 +94,7 @@ def fit_stats(d):
                 gain_lo=gain_lo, gain_hi=gain_hi, verdict=verdict)
 
 
-def draw_panel(ax, f, label, show_ylabel):
+def draw_panel(ax, f, title, show_ylabel):
     M, stat, bias, bjk, sem = f["M"], f["stat"], f["bias"], f["bjk"], f["sem"]
     ax.loglog(M, stat, "o-", color="tab:blue", lw=1.6, ms=5, label="std")
     ax.loglog(M, sem, ":", color="tab:blue", alpha=0.5, label="SEM floor")
@@ -96,7 +108,7 @@ def draw_panel(ax, f, label, show_ylabel):
     ax.loglog(M, bias[0]*(M/M[0])**-1.0, "--", color="tab:green", alpha=0.45)
     ax.loglog(M, bjk[0]*(M/M[0])**-2.0, "--", color="tab:red", alpha=0.45)
 
-    ax.set_title(label, fontsize=13)
+    ax.set_title(title, fontsize=13)
     ax.set_xlabel("bundle size $M$", fontsize=12)
     if show_ylabel:
         ax.set_ylabel(r"max-over-time error in $\langle H\rangle$", fontsize=12)
@@ -117,7 +129,9 @@ def build_strip(system_key, cfg):
     if len(panels) == 1:
         axes = [axes]
     for i, (ax, (f, label)) in enumerate(zip(axes, fits)):
-        draw_panel(ax, f, label, show_ylabel=(i == 0))
+        # Titles read physically first ("7 spins, dim 128"), like every
+        # Result 1 figure; the table keeps the bare "dim 128" label.
+        draw_panel(ax, f, size_label(system_key, f["dim"]), show_ylabel=(i == 0))
     fig.suptitle(f"{cfg['pretty']}: jackknife bias correction vs $M$ "
                  f"(rate steepens where the sampling floor allows)",
                  fontsize=14, y=1.02)

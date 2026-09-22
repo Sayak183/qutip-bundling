@@ -33,14 +33,30 @@ linregress = pytest.importorskip("scipy.stats").linregress
 M_FIXED = 8
 
 # The rows as published, at M=8, energy, evaluated at t*.
+#
+# Brought up to the published table on 2026-09-22. These rows had stopped at
+# dim 256 on the chain and +0.61 while the document went on to 512 (+0.58) and
+# then 1024 (+0.555), so the file that exists to catch the DATA moving under a
+# fixed table was blind to the three newest sizes across the three systems.
+#
+# Values are STRINGS, as printed, so each is checked at the precision it is
+# printed to: a measured value must round to it. A float with rel=0.03 used to
+# stand in, and let "1.07" stand for a measured 1.0647.
 PUBLISHED = {
-    "spin_chain": ([16, 32, 64, 128, 256],
-                   [3.3e-2, 5.0e-2, 8.0e-2, 1.24e-1, 1.74e-1], +0.61),
-    "mixed_chain": ([16, 32, 64, 128],
-                    [2.6e-2, 3.4e-2, 5.5e-2, 8.8e-2], +0.61),
-    "oscillator_bath": ([16, 32, 64],
-                        [2.6e-3, 2.3e-3, 2.0e-3], -0.20),
+    "spin_chain": ([16, 32, 64, 128, 256, 512, 1024],
+                   ["3.3e-2", "5.0e-2", "8.0e-2", "1.24e-1", "1.74e-1",
+                    "2.44e-1", "3.24e-1"], +0.555),
+    "mixed_chain": ([16, 32, 64, 128, 256],
+                    ["2.6e-2", "3.4e-2", "5.5e-2", "8.8e-2", "1.06e-1"], +0.55),
+    "oscillator_bath": ([16, 32, 64, 128],
+                        ["2.6e-3", "2.3e-3", "2.0e-3", "1.5e-3"], -0.26),
 }
+
+
+def _half_unit(printed: str) -> float:
+    mantissa, exponent = printed.split("e")
+    decimals = len(mantissa.split(".")[1]) if "." in mantissa else 0
+    return 0.5 * 10 ** (int(exponent) - decimals) * (1 + 1e-9)
 
 
 def _samples(item):
@@ -72,9 +88,10 @@ def _bias(system, dim, worst_time=True):
 @pytest.mark.parametrize("system", sorted(PUBLISHED))
 def test_height_row_matches_the_data(system):
     dims, published, _exponent = PUBLISHED[system]
-    measured = [_bias(system, d) for d in dims]
-    # 3% covers the two significant figures the table prints.
-    assert measured == pytest.approx(published, rel=0.03)
+    for d, p in zip(dims, published):
+        m = _bias(system, d)
+        assert abs(m - float(p)) <= _half_unit(p), (
+            f"{system} dim {d}: measured {m:.4e} does not round to {p}")
 
 
 @pytest.mark.parametrize("system", sorted(PUBLISHED))
@@ -85,15 +102,19 @@ def test_height_exponent_matches_the_data(system):
     assert slope == pytest.approx(exponent, abs=0.005)
 
 
-def test_the_two_chains_grow_at_the_same_rate():
-    """The claim the corrected table makes. Worth its own test because the
-    previous version of the section read a difference into the gap."""
-    slopes = {}
-    for system in ("spin_chain", "mixed_chain"):
-        dims, _pub, _exp = PUBLISHED[system]
-        slopes[system] = linregress(
-            np.log10(dims), np.log10([_bias(system, d) for d in dims])).slope
-    assert slopes["spin_chain"] == pytest.approx(slopes["mixed_chain"], abs=0.01)
+def test_the_two_chains_are_compared_on_a_common_range():
+    """This test used to assert the two chains grow at the same rate, fitting
+    System A over seven sizes and System B over five. Each exponent falls as
+    its range lengthens, so that compared unequal things and passed only
+    because A had two more doublings. On the common range, dims 16 to 256,
+    A grows as N^+0.61 and B as N^+0.55. Pinned here so the comparison stays
+    like with like whichever chain is extended next."""
+    common = sorted(set(PUBLISHED["spin_chain"][0]) & set(PUBLISHED["mixed_chain"][0]))
+    slopes = {s: linregress(np.log10(common),
+                            np.log10([_bias(s, d) for d in common])).slope
+              for s in ("spin_chain", "mixed_chain")}
+    assert slopes["spin_chain"] == pytest.approx(0.61, abs=0.005)
+    assert slopes["mixed_chain"] == pytest.approx(0.55, abs=0.005)
 
 
 def test_the_two_conventions_really_do_differ():
