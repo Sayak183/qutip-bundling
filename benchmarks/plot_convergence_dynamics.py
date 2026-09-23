@@ -5,39 +5,35 @@ plot_convergence_dynamics.py
 Result 1's OPENING figures: ``convergence_dynamics_<system>.png``, one per
 system, showing <O(t)> against the exact reference as the bundle size M grows.
 
-**Read the provenance before quoting anything from these figures.** They are
-drawn from ``method_comparison_<system>_dim<D>.json`` -- RESULT 3's data, not
-Result 1's -- because that file stores per-realization curves for every
-observable at a single dimension, which is exactly what a time-trace panel
-needs. The practical consequences:
+Drawn from ``accuracy_vs_M_<system>_dim<D>.json`` -- Result 1's own files,
+the same ones behind the error-decomposition and size-invariance figures --
+since 2026-09-23. They store 200 realizations per M of every observable at
+every time point, which is exactly what a time-trace panel needs.
 
-  * the dimension defaults to the largest ``method_comparison`` file on disk
-    that carries SLB curves, chosen per system rather than globally --
-    currently 512 for the chain and 128 for the other two. Result 3 has larger
-    files (System A to 2048, B to 256) that ran only the exact solver and
-    mcsolve. The error-decomposition figures read Result 1's files and sit one
-    size higher on both chains (1024 and 256), so the figure groups no longer
-    show the same sizes, and BENCHMARKS.md says so;
-  * there are **16 realizations** per M, not the 200 behind
-    ``benchmark_accuracy_<system>.png`` and the error-decomposition figures;
-  * the M values are Result 3's grid capped at N_L, so they differ per system:
-    A and C run 2 to 32, and **B runs 2 to 256**;
-  * ``M=1`` is omitted by default (``--min-m``). One unaveraged operator
-    combination says nothing the rest of the ladder does not, and on System A
-    at dimension 512 it costs the coherence panel most of its readable range.
+Until then these figures read Result 3's ``method_comparison`` files, with 16
+realizations per M, and that capped them one size lower on both chains:
+Result 3's larger points (System A at 1024 and 2048, System B at 256) ran only
+the exact solver and mcsolve, so the largest Result 3 size with SLB curves was
+512 on A and 128 on B. Result 1 reaches 1024 on A and 256 on B. The switch
+costs System B its M = 128 and 256 curves -- Result 1's ladder stops at 64 --
+and gains every panel 12.5x the realizations.
 
-Result 1's other two figure groups (error decomposition, size invariance) come
-from ``accuracy_vs_M_*`` with 200 realizations and are unaffected by any of
-this. Do not describe all three as one dataset.
+  * the dimension defaults to the largest CANONICAL Result 1 file per system
+    (``_dim<D>.json`` and nothing after the number -- a ``_r16`` side-run at a
+    non-default realization count is never picked), so all three of Result 1's
+    figure groups show the same sizes;
+  * the M ladder is Result 1's: 2 to 64 on all three systems at the default
+    sizes, capped at N_L below that (System A stops at 13, 21, 31, 43 and 57
+    at dims 16 to 256);
+  * ``M=1`` is not in Result 1's ladder; ``--min-m`` can still drop rungs.
 
-This script lived in ``scratch/`` until 2026-09-08 -- tracked, but filed away
-from every other plotter and absent from the README, so the only way to find
-the generator of a published figure was to grep for the filename. Moved here
-unchanged apart from the paths, the CLI, and this note.
+``worst_panel_rows`` computes the table BENCHMARKS.md prints under these
+figures -- each M's worst plotted panel as a percentage of that panel's
+reference span, and whether that deviation is resolved above three standard
+errors of its own scatter -- so the table and the figure come from one place.
 
-(The commit that moved it, 96a27c5, claims the file was untracked and that a
-clean checkout could not regenerate the figure. Both are wrong: it was
-committed in 65f22db. The move stands on filing, not on reachability.)
+History: this script lived in ``scratch/`` until 2026-09-08 (committed in
+65f22db, moved in 96a27c5).
 
 Run:  python plot_convergence_dynamics.py [--system ...] [--dim auto|N] [--min-m 2]
 """
@@ -46,15 +42,22 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
 
-from common import add_settings_footer, format_slb_settings, size_label
+from common import (add_settings_footer, format_slb_settings, result1_reference,
+                    result1_samples, size_label)
 
 DATA_DIR = Path(__file__).resolve().parent / "data"
 OUT_DIR = Path(__file__).resolve().parent
+
+# A deviation counts as resolved when it exceeds this many standard errors of
+# the mean at the instant it peaks. The same rule the table under these
+# figures has always used; below it the "deviation" is sampling scatter.
+RESOLVED_SEM = 3.0
 
 # Ultra-legibility, large-format plotting configuration for GitHub Markdown
 plt.style.use('default')
@@ -104,58 +107,94 @@ CONFIGS = {
 }
 
 
-def mean_curve(c):
-    return np.mean(c, axis=0) if isinstance(c, (list, np.ndarray)) and np.ndim(c) == 2 else np.asarray(c)
-
-
 def largest_dim(system_name):
-    """Largest committed method_comparison dimension for this system that
-    carries SLB curves -- the only thing these figures draw.
+    """Largest CANONICAL Result 1 dimension for this system.
 
-    Per system, not global: the systems do not reach the same sizes, and
-    pinning all three to the smallest would waste the data the others have.
-
-    It must check for SLB, not just take the largest file. Result 3 has since
-    added sizes that ran only the exact solver and mcsolve (System A at 1024
-    and 2048, System B at 256), so the largest file is no longer one with a
-    bundle ladder in it, and "auto" silently jumped System A from 512 to 2048
-    -- a figure with nothing to plot.
+    Per system, not global: the systems do not reach the same sizes. Matches
+    ``_dim<D>.json`` exactly, as plot_accuracy_vs_M's auto-pick and the tests'
+    committed_dims do, so a suffixed side-run such as ``_dim2048_r16.json`` is
+    never chosen -- its realization count differs from every other curve's.
     """
-    dims = []
-    for p in DATA_DIR.glob(f"method_comparison_{system_name}_dim*.json"):
-        point = json.loads(p.read_text(encoding="utf-8"))["point"]
-        if "slb" in point.get("methods", {}):
-            dims.append(int(p.stem.split("dim")[-1]))
+    canonical = re.compile(rf"^accuracy_vs_M_{re.escape(system_name)}_dim(\d+)\.json$")
+    dims = [int(m.group(1)) for p in DATA_DIR.glob(f"accuracy_vs_M_{system_name}_dim*.json")
+            if (m := canonical.match(p.name))]
     return max(dims) if dims else None
+
+
+def load(system_name, dim):
+    """The Result 1 file for this system and size, or None if it is absent."""
+    path = DATA_DIR / f"accuracy_vs_M_{system_name}_dim{dim}.json"
+    if not path.exists():
+        return None, path
+    return json.loads(path.read_text(encoding="utf-8")), path
+
+
+def _curves(d, item, obs):
+    """(reference, samples) for one observable at one M, or None when this
+    file does not store it (the oldest Result 1 files kept only the energy and
+    the coherence)."""
+    try:
+        ref = np.asarray(result1_reference(d, obs), dtype=float)
+        samples = np.asarray(result1_samples(item, obs), dtype=float)
+    except (KeyError, TypeError):
+        return None
+    if samples.ndim == 1:
+        samples = samples.reshape(1, -1)
+    return ref, samples
+
+
+def worst_panel_rows(system_name, dim=None, min_m=2):
+    """The table printed under these figures, one row per M.
+
+    For every plotted panel: the largest deviation of the SLB mean from the
+    reference over time, as a percentage of that panel's reference span, and
+    that deviation in standard errors of the mean at the instant it peaks.
+    The row reports the worst panel. ``resolved`` is that z above
+    RESOLVED_SEM; below it the percentage is an upper bound, not a
+    measurement.
+    """
+    dim = largest_dim(system_name) if dim is None else dim
+    d, _ = load(system_name, dim)
+    if d is None:
+        return []
+    rows = []
+    for item in sorted(d["slb_sweep"], key=lambda x: x["M"]):
+        if item["M"] < min_m:
+            continue
+        panels = []
+        for obs in CONFIGS[system_name][1]:
+            got = _curves(d, item, obs)
+            if got is None:
+                continue
+            ref, s = got
+            mean = s.mean(axis=0)
+            sem = s.std(axis=0, ddof=1) / np.sqrt(s.shape[0])
+            dev = np.abs(mean - ref)
+            i = int(np.argmax(dev))
+            span = float(ref.max() - ref.min())
+            panels.append((100.0 * dev[i] / span, dev[i] / sem[i], obs))
+        pct, z, obs = max(panels)
+        rows.append({"M": int(item["M"]), "percent": float(pct), "z": float(z),
+                     "panel": obs, "resolved": bool(z > RESOLVED_SEM),
+                     "n_realizations": int(s.shape[0])})
+    return rows
 
 
 def plot_convergence_system_huge(system_name, display_name, observables, dim,
                                  min_m=2):
     if dim is None:
-        print(f"  SKIPPED {system_name}: no method_comparison files")
+        print(f"  SKIPPED {system_name}: no Result 1 files")
         return
-    path = DATA_DIR / f"method_comparison_{system_name}_dim{dim}.json"
-    if not path.exists():
+    d, path = load(system_name, dim)
+    if d is None:
         print(f"  SKIPPED {system_name}: no {path.name}")
         return
 
-    with open(path, 'r', encoding='utf-8') as f:
-        d = json.load(f)
-
-    point = d['point']
-    tlist_meta = d.get('meta', {}).get('tlist', {})
-    t0 = tlist_meta.get('t0', 0.0)
-    t1 = tlist_meta.get('t1', 5.0)
-
-    ref = point['reference']
-    slb = point['methods'].get('slb', [])
-    obs_names = point.get('observables', [])
-
-    slb = [x for x in slb if x['M'] >= min_m]
-    slb.sort(key=lambda x: x['M'])
-    m_values = [x['M'] for x in slb]
-    n_real = np.asarray(slb[0]["samples"]).shape[0] if slb else 0
+    tl = d.get("meta", {}).get("tlist", {})
+    sweep = sorted((x for x in d["slb_sweep"] if x["M"] >= min_m), key=lambda x: x["M"])
+    m_values = [x["M"] for x in sweep]
     colors = plt.cm.Blues(np.linspace(0.42, 1.0, len(m_values)))
+    n_real = 0
 
     n_obs = len(observables)
     if n_obs == 4:
@@ -173,25 +212,27 @@ def plot_convergence_system_huge(system_name, display_name, observables, dim,
     for i, obs in enumerate(observables):
         ax = axes[i]
         title_label, y_label = LABELS.get((system_name, obs), (obs, rf"$\langle {obs} \rangle$"))
-
-        ref_curve = mean_curve(ref['curves'][obs])
-        times = np.linspace(t0, t1, len(ref_curve))
+        first = _curves(d, sweep[0], obs) if sweep else None
+        if first is None:
+            # The oldest Result 1 files (dims 16-64) stored only the energy and
+            # the coherence. Hide the panel rather than save a blank one.
+            print(f"  {system_name} dim {dim}: no '{obs}' curves in {path.name} "
+                  f"-- panel hidden")
+            ax.set_visible(False)
+            continue
+        ref_curve = first[0]
+        times = np.linspace(tl.get("t0", 0.0), tl.get("t1", 5.0), len(ref_curve))
 
         # Plot exact reference with thick dashed line
-        ax.plot(times, ref_curve, color='black', linewidth=4.0, linestyle='--', label='Exact Reference', zorder=10)
+        ax.plot(times, ref_curve, color='black', linewidth=4.0, linestyle='--',
+                label='Exact Reference', zorder=10)
 
-        if obs not in obs_names:
-            print(f"Observable {obs} not in {system_name}")
-            continue
-        obs_idx = obs_names.index(obs)
-
-        for j, result in enumerate(slb):
-            M = result['M']
-            samples = np.asarray(result["samples"], dtype=float)
-            c = samples[:, obs_idx, :]
-            curve = np.mean(c, axis=0)
-            lw = 2.6 + (j / max(1, len(slb) - 1)) * 3.4
-            ax.plot(times, curve, color=colors[j], linewidth=lw, label=f'SLB (M={M})', alpha=0.92)
+        for j, item in enumerate(sweep):
+            _, samples = _curves(d, item, obs)
+            n_real = samples.shape[0]
+            lw = 2.6 + (j / max(1, len(sweep) - 1)) * 3.4
+            ax.plot(times, samples.mean(axis=0), color=colors[j], linewidth=lw,
+                    label=f'SLB (M={item["M"]})', alpha=0.92)
 
         ax.set_xlabel("Time $t$", fontsize=20, fontweight='bold', labelpad=12)
         ax.set_ylabel(y_label, fontsize=20, fontweight='bold', labelpad=12)
@@ -201,14 +242,17 @@ def plot_convergence_system_huge(system_name, display_name, observables, dim,
 
         # Legend placement
         if n_obs == 4:
-            if i == 1: # top right
-                ax.legend(loc='upper right', framealpha=0.95, fontsize=15.5, edgecolor='lightgray')
+            if i == 1:  # top right panel, lower right corner: the bath-coupling
+                # curve runs along the top of this panel at late times, and an
+                # upper-right legend sat on top of the exact reference there.
+                ax.legend(loc='lower right', framealpha=0.95, fontsize=15.5, edgecolor='lightgray')
         else:
             if i == n_obs - 1:
-                ax.legend(bbox_to_anchor=(1.03, 1.0), loc='upper left', framealpha=0.95, fontsize=16, edgecolor='lightgray')
+                ax.legend(bbox_to_anchor=(1.03, 1.0), loc='upper left', framealpha=0.95,
+                          fontsize=16, edgecolor='lightgray')
 
     fig.suptitle(f"{display_name} ({size_label(system_name, dim)}, "
-                 f"$N_L={point.get('n_l', '?')}$): "
+                 f"$N_L={d.get('n_l', '?')}$): "
                  f"Convergence with Bundle Size $M$",
                  fontsize=25, fontweight='heavy', y=0.99 if n_obs == 4 else 1.05)
 
@@ -220,15 +264,13 @@ def plot_convergence_system_huge(system_name, display_name, observables, dim,
     # spread is drawn. Both are answered here, from the file's own metadata.
     # fontsize 15, not the helper's default 9: these panels carry 22pt titles
     # and 20pt axis labels, so the default caption is a fifth the size of
-    # everything around it and unreadable at normal viewing scale. wrap_chars
-    # is lowered to match, so the caption breaks into two balanced lines
-    # instead of running past the figure edge.
+    # everything around it and unreadable at normal viewing scale.
     add_settings_footer(
         fig,
-        format_slb_settings(M=m_values, substeps=d.get("meta", {}).get("substeps"),
+        format_slb_settings(M=m_values, substeps=d.get("substeps"),
                             n_realizations=n_real, swept=True),
         "mean curves only, no band drawn",
-        f"reference: {ref.get('method', 'unknown')}",
+        f"reference: {d.get('reference_method', 'unknown')}",
         f"source: {path.name}",
         fontsize=15, wrap_chars=105, y=-0.04,
     )
@@ -236,7 +278,7 @@ def plot_convergence_system_huge(system_name, display_name, observables, dim,
     out_file = OUT_DIR / f"convergence_dynamics_{system_name}.png"
     plt.savefig(out_file, bbox_inches='tight', dpi=300)
     print(f"  saved {out_file.name}  (dim {dim}, M={m_values}, "
-          f"{n_real} realizations, reference {ref.get('method', 'unknown')})")
+          f"{n_real} realizations, reference {d.get('reference_method', 'unknown')})")
     plt.close()
 
 
@@ -246,12 +288,11 @@ def main():
                     help="repeatable; default is all three.")
     ap.add_argument("--dim", default="auto",
                     help="Hilbert dimension to draw, or 'auto' (the default) "
-                         "for the largest method_comparison file each system "
-                         "has that carries SLB curves.")
+                         "for the largest canonical Result 1 file each system "
+                         "has.")
     ap.add_argument("--min-m", type=int, default=2,
-                    help="lowest bundle size to draw (default 2). M=1 is one "
-                         "unaveraged operator combination and adds nothing the "
-                         "rest of the ladder does not.")
+                    help="lowest bundle size to draw (default 2, the bottom "
+                         "of Result 1's ladder).")
     args = ap.parse_args()
 
     for name in (args.system or sorted(CONFIGS)):
@@ -259,6 +300,9 @@ def main():
         dim = largest_dim(name) if args.dim == "auto" else int(args.dim)
         plot_convergence_system_huge(name, display_name, observables, dim,
                                      min_m=args.min_m)
+        for r in worst_panel_rows(name, dim, min_m=args.min_m):
+            print(f"    M={r['M']:>3}  worst {r['panel']:10s} {r['percent']:7.2f}% of span  "
+                  f"{r['z']:5.1f} s.e.m.  {'resolved' if r['resolved'] else 'NOT resolved'}")
 
 
 if __name__ == "__main__":

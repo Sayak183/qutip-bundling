@@ -10,8 +10,9 @@ Everything below is produced by self-contained scripts in this folder:
 > in seconds without launching the expensive numerical benchmarks.
 
 - `run_accuracy_vs_M.py` + `plot_accuracy_vs_M.py` — accuracy versus bundle size
-  (Result 1). The run script saves the raw per-realization dynamics of both
-  observables for every `M` into
+  (Result 1). The run script saves the raw per-realization dynamics of every
+  tracked observable (energy and coherence only, in the oldest dim 16–64 files)
+  for every `M` into
   `data/accuracy_vs_M_<system>_dim<D>.json`, timing the Davies-operator
   construction separately from the propagation; the plot script derives the
   mean curves, the bands, and the peak-error decomposition from it.
@@ -1492,16 +1493,14 @@ cost axis across files that disagree unless forced.
 
 To see exactly *how* SLB converges to the exact solution as the bundle size $M$ grows, we can plot the time-evolution of several observables for each system. The dashed black line is the exact reference dynamics, and the coloured lines are SLB at increasing $M$, darkening as $M$ increases.
 
-**Each system is drawn at its largest size that carries SLB curves in Result
-3's data:** **dimension 512 for System A** (9 spins), 128 for System B and 128
-for the oscillator. Result 3 has since run further — System A to 2048, System
-B to 256 — but only with the exact solver and `mcsolve`, so there is no bundle
-ladder to draw there. The error-decomposition figures further down read Result
-1's own files instead, and sit one size higher on both chains: 1024 for System
-A, 256 for System B. The ladders here differ — $M = 2$ to $32$ on A
-and the oscillator, $M = 2$ to $256$ on System B. $M=1$ is omitted throughout:
-a single unaveraged operator combination adds nothing the rest of the ladder
-does not.
+**Each system is drawn at its largest Result 1 size** — the same files and
+sizes as the error-decomposition and size-invariance figures further down:
+**dimension 1024 for System A** (10 spins), 256 for System B (8 spins) and 128
+for the oscillator (Fock cutoff 64). Every curve is the mean of **200
+realizations**, and the ladder is $M = 2$ to $64$ on all three. *These figures
+used to read Result 3's files, with 16 realizations and one size lower on both
+chains, because Result 3's larger points ran no SLB; that version also drew
+System B out to $M=256$, past Result 1's ladder.*
 
 ![System A convergence](convergence_dynamics_spin_chain.png)
 ![System B convergence](convergence_dynamics_mixed_chain.png)
@@ -1515,37 +1514,50 @@ percentage of that panel's reference span:
 
 | worst plotted panel | $M=2$ | $M=8$ | $M=32$ | top rung | resolved? |
 |---|---|---|---|---|---|
-| **A** TFIM chain, dim 512 | **179%** | 78% | **22%** | 22% at $M=32$ | resolved at every rung |
-| **B** mixed chain, dim 128 | 62% | 17% | 4.7% | **0.81%** at $M=256$ | resolved to $M=16$ |
-| **C** oscillator, dim 128 | 4.7% | 1.2% | 0.7% | 0.7% at $M=32$ | **never** — always inside its own scatter |
+| **A** TFIM chain, dim 1024 | **215%** | 99% | **29%** | 15% at $M=64$ | resolved at every rung |
+| **B** mixed chain, dim 256 | 67% | 18% | 5.5% | **2.9%** at $M=64$ | resolved at every rung |
+| **C** oscillator, dim 128 | 10% | 1.5% | 0.43% | 0.22% at $M=64$ | **never** — always inside its own scatter |
+
+*Resolved* means the deviation, at the instant it peaks, exceeds three
+standard errors of the 200-realization mean; `plot_convergence_dynamics.
+worst_panel_rows` computes the table from the same files the figures draw.
 
 **System A is a system starved of bundles, and that is the point of showing
-it.** Result 4 measures its $M^\ast$ as $N_L = 73$ at this size, while the
-ladder available here stops at 32. The panels converge at the right *rate* —
-roughly halving per doubling of $M$ — from a starting point so high that the
-dial runs out before arriving. This is the clearest picture in the document of
+it.** Result 4 measures its $M^\ast$ as $N_L$ itself at every size it covers —
+73 at dimension 512, its largest — and here $N_L = 91$ while the ladder stops at
+64. The panels converge at the right *rate* — roughly halving per doubling of
+$M$ once $M \ge 8$ — from a starting point so high that the dial runs out before
+arriving: the coherence is still 15% of its span off at $M=64$. This is the clearest picture in the document of
 what bundling looks like on a system it cannot help.
 
-**System B converges into its own noise floor.** Resolved and visibly off up to
-$M=16$, then indistinguishable from sampling scatter from $M=32$ onward,
-reaching 0.81% at $M=256$. That is a dial closing.
+**System B is resolved all the way down.** Every rung sits well clear of its
+own scatter — 7.6 standard errors even at $M=64$ — and the worst panel closes
+from 67% of its span at $M=2$ to 2.9% at $M=64$, roughly halving with each
+doubling. That is a dial closing. *The 16-realization version of this figure
+lost System B in its sampling scatter from $M=32$ on; with 200 realizations
+it stays resolved.*
 
-**The oscillator cannot be seen to deviate at any $M$.** Every rung sits within
-three standard errors of its 16-realization scatter, so this figure cannot
-resolve its bias at all — which is exactly why its panels look featureless,
-discussed below. Read the 4.7% and 0.7% as upper bounds, not measurements.
+**The oscillator cannot be seen to deviate at any $M$.** Its worst panel,
+$\langle x\otimes\sigma^x\rangle$, never clears three standard errors of its
+200-realization scatter — 2.4 at most, at $M=2$ — so read the 10% and 0.22% as
+upper bounds, not measurements. Its energy bias *is* resolved, at 53 to 61
+standard errors, as the error decomposition below also finds; but at no more
+than 0.0014% of the energy's span it is invisible at this scale, which is
+exactly why its panels look featureless, discussed below.
 
-**All three orderings match Result 4's independently fitted $M^\ast$** — 73 for
-System A, which the ladder never reaches; 64 for System B, which is about where
-it disappears into the floor; and 2 for the oscillator, which is below the
-floor from the start. Convergence speed is set by the spread of the individual
+**All three orderings match Result 4's independently fitted $M^\ast$**, at the
+largest sizes it covers — $N_L$ itself on System A (73 at dimension 512), which
+no ladder here reaches; 64 on System B (at dimension 128), the top of the
+ladder here; and 2 on the oscillator (at dimension 128), below its floor from
+the start. Result 4 stops one size short of these figures on both chains, so
+that is a match between neighbouring sizes, not the same ones. Convergence speed is set by the spread of the individual
 operator contributions and cross-terms, not by dimension alone, so it is worth
 checking on your own system.
 
 *An earlier version of this paragraph said the oscillator and System B both
 "sit essentially on the reference at $M=8$". They do not resemble each other:
-System B is resolved and 17% out at that $M$, while the oscillator is
-unresolvable at every $M$. It also contradicted §2.5, which measures System B's
+System B is resolved and 18% out at that $M$, while the oscillator's worst
+panel is unresolvable at every $M$. It also contradicted §2.5, which measures System B's
 error at $6.2\times10^{-2}$ against the oscillator's $6.6\times10^{-6}$ — four
 orders of magnitude apart — and §2.5 is the section arguing that B and C are
 alike in cost and unalike in accuracy.*
@@ -1583,7 +1595,7 @@ mean curves sit on top of the reference at every $M$, and the convergence
 figures draw means only — where a spread *is* drawn, in
 `benchmark_accuracy_oscillator_bath.png` at 200 realizations, the band is too
 narrow to see. Either way the figure appears to show nothing. That *is* the result: even $M=2$ tracks a
-trajectory spanning $\langle H\rangle\approx128\to10$ at dim 64 (and $13\to4$ at dim 16) to within $\sim\!10^{-2}$,
+trajectory spanning $\langle H\rangle\approx461\to19$ at dim 128 to within $6\times10^{-3}$,
 so there is no visible discrepancy to plot. It is the same fact that Results 2
 and 4 report quantitatively (a handful of bundles suffices at every size —
 $M^\ast\le 8$ under Result 2's tightened target — and the speedup over

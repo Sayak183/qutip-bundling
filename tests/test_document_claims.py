@@ -1013,8 +1013,96 @@ def test_result1_chains_are_compared_on_their_common_range(doc):
     assert float(m.group(3)) == pytest.approx(a - b, abs=0.005)
 
 
+def test_result1_worst_panel_table_matches_the_figures(doc):
+    """The table under Result 1's opening figures -- each system's worst
+    plotted panel as a percentage of its span at M = 2, 8, 32 and the top rung,
+    and whether the deviation clears three standard errors -- recomputed
+    through plot_convergence_dynamics.worst_panel_rows, the module that draws
+    those figures, at the size it draws them. The table had no guard; when the
+    figures moved from Result 3's data to Result 1's, every number in it
+    changed and one verdict flipped."""
+    import plot_convergence_dynamics as P
+
+    rows_by_label = {"A": "spin_chain", "B": "mixed_chain", "C": "oscillator_bath"}
+    pattern = re.compile(
+        r"^\|\s*\*\*([ABC])\*\*[^|]*dim (\d+)\s*\|\s*\**([\d.]+)%\**\s*\|"
+        r"\s*\**([\d.]+)%\**\s*\|\s*\**([\d.]+)%\**\s*\|\s*\**([\d.]+)%\**"
+        r" at \$M=(\d+)\$\s*\|\s*([^|]+?)\s*\|$", re.M)
+    found = pattern.findall(doc)
+    assert len(found) == 3, f"expected the three worst-panel rows, found {len(found)}"
+
+    def half_unit(printed):
+        decimals = len(printed.split(".")[1]) if "." in printed else 0
+        return 0.5 * 10 ** (-decimals) * (1 + 1e-9)
+
+    for label, dim, p2, p8, p32, ptop, mtop, verdict in found:
+        system = rows_by_label[label]
+        assert int(dim) == P.largest_dim(system), (
+            f"{label}: table is at dim {dim}, the figure is drawn at {P.largest_dim(system)}")
+        rows = {r["M"]: r for r in P.worst_panel_rows(system, int(dim))}
+        top = max(rows)
+        assert int(mtop) == top, f"{label}: top rung {mtop}, data tops out at {top}"
+        for printed, M in ((p2, 2), (p8, 8), (p32, 32), (ptop, top)):
+            assert abs(rows[M]["percent"] - float(printed)) <= half_unit(printed), (
+                f"{label} M={M}: measured {rows[M]['percent']:.3f}% does not round to {printed}%")
+        # Matched exactly: a substring test once accepted "NOT resolved at
+        # every rung" as if it said "resolved at every rung".
+        all_resolved = all(r["resolved"] for r in rows.values())
+        none_resolved = not any(r["resolved"] for r in rows.values())
+        if verdict == "resolved at every rung":
+            assert all_resolved, f"{label}: table says resolved at every rung"
+        elif verdict == "**never** \u2014 always inside its own scatter":
+            assert none_resolved, f"{label}: table says never resolved"
+        else:
+            pytest.fail(f"{label}: unrecognised verdict {verdict!r}")
+
+
+def test_result1_worst_panel_prose_matches_the_figures(doc):
+    """The paragraphs under the worst-panel table quote numbers the table
+    does not: A's N_L and its top-rung coherence, B's smallest clearance, the
+    oscillator's largest worst-panel clearance, its energy clearance range, and
+    the energy's share of its span. All recomputed from the same files, through
+    plot_convergence_dynamics, so the prose cannot drift from its figures."""
+    import plot_convergence_dynamics as P
+
+    A = {r["M"]: r for r in P.worst_panel_rows("spin_chain")}
+    B = {r["M"]: r for r in P.worst_panel_rows("mixed_chain")}
+    C = {r["M"]: r for r in P.worst_panel_rows("oscillator_bath")}
+    dA, _ = P.load("spin_chain", P.largest_dim("spin_chain"))
+
+    m = re.search(r"here \$N_L = (\d+)\$ while the ladder stops at\s+(\d+)", doc)
+    assert m and int(m.group(1)) == dA["n_l"] and int(m.group(2)) == max(A)
+    m = re.search(r"the coherence is still (\d+)% of its span off at \$M=(\d+)\$", doc)
+    assert m and A[int(m.group(2))]["panel"] == "coherence"
+    assert int(m.group(1)) == round(A[int(m.group(2))]["percent"])
+
+    m = re.search(r"own scatter \u2014 ([\d.]+) standard errors even at \$M=(\d+)\$", doc)
+    assert m and int(m.group(2)) == max(B)
+    assert float(m.group(1)) == pytest.approx(min(r["z"] for r in B.values()), abs=0.05)
+    assert min(B.values(), key=lambda r: r["z"])["M"] == max(B)
+
+    m = re.search(r"200-realization scatter \u2014 ([\d.]+) at most, at \$M=(\d+)\$", doc)
+    assert m, "the oscillator's clearance sentence has changed shape"
+    top = max(C.values(), key=lambda r: r["z"])
+    assert float(m.group(1)) == pytest.approx(top["z"], abs=0.05) and int(m.group(2)) == top["M"]
+
+    dC, _ = P.load("oscillator_bath", P.largest_dim("oscillator_bath"))
+    zs, pcts = [], []
+    for item in dC["slb_sweep"]:
+        ref, s = P._curves(dC, item, "energy")
+        mean, sem = s.mean(0), s.std(0, ddof=1) / np.sqrt(s.shape[0])
+        dev = np.abs(mean - ref)
+        i = int(np.argmax(dev))
+        zs.append(dev[i] / sem[i])
+        pcts.append(100 * dev[i] / (ref.max() - ref.min()))
+    m = re.search(r"Its energy bias \*is\* resolved, at (\d+) to (\d+)\s+standard errors", doc)
+    assert m and (int(m.group(1)), int(m.group(2))) == (round(min(zs)), round(max(zs)))
+    m = re.search(r"no more\s+than ([\d.]+)% of the energy's span", doc)
+    assert m and max(pcts) <= float(m.group(1)) + 0.00005
+
+
 def test_result1_oscillator_resolution_claims_match_the_decomposition(doc):
-    """Result 1 says the oscillator's bias is resolved at dim 128 (52-61x its
+    """Result 1 says the oscillator's bias is resolved at dim 128 (53-61x its
     s.e.m. at 200 realizations, 109-120x at 800) and at the floor at dim 64
     (0.2-2.0x). All three ranges recomputed through
     plot_accuracy_vs_M.peak_error_anatomy -- the function that draws the

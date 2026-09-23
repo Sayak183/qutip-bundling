@@ -39,7 +39,7 @@ They regenerate the corresponding tracked PNG files in this directory.
 
 | Result | Data generator | Plotter | Saved data |
 |---|---|---|---|
-| 1a. Convergence dynamics | `run_method_comparison.py` | `plot_convergence_dynamics.py` | `data/method_comparison_<system>_dim<D>.json` |
+| 1a. Convergence dynamics | `run_accuracy_vs_M.py` | `plot_convergence_dynamics.py` | `data/accuracy_vs_M_<system>_dim<D>.json` (largest dim) |
 | 1b. Error decomposition | `run_accuracy_vs_M.py` | `plot_accuracy_vs_M.py` | `data/accuracy_vs_M_<system>_dim<D>.json` |
 | 1c. Size invariance | `run_accuracy_vs_M.py` | `plot_R1_invariance.py` | `data/accuracy_vs_M_<system>_dim<D>.json` (all dims) |
 | 2. Cost scaling | `run_cost_scaling.py` | `plot_cost_scaling.py` | `data/cost_scaling_<system>.json` |
