@@ -119,6 +119,25 @@ SYSTEMS = {
         # A seventh point tests both; before dim 512 landed there was only a
         # constant to confirm, and confirming a constant is worth much less.
         (10, [2, 4, 8, 16, 32, 64], 4),
+        # dim 2048, 11 spins -- AT 16 REALIZATIONS ONLY (see REALIZATION_CAPS).
+        # Added after dim 1024 landed (job 19605304) and continued both trends
+        # it was run to test: the bias slope drifted again (-0.94 -> -0.91)
+        # and the height exponent fell again (+0.58 -> +0.555). An eleventh
+        # point tests both once more.
+        #
+        # 200 realizations would take ~50 days; 16 take ~4. Priced from
+        # measured growth, not extrapolated exponents: dim 512 -> 1024 grew
+        # the per-realization ladder x5.75 (649 s -> 3,732 s), and the
+        # frontier's own dim 1024 -> 2048 solves grew x5.4 to x6.1, so ~21,000
+        # s per realization here. The certified reference adds ~1 day: the
+        # 8-substep solve took 17,426 s on Result 3's 40-point grid (job
+        # 19607136), this grid has 80 points (x2.05, measured at dim 1024),
+        # and the self-check costs 1.5 solves more. That reference cannot be
+        # reused -- it is on the other grid. At dim 1024 the bias cleared its
+        # error bar by 50-114x at 200 realizations; 16 gives sqrt(200/16) =
+        # 3.5x less resolution, so ~14x or better. Writes _r16, which the
+        # plotters ignore; its prose must say 16 realizations.
+        (11, [2, 4, 8, 16, 32, 64], 4),
     ]),
     # Same sizes as the TFIM chain so the two are directly comparable: they
     # differ only by the longitudinal field.
@@ -166,6 +185,15 @@ SYSTEMS = {
         # Its 64-substep reference was measured at 16,441 s by job 19597388.
         (64, [2, 4, 8, 16, 32, 64], 32),
     ]),
+}
+
+
+# Sizes whose cost makes the default realization count unaffordable: they
+# may run only at or below this many realizations per M. A real run above the
+# cap is refused; a dry run warns, so `--all --dry-run` still previews
+# everything.
+REALIZATION_CAPS = {
+    ("spin_chain", 11): 16,     # dim 2048: ~4 days at 16, ~50 days at 200
 }
 
 
@@ -350,6 +378,14 @@ def main():
             available_dims.add(probe_dim)
             if args.dims and probe_dim not in args.dims:
                 continue
+            cap = REALIZATION_CAPS.get((name, size))
+            if cap is not None and N_REALIZATIONS > cap:
+                message = (f"{name} dim {probe_dim} runs only at --realizations "
+                           f"{cap} or fewer ({N_REALIZATIONS} requested); pass "
+                           f"--dims to choose sizes, or --realizations {cap}")
+                if not args.dry_run:
+                    ap.error(message)
+                print(f"[warning] {message} -- a real run would be refused")
             work.append((name, build, size, m_ladder, substeps))
             plans.append((
                 f"Result 1: {name}, dim {probe_dim}, M={m_ladder}",
