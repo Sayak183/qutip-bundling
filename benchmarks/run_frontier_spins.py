@@ -73,7 +73,7 @@ def choose_substeps(H, tlist, system_name):
 
     Measured against the stability limit, at dt = 0.05:
 
-        Fock 128, substeps  64  ->  1.32   ran
+        Fock 128, substeps  64  ->  1.36   ran
         Fock 256, substeps 128  ->  2.64   ran, 7% to spare
         Fock 512, substeps 256  ->  5.20   diverged
 

@@ -37,8 +37,10 @@ written mid-run.
 Writes, per system and dimension:  data/accuracy_vs_M_<system>_dim<D>.json
 ``--realizations`` sets the ensemble size per M (default 200). Bias
 resolution -- the measured bias divided by its own standard error -- grows as
-``sqrt(R)``, and at dim 128 the oscillator's falls to ~1.8 from M=16 upward,
-which is why Result 1 reports its fitted slope as untrustworthy there. A
+``sqrt(R)``. At dim 64 the oscillator's is only 0.2 to 2.0 at the error
+decomposition's t*, which is why Result 1 quotes no slope from its sizes
+below dim 128. (This line used to say dim 128 fell to ~1.8; that came from a
+per-M t* analysis retracted on 2026-09-12. Dim 128 is resolved 53-61x.) A
 non-default count writes ``accuracy_vs_M_<system>_dim<D>_r<R>.json`` rather
 than sharing the default file, since every error bar scales as ``1/sqrt(R)``.
 
@@ -132,7 +134,8 @@ SYSTEMS = {
         # s per realization here. The certified reference adds ~1 day: the
         # 8-substep solve took 17,426 s on Result 3's 40-point grid (job
         # 19607136), this grid has 80 points (x2.05, measured at dim 1024),
-        # and the self-check costs 1.5 solves more. That reference cannot be
+        # and the self-check cost 1.5 solves more (0.5 since 2026-09-23, after
+        # this job, 19612131, had started). That reference cannot be
         # reused -- it is on the other grid. At dim 1024 the bias cleared its
         # error bar by 50-114x at 200 realizations; 16 gives sqrt(200/16) =
         # 3.5x less resolution, so ~14x or better. Writes _r16, which the
@@ -170,7 +173,8 @@ SYSTEMS = {
         #
         # Time: ~3 weeks serial on one node. The reference is ~12.5 days --
         # the dim-256 solve took 9.4 h and each spin has cost ~13x, times the
-        # self-check's extra 1.5 solves. The ladder is ~9 days: bundle
+        # self-check's extra 1.5 solves (0.5 since 2026-09-23, after this job,
+        # 19607141, had started). The ladder is ~9 days: bundle
         # construction dominates at ~7 min per realization and is roughly
         # independent of M, so the six rungs cost about an hour each per
         # realization. Saved after every M, so a partial ladder is kept.
@@ -184,6 +188,38 @@ SYSTEMS = {
         # roughly double per octave and 16 is what diverged here in Result 2.
         # Its 64-substep reference was measured at 16,441 s by job 19597388.
         (64, [2, 4, 8, 16, 32, 64], 32),
+        # dim 256, Fock 128, making five, and the oscillator's LAST Result 1
+        # size: Fock 256 needs over 150 substeps on this grid and more than 7
+        # months.
+        #
+        # Worth doing because the oscillator is the only system whose error
+        # FALLS with size: the M=8 height runs 2.6e-3, 2.3e-3, 2.0e-3, 1.5e-3
+        # over dims 16-128 (exponent -0.26, four points). A fifth tests whether
+        # it keeps falling. It was written off twice. On 2026-08-06 job
+        # 19559986, on Result 3's 40-point grid, finished its 128-substep
+        # reference in ~2.4 days and then its 64-substep check diverged
+        # (h * bound 3.49 there, over the limit below). On 09-08 it was written
+        # off as landing "at the noise floor", from the per-M t* analysis
+        # retracted on 09-12; dim 128's energy bias clears its error bar
+        # 53-61x.
+        #
+        # 64 substeps. The anharmonic term makes the spectral bound grow ~4x
+        # per octave (462.6 at Fock 64, 1,743.3 here), not 2x, so doubling the
+        # substeps spends margin: a 64-substep step on this 80-point grid is
+        # h * bound = 1.72 against RK4's 2.83 limit (Fock 64 at 32 substeps:
+        # 0.91). The frontier ran Fock 256 at 2.64. The self-check compares 64
+        # with 128 substeps, so it measures the time-step error at exactly the
+        # ladder's resolution.
+        #
+        # Time: ~14-19 days on one exclusive node. The reference is measured,
+        # not modelled: 19559986's 2.4-day solve over 39 intervals is ~4.9 days
+        # over these 79, and the check adds half that, so ~7.3 days. The
+        # ladder is ~6.5-12 days: job 19604940 ran dim 128's at 18.0 h per 200
+        # realizations on 32 threads, and one octave costs it 8.6x (dim 64 ->
+        # 128, jobs 19585257 and 19598577 on 8 and 4 threads, substep doubling
+        # included) to 16x (pure N^3 times doubled substeps). Estimates, not
+        # bounds.
+        (128, [2, 4, 8, 16, 32, 64], 64),
     ]),
 }
 
@@ -250,16 +286,24 @@ def run(name, build, size, m_ladder, substeps):
         except MemoryError:
             ref_states = None
     if ref_states is None:
+        # Self-check solve first, at half the reference's substeps -- the
+        # ladder's own resolution. It costs half a reference solve, and if the
+        # step is too coarse it is the one that diverges; run first, that
+        # failure costs a third of the reference phase rather than all of it
+        # (job 19559986 lost 3d 15h the other way round). A divergence raises
+        # SolverInstabilityError and ends the job with a traceback -- it does
+        # not print "self-check FAILED", which is only for a finished check
+        # that disagrees.
+        lo = rk4_mesolve(H, rho0, TLIST_FINE, c_ops=c_ops, e_ops=[H],
+                         substeps=ref_substeps // 2)
+        # The reference records <H> itself. Until 2026-09-23 the check re-ran
+        # this identical solve just for <H>: 2.5 solves where 1.5 suffice.
         t0 = time.perf_counter()
-        res = rk4_mesolve(H, rho0, TLIST_FINE, c_ops=c_ops, e_ops=[],
+        res = rk4_mesolve(H, rho0, TLIST_FINE, c_ops=c_ops, e_ops=[H],
                           substeps=ref_substeps, store_states=True)
         t_reference = time.perf_counter() - t0
         ref_states = res.states
-        lo = rk4_mesolve(H, rho0, TLIST_FINE, c_ops=c_ops, e_ops=[H],
-                         substeps=ref_substeps // 2)
-        hi = rk4_mesolve(H, rho0, TLIST_FINE, c_ops=c_ops, e_ops=[H],
-                         substeps=ref_substeps)
-        dev = float(np.max(np.abs(np.real(hi.expect[0]) - np.real(lo.expect[0]))))
+        dev = float(np.max(np.abs(np.real(res.expect[0]) - np.real(lo.expect[0]))))
         ref_selfcheck = {"substeps": ref_substeps, "max_abs_dev": dev,
                          "passed": bool(np.isfinite(dev) and dev <= 1e-4)}
         ref_method = f"native_rk4_substeps{ref_substeps}"
