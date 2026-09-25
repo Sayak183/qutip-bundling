@@ -28,5 +28,7 @@ export OPENBLAS_NUM_THREADS=4
 export MKL_NUM_THREADS=4
 export NUMEXPR_NUM_THREADS=4
 
+# The runner keeps an existing data file unless --overwrite is added below;
+# without it a rerun stops before any solve (2026-09-25 guard).
 cd /usr/people/roib/sayak/qutip-bundling-landau/benchmarks
-/usr/people/roib/sayak/qutip-bundling-landau/.conda-env/bin/python -u run_extreme_dimension.py --size 8 --m-values 8 16 32 --thermal-realizations 16
+/usr/people/roib/sayak/qutip-bundling-landau/.conda-env/bin/python -u run_extreme_dimension.py --system mixed_chain --size 8 --m-values 8 16 32 --thermal-realizations 16

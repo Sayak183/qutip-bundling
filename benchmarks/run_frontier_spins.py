@@ -21,6 +21,7 @@ except ImportError:
             return 0.0
 
 import common
+from benchmark_cli import add_safety_arguments, preflight_run, selected_systems
 from qutip_bundling import rk4_mesolve
 from qutip_bundling.operators import (
     davies_operators, davies_operator_count,
@@ -35,6 +36,13 @@ STREAMING_THRESHOLD = 256
 # axis. A Lindblad generator sits close enough to that axis for this to be the
 # binding constraint in practice.
 RK4_STABILITY_LIMIT = 2.0 * math.sqrt(2.0)
+
+SYSTEM_NAMES = ('mixed_chain', 'spin_chain', 'oscillator_bath')
+
+
+def default_out_name(system_name: str) -> str:
+    """The file a run writes under data/ when --out is not given."""
+    return f"frontier_spins_{system_name}.json"
 
 
 def spectral_bound(H):
@@ -108,7 +116,7 @@ def run_system_frontier(system_name: str, dims: list[int],
     print(f"{'='*70}\n")
 
     results = []
-    out_name = out_name or f"frontier_spins_{system_name}.json"
+    out_name = out_name or default_out_name(system_name)
     meta = common.run_metadata(
         tlist=np.linspace(0, 5.0, 101), substeps=None,
         system=system_name, dims=list(dims), m_values=list(m_values),
@@ -233,15 +241,33 @@ def run_system_frontier(system_name: str, dims: list[int],
 
 def main():
     parser = argparse.ArgumentParser(description='Frontier large-dimension SLB benchmark')
-    parser.add_argument('--system', default='mixed_chain', choices=['mixed_chain', 'spin_chain', 'oscillator_bath'])
+    # --system or --all is required, and an existing output is kept unless
+    # --overwrite is given. With no arguments this script used to start a
+    # System B run and replace the committed frontier_spins_mixed_chain.json.
+    add_safety_arguments(parser, SYSTEM_NAMES)
     parser.add_argument('--dims', type=int, nargs='+', default=[64, 128])
     parser.add_argument('--m-values', type=int, nargs='+', default=[16, 32, 64])
     parser.add_argument('--out', default=None,
                         help='output filename under data/ '
-                             '(default: frontier_spins_<system>.json)')
+                             '(default: frontier_spins_<system>.json); '
+                             'needs --system, since --all would write every '
+                             'system to the same file')
     args = parser.parse_args()
+    if args.all and args.out:
+        parser.error('--out names one file, so use it with --system, not --all')
 
-    run_system_frontier(args.system, args.dims, args.m_values, args.out)
+    names = selected_systems(args, SYSTEM_NAMES)
+    plans = [
+        (f"frontier spins: {name}, dims {args.dims}, M={args.m_values} "
+         f"(file rewritten after every dimension)",
+         common.DATA_DIR / (args.out or default_out_name(name)))
+        for name in names
+    ]
+    if not preflight_run(plans, overwrite=args.overwrite,
+                         dry_run=args.dry_run):
+        return
+    for name in names:
+        run_system_frontier(name, args.dims, args.m_values, args.out)
 
 
 if __name__ == '__main__':

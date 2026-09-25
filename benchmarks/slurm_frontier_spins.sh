@@ -20,6 +20,8 @@ export NUMEXPR_NUM_THREADS=32
 export OMP_PROC_BIND=spread
 export OMP_PLACES=threads
 
+# The runner keeps an existing data file unless --overwrite is added below;
+# without it a rerun stops before any solve (2026-09-25 guard).
 cd /usr/people/roib/sayak/qutip-bundling-landau/benchmarks
 /usr/people/roib/sayak/qutip-bundling-landau/.conda-env/bin/python -u \
     run_frontier_spins.py --system mixed_chain --dims 128 256 512 --m-values 16 32 64

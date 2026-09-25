@@ -246,7 +246,7 @@ def test_reference_table_quotes_the_sector_limit_not_global_gibbs(doc):
 
     It did, for weeks, in the section a reader meets first -- reintroducing the
     exact error Result 5 exists to correct. Where the connectivity graph of
-    <e|X|e'> is disconnected the limit is Gibbs WITHIN the sector rho_0
+    <e|X|e'> is disconnected the limit is Gibbs WITHIN each sector rho_0
     occupies, and at dimension 64 that is -5.6490 for System A against a global
     -5.5687. Recomputed here from plot_extreme_dimension's own helper, so the
     table cannot drift back.
@@ -257,22 +257,100 @@ def test_reference_table_quotes_the_sector_limit_not_global_gibbs(doc):
     assert row, ("the reference table has no 'Actual t→∞ limit' row -- if it was "
                  "removed, global Gibbs is being presented as the limit again")
 
-    published = []
-    for cell in row.groups():
+    for cell, system in zip(row.groups(), REFERENCE_SYSTEMS):
         m = re.search(r"(-?[\d.]+)", cell.translate(MINUS))
         assert m, f"cannot read a number from {cell!r}"
-        published.append(float(m.group(1)))
-
-    for value, system in zip(published, ("spin_chain", "mixed_chain",
-                                         "oscillator_bath")):
         sector, n_sectors = plot_extreme.sector_resolved_energy(
-            {"meta": {"params": {"system": system,
-                                 "size": SIZE_AT_DIM64[system]}}})
+            _limit_doc(system))
         if sector is None:                 # ergodic: the two targets coincide
             assert n_sectors == 1
             continue
-        assert value == pytest.approx(sector, abs=5e-4), (
-            f"{system}: table says {value}, sector-resolved limit is {sector:.4f}")
+        limit = plot_extreme.sector_limit(_limit_doc(system))
+        tol = _rounding_tolerance(m.group(1)) * (1 + 1e-9)
+        assert abs(float(m.group(1)) - sector) <= tol, (
+            f"{system}: table says {m.group(1)}, sector-resolved limit is "
+            f"{sector:.6f}")
+
+        # "(rho0 splits 50/50 over 2 of 7 sectors)": the sector count, and how
+        # many of them rho0 touches -- the cell once gave the total count under
+        # a label that said "the sector rho0 occupies".
+        counts = re.search(r"(\d+) of (\d+) sectors", cell)
+        assert counts, f"{system}: the cell no longer says which sectors: {cell!r}"
+        occupied = sorted((w for w in limit["weights"] if w > 1e-12), reverse=True)
+        assert (int(counts.group(1)), int(counts.group(2))) == (
+            len(occupied), n_sectors)
+        split = re.search(r"(\d+)/(\d+)", cell)
+        if split:                          # whole percent, so half a percent
+            assert [float(g) for g in split.groups()] == pytest.approx(
+                [100 * w for w in occupied], abs=0.5 + 1e-9)
+
+
+def _limit_doc(system):
+    return {"meta": {"params": {"system": system,
+                                "size": SIZE_AT_DIM64[system]}}}
+
+
+REFERENCE_SYSTEMS = ("spin_chain", "mixed_chain", "oscillator_bath")
+# The row prints <label> = value; these are common's names for the operators.
+COMPONENT_OPS = {"ZZ": "zz", "X": "sx", "Z": "sz",
+                 "n": "n", "n²": "n2", "σᶻ": "sz"}
+
+
+def test_reference_table_components_are_the_limit_not_global_gibbs(doc):
+    """The row under the t→∞ energy once quoted the GLOBAL Gibbs components for
+    A and B (<ZZ> = 4.05, <X> = 2.54 for A), which add up to the global energy
+    -5.5687, not the limit -5.6490 printed one row above. Every component is
+    recomputed here as an expectation value in plot_extreme_dimension's limit
+    state -- Gibbs within each sector rho0 occupies, and plain Gibbs for the
+    one-sector oscillator."""
+    plot_extreme = pytest.importorskip("plot_extreme_dimension")
+    import qutip
+    row = re.search(r"\|\s*\*\*Components at t→∞\*\*[^|]*\|([^|]*)\|([^|]*)\|"
+                    r"([^|]*)\|", doc)
+    assert row, "the reference table has no 'Components at t→∞' row"
+
+    for cell, system in zip(row.groups(), REFERENCE_SYSTEMS):
+        printed = re.findall(r"⟨([^⟩]+)⟩\s*=\s*(-?[\d.]+)", cell.translate(MINUS))
+        assert len(printed) == 3, f"{system}: cannot read three components: {cell!r}"
+        H = _build(system, SIZE_AT_DIM64[system])[0]
+        labels, ops, _ = common.observable_set(system, H)
+        state = plot_extreme.sector_limit(_limit_doc(system))["state"]
+        for name, value in printed:
+            op = ops[labels.index(COMPONENT_OPS[name])]
+            measured = float(np.real(qutip.expect(op, state)))
+            assert abs(measured - float(value)) <= (
+                _rounding_tolerance(value) * (1 + 1e-9)), (
+                f"{system}: table says <{name}> = {value}, the limit gives "
+                f"{measured:.4f}")
+
+
+def test_reference_paragraph_names_the_sectors_rho0_starts_in(doc):
+    """The paragraph under the table once said "-5.6490 for A across 7
+    sectors", which reads as if rho0 spans all seven. It starts in two."""
+    plot_extreme = pytest.importorskip("plot_extreme_dimension")
+    pattern = (r"A has (\d+) sectors and starts half in a (\d+)-level one and "
+               r"half in a (\d+)-level one; its limit is \$(-[\d.]+)\$\. "
+               r"B has (\d+) sectors and starts wholly in the larger one, "
+               r"(\d+) of its (\d+) levels; its limit is \$(-[\d.]+)\$")
+    match = re.search(pattern.replace(" ", r"\s+"), doc)
+    assert match, "the sector sentence under the reference table has changed shape"
+    a_n, a_big, a_small, a_e, b_n, b_size, b_dim, b_e = match.groups()
+
+    a = plot_extreme.sector_limit(_limit_doc("spin_chain"))
+    a_occupied = [(s, w) for s, w in zip(a["sizes"], a["weights"]) if w > 1e-12]
+    assert int(a_n) == a["n_sectors"]
+    assert sorted((s for s, _ in a_occupied), reverse=True) == [
+        int(a_big), int(a_small)]
+    assert [w for _, w in a_occupied] == pytest.approx([0.5, 0.5], abs=1e-9)
+    assert abs(a["energy"] - float(a_e)) <= _rounding_tolerance(a_e) * (1 + 1e-9)
+
+    b = plot_extreme.sector_limit(_limit_doc("mixed_chain"))
+    b_occupied = [(s, w) for s, w in zip(b["sizes"], b["weights"]) if w > 1e-12]
+    assert int(b_n) == b["n_sectors"]
+    assert len(b_occupied) == 1 and b_occupied[0][1] == pytest.approx(1.0, abs=1e-9)
+    assert b_occupied[0][0] == max(b["sizes"]) == int(b_size)
+    assert sum(b["sizes"]) == int(b_dim)
+    assert abs(b["energy"] - float(b_e)) <= _rounding_tolerance(b_e) * (1 + 1e-9)
 
 
 def test_result4_summary_row_is_at_the_largest_dimension(doc):
@@ -1153,3 +1231,771 @@ def test_result1_oscillator_resolution_claims_match_the_decomposition(doc):
             f"{name}: sentence says min {lo_q}x, decomposition gives {lo:.2f}x")
         assert hi_q == pytest.approx(hi, abs=tol), (
             f"{name}: sentence says max {hi_q}x, decomposition gives {hi:.2f}x")
+
+
+def test_intro_run_script_safety_sentence_matches_the_code(doc):
+    """The intro says no run_*.py replaces existing JSON without --overwrite,
+    and that all but one also need --system/--all and support --dry-run. Two
+    runners once started a System B run when given no arguments, and that run
+    would overwrite committed data without asking, while this sentence said
+    otherwise. So it is checked against the source rather than trusted."""
+    flat = " ".join(doc.split())      # immune to re-wrapping the paragraph
+    match = re.search(
+        r"None of them will replace an existing JSON file unless "
+        r"`--overwrite` is given\. All but one also need an explicit "
+        r"`--system` or `--all` and support `--dry-run`\. The exception is "
+        r"`(run_\w+\.py)`: it runs only the spin chain, takes a required "
+        r"`--dim` instead, and has no dry run\.", flat)
+    assert match, "the intro's run-script safety sentence has changed shape"
+    exception = match.group(1)
+
+    runners = sorted(p.name for p in BENCHMARKS.glob("run_*.py"))
+    source = {name: (BENCHMARKS / name).read_text(encoding="utf-8")
+              for name in runners}
+    guarded = [name for name in runners
+               if "add_safety_arguments(" in source[name]
+               and "preflight_run(" in source[name]]
+    assert sorted(set(runners) - set(guarded)) == [exception], (
+        "every run_*.py except the one the intro names must use the "
+        "benchmark_cli guard")
+
+    # The exception's own promises: an --overwrite check, a required --dim,
+    # no --dry-run, and the spin chain only.
+    text = source[exception]
+    assert '"--overwrite"' in text and "pass --overwrite" in text
+    assert '"--dim", type=int, required=True' in text
+    assert "--dry-run" not in text
+    assert "build_spin_chain" in text
+    assert "build_mixed_field_chain" not in text
+    assert "build_oscillator_bath" not in text
+
+    # smoke_test.py runs every guarded runner with no scope and with
+    # --all --dry-run; a runner missing from its list is never exercised.
+    smoke = pytest.importorskip("smoke_test")
+    assert sorted(smoke.RUNNERS) == guarded, (
+        "smoke_test.RUNNERS must list every guarded runner")
+
+
+# --- 7. section 5's opening summary, and the Result 2 copies of its numbers --
+#
+# The summary at the top of section 5 restates numbers from every Result. It
+# printed System A's mesolve slope as System B's, an exponent from superseded
+# shared-node timings, a speed ratio with no substep caveat, a memory wall on
+# the wrong system and gibibytes labelled as gigabytes -- all of it unpinned.
+# Every number below is recomputed through the module that draws its figure.
+
+def _flat(doc: str) -> str:
+    """The document with line breaks and blockquote markers folded to single
+    spaces, so a sentence matches however it is wrapped."""
+    return re.sub(r"\s*\n(?:>\s*)?", " ", doc)
+
+
+def _printed(value: str) -> float:
+    """'1{,}013' or '3,249' -> 1013.0 / 3249.0."""
+    return float(value.replace("{,}", "").replace(",", ""))
+
+
+def _near(printed: str, measured: float) -> bool:
+    """True when `measured` rounds to `printed` in its last printed digit."""
+    return abs(_printed(printed) - measured) <= _rounding_tolerance(printed) * (1 + 1e-9)
+
+
+def _cost_curves(system: str):
+    """(document, dims, native, full, iso, m_star) exactly as
+    plot_cost_scaling.figure builds them for its default single-run view."""
+    pcs = pytest.importorskip("plot_cost_scaling")
+    path = DATA / f"cost_scaling_{system}.json"
+    if not path.exists():
+        pytest.skip(f"{path.name} not committed")
+    document = json.loads(path.read_text(encoding="utf-8"))
+    points = document["points"]
+    as_array = common.as_array
+    dims = as_array([p["dim"] for p in points])
+    native = as_array([p.get("t_native_ref") for p in points])
+    full = as_array([p.get("t_full") for p in points])
+    m_star, iso = pcs.derive_iso(points, pcs.TARGET_BY_SYSTEM[system],
+                                 pcs.ESTIMATE_TYPE, pcs.ERROR_TYPE,
+                                 document["meta"]["params"]["N_ACC"])[:2]
+    return document, dims, native, full, iso, m_star
+
+
+def _fit(dims, times):
+    """plot_cost_scaling.fit_slope, plus the dimensions it used: the fit runs
+    over a suffix of the finite points, so they are the last n of them."""
+    import plot_cost_scaling as pcs
+    slope, n = pcs.fit_slope(dims, times)
+    used = dims[np.isfinite(times)][-n:]
+    return slope, n, int(used[0]), int(used[-1])
+
+
+# "Result 3's jobs time both on this chain: 231 s against 115 s at dim 64 and
+# 4,819 s against 2,413 s at dim 128, 2.0x each" -- the reference and the native
+# solve from the same job, so the reader can see the factor the ratios carry.
+_MARGIN_CLAUSE = (r"Result 3's jobs time both on this chain: ([\d,]+) s against "
+                  r"([\d,]+) s at dim 64 and ([\d,]+) s against ([\d,]+) s at dim "
+                  r"128, ([\d.]+)x each")
+
+
+def _substep_margin(dim: int) -> float:
+    """Result 3's measured cost of the 8-substep reference over the 4-substep
+    native solve, same job, System B -- the factor Result 2's ratios carry."""
+    path = DATA / f"method_comparison_mixed_chain_dim{dim}.json"
+    if not path.exists():
+        pytest.skip(f"{path.name} not committed")
+    document = json.loads(path.read_text(encoding="utf-8"))
+    point = document["point"]
+    assert point["reference"]["selfcheck"]["primary_substeps"] == 8
+    assert document["meta"]["substeps"] == 4
+    return point["reference"]["wall_s"] / point["methods"]["native"]["wall_s"]
+
+
+def test_result2_mixed_chain_exponents_match_the_figure(doc):
+    """The summary quoted N^4.6 for System B's exact solver -- a leftover of
+    the shared-node timings section 5.3 retired -- and N^6.0, which is System
+    A's mesolve slope. Result 2 repeated the 4.6. Pinned here through
+    plot_cost_scaling.fit_slope, the function that writes the figure's legend,
+    over the same dimensions it fits, and with the matched-range comparison
+    that makes the two exponents comparable at all."""
+    document, dims, native, full, iso, _ = _cost_curves("mixed_chain")
+    # The figure draws native only where certified; on this file that is
+    # every point, so the fit below is the legend's fit.
+    for p in document["points"]:
+        if p.get("t_native_ref") is not None:
+            assert (p.get("reference_method") == "mesolve"
+                    or (p.get("native_ref_selfcheck") or {}).get("passed")), (
+                f"dim {p['dim']}: an uncertified native point the legend omits")
+
+    text = _flat(doc)
+    import plot_cost_scaling as pcs
+    target = re.search(
+        r"SLB at matched accuracy \(energy RMSE ([\d.]+) for one run, estimated "
+        r"from (\d+) realizations\) grows as", text)
+    assert target, "section 5's Result 2 accuracy target has changed shape"
+    assert float(target.group(1)) == pcs.TARGET_BY_SYSTEM["mixed_chain"]
+    assert int(target.group(2)) == document["meta"]["params"]["N_ACC"]
+    assert pcs.ESTIMATE_TYPE == "single", "the figure no longer costs one run"
+    head = re.search(
+        r"realizations\) grows as \$N\^\{([\d.]+)\}\$ over dims (\d+) to "
+        r"(\d+), against \$N\^\{([\d.]+)\}\$ for the certified native exact solver "
+        r"over the same sizes \(\$N\^\{([\d.]+)\}\$ over dims (\d+) to (\d+), the "
+        r"slope in the figure's legend\)\. Superoperator `mesolve` has a two-point "
+        r"local slope of \$N\^\{([\d.]+)\}\$ \(dims (\d+) and (\d+); smaller sizes "
+        r"fall under the ([\d.]+) s fitting floor\)", text)
+    assert head, "section 5's Result 2 exponent sentence has changed shape"
+    body = re.search(
+        r"energy iso-accuracy cost near \$N\^\{([\d.]+)\}\$ over dims (\d+) to "
+        r"(\d+), against \$N\^\{([\d.]+)\}\$ for the exact solve over the same "
+        r"sizes \(\$N\^\{([\d.]+)\}\$ over dims (\d+) to (\d+)\)", text)
+    assert body, "Result 2's System B iso-accuracy sentence has changed shape"
+
+    s_iso, _, iso_lo, iso_hi = _fit(dims, iso)
+    s_nat, n_nat, nat_lo, nat_hi = _fit(dims, native)
+    window = (dims >= iso_lo) & (dims <= iso_hi)
+    s_same, n_same = pcs.fit_slope(dims[window], native[window])
+    assert n_same == int(window.sum()), "the matched-range fit dropped a point"
+    s_full, n_full, full_lo, full_hi = _fit(dims, full)
+    assert n_full == 2, "mesolve now has more than two fitted points; say so"
+
+    for match in (head, body):
+        g = match.groups()
+        assert _near(g[0], s_iso), f"iso exponent {g[0]} against {s_iso:.3f}"
+        assert (int(g[1]), int(g[2])) == (iso_lo, iso_hi)
+        assert _near(g[3], s_same), f"matched-range exact {g[3]} against {s_same:.3f}"
+        assert _near(g[4], s_nat), f"full-range exact {g[4]} against {s_nat:.3f}"
+        assert (int(g[5]), int(g[6])) == (nat_lo, nat_hi)
+    g = head.groups()
+    assert _near(g[7], s_full), f"mesolve slope {g[7]} against {s_full:.3f}"
+    assert (int(g[8]), int(g[9])) == (full_lo, full_hi)
+    assert float(g[10]) == pcs.FIT_FLOOR_SECONDS
+
+
+def test_result2_mesolve_slopes_are_attributed_to_the_right_system(doc):
+    """'N^6.0 on the chain' was System A's number under a sentence a reader
+    took to mean System B. All three are now named, each through fit_slope."""
+    m = re.search(
+        r"steepest on each plot: \$N\^\{([\d.]+)\}\$ on System A, \$N\^\{([\d.]+)\}\$ "
+        r"on System B and \$N\^\{([\d.]+)\}\$ on the oscillator — all two-point "
+        r"local slopes, through dims (\d+) and (\d+)\.", _flat(doc))
+    assert m, "Result 2's mesolve-slope sentence has changed shape"
+    for printed, system in zip(m.groups()[:3],
+                               ("spin_chain", "mixed_chain", "oscillator_bath")):
+        _, dims, _, full, _, _ = _cost_curves(system)
+        slope, n, lo, hi = _fit(dims, full)
+        assert n == 2, f"{system}: mesolve fit uses {n} points, not two"
+        assert (lo, hi) == (int(m.group(4)), int(m.group(5))), f"{system}: dims {lo}-{hi}"
+        assert _near(printed, slope), f"{system}: printed {printed}, fit {slope:.3f}"
+
+
+def test_result2_speed_ratios_state_their_substeps(doc):
+    """353x and 1,013x compare an 8-substep exact solve with a 4-substep SLB
+    solve. Both copies now say so and give the matched-substep estimate, using
+    Result 3's same-job measurement of what the extra substeps cost."""
+    document, dims, native, _, iso, m_star = _cost_curves("mixed_chain")
+    meta = document["meta"]
+    assert meta["params"]["NATIVE_REF_SUBSTEPS"] == 8 and meta["substeps"] == 4
+    by_dim = {p["dim"]: p for p in document["points"]}
+    ratio = {d: by_dim[d]["t_native_ref"] / by_dim[d]["t_slb_fixed"] for d in (64, 128)}
+    margin = {d: _substep_margin(d) for d in (64, 128)}
+
+    text = _flat(doc)
+    head = re.search(
+        r"Measured directly, the certified exact solve \(native RK4 at (\d+) "
+        r"substeps\) costs \$(\d+)\\times\$ one SLB solve \(\$M=(\d+)\$, (\d+) "
+        r"substeps\) at dim 64 and \$([\d{},]+)\\times\$ at dim 128\. Twice the "
+        r"substeps doubles the exact solve's cost \(" + _MARGIN_CLAUSE + r"\), so at "
+        r"matched substeps the gap is about \$(\d+)\\times\$ and \$(\d+)\\times\$\.", text)
+    assert head, "section 5's Result 2 speed-ratio sentence has changed shape"
+    (q_ref, q64, q_m, q_slb, q128, *q_secs, q_margin, q_m64, q_m128) = head.groups()
+    assert int(q_ref) == meta["params"]["NATIVE_REF_SUBSTEPS"]
+    assert int(q_slb) == meta["substeps"] and int(q_m) == meta["params"]["M_REP"]
+
+    body = re.search(
+        r"certified exact solve \(native RK4 at 8 substeps\) takes \*\*(\d+) "
+        r"minutes\*\* against \*\*([\d.]+) s\*\* for one SLB solve at \$M=8\$ and 4 "
+        r"substeps — \*\*\$([\d{},]+)\\times\$\*\*, widening from "
+        r"\$(\d+)\\times\$ at dim 64\. Twice the substeps doubles the exact solve's "
+        r"cost \(" + _MARGIN_CLAUSE + r"\), so at matched "
+        r"substeps the gap is about \$(\d+)\\times\$ at dim 128 and "
+        r"\$(\d+)\\times\$ at dim 64\.", text)
+    assert body, "Result 2's System B speed-ratio bullet has changed shape"
+    (b_min, b_slb, b128, b64, *b_secs, b_margin, b_m128, b_m64) = body.groups()
+    for secs in (q_secs, b_secs):
+        for (ref_s, nat_s), dim in zip((secs[0:2], secs[2:4]), (64, 128)):
+            point = json.loads((DATA / f"method_comparison_mixed_chain_dim{dim}.json")
+                               .read_text(encoding="utf-8"))["point"]
+            assert _near(ref_s, point["reference"]["wall_s"]), (ref_s, dim)
+            assert _near(nat_s, point["methods"]["native"]["wall_s"]), (nat_s, dim)
+
+    for printed_64, printed_128 in ((q64, q128), (b64, b128)):
+        assert _near(printed_64, ratio[64]), f"{printed_64} against {ratio[64]:.2f}"
+        assert _near(printed_128, ratio[128]), f"{printed_128} against {ratio[128]:.2f}"
+    for printed in (q_margin, b_margin):
+        assert all(_near(printed, m) for m in margin.values()), (
+            f"margin printed {printed}, measured {margin}")
+    for printed_64, printed_128 in ((q_m64, q_m128), (b_m64, b_m128)):
+        assert _near(printed_64, ratio[64] / margin[64])
+        assert _near(printed_128, ratio[128] / margin[128])
+    assert _near(b_min, by_dim[128]["t_native_ref"] / 60)
+    assert _near(b_slb, by_dim[128]["t_slb_fixed"])
+    job = re.search(r"Complete to dimension 128 \(job (\d{8}), run on an exclusive node\)", text)
+    assert job and job.group(1) == str(meta["execution"]["slurm"]["job_id"])
+
+    # Section 5.3 quotes the same ratios, and the oscillator's, before and after
+    # the re-timing; it says they carry the 2x margin. True on both systems.
+    assert re.search(r"All of these ratios run the exact solve at twice SLB's "
+                     r"substeps \(§5\.1\); at matched substeps each gap is "
+                     r"about half as wide\.", text), "section 5.3's caveat is gone"
+    oscillator = json.loads((DATA / "cost_scaling_oscillator_bath.json")
+                            .read_text(encoding="utf-8"))["meta"]
+    assert oscillator["params"]["NATIVE_REF_SUBSTEPS"] == 2 * oscillator["substeps"]
+
+    # The iso-accuracy cost at dim 128 against the same exact solve.
+    iso_line = re.search(
+        r"At dim 128 one SLB run at \$M\^\\ast=(\d+)\$ \(its error estimated from "
+        r"(\d+) realizations\) costs ([\d.]+) s against ([\d,]+) s for the 8-substep "
+        r"exact solve: \$(\d+)\\times\$, or about \$(\d+)\\times\$ at matched "
+        r"substeps\.", text)
+    assert iso_line, "Result 2's System B dim-128 iso-cost sentence has changed shape"
+    q_mstar, q_nacc, q_iso, q_nat, q_r, q_rm = iso_line.groups()
+    assert dims[-1] == 128
+    assert int(q_mstar) == int(m_star[-1])
+    assert int(q_nacc) == meta["params"]["N_ACC"]
+    assert _near(q_iso, iso[-1]) and _near(q_nat, native[-1])
+    assert _near(q_r, native[-1] / iso[-1])
+    assert _near(q_rm, native[-1] / iso[-1] / margin[128])
+
+
+def test_section5_summary_result3_ratios_match_the_data(doc):
+    """The summary called 914x and 8.3x an 'advantage' without saying they are
+    error ratios at a fixed budget, and moved from dim 64 at M=16 to dim 128 at
+    M=256 in one step. Every ratio is recomputed through
+    plot_method_comparison.method_errors, the figures' own scoring."""
+    import plot_method_comparison as pmc
+
+    m = re.search(
+        r"SLB at \$M=(\d+)\$ with (\d+) realizations, `mcsolve` with (\d+) "
+        r"trajectories\), SLB ranges from (\d+)x more accurate than `mcsolve` "
+        r"\(oscillator energy\) to ([\d.]+)x less accurate \(mixed-chain "
+        r"coherence\)\. These are error ratios, not speedups\. The weak case is a "
+        r"setting rather than a property: at dim 128 that coherence gap is "
+        r"([\d.]+)x at \$M=16\$ and ([\d.]+)x at \$M=256\$, while the energy goes "
+        r"from ([\d.]+)x worse to ([\d.]+)x better", _flat(doc))
+    assert m, "section 5's Result 3 summary item has changed shape"
+    q_m, q_runs, q_traj, q_osc, q_coh64, q_coh16, q_coh256, q_e16, q_e256 = m.groups()
+
+    def pair(system, dim, observable, bundles):
+        path = DATA / f"method_comparison_{system}_dim{dim}.json"
+        if not path.exists():
+            pytest.skip(f"{path.name} not committed")
+        point = json.loads(path.read_text(encoding="utf-8"))["point"]
+        rows = pmc.method_errors(point, observable)
+        mc = next(r for r in rows if r[0] == "mcsolve")
+        slb = next(r for r in rows if r[0] == "slb" and r[3] == f"M={bundles}")
+        assert mc[4] == int(q_traj), f"{system} dim {dim}: mcsolve ran {mc[4]} trajectories"
+        assert slb[4] == int(q_runs), f"{system} dim {dim}: SLB ran {slb[4]} realizations"
+        return slb[2], mc[2]
+
+    assert int(q_m) == 16
+    slb, mc = pair("oscillator_bath", 64, "energy", 16)
+    assert _near(q_osc, mc / slb)
+    slb, mc = pair("mixed_chain", 64, "coherence", 16)
+    assert _near(q_coh64, slb / mc)
+    slb, mc = pair("mixed_chain", 128, "coherence", 16)
+    assert _near(q_coh16, slb / mc)
+    slb, mc = pair("mixed_chain", 128, "coherence", 256)
+    assert _near(q_coh256, slb / mc)
+    slb, mc = pair("mixed_chain", 128, "energy", 16)
+    assert _near(q_e16, slb / mc)
+    slb, mc = pair("mixed_chain", 128, "energy", 256)
+    assert _near(q_e256, mc / slb)
+
+
+def test_section5_summary_result4_speedups_match_the_figures(doc):
+    """394x and 850x are against mcsolve's PROJECTED cost -- the trajectory
+    count the 3% target needs times a measured per-trajectory cost -- with SLB
+    as a 16-realization ensemble. Recomputed through plot_isocost_vs_dim.derive
+    exactly as its main() calls it."""
+    P = pytest.importorskip("plot_isocost_vs_dim")
+    from isocost_config import run_counts
+
+    m = re.search(
+        r"reach the \*same\* accuracy, (\d+)% of every observable's span\? At dim "
+        r"(\d+), the largest size, SLB \((\d+) realizations\) is (\d+)x cheaper "
+        r"than `mcsolve` on the mixed chain and (\d+)x cheaper on the oscillator\. "
+        r"The `mcsolve` side is projected, not run: the (\d+) and (\d+) "
+        r"trajectories the target needs, times its measured cost per trajectory\. "
+        r"Neither ratio is at matched step counts: SLB takes (\d+) fixed RK4 "
+        r"substeps on the mixed chain and (\d+) on the oscillator at dim 128, while "
+        r"`mcsolve` steps adaptively\. "
+        r"From dim (\d+) up the gap widens at every doubling on both systems, "
+        r"while System A never reaches the target at all\.", _flat(doc))
+    assert m, "section 5's Result 4 summary item has changed shape"
+    q_pct, q_dim, q_runs, q_b, q_c, q_nb, q_nc, q_sub_b, q_sub_c, q_from = m.groups()
+    # The SLB substeps behind each ratio, from the runner that produced the
+    # file: (size, substeps) at the largest size.
+    import run_isocost_vs_dim as R
+    for name, q_sub in (("mixed_chain", q_sub_b), ("oscillator_bath", q_sub_c)):
+        build, points = R.SYSTEMS[name]
+        size, substeps = points[-1]
+        assert build(size)[0].shape[0] == int(q_dim) == 128
+        assert int(q_sub) == substeps, f"{name}: SLB ran {substeps} substeps"
+    assert int(q_pct) == round(100 * P.TARGET_REL)
+    assert P.ESTIMATE_TYPE == "ensemble"
+
+    def derived(name):
+        path = DATA / f"isocost_vs_dim_{name}.json"
+        if not path.exists():
+            pytest.skip(f"{path.name} not committed")
+        n_runs = run_counts(name)
+        out = P.derive(json.loads(path.read_text(encoding="utf-8")),
+                       P.TARGET_RMSE, n_runs, P.ESTIMATE_TYPE)
+        return out, out["slb"][max(n_runs)], max(n_runs)
+
+    for name, q_speed, q_ntraj in (("mixed_chain", q_b, q_nb),
+                                   ("oscillator_bath", q_c, q_nc)):
+        out, slb, n_runs = derived(name)
+        assert int(out["dims"][-1]) == int(q_dim), f"{name} reaches {out['dims'][-1]}"
+        assert n_runs == int(q_runs)
+        assert slb["ok"].all() and out["mc_ok"][-1], f"{name}: target not met everywhere"
+        speedup = out["mc_cost"] / slb["cost"]
+        assert _near(q_speed, speedup[-1]), f"{name}: {q_speed} against {speedup[-1]:.1f}"
+        assert _near(q_ntraj, out["mc_star"][-1])
+        tail = speedup[out["dims"] >= int(q_from)]
+        assert np.all(np.diff(tail) > 0), f"{name}: gap does not widen at every step {tail}"
+
+    out, slb, _ = derived("spin_chain")
+    assert not slb["ok"].any(), "System A is said never to reach the target"
+
+
+def test_section5_summary_mesolve_memory_walls_match_the_formula(doc):
+    """The summary put the chain's wall at dim 128 for both chains; on 32 GB
+    the mixed chain stops at dim 32. Checked against section 5.2's own model,
+    N_L * N^4 * 16 bytes, with N_L from the committed files, and against the
+    large-memory runs that went one size further."""
+    m = re.search(
+        r"On a 32 GB machine it runs to dim (\d+) on the transverse-field chain and "
+        r"to dim (\d+) on the mixed chain and the oscillator, because the next size "
+        r"needs (\d+), (\d+) and (\d+) GB\. The large-memory nodes of §5\.2 each "
+        r"ran one size further; the size after that needs ([\d.]+), ([\d.]+) and "
+        r"([\d.]+) TB, more than any node here has\.", _flat(doc))
+    assert m, "section 5's memory-wall summary item has changed shape"
+    q = m.groups()
+    ceilings = {"spin_chain": q[0], "mixed_chain": q[1], "oscillator_bath": q[1]}
+    next_gb = dict(zip(("spin_chain", "mixed_chain", "oscillator_bath"), q[2:5]))
+    after_tb = dict(zip(("spin_chain", "mixed_chain", "oscillator_bath"), q[5:8]))
+
+    largest_node = []   # available_bytes the timing runs recorded on their skips
+    for system in ceilings:
+        n_l, big_node = {}, {}
+        for name in (f"cost_scaling_{system}.json", f"solver_timing_{system}.json"):
+            path = DATA / name
+            if not path.exists():
+                pytest.skip(f"{name} not committed")
+            for p in json.loads(path.read_text(encoding="utf-8"))["points"]:
+                n_l[p["dim"]] = p["n_l"]
+                if "timings" in p:
+                    entry = p["timings"].get("mesolve", {})
+                    big_node[p["dim"]] = "median_s" in entry
+                    if "available_bytes" in entry:
+                        largest_node.append(entry["available_bytes"])
+        need = {d: n_l[d] * d ** 4 * 16 for d in n_l}
+        # 32 GB read as GB or as GiB gives the same ceiling, or the claim is fragile.
+        for limit in (32e9, 32 * 1024 ** 3):
+            ceiling = max(d for d in need if need[d] <= limit)
+            assert ceiling == int(ceilings[system]), f"{system}: ceiling {ceiling}"
+        ceiling = int(ceilings[system])
+        assert _near(next_gb[system], need[2 * ceiling] / 1e9)
+        assert big_node.get(2 * ceiling), f"{system}: mesolve did not run at dim {2 * ceiling}"
+        assert _near(after_tb[system], need[4 * ceiling] / 1e12)
+        after_next = need[4 * ceiling]
+        assert largest_node and after_next > max(largest_node), (
+            f"{system}: dim {4 * ceiling} needs {after_next / 1e12:.2f} TB; "
+            f"a node recorded {max(largest_node or [0]) / 1e12:.2f} TB")
+
+
+def test_extreme_dimension_operator_list_is_quoted_in_both_units(doc):
+    """The Result 5 operator list is 34.2e9 bytes: 34 GB, 31.9 GiB. The
+    document printed 31.9 'GB' in two places against 34 GB in section 5.2.
+    plot_extreme_dimension.derive computes the GiB value its figure prints."""
+    P = pytest.importorskip("plot_extreme_dimension")
+    path = DATA / "extreme_dimension_mixed_chain_dim256.json"
+    if not path.exists():
+        pytest.skip("Result 5 data not committed")
+    data = json.loads(path.read_text(encoding="utf-8"))
+    size = data["operator_list_bytes"]
+    assert size == data["n_l"] * data["dim"] ** 2 * 16, "not a dense complex128 list"
+    gib = P.derive(data)["list_gb"]
+
+    text = _flat(doc)
+    found = (re.findall(r"operator list alone would be (\d+) GB \(([\d.]+) GiB\)", text)
+             + re.findall(r"would consume \*\*(\d+) GB\*\* \(([\d.]+) GiB,", text))
+    assert len(found) == 2, f"expected both copies in GB and GiB, found {found}"
+    for q_gb, q_gib in found:
+        assert _near(q_gb, size / 1e9) and _near(q_gib, gib)
+    assert "31.9 GB and no exact solve" not in _flat(doc)
+
+
+# --- section 5.1's cost-accuracy reading, and its copies in Result 3 --------
+#
+# Section 5.1 once scored `mcsolve` on its bias alone -- 620x and 19.3x --
+# after Result 3 had retired that scoring for bias (+) s.e.m. and printed 914x
+# and 33.2x for the same comparison. Nothing read section 5.1, so the two
+# sections disagreed for as long as it took someone to notice. These tests
+# pin both scorings to the file and to the words that say which one is meant.
+
+def _flat_ws(doc: str) -> str:
+    """The prose with every run of whitespace collapsed to one space, so a
+    sentence regex does not depend on where the paragraph was hard-wrapped."""
+    return re.sub(r"\s+", " ", doc)
+
+
+def _latex_with_precision(mantissa: str, exponent: str) -> tuple[float, float]:
+    """'6.7', '-2' from $6.7\\times10^{-2}$ -> (0.067, 0.0005): the value and
+    half a unit in its last printed digit, as _decode_with_precision does for
+    the Unicode form used in tables."""
+    decimals = len(mantissa.split(".")[1]) if "." in mantissa else 0
+    exp = int(exponent)
+    return float(mantissa) * 10 ** exp, 0.5 * 10 ** (exp - decimals) * (1 + 1e-9)
+
+
+def _assert_rounds_to(measured: float, printed: str, what: str):
+    """Plain decimal like '14.2', '7,118' or '0.99': half a unit in the last
+    printed digit, via _rounding_tolerance."""
+    value = float(printed.replace(",", ""))
+    assert abs(measured - value) <= _rounding_tolerance(printed.replace(",", "")) * (1 + 1e-9), (
+        f"{what}: measured {measured:.6g} does not round to the printed {printed}")
+
+
+def _assert_latex_rounds_to(measured: float, mantissa: str, exponent: str, what: str):
+    value, half = _latex_with_precision(mantissa, exponent)
+    assert abs(measured - value) <= half, (
+        f"{what}: measured {measured:.4e} does not round to the printed {value:.4e}")
+
+
+LATEX = r"\$([\d.]+)\\times10\^\{(-?\d+)\}\$"
+
+
+def _deviation(estimate, reference) -> float:
+    """Time-averaged |estimate - reference| of ONE estimate, through the bias
+    term of common.tavg_bias_sem_rmse. One sample has no s.e.m.: the NaN s.e.m.
+    and RMSE terms are discarded, and numpy's ddof warning with them."""
+    import warnings
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", RuntimeWarning)
+        return common.tavg_bias_sem_rmse(np.atleast_2d(estimate), reference)[0]
+
+
+def _oscillator64():
+    """Everything section 5.1 quotes, from the one file it quotes: errors
+    through plot_method_comparison.method_errors (Result 3's scoring) and
+    distances from the reference through common.tavg_bias_sem_rmse."""
+    import plot_method_comparison as pmc
+
+    path = DATA / "method_comparison_oscillator_bath_dim64.json"
+    if not path.exists():
+        pytest.fail(f"{path.name} is quoted in BENCHMARKS.md but not committed")
+    document = json.loads(path.read_text(encoding="utf-8"))
+    point = document["point"]
+    out = {"substeps": document["meta"]["substeps"],
+           "native_wall": point["methods"]["native"]["wall_s"]}
+    for obs in ("energy", "coherence"):
+        rows = pmc.method_errors(point, obs)
+        mc = next(r for r in rows if r[0] == "mcsolve")
+        slb = {int(r[3].split("=")[1]): r for r in rows if r[0] == "slb"}
+        out[obs] = {"mc": mc, "slb": slb}
+    reference = pmc.mean_curve(point["reference"]["curves"]["energy"])
+    out["span"] = float(reference.max() - reference.min())
+    out["mc_deviation"] = _deviation(
+        pmc.mean_curve(point["methods"]["mcsolve"]["curves"]["energy"]), reference)
+    index = point["observables"].index("energy")
+    slb16 = next(r for r in point["methods"]["slb"] if r["M"] == 16)
+    samples = np.asarray(slb16["samples"], dtype=float)[:, index, :]
+    out["n_runs"] = samples.shape[0]
+    out["single"] = [_deviation(s, reference) for s in samples]
+    out["mean_of_16"] = common.tavg_bias_sem_rmse(samples, reference)[0]
+    out["slb16_run_wall"] = slb16["wall_s"] / slb16["n_runs"]
+    return out
+
+
+def test_section51_which_number_table_uses_result3_scoring(doc):
+    """The table that says which number is which: the ensemble row must carry
+    Result 3's ratios (bias (+) s.e.m. on both sides), and those must be the
+    ratios Result 3's own table prints; the one-realization row carries the
+    no-s.e.m. ratio section 5.1 quotes."""
+    d = _oscillator64()
+    row = re.search(r"^\| \*\*([\d.]+)x, ([\d.]+)x\*\* \| how many times smaller SLB's "
+                    r"error is than `mcsolve`'s on the oscillator at dim 64 \(energy, "
+                    r"coherence\): the 16-realization `M=16` ensemble", doc, re.M)
+    assert row, "section 5.1's Result 3 row has changed shape"
+    for printed, obs in zip(row.groups(), ("energy", "coherence")):
+        mc, slb = d[obs]["mc"], d[obs]["slb"][16]
+        assert slb[4] == 16 and mc[4] == 500
+        _assert_rounds_to(mc[2] / slb[2], printed, f"section 5.1 {obs} ratio")
+        in_result3 = re.search(rf"^\| `{obs}` \|[^\n]*\| \**{re.escape(printed)}x better\**",
+                               doc, re.M)
+        assert in_result3, f"section 5.1 quotes {printed}x for {obs}; Result 3's table does not"
+
+    single = re.search(r"^\| \*\*(\d+)x\*\* \| the same energy comparison for \*one\* SLB "
+                       r"realization against the 500-trajectory mean", doc, re.M)
+    assert single, "section 5.1's one-realization row has changed shape"
+    _assert_rounds_to(d["mc_deviation"] / np.mean(d["single"]), single.group(1),
+                      "one-realization ratio")
+
+
+def test_section51_sample_count_paragraph_matches_the_data(doc):
+    """'The two stochastic methods need very different sample counts': the
+    span, mcsolve's one-trajectory spread and its 500-mean's distance, their
+    ratio against sqrt(500), and SLB's one-realization distance (mean, best,
+    worst over the 16 run) against the 16-realization mean's."""
+    d = _oscillator64()
+    m = re.search(
+        r"\(([\d.]+) on the oscillator at dimension 64\)\. No s\.e\.m\. is added on either "
+        r"side\. Result 3's tables add it and score the whole 16-realization SLB ensemble, "
+        r"which is why they print ([\d.]+)x where this subsection prints ([\d.]+)x\. .*?"
+        r"one trajectory scatters by " + LATEX + r" of the span, and the mean of all 500 "
+        r"sits " + LATEX + r" from the reference — a factor of (\d+), against "
+        r"\$\\sqrt\{500\}=(\d+)\$\..*?One realization at \$M=16\$ sits " + LATEX +
+        r" from the reference \(the average over the (\d+) realizations run; the best was "
+        + LATEX + r", the worst " + LATEX + r"\)\. The mean of all 16 sits " + LATEX +
+        r" from it, only ([\d.]+)x closer", _flat_ws(doc))
+    assert m, "section 5.1's sample-count paragraph has changed shape"
+    (q_span, q_ens, q_single, s_m, s_e, dev_m, dev_e, q_factor, q_root, one_m, one_e,
+     q_runs, best_m, best_e, worst_m, worst_e, mean_m, mean_e, q_closer) = m.groups()
+
+    span, energy = d["span"], d["energy"]
+    mc = energy["mc"]
+    spread = mc[5] * np.sqrt(mc[4])          # S: the s.e.m. times sqrt(ntraj)
+    single = np.asarray(d["single"])
+    _assert_rounds_to(span, q_span, "energy span")
+    _assert_rounds_to(mc[2] / energy["slb"][16][2], q_ens, "Result 3 energy ratio")
+    _assert_rounds_to(d["mc_deviation"] / single.mean(), q_single, "one-realization ratio")
+    _assert_latex_rounds_to(spread / span, s_m, s_e, "one-trajectory spread")
+    _assert_latex_rounds_to(d["mc_deviation"] / span, dev_m, dev_e, "500-mean distance")
+    _assert_rounds_to(spread / d["mc_deviation"], q_factor, "one-to-500 factor")
+    _assert_rounds_to(np.sqrt(mc[4]), q_root, "sqrt(ntraj)")
+    assert int(q_runs) == d["n_runs"] == 16
+    _assert_latex_rounds_to(single.mean() / span, one_m, one_e, "one realization, mean")
+    _assert_latex_rounds_to(single.min() / span, best_m, best_e, "one realization, best")
+    _assert_latex_rounds_to(single.max() / span, worst_m, worst_e, "one realization, worst")
+    _assert_latex_rounds_to(d["mean_of_16"] / span, mean_m, mean_e, "16-realization mean")
+    _assert_rounds_to(single.mean() / d["mean_of_16"], q_closer, "one vs sixteen")
+
+
+def test_section51_parallel_limit_table_and_paragraph_match_the_data(doc):
+    """The two-row cost table and 'So parallelism does not close the gap':
+    per-sample times, both distances (span-normalized and absolute), the 6x
+    and 488x, SLB's substep count, and the Result 3 scoring beside them."""
+    d = _oscillator64()
+    energy, span = d["energy"], d["span"]
+    mc = energy["mc"]
+    single = float(np.mean(d["single"]))
+
+    table = re.search(
+        r"^\| SLB, `M=16` \| \*\*1\*\* realization \| ([\d.]+) s \| ([\d.]+×10[⁻¹²³⁴⁵⁶⁷⁸⁹⁰]+) \|\n"
+        r"\| `mcsolve` \| \*\*(\d+)\*\* trajectories \| ([\d,]+) s in series \(([\d.]+) s per "
+        r"trajectory\) \| ([\d.]+×10[⁻¹²³⁴⁵⁶⁷⁸⁹⁰]+) \|$", doc, re.M)
+    assert table, "section 5.1's cost table has changed shape"
+    q_run, q_one, q_ntraj, q_total, q_per, q_mc = table.groups()
+    _assert_rounds_to(d["slb16_run_wall"], q_run, "one SLB realization, wall")
+    value, half = _decode_with_precision(q_one)
+    assert abs(single / span - value) <= half, "one SLB realization, span-normalized"
+    assert int(q_ntraj) == mc[4]
+    _assert_rounds_to(mc[1], q_total, "mcsolve total wall")
+    _assert_rounds_to(mc[1] / mc[4], q_per, "mcsolve per trajectory")
+    value, half = _decode_with_precision(q_mc)
+    assert abs(d["mc_deviation"] / span - value) <= half, "mcsolve, span-normalized"
+
+    p = re.search(
+        r"`mcsolve` finishes in ([\d.]+) s at " + LATEX + r" span-normalized energy error "
+        r"\(" + LATEX + r" absolute: how far its 500-trajectory mean sits from the "
+        r"reference\), while one SLB realization finishes in ([\d.]+) s at " + LATEX +
+        r" \(" + LATEX + r" absolute\) — still (\d+)x faster and (\d+)x more accurate on "
+        r"the energy\. The \d+x is not at matched step counts: SLB takes (\d+) fixed RK4 "
+        r"substeps per output interval, while `mcsolve` steps adaptively\. Scored as in "
+        r"Result 3, with each ensemble's s\.e\.m\. folded in, the 16-realization SLB "
+        r"ensemble \(" + LATEX + r"\) beats the 500-trajectory `mcsolve` mean \(" + LATEX +
+        r"\) by (\d+)x\.", _flat_ws(doc))
+    assert p, "section 5.1's parallel-limit paragraph has changed shape"
+    (q_mc_t, mcs_m, mcs_e, mca_m, mca_e, q_slb_t, ss_m, ss_e, sa_m, sa_e, q_fast,
+     q_acc, q_sub, e16_m, e16_e, emc_m, emc_e, q_914) = p.groups()
+    _assert_rounds_to(mc[1] / mc[4], q_mc_t, "mcsolve per trajectory")
+    _assert_latex_rounds_to(d["mc_deviation"] / span, mcs_m, mcs_e, "mcsolve, span-normalized")
+    _assert_latex_rounds_to(d["mc_deviation"], mca_m, mca_e, "mcsolve, absolute")
+    _assert_rounds_to(d["slb16_run_wall"], q_slb_t, "one SLB realization, wall")
+    _assert_latex_rounds_to(single / span, ss_m, ss_e, "SLB, span-normalized")
+    _assert_latex_rounds_to(single, sa_m, sa_e, "SLB, absolute")
+    _assert_rounds_to((mc[1] / mc[4]) / d["slb16_run_wall"], q_fast, "per-sample speed ratio")
+    _assert_rounds_to(d["mc_deviation"] / single, q_acc, "one-realization accuracy ratio")
+    assert int(q_sub) == d["substeps"], "SLB's substep count is not what the file records"
+    _assert_latex_rounds_to(energy["slb"][16][2], e16_m, e16_e, "SLB ensemble, Result 3 score")
+    _assert_latex_rounds_to(mc[2], emc_m, emc_e, "mcsolve, Result 3 score")
+    _assert_rounds_to(mc[2] / energy["slb"][16][2], q_914, "Result 3 energy ratio")
+
+
+def test_section51_thread_sentence_matches_the_files(doc):
+    """Section 5.1 used to call these runs 'single core'. Every Result 3 file
+    records the BLAS/OpenMP thread count its job set; the sentence quoting
+    them must match all of them."""
+    m = re.search(r"Each job set (\d+) BLAS threads on Systems A and C and (\d+) on System "
+                  r"B \((\d+) at A's dimensions (\d+) and (\d+) and at B's (\d+)\)", _flat_ws(doc))
+    assert m, "section 5.1's thread-count sentence has changed shape"
+    ac, b, big, a1, a2, b1 = (int(g) for g in m.groups())
+    expected = {"spin_chain": ac, "oscillator_bath": ac, "mixed_chain": b}
+    exceptions = {("spin_chain", a1), ("spin_chain", a2), ("mixed_chain", b1)}
+    paths = sorted(DATA.glob("method_comparison_*_dim*.json"))
+    assert paths, "no Result 3 files found"
+    for path in paths:
+        system, dim = re.match(r"method_comparison_(\w+?)_dim(\d+)$", path.stem).groups()
+        threads = json.loads(path.read_text(encoding="utf-8"))["meta"]["execution"]["threads"]
+        want = big if (system, int(dim)) in exceptions else expected[system]
+        for var in ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS"):
+            assert int(threads[var]) == want, (
+                f"{path.name}: {var}={threads[var]}, section 5.1 says {want}")
+
+
+def test_section51_exact_baseline_sentence_matches_the_data(doc):
+    """'On the choice of exact baseline': the largest mesolve/native cost
+    ratio across Result 3's files, the two quoted pairs of wall-clocks, the
+    agreement of both solvers with the certified reference at those sizes
+    (through plot_method_comparison.method_errors), and native's substeps."""
+    import plot_method_comparison as pmc
+
+    m = re.search(
+        r"differ in cost by up to (\d+)x on the same problem — ([\d.]+) s against "
+        r"([\d.]+) s on the TFIM chain at dimension 64, ([\d.]+) s against ([\d.]+) s on the "
+        r"oscillator at dimension 32 —.*?both sit within " + LATEX + r" of the certified "
+        r"reference on every observable\. The times are not at matched step counts: native "
+        r"RK4 runs at SLB's own substeps \((\d+) on the chain, (\d+) on the oscillator\)",
+        _flat_ws(doc))
+    assert m, "section 5.1's exact-baseline paragraph has changed shape"
+    (q_max, q_mes_a, q_nat_a, q_mes_c, q_nat_c, dev_m, dev_e,
+     q_sub_a, q_sub_c) = m.groups()
+
+    ratios = []
+    for path in DATA.glob("method_comparison_*_dim*.json"):
+        methods = json.loads(path.read_text(encoding="utf-8"))["point"]["methods"]
+        if "wall_s" in methods.get("mesolve", {}) and "wall_s" in methods.get("native", {}):
+            ratios.append(methods["mesolve"]["wall_s"] / methods["native"]["wall_s"])
+    _assert_rounds_to(max(ratios), q_max, "largest mesolve/native ratio")
+
+    worst = 0.0
+    for name, q_mes, q_nat, q_sub in (("spin_chain_dim64", q_mes_a, q_nat_a, q_sub_a),
+                                      ("oscillator_bath_dim32", q_mes_c, q_nat_c, q_sub_c)):
+        document = json.loads((DATA / f"method_comparison_{name}.json")
+                              .read_text(encoding="utf-8"))
+        point = document["point"]
+        _assert_rounds_to(point["methods"]["mesolve"]["wall_s"], q_mes, f"{name} mesolve")
+        _assert_rounds_to(point["methods"]["native"]["wall_s"], q_nat, f"{name} native")
+        assert int(q_sub) == document["meta"]["substeps"], f"{name}: substeps"
+        for obs in point["observables"]:
+            for row in pmc.method_errors(point, obs):
+                if row[0] in ("native", "mesolve"):
+                    worst = max(worst, row[2])
+    _assert_latex_rounds_to(worst, dev_m, dev_e, "exact solvers against the reference")
+
+
+def test_result3_oscillator_trajectory_projection_uses_result4_rule(doc):
+    """Result 3's projected trajectory count once scaled mcsolve's bias-only
+    error. It now uses Result 4's rule, N* = (S/target)^2 with S the spread
+    across trajectories -- here S = s.e.m. * sqrt(ntraj) from method_errors,
+    the time mean of the per-time spread, as run_isocost_vs_dim records it --
+    and SLB's 16-realization errors at M = 32 and M = 16 as the targets."""
+    d = _oscillator64()
+    mc, slb = d["energy"]["mc"], d["energy"]["slb"]
+    m = re.search(
+        r"\(\$S = ([\d.]+)\$ on the oscillator's energy at dimension 64\)\. Reaching SLB's "
+        r"16-realization error of " + LATEX + r" there — the \$M=32\$ setting.*?would take "
+        r"about \$([\d.]+)\\times10\^\{(\d+)\}\$ trajectories against the 500 it was run "
+        r"with\. Matching the \$M=16\$ error of " + LATEX + r" would take about "
+        r"\$([\d.]+)\\times10\^\{(\d+)\}\$", _flat_ws(doc))
+    assert m, "Result 3's trajectory-projection sentence has changed shape"
+    q_s, t32_m, t32_e, n32_m, n32_e, t16_m, t16_e, n16_m, n16_e = m.groups()
+    spread = mc[5] * np.sqrt(mc[4])
+    assert mc[4] == 500 and slb[32][4] == 16 and slb[16][4] == 16
+    _assert_rounds_to(spread, q_s, "S")
+    _assert_latex_rounds_to(slb[32][2], t32_m, t32_e, "SLB M=32 error")
+    _assert_latex_rounds_to(slb[16][2], t16_m, t16_e, "SLB M=16 error")
+    _assert_latex_rounds_to((spread / slb[32][2]) ** 2, n32_m, n32_e, "N* for M=32")
+    _assert_latex_rounds_to((spread / slb[16][2]) ** 2, n16_m, n16_e, "N* for M=16")
+
+
+def test_result3_oscillator_one_realization_paragraph_matches_the_data(doc):
+    """Result 3's System C paragraph on one realization: its wall-clock and
+    distance, the exact solve's wall-clock and substeps, the 54x and 3.4x
+    against it, mcsolve's total and the 3,100x against it, the 488x and the
+    distance it divides by, and the table's 914x it is set beside."""
+    d = _oscillator64()
+    mc, span = d["energy"]["mc"], d["span"]
+    single = float(np.mean(d["single"]))
+    m = re.search(
+        r"One SLB realization at \$M=16\$ costs ([\d.]+) s and sits " + LATEX + r" of the "
+        r"energy's span from the reference \(averaged over time and over the (\d+) "
+        r"realizations run\), against (\d+) s for the exact full-dissipator solve at the "
+        r"same (\d+) substeps \(\*\*(\d+)x cheaper\*\*, or ([\d.]+)x for the full "
+        r"ensemble\) and ([\d,]+) s for `mcsolve` at (\d+) trajectories \(\*\*([\d,]+)x "
+        r"cheaper\*\*, and \*\*(\d+)x more accurate\*\* on the energy\)\. The \d+x sets that "
+        r"one realization's distance from the reference against the distance of "
+        r"`mcsolve`'s 500-trajectory mean, " + LATEX + r" of the span, with no s\.e\.m\. on "
+        r"either side\. The table's (\d+)x compares", _flat_ws(doc))
+    assert m, "Result 3's System C one-realization paragraph has changed shape"
+    (q_run, one_m, one_e, q_runs, q_nat, q_sub, q_54, q_34, q_mc, q_ntraj, q_3100,
+     q_acc, dev_m, dev_e, q_914) = m.groups()
+    _assert_rounds_to(d["slb16_run_wall"], q_run, "one SLB realization, wall")
+    _assert_latex_rounds_to(single / span, one_m, one_e, "one realization, span-normalized")
+    assert int(q_runs) == d["n_runs"]
+    _assert_rounds_to(d["native_wall"], q_nat, "native wall")
+    assert int(q_sub) == d["substeps"]
+    _assert_rounds_to(d["native_wall"] / d["slb16_run_wall"], q_54, "one run vs native")
+    ensemble_wall = d["slb16_run_wall"] * d["n_runs"]
+    _assert_rounds_to(d["native_wall"] / ensemble_wall, q_34, "ensemble vs native")
+    _assert_rounds_to(mc[1], q_mc, "mcsolve total wall")
+    assert int(q_ntraj) == mc[4]
+    # '3,100x' is printed to two significant figures: its trailing zeros are
+    # not digits, so half a unit in the last significant one is 50.
+    printed = int(q_3100.replace(",", ""))
+    trailing = len(str(printed)) - len(str(printed).rstrip("0"))
+    assert abs(mc[1] / d["slb16_run_wall"] - printed) <= 0.5 * 10 ** trailing, (
+        f"mcsolve against one run is {mc[1] / d['slb16_run_wall']:.0f}x, printed {q_3100}x")
+    _assert_rounds_to(d["mc_deviation"] / single, q_acc, "one-realization accuracy ratio")
+    _assert_latex_rounds_to(d["mc_deviation"] / span, dev_m, dev_e, "mcsolve 500-mean distance")
+    _assert_rounds_to(mc[2] / d["energy"]["slb"][16][2], q_914, "Result 3 energy ratio")

@@ -60,7 +60,10 @@ dimension must run inside a single job on a single node — see the caveat under
 The `run_*.py` scripts perform the expensive simulations. They require an
 explicit `--system SYSTEM` or `--all`; running one with no scope is an error.
 They also refuse to replace an existing JSON file unless `--overwrite` is
-present. Some configurations take hours or require workstation-scale memory,
+present. One script differs: `run_high_dim_spin_reference.py` runs only the
+spin chain, so it takes a required `--dim` instead of `--system`, and it has no
+`--dry-run`. It still refuses to overwrite without `--overwrite`. Some
+configurations take hours or require workstation-scale memory,
 so use `--dry-run` to inspect the plan and work on a separate Git branch before
 intentional replacement.
 
@@ -69,7 +72,9 @@ Inspect the supported filters before starting:
 ```bash
 python run_accuracy_vs_M.py --help
 python run_cost_scaling.py --help
+python run_extreme_dimension.py --help
 python run_frontier.py --help
+python run_frontier_spins.py --help
 python run_isocost_vs_dim.py --help
 ```
 
@@ -164,7 +169,8 @@ the requested batch time before raising `--max-core-gib`.
 - `common.py` contains shared system definitions, grids, metrics, metadata, and
   JSON helpers.
 - `benchmark_cli.py` provides the shared explicit-scope, dry-run, and overwrite
-  safety controls used by every `run_*.py` command.
+  safety controls used by every `run_*.py` command except
+  `run_high_dim_spin_reference.py`, which has its own `--overwrite` check.
 - `benchmark_*.py` scripts produce the validation and robustness figures
   discussed in section 6 of [BENCHMARKS.md](BENCHMARKS.md).
 - `convergence_progress_*.json` files are saved inputs for those validation

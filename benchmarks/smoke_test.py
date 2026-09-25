@@ -29,7 +29,9 @@ PLOT_COMMANDS = (
 RUNNERS = (
     "run_accuracy_vs_M.py",
     "run_cost_scaling.py",
+    "run_extreme_dimension.py",
     "run_frontier.py",
+    "run_frontier_spins.py",
     "run_isocost_vs_dim.py",
     "run_method_comparison.py",
     "run_solver_timing.py",

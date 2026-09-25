@@ -65,8 +65,12 @@ obstruction; the obstruction was scoring against a target that assumes
 ergodicity.
 
 Writes:  data/extreme_dimension_<system>_dim<D>.json
-Run:     python run_extreme_dimension.py [--system mixed_chain] [--size 8]
+Run:     python run_extreme_dimension.py --system mixed_chain [--size 8]
                                          [--m-values 8 16 32] [--substeps 4]
+                                         [--dry-run] [--overwrite]
+         --system (or --all) is required. The script refuses to replace an
+         existing data file unless --overwrite is given; --dry-run prints the
+         plan and the output path without running any solver.
 """
 
 from __future__ import annotations
@@ -93,6 +97,7 @@ from common import (
     run_metadata,
     save_data,
 )
+from benchmark_cli import add_safety_arguments, preflight_run, selected_systems
 from qutip_bundling import davies_operator_count, mesolve_ensemble_davies
 
 # Long enough to relax. The benchmark window (TLIST, t <= 5) is deliberately the
@@ -116,6 +121,11 @@ SYSTEMS = {
     "oscillator_bath": build_oscillator_bath,
     "spin_chain": build_spin_chain,
 }
+
+
+def output_name(system: str, dimension: int) -> str:
+    """The file one run writes, so main() can check it before any solve."""
+    return f"extreme_dimension_{system}_dim{dimension}.json"
 
 
 # |<e|X|e'>| below this counts as no coupling. Stable from 1e-10 to 1e-4 on
@@ -315,7 +325,7 @@ def run(system: str, size: int, m_values: list[int],
                        int(TLIST_THERMAL.size)],
     )
     save_data(
-        f"extreme_dimension_{system}_dim{dimension}.json", meta, compact=True,
+        output_name(system, dimension), meta, compact=True,
         dim=dimension, n_l=n_l, t_count=t_count,
         operator_list_bytes=list_bytes,
         observables=labels, coherence=coherence,
@@ -343,19 +353,17 @@ def run(system: str, size: int, m_values: list[int],
             "remaining": per_obs[0]["remaining"],
         },
     )
-    print(f"\n  -> wrote extreme_dimension_{system}_dim{dimension}.json")
+    print(f"\n  -> wrote {output_name(system, dimension)}")
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[1])
-    parser.add_argument("--system", choices=sorted(SYSTEMS),
-                        default="mixed_chain",
-                        help="default mixed_chain. spin_chain is NOT a valid "
-                             "target for the thermal check: its Z2 symmetry "
-                             "gives extra conserved quantities, so it relaxes "
-                             "to a symmetry-restricted state rather than the "
-                             "global Gibbs state, and check 3 would fail for "
-                             "reasons unrelated to bundling.")
+    # --system or --all is required, and an existing output is kept unless
+    # --overwrite is given. With no arguments this script used to start a
+    # System B run of several hours and replace the committed Result 5 file.
+    # spin_chain is a valid target: check 3 scores it against the
+    # sector-resolved state (see the module docstring).
+    add_safety_arguments(parser, SYSTEMS)
     parser.add_argument("--size", type=int, default=8,
                         help="spins (or Fock cutoff); 8 gives dimension 256 "
                              "on the chains (default)")
@@ -372,9 +380,26 @@ def main() -> None:
                              "most expensive part of this script, so it is the "
                              "one knob worth turning.")
     args = parser.parse_args()
+    names = selected_systems(args, SYSTEMS)
+    m_values = sorted(args.m_values)
+    plans = []
+    for name in names:
+        # Building H is cheap; the eigendecomposition and N_L count wait
+        # until after the preflight check.
+        dimension = SYSTEMS[name](args.size)[0].shape[0]
+        plans.append((
+            f"Result 5: {name}, size {args.size} (dim {dimension}), "
+            f"M={m_values}, {args.thermal_realizations} thermal "
+            f"realizations, {args.substeps} substeps",
+            DATA_DIR / output_name(name, dimension),
+        ))
+    if not preflight_run(plans, overwrite=args.overwrite,
+                         dry_run=args.dry_run):
+        return
     DATA_DIR.mkdir(parents=True, exist_ok=True)
-    run(args.system, args.size, sorted(args.m_values),
-        args.thermal_realizations, args.substeps)
+    for name in names:
+        run(name, args.size, m_values, args.thermal_realizations,
+            args.substeps)
 
 
 if __name__ == "__main__":

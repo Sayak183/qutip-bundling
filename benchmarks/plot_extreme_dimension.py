@@ -60,11 +60,35 @@ def sector_resolved_energy(doc):
     Recomputed from the system definition because the committed data predates
     this correction. One eigendecomposition and a connected-components pass.
     """
+    limit = sector_limit(doc)
+    if limit is None:
+        return None, None
+    if limit["n_sectors"] == 1:
+        return None, 1        # ergodic: the two targets coincide
+    return limit["energy"], limit["n_sectors"]
+
+
+def sector_limit(doc):
+    """The t -> infinity state itself, and how rho0 is spread over the sectors.
+
+    The construction behind sector_resolved_energy, exposed so that other
+    expectation values of the limit (<ZZ>, <X>, ...) come from the same place.
+    Returns None when ``doc`` names no buildable system, else a dict:
+
+      state      rho_inf as a Qobj: Gibbs within each sector, scaled by the
+                 weight rho0 put in that sector; diagonal in the eigenbasis
+      energy     Tr(H rho_inf)
+      n_sectors  connected components of the graph of <e|X|e'>
+      sizes      number of levels in each sector
+      weights    rho0's weight in each sector; they sum to 1
+
+    With one sector, ``state`` is the global Gibbs state.
+    """
     params = (doc.get("meta") or {}).get("params") or {}
     build = _BUILDERS.get(params.get("system"))
     size = params.get("size")
     if build is None or size is None:
-        return None, None
+        return None
 
     H, X, psi0 = build(int(size))
     energies, states = H.eigenstates()
@@ -76,20 +100,25 @@ def sector_resolved_energy(doc):
     np.fill_diagonal(adjacency, 1)
     n_sectors, sector_of = connected_components(csr_matrix(adjacency),
                                                 directed=False)
-    if n_sectors == 1:
-        return None, 1        # ergodic: the two targets coincide
 
     pops0 = np.real(np.diag(V.conj().T @ qutip.ket2dm(psi0).full() @ V))
-    total = 0.0
+    populations = np.zeros_like(energies)
+    weights = []
     for s in range(n_sectors):
         mask = sector_of == s
         p_s = float(pops0[mask].sum())
+        weights.append(p_s)
         if p_s <= 0.0:
             continue
         w = np.exp(-(energies[mask] - energies[mask].min()) / KT)
-        w /= w.sum()
-        total += p_s * float(np.dot(w, energies[mask]))
-    return total, int(n_sectors)
+        populations[mask] = p_s * w / w.sum()
+    return {
+        "state": qutip.Qobj((V * populations) @ V.conj().T, dims=H.dims),
+        "energy": float(np.dot(populations, energies)),
+        "n_sectors": int(n_sectors),
+        "sizes": np.bincount(sector_of, minlength=n_sectors).tolist(),
+        "weights": weights,
+    }
 
 SLB_GREEN = "#006d2c"
 GIBBS_GREY = "tab:gray"
