@@ -154,7 +154,9 @@ SYSTEMS = {
         # dim 256, making five. N_L = 32,637 here, and the exact reference --
         # not the SLB sweep -- is what costs: it grew 19x from dim 64 to 128
         # (600 s -> 11,354 s) because N_L quadruples on top of the dimension.
-        # Measured by job 19604858: reference 9.4 h, whole job 2.8 d.
+        # Measured by job 19604858: reference 73,649 s (20.5 h) per solve on
+        # this 80-point grid, 32 threads; whole job 2.8 d. (Section 5.2's 9.4 h
+        # is the 40-point solve of job 19604736 -- half the steps.)
         (8, [2, 4, 8, 16, 32, 64], 4),
         # dim 512, making six, and System B's LAST Result 1 size: dim 1024 has
         # an 8.8 TB operator list, more than all four nodes hold.
@@ -162,7 +164,8 @@ SYSTEMS = {
         # This size was first written off as unreachable on memory grounds.
         # The operator list is 549 GB nominal (N_L = 131,001), and B's dim-256
         # job had peaked at 2.9x its nominal list, which scales to ~1.6 TB
-        # against a 1.55 TB node. Two things changed that. probe_memory.py
+        # against the node's 1.62 TB job limit (1,546,827 MiB, then misread
+        # as 1.55 TB) -- too close to call. Two things changed that. probe_memory.py
         # measured the construction at this size directly: 1.88x, a 1.1 TB
         # peak (job 19607139, 25 min). And native_solver.py stopped caching a
         # second dense copy of every operator (the adjoint list), which is
@@ -171,10 +174,13 @@ SYSTEMS = {
         # peak. The sweep streams operators one at a time and never holds a
         # second copy at all. Submit with --mem=1450G --exclusive.
         #
-        # Time: ~3 weeks serial on one node. The reference is ~12.5 days --
-        # the dim-256 solve took 9.4 h and each spin has cost ~13x, times the
-        # self-check's extra 1.5 solves (0.5 since 2026-09-23, after this job,
-        # 19607141, had started). The ladder is ~9 days: bundle
+        # Time: priced at ~3 weeks, which was too low. The reference was put
+        # at ~12.5 days from a 9.4 h dim-256 solve -- but that solve is the
+        # 40-point grid's; on this 80-point grid it took 20.5 h (job
+        # 19604858). At ~13x per spin and 2.5 solves the reference phase is
+        # ~28 days, the whole job ~5 weeks (corrected 2026-09-25). The 2.5
+        # counts the self-check's extra 1.5 solves (0.5 since 2026-09-23, after
+        # this job, 19607141, had started). The ladder is ~9 days: bundle
         # construction dominates at ~7 min per realization and is roughly
         # independent of M, so the six rungs cost about an hour each per
         # realization. Saved after every M, so a partial ladder is kept.

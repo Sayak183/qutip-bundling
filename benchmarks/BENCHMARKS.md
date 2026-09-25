@@ -1251,9 +1251,9 @@ which is the quantity under test.
 
 | Solver Method | System A (TFIM Chain) | System B (Mixed Chain) | System C (Oscillator + Spin) | Limiting Wall / Bottleneck |
 |---|:---:|:---:|:---:|---|
-| **QuTiP `mesolve`** (Superoperator ODE) | **Dim 64** ($N_L=31$) | **Dim 32** ($N_L=513$) | **Dim 32** ($N_L=408$) | **32 GB RAM Wall:** Building superoperator sum $\sum c_\alpha \otimes c_\alpha^*$ exhausts 32 GB RAM at dim 64 ($N_L \ge 890$). On a 1.55 TB node the measured ceilings are one step higher; see the grid below. |
+| **QuTiP `mesolve`** (Superoperator ODE) | **Dim 64** ($N_L=31$) | **Dim 32** ($N_L=513$) | **Dim 32** ($N_L=408$) | **32 GB RAM Wall:** Building superoperator sum $\sum c_\alpha \otimes c_\alpha^*$ exhausts 32 GB RAM at dim 64 ($N_L \ge 890$). On a 1.62 TB node the measured ceilings are one step higher; see the grid below. |
 | **QuTiP `mcsolve`** (Trajectory Monte Carlo) | **Dim 2048** (44,184 s) | **Dim 256** (331,305 s) | **Dim 64** (7,118 s) | **Sampling Variance Wall:** at $N_{\rm traj}=500$ (the times shown, Result 3) the error stays within about $2\times$ of its $1/\sqrt{N_{\rm traj}}$ noise floor at every size (error/s.e.m. 1.0 to 2.1 across observables), so some points are bias-limited by Result 3's $\sqrt{2}$ rule; cost per trajectory grows with $N_L$, since every jump tests every collapse operator — 663 s per trajectory on System B at dim 256. |
-| **Native RK4** (Dense Matrix ODE) | **Dim 2048** ($N_L=111$) | **Dim 256** ($N_L=32,637$) | **Dim 128** ($N_L=1,686$) | **$O(N^5)$ CPU Wall:** dim 256 on System B needs 34 GB and **9.4 h** (measured, job 19604736); the oscillator diverges at dim 256 on these substeps. |
+| **Native RK4** (Dense Matrix ODE) | **Dim 2048** ($N_L=111$) | **Dim 256** ($N_L=32,637$) | **Dim 128** ($N_L=1,686$) | **CPU Wall, $O(N_L N^3)$ per step:** that is $O(N^5)$ on System B, where $N_L \approx N^2/2$, but close to $O(N^3)$ on System A, whose $N_L$ only grows from 43 at dim 128 to 111 at dim 2048. Measured on System B (job 19604736, 8 substeps on the 40-point grid, one 32-thread node), the time grows $12.4\times$ and $12.8\times$ per doubling from dim 64 to 256, not the nominal $32\times$; dim 256 takes **9.4 h**, and its dense operator list alone is 34 GB. The oscillator diverges at dim 256 at 64 substeps on the 40-point grid; at 128 substeps it runs (job 19559986), but no certified reference exists yet (below). |
 | **SLB (Bundled)** (This Work) | **Dim 2048** ($N_L=111$) | **Dim 512** ($N_L=131{,}001$) | **Dim 512** ($N_L=5{,}034$) | **No wall reached:** the frontier (Result 5) ran one solve at each of $M$ = 16, 32, 64 at the largest size tried on every system — at $M=16$, bundle construction included, 15,115 s on System A, 5,951 s on System B (5,509 s of it streaming the 131,001 operators into bundles) and 6,109 s on the oscillator at 128 substeps per interval of the frontier's 101-point grid. Reach, not accuracy: Result 1 carries the error bars. |
 
 The solvers encounter two distinct, physical walls:
@@ -1275,31 +1275,43 @@ The solvers encounter two distinct, physical walls:
      right object, because SLB and its certified reference do not run at the
      same resolution: Result 2 propagates **SLB** at 32 substeps uniformly and
      that is stable through dim 128, while the **reference** at that size is
-     certified on a 32/64 pair, and dim 256 needs 128 for SLB. Result 1, a
-     separate sweep, runs the oscillator at 4 substeps to dim 32, 16 at dim 64
-     and 32 at dim 128.
+     certified on a 32/64 pair, and dim 256 needs 128 for SLB. All of these use a
+     40-point time grid. Result 1, a separate sweep, uses an 80-point grid, so its
+     steps are about half as long at the same count: it runs the oscillator at 4
+     substeps to dim 32, 16 at dim 64 and 32 at dim 128.
    - **The dim-256 half of that rule has now been measured, and it holds.** It was a
      projection from two octaves; job 19592849 tested the third. Given 128 substeps SLB
      runs at dimension 256 -- one $M=8$ solve in 806.6 s, $N_L = 2{,}986$, Davies
      construction 19.4 s -- with no divergence. So the `slb_unstable_at_substeps: 32`
      recorded against that dimension in Result 2 means exactly what it says, *unstable at
-     32*, and not that the method stops there.
+     32*, and not that the method stops there. The same entry also lists three
+     `t_native_ref_repeats` timings. They are dim 128's, carried over by a bug in
+     `run_cost_scaling.py`, fixed since; no reference ran at dim 256, and its
+     `t_native_ref` is null.
    - **That point is deliberately absent from Result 2's curve**, for two independent
      reasons: it is integrated at $4\times$ that panel's substeps, and it ran on landau44
-     while the panel ran on landau42. Either one alone disqualifies its wall-clock from
+     while the panel ran on landau41. Either one alone disqualifies its wall-clock from
      that axis. Putting it on properly would mean re-running the whole oscillator sweep at
-     128 substeps -- roughly 15 h, and it would multiply every published SLB cost there by
-     four, turning the $327\times$ advantage at dim 128 into $\sim82\times$. Paying that
-     to gain one dot is a bad trade. **It establishes reach, not cost scaling**, and is
-     quoted here rather than plotted for that reason.
+     128 substeps, and every SLB solve on that axis would then cost about four times as
+     much. At dim 128 the certified reference (4,102.7 s at 64 substeps) is $327\times$
+     one $M=8$ SLB solve from the same job (12.5 s at 32 substeps, half the reference's,
+     so not at matched substeps). With SLB at 128 substeps, twice the reference's, it
+     would be about $82\times$. That is a poor trade for one extra point. **It establishes
+     reach, not cost scaling**, and is quoted here rather than plotted for that reason.
    - **What stops the study at dim 128 is certification, not propagation.** A dim-256
-     reference at 128 substeps does run -- it completed in ~2.4 days (job 19559986). But
-     certifying it requires agreement with a second run at a different resolution, and the
-     cheap downward comparison at 64 substeps is itself unstable there. Checking upward
-     instead costs ~2x the primary, putting a *certified* dim-256 oscillator reference at
-     roughly a week. The propagation is affordable; the proof that it has converged is not.
-   - `certified_reference` now escalates the check upward rather than discarding a good
-     reference when the halved comparison diverges.
+     reference at 128 substeps does run: job 19559986 finished one in about 2.4 days.
+     That time is from the job's log, not a data file; the job wrote none, for the
+     reason that follows. Certifying a reference means matching it against a second run
+     at a different resolution. The cheap check, at half the substeps (64), is itself
+     unstable at this size on the 40-point grid. In that job it diverged, and the
+     finished reference was thrown away with it. `certified_reference` still tries the
+     half-substep check first, but when it diverges it now checks upward, at twice the
+     substeps (256), for about twice the primary's cost, instead of discarding the
+     reference. On this grid that puts a *certified* dim-256 oscillator reference at
+     more than a week: 2.4 days, the downward check until it diverges, then about 4.8
+     days more. Result 1's runner avoids the problem with its finer 80-point grid,
+     where the 64-substep check is stable: it prices a certified dim-256 reference at
+     about 7.3 days (`run_accuracy_vs_M.py`).
 
 #### All four solvers, measured on one node each
 
@@ -1327,10 +1339,21 @@ setting, and where each one stops existing.
 | | 128 | 1,686 | 4,202.8 s | *7.2 TB* | 11.3 s | 191.4 s |
 | | 256 | 2,986 | *diverged* | *205 TB* | *diverged* | 2,761.0 s |
 
-Italicised `mesolve` entries are projected requirements, not attempts: the run
-refuses the call rather than being killed by the kernel, for the reason below.
+Italicised `mesolve` entries were not attempted. Each job capped `mesolve`
+with `--max-full-dim` (dim 128 on System A, dim 64 on B and C), so the run
+skipped the call rather than being killed by the kernel. The figure shown is
+what the call would need by the formula below, $N_L \times N^4 \times 16$
+bytes. The System A and B files record that figure. The oscillator's file was
+written by an earlier version of the script and records only the size of one
+Liouvillian, 4.3 GB at dim 128 and 68.7 GB at dim 256; the table's 7.2 TB and
+205 TB are the formula applied to the same two sizes.
+
 The oscillator's dim-256 divergences are the stiffness rule above doing what
-it says — SLB reaches that size at 64 substeps, and this grid ran it at 32.
+it says. On this 40-point grid SLB ran at 32 substeps, a step of
+$4.0\times10^{-3}$, and native RK4 at 64, a step of $2.0\times10^{-3}$; both
+diverged. SLB does run at this size with 128 substeps on the same grid, a step
+of $1.0\times10^{-3}$ (job 19592849). The frontier's 64 substeps at this size
+(Result 5) are on its finer 101-point grid, a step of $7.8\times10^{-4}$.
 
 **SLB is propagated at half the reference's substeps** (4 against 8 on the
 chains, 32 against 64 on the oscillator), so a factor of two in every SLB
@@ -1342,27 +1365,37 @@ it.** `run_solver_timing` times the whole `mesolve_ensemble` call: drawing the
 phases, building $M$ bundles out of the $N_L$ collapse operators, then
 propagating them. `run_frontier_spins` reports those two separately, as
 `t_bundle_prep` and `t_dyn`, and only the second reaches its tables. The gap is
-not incidental. Fitting the frontier's own $M=16$ and $M=64$ points at System B
-dimension 256 to a fixed-plus-linear form in $M$ — which reproduces its
-untouched $M=32$ point to 5% — and evaluating it on this grid predicts **5.1 s
-of propagation against the 52.6 s measured**. The residual, 47.5 s, is bundle
-construction: combining 32,637 operators into 8. The frontier's directly
-measured prep at that dimension is 26.3 to 42.1 s, the same range.
+not incidental. Fitting the frontier's own propagation times at $M=16$ and
+$M=64$, System B dimension 256, to a fixed-plus-linear form in $M$ — which
+reproduces its untouched $M=32$ point to 5% — and evaluating it at $M=8$,
+scaled from the frontier's 800 RK4 steps (100 intervals of 8 substeps) to this
+grid's 156 (39 of 4), predicts **5.0 s of propagation against the 52.6 s
+measured**. The residual, 47.6 s, is bundle construction: combining 32,637
+operators into 8. The frontier timed construction directly at that dimension:
+26.3 to 42.1 s at $M$ = 16, 32 and 64. The estimate here is 13% above the top
+of that range: close to it, but outside it.
 
-**The timing column is the fairer of the two, and they must never be
-compared.** Bundling is a cost SLB pays that the exact solvers do not, so
-excluding it would flatter the method. What the split does do is change
-character between systems: System A at dimension 512 has $N_L = 73$ and
-construction is negligible, while System B at 256 has 32,637 and construction
-is roughly nine tenths of the call. The same method, opposite cost structure —
-and it is $N_L$ that decides, the same quantity that decides everything else
-here.
+**This grid's SLB column, construction included, is the fair one to set
+against the exact solvers. It must never be compared with the frontier's
+`t_dyn`, which leaves construction out.** Bundling is a cost SLB pays that the
+exact solvers do not, so excluding it would flatter the method. What the split
+does do is change character between systems: System A at dimension 512 has
+$N_L = 73$ and construction is negligible, while System B at 256 has 32,637
+and construction is roughly nine tenths of the call. The same method, opposite
+cost structure — and it is $N_L$ that decides, the same quantity that decides
+everything else here.
 
-One measured oddity, quoted as measured rather than explained: at System B
-dimension 256 the construction time shows no $M$ dependence at all — 26.3,
-42.1 and 29.0 s at $M = 16$, 32 and 64 — where building $M$ bundles from $N_L$
-operators should scale with $M$. Whatever dominates it is done once per
-realization regardless of the bundle count. That has not been isolated.
+One measured oddity: at System B dimension 256 the construction time shows
+no $M$ dependence at all — 26.3, 42.1 and 29.0 s at $M = 16$, 32 and 64. The
+frontier's other System B sizes narrow it down. At dimension 128, where the
+operator list is also held in memory, construction is flat too: 2.2, 1.9 and
+2.6 s. At dimension 512, where the operators are streamed instead, it grows
+almost in proportion to $M$: 5,509, 10,172 and 19,290 s. The code has the
+same split. The in-memory path turns each of the $N_L$ stored operators into a
+dense array once per call, whatever $M$ is; only the matrix products that
+follow grow with $M$. The streaming path builds each operator and then adds it
+into every one of the $M$ bundles in turn. No run has timed those steps
+separately, so this is the likely cause, not a measured one.
 
 **`mesolve` memory: $N_L \times N^4 \times 16$ bytes, fitted to failures and
 then confirmed on successes.** qutip builds one full $(N^2)\times(N^2)$
@@ -1378,39 +1411,61 @@ had never been tested in:
 | 19604462 | C | 64 | 890 | 239 GB | 234 GB | 2% |
 | 19604736 | B | 64 | 2,017 | 541 GB | 529 GB | 2% |
 
-The last row is the same solve that was OOM-killed at 519 GB against a 500 GB
-request. **The consequence worth carrying:** `mesolve` becomes unusable well
-before the other solvers do, and it is $N_L$ that decides when. System A cannot
-reach dim 256 on any single node — 3.9 TB against 1.55 TB — so its `mesolve`
-ceiling is 7 spins, not the 8 a dimension-only argument gives.
+No data file stores peak memory use. The peak-RSS column, the error column
+built from it, the five OOM kills above and the 519 GB below all come from the
+cluster's job records, so they cannot be checked from this repository. The
+last row repeats the `mesolve` run of an earlier job that asked for 500 GB and
+was killed at 519 GB.
+
+**The consequence worth carrying:** `mesolve` becomes unusable well before the
+other solvers do, and it is $N_L$ that decides when. System A cannot reach dim
+256 on any node here: it needs 3.9 TB, and the timing jobs recorded a memory
+limit of 1.62 TB. So its `mesolve` ceiling is 7 spins, not the 8 a
+dimension-only argument gives.
 
 **Where the ratios come from, and where they do not.** Replacing $N_L$
 operators with $M$ bundles at half the substeps predicts a factor
 $2N_L/M$ against native RK4. On System A at dim 1024 that is $22.8$ against
-$20.6$ measured; on System C at dim 128, $421$ against $370$. Both within 10%,
-which is a check on the mechanism rather than a tuned result. **System B does
-not follow it** — at dim 256 the naive prediction is $8{,}159$ and the
-measurement is $641$. The departure is real and is not explained here; SLB's
-bundle construction from 32,637 operators is a candidate, but it has not been
-isolated, and the number is quoted as measured.
+$20.6$ measured; on System C at dim 128, $421.5$ against $370$. The prediction
+runs high on both, by 11% on A and 14% on C. Part of that is the bundle
+construction the SLB column includes and the operator count leaves out; how
+much has not been isolated. It is a check on the mechanism rather than a tuned
+result. **System B does not follow it**: at dim 256 the prediction is
+$8{,}159$ and the measurement is $642$. Most of that gap is the construction
+cost estimated above: about nine tenths of SLB's 52.6 s there is spent
+combining 32,637 operators into 8 bundles, a cost the operator count leaves
+out.
 
-**And the direction reverses on the control.** Result 4 measured
-$M^\ast = N_L$ on System A — 43 bundles at 7 spins, 91 at 10 — and even there
-the 3% target is missed by $1.1\times$ to $4\times$. Priced against the
-frontier data, SLB at $M=91$ costs $\sim13{,}800$ s at dim 1024 while the exact
-solve at matched substeps costs $\sim5{,}400$: **at the bundle count accuracy
-demands, SLB is $\sim2.6\times$ slower than solving System A exactly.** The
-$1{,}891\times$ in the table above and this $2.6\times$ penalty are the same
-run, answering different questions. Quote the first only as a cost, and never
-without the second.
+**And the direction reverses on the control.** On System A, Result 4 never
+reaches the 3% target. Even at $M = N_L$, the largest bundle count it tries
+(43 at 7 spins, 73 at 9 spins, its largest size), the error misses by
+$1.3\times$ and $4.0\times$ at those two sizes, and by $1.1\times$ to
+$4\times$ across all eight (4 realizations per size). At 10 spins, where
+Result 4 has no point, that bundle count would be $N_L = 91$. **At that count,
+SLB saves nothing over solving System A exactly**: it carries as many
+operators as the exact solve, so each RK4 step costs the same. Measured at dim
+1024 on 32-thread nodes, the exact solve takes 8.6 s per step (2,685.5 s for
+312 steps, in the grid above). SLB takes 3.0 s per step at $M=32$ and 6.1 s at
+$M=64$ (the frontier's 1,600-step solves, job 19603809, on another node).
+Scaled in proportion to $M=91$, that is 8.6 s, the exact solve's rate, before
+SLB pays for bundle construction. The two jobs ran different step counts, so
+only the per-step costs compare. That is per realization. Result 4's errors
+are means of 4, so at the accuracy it measured SLB costs about 4 times the
+exact solve per step, and still misses the target.
+
+The grid's own ratio at dim 1024, native RK4 over SLB at $M=8$, is
+$20.6\times$ (2,685.5 s against 130.5 s). SLB there takes 4 substeps to the
+exact solve's 8, so half the steps, and 8 bundles, not the 91 above. It is the
+price of one $M=8$ solve, not a speedup. Quote it only next to the same-step
+comparison above.
 
 `mcsolve`'s column is per trajectory at 8 trajectories, which is a probe rather
-than a solve. At a converged 500, the largest cells project to 2.9 h (System A,
-dim 1024), 4.2 days (System B, dim 256) and **16 days** (System C,
-dim 256) — the last reached only because `mcsolve` steps adaptively where this
-project's fixed-step RK4 diverges. The first two have since been run at 500:
-**2.6 h** (job 19606788) and **3.8 days** (job 19607138), so the probe
-projected about 10% high on both.
+than a solve. At the 500 trajectories Result 3 runs, the largest cells project
+to 2.9 h (System A, dim 1024), 4.2 days (System B, dim 256) and **16 days**
+(System C, dim 256) — the last reached only because `mcsolve` steps
+adaptively where this project's fixed-step RK4 diverges. The first two have
+since been run at 500: **2.6 h** (job 19606788) and **3.8 days** (job
+19607138), so the probe projected 11% high on both.
 
 ---
 
@@ -2168,10 +2223,12 @@ energy point sits either side of that line, at ratios 1.13 to 2.03; the floor
 itself is set by $1/\sqrt{500}$, not by the size. It took **9,502 s**, against 2,685 s for native RK4 at 8
 substeps at the same size on the same grid (§5.2), so on the control system `mcsolve` is
 **3.5× slower than the exact solve** at an error it cannot bring below its own
-noise. SLB at the bundle count accuracy demands is ~2.6× slower than exact here
-(§5.2). Neither stochastic method beats the exact solve on System A at any size
-measured; that is what a control is for. No SLB was run at this size on this
-grid, so no SLB/`mcsolve` ratio is quoted.
+noise. SLB fares no better: at $M = N_L = 91$ one realization costs the same
+per RK4 step as the exact solve (§5.2), and Result 4's errors average 4
+realizations, so at its accuracy SLB costs about 4 times as much. Neither stochastic method beats
+the exact solve on System A at any size measured; that is what a control is
+for. No SLB was run at this size on this grid, so no SLB/`mcsolve` ratio is
+quoted.
 
 **And five doublings later, with the exact solve run in the same job.** Job
 19607136 ran the certified native reference and `mcsolve` at 500 trajectories
@@ -2274,7 +2331,7 @@ At high precision ($\le 1\%$), Monte Carlo trajectory methods hit a hard statist
 
 Every benchmark above compares SLB against an exact reference, which caps each study at the dimension where an exact solve is still affordable. **That wall is per system, not global.** Measured from the committed Result 1 files, the largest dimension carrying an exact reference is **1024 on System A** (native RK4 at 8 substeps, job 19605304), **256 on System B** (job 19604858), and **128 on the oscillator**, which the fixed-step reference cannot pass at these substeps. Result 3 also certifies System A at 2048 (job 19607136).
 
-On the two chains, certification has caught up with the sizes §5.2 first timed, so there the wall is now plain cost. The oscillator is where propagation still outruns certification: a reference is only usable once a second run at a different resolution agrees with it, and that second run is what becomes unaffordable first. §5.2 makes the argument there, where a dimension-256 reference propagates in ~2.4 days but certifying it costs about a week.
+On the two chains, certification has caught up with the sizes §5.2 first timed, so there the wall is now plain cost. The oscillator is where propagation still outruns certification: a reference is only usable once a second run at a different resolution agrees with it, and that second run is what gets expensive first. §5.2 makes the argument there, where a dimension-256 reference propagates in ~2.4 days on the 40-point grid and certifying it there takes more than a week in all; Result 1's finer grid brings that to about 7.3 days.
 
 Result 5 stepped past that wall as it stood when it ran — System B's first certified dim-256 reference came later (job 19604858) — into the regime SLB was built for: **where the Lindblad operator list cannot fit in RAM.**
 
@@ -2346,8 +2403,13 @@ different bundle counts land. If $M=32$ and $M=64$ agree, the answer has stopped
 depending on $M$ — necessary for convergence, though not sufficient for
 correctness.
 
-Swept across all three systems on exclusive nodes (jobs `19603729`, `19603731`
-and `19603809`, saved as `frontier_spins_*.json`):
+The check was run on all three systems on exclusive nodes (jobs `19603729`,
+`19603731` and `19603809`, saved as `frontier_spins_*.json`). These runs use a 101-point
+time grid, so each substep count below is a step 2.6 times smaller than the
+same count on §5.2's 40-point grid. The oscillator's 64 substeps at Fock 128
+are a step of $7.8\times10^{-4}$; on §5.2's grid SLB ran stably with 128
+substeps, a step of $1.0\times10^{-3}$, while native RK4 diverged at 64, a
+step of $2.0\times10^{-3}$:
 
 | system and size | $N$ | $N_L$ | substeps | $\lVert\rho_{64}-\rho_{32}\rVert_F$ | trace distance |
 |---|---|---|---|---|---|

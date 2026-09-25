@@ -61,7 +61,7 @@ died at 519 GB.
 
 The consequence is worth stating plainly: **mesolve is unusable well before the
 other solvers are.** System A cannot reach dim 256 on any single node -- 3.9 TB
-against 1.55 TB.
+against the 1.62 TB job limit these runs recorded.
 
 Both guards are needed. ``--max-full-dim`` (defaulting to
 ``common.MAX_FULL_DIM``, as in ``run_cost_scaling.py``) is the explicit one; the
@@ -140,7 +140,7 @@ def mesolve_bytes(dim, n_l):
 
     The consequence worth knowing: mesolve is unusable well before the other
     solvers are. System A cannot reach dim 256 on any single node -- 3.9 TB
-    against 1.55 TB.
+    against the 1.62 TB job limit these runs recorded.
     """
     return n_l * (dim ** 4) * 16
 

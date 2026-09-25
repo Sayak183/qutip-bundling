@@ -1999,3 +1999,754 @@ def test_result3_oscillator_one_realization_paragraph_matches_the_data(doc):
     _assert_rounds_to(d["mc_deviation"] / single, q_acc, "one-realization accuracy ratio")
     _assert_latex_rounds_to(d["mc_deviation"] / span, dev_m, dev_e, "mcsolve 500-mean distance")
     _assert_rounds_to(mc[2] / d["energy"]["slb"][16][2], q_914, "Result 3 energy ratio")
+
+
+# --- section 5.2's walls table and oscillator stiffness bullets --------------
+#
+# The walls table called native RK4 "O(N^5)" on every system, and the stiffness
+# bullets named the wrong node for Result 2's oscillator panel. Nothing read
+# this part of section 5.2, so these pin it to the files it quotes.
+
+def _p2a_load(name: str) -> dict:
+    path = DATA / name
+    if not path.exists():
+        pytest.skip(f"{name} not committed")
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def _p2a_text(doc: str) -> str:
+    """Section 5.2's bullets are indented, which _flat keeps; fold that too."""
+    return _flat_ws(_flat(doc))
+
+
+def test_section52_native_wall_cell_matches_the_timing_files(doc):
+    """The native RK4 row's wall: O(N_L N^3) per step, which is O(N^5) only
+    where N_L ~ N^2/2 (System B). Pins System A's N_L range, the measured
+    growth per doubling on System B (one job, one substep count, so the
+    wall-clocks are comparable), the 9.4 h, the operator list's size, and the
+    oscillator's native divergence."""
+    m = re.search(
+        r"\*\*CPU Wall, \$O\(N_L N\^3\)\$ per step:\*\* that is \$O\(N\^5\)\$ on System B, "
+        r"where \$N_L \\approx N\^2/2\$, but close to \$O\(N\^3\)\$ on System A, whose \$N_L\$ "
+        r"only grows from (\d+) at dim (\d+) to (\d+) at dim (\d+)\. Measured on System B "
+        r"\(job (\d+), (\d+) substeps on the (\d+)-point grid, one (\d+)-thread node\), "
+        r"the time grows "
+        r"\$([\d.]+)\\times\$ and \$([\d.]+)\\times\$ per doubling from dim (\d+) to (\d+), "
+        r"not the nominal \$(\d+)\\times\$; dim (\d+) takes \*\*([\d.]+) h\*\*, and its dense "
+        r"operator list alone is (\d+) GB\. The oscillator diverges at dim (\d+) at (\d+) "
+        r"substeps on the (\d+)-point grid", _p2a_text(doc))
+    assert m, "section 5.2's native RK4 wall cell has changed shape"
+    (a_nl_lo, a_dim_lo, a_nl_hi, a_dim_hi, job, sub, b_grid, threads, g1, g2,
+     d_lo, d_hi, nominal, d_wall, hours, gb, c_dim, c_sub, c_grid) = m.groups()
+
+    # System A: N_L at the two ends of the native row's range.
+    spin = {p["dim"]: p["n_l"] for p in _p2a_load("solver_timing_spin_chain.json")["points"]}
+    assert spin[int(a_dim_lo)] == int(a_nl_lo), f"System A N_L at dim {a_dim_lo}"
+    top = _p2a_load(f"method_comparison_spin_chain_dim{a_dim_hi}.json")["point"]
+    assert top["dim"] == int(a_dim_hi) and top["n_l"] == int(a_nl_hi)
+    assert top["reference"]["selfcheck"]["passed"], "System A's top native size is not certified"
+
+    # System B: one job, one substep count, one thread count.
+    b = _p2a_load("solver_timing_mixed_chain.json")
+    meta = b["meta"]
+    assert meta["execution"]["slurm"]["job_id"] == job
+    assert meta["params"]["native_substeps"] == int(sub)
+    # The 9.4 h is the 40-point grid's; Result 1's 80-point reference is
+    # twice the steps (20.5 h), and quoting it without its grid once
+    # under-priced the dim-512 run.
+    assert meta["tlist"]["n"] == int(b_grid)
+    for var in ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS"):
+        assert int(meta["execution"]["threads"][var]) == int(threads), var
+    pts = {p["dim"]: p for p in b["points"]}
+    lo, hi = int(d_lo), int(d_hi)
+    assert sorted(pts) == [lo, 2 * lo, hi] and hi == 4 * lo
+    for p in pts.values():
+        assert p["native_substeps"] == int(sub)
+        # N_L ~ N^2/2: 2,017 / 8,193 / 32,637 against 2,048 / 8,192 / 32,768.
+        assert abs(p["n_l"] / (p["dim"] ** 2 / 2) - 1) < 0.02, p["dim"]
+    native = {d: pts[d]["timings"]["native"]["median_s"] for d in pts}
+    assert _near(g1, native[2 * lo] / native[lo]), "first doubling"
+    assert _near(g2, native[hi] / native[2 * lo]), "second doubling"
+    # Nominal growth per doubling: N^3 gives 8x, N_L gives ~4x.
+    per_doubling_nl = (pts[hi]["n_l"] / pts[lo]["n_l"]) ** 0.5
+    assert round(8 * per_doubling_nl) == int(nominal)
+    assert int(d_wall) == hi and _near(hours, native[hi] / 3600)
+    # One dense complex128 copy of every operator, as native_solver.py holds.
+    assert _near(gb, pts[hi]["n_l"] * hi ** 2 * 16 / 1e9)
+
+    # System C: the native solve at dim 256 diverged at the grid's substeps.
+    osc = _p2a_load("solver_timing_oscillator_bath.json")
+    assert osc["meta"]["tlist"]["n"] == int(c_grid), "the oscillator timing grid"
+    c = {p["dim"]: p for p in osc["points"]}
+    point = c[int(c_dim)]
+    assert point["native_substeps"] == int(c_sub)
+    assert point["timings"]["native"].get("diverged"), "the oscillator's native solve ran"
+
+
+def test_section52_result1_oscillator_grid_and_substeps_match_the_files(doc):
+    """Result 1's oscillator substeps are on an 80-point grid, Result 2's on a
+    40-point one, so the same count is a step about half as long in Result 1."""
+    m = re.search(
+        r"All of these use a (\d+)-point time grid\. Result 1, a separate sweep, uses an "
+        r"(\d+)-point grid, so its steps are about half as long at the same count: it runs the "
+        r"oscillator at (\d+) substeps to dim (\d+), (\d+) at dim (\d+) and (\d+) at dim "
+        r"(\d+)\.", _p2a_text(doc))
+    assert m, "section 5.2's Result 1 substep sentence has changed shape"
+    n_coarse, n_fine, s1, d1, s2, d2, s3, d3 = (int(g) for g in m.groups())
+    assert n_fine == 2 * n_coarse
+    for name in ("cost_scaling_oscillator_bath.json", "osc_dim256_reach_substeps128.json"):
+        assert _p2a_load(name)["meta"]["tlist"]["n"] == n_coarse, name
+    dims = committed_dims("oscillator_bath")
+    assert dims[-1] == d3, (
+        f"Result 1's oscillator now reaches dim {dims[-1]}; the sentence stops at {d3}")
+    want = {d2: s2, d3: s3}
+    for dim in dims:
+        meta = _p2a_load(f"accuracy_vs_M_oscillator_bath_dim{dim}.json")["meta"]
+        assert meta["tlist"]["n"] == n_fine, f"dim {dim} grid"
+        expected = s1 if dim <= d1 else want[dim]
+        assert meta["substeps"] == expected, f"dim {dim}: {meta['substeps']} substeps"
+
+
+def test_section52_oscillator_reach_point_matches_its_file(doc):
+    """The dim-256 reach point (job, substeps, one M=8 solve, N_L, Davies
+    time), the instability Result 2 recorded at that size, and the caveat on
+    the dim-256 entry's leftover timing list."""
+    text = _p2a_text(doc)
+    m = re.search(
+        r"job (\d+) tested the third\. Given (\d+) substeps SLB runs at dimension (\d+) -- "
+        r"one \$M=(\d+)\$ solve in ([\d.]+) s, \$N_L = ([\d{},]+)\$, Davies construction "
+        r"([\d.]+) s -- with no divergence\. So the `slb_unstable_at_substeps: (\d+)` "
+        r"recorded against that dimension in Result 2", text)
+    assert m, "section 5.2's reach bullet has changed shape"
+    job, sub, dim, m_rep, t_slb, n_l, t_dav, unstable_at = m.groups()
+    reach = _p2a_load("osc_dim256_reach_substeps128.json")
+    assert reach["meta"]["execution"]["slurm"]["job_id"] == job
+    assert reach["meta"]["substeps"] == int(sub)
+    assert reach["meta"]["params"]["M_REP"] == int(m_rep)
+    (point,) = reach["points"]
+    assert point["dim"] == int(dim) and point["n_l"] == int(_printed(n_l))
+    assert _near(t_slb, point["t_slb_fixed"]), "reach solve wall-clock"
+    assert _near(t_dav, point["t_davies"]), "reach Davies construction"
+
+    panel = _p2a_load("cost_scaling_oscillator_bath.json")
+    by_dim = {p["dim"]: p for p in panel["points"]}
+    top = by_dim[int(dim)]
+    assert top["slb_unstable_at_substeps"] == int(unstable_at) == panel["meta"]["substeps"]
+
+    m = re.search(
+        r"The same entry also lists three `t_native_ref_repeats` timings\. They are dim "
+        r"(\d+)'s, carried over by a bug in `run_cost_scaling\.py`, fixed since; no "
+        r"reference ran at dim "
+        r"(\d+), and its `t_native_ref` is null\.", text)
+    assert m, "section 5.2's leftover-timings caveat has changed shape"
+    assert int(m.group(2)) == int(dim)
+    assert top["t_native_ref"] is None and top["reference_method"] is None
+    assert len(top["t_native_ref_repeats"]) == 3
+    assert top["t_native_ref_repeats"] == by_dim[int(m.group(1))]["t_native_ref_repeats"], (
+        "the dim-256 entry no longer carries dim 128's timings; drop the caveat sentence")
+
+
+def test_section52_reach_point_absence_names_the_right_node_and_ratio(doc):
+    """Result 2's oscillator panel ran on landau41 (job 19599672), not
+    landau42. And the 327x it would give up is the 64-substep reference over
+    one 32-substep SLB solve from that same job; at 128 SLB substeps it is
+    about a quarter of that."""
+    text = _p2a_text(doc)
+    reach = _p2a_load("osc_dim256_reach_substeps128.json")["meta"]
+    panel = _p2a_load("cost_scaling_oscillator_bath.json")
+    m = re.search(r"it is integrated at \$(\d+)\\times\$ that panel's substeps, and it ran on "
+                  r"(\w+) while the panel ran on (\w+)\.", text)
+    assert m, "section 5.2's absence bullet has changed shape"
+    factor, reach_host, panel_host = m.groups()
+    assert reach["execution"]["hostname"] == reach_host
+    assert panel["meta"]["execution"]["hostname"] == panel_host
+    assert reach["substeps"] == int(factor) * panel["meta"]["substeps"]
+
+    m = re.search(
+        r"At dim (\d+) the certified reference \(([\d,.]+) s at (\d+) substeps\) is "
+        r"\$(\d+)\\times\$ one \$M=(\d+)\$ SLB solve from the same job \(([\d.]+) s at (\d+) "
+        r"substeps, half the reference's, so not at matched substeps\)\. With SLB at (\d+) "
+        r"substeps, twice the reference's, it would be about \$(\d+)\\times\$\.", text)
+    assert m, "section 5.2's 327x sentence has changed shape"
+    dim, t_ref, ref_sub, ratio, m_rep, t_slb, slb_sub, new_sub, reduced = m.groups()
+    point = {p["dim"]: p for p in panel["points"]}[int(dim)]
+    params = panel["meta"]["params"]
+    assert point["native_ref_selfcheck"]["passed"]
+    assert point["reference_method"] == f"native_rk4_substeps{ref_sub}"
+    assert params["NATIVE_REF_SUBSTEPS"] == int(ref_sub)
+    assert panel["meta"]["substeps"] == int(slb_sub) and params["M_REP"] == int(m_rep)
+    assert 2 * int(slb_sub) == int(ref_sub), "SLB at half the reference's substeps"
+    assert _near(t_ref, point["t_native_ref"]) and _near(t_slb, point["t_slb_fixed"])
+    measured = point["t_native_ref"] / point["t_slb_fixed"]
+    assert _near(ratio, measured), f"reference over one SLB solve is {measured:.1f}x"
+    assert int(new_sub) == 2 * int(ref_sub) == reach["substeps"]
+    assert _near(reduced, measured * int(slb_sub) / int(new_sub))
+
+
+def test_section52_uncommitted_certification_job_is_sourced_to_its_log(doc):
+    """Job 19559986 wrote no data file, so its 2.4 days must say it comes from
+    the job's log. If a file carrying that job is ever committed, quote it
+    instead. The check's two resolutions are half and twice the primary's, on
+    the grid run_method_comparison.py integrates on; the upward check costs
+    twice the primary; and Result 1's 80-point grid, where the half-substep
+    check is stable, prices the certified reference at 1.5 solves."""
+    text = _p2a_text(doc)
+    m = re.search(
+        r"A dim-256 reference at (\d+) substeps does run: job (\d+) finished one in about "
+        r"([\d.]+) days\. That time is from the job's log, not a data file; the job wrote none",
+        text)
+    assert m, "section 5.2's certification bullet has changed shape"
+    primary, job, days = int(m.group(1)), m.group(2), m.group(3)
+    carriers = [p.name for p in DATA.rglob("*.json")
+                if f'"{job}"' in p.read_text(encoding="utf-8", errors="ignore")]
+    assert not carriers, f"job {job} is now recorded in {carriers}; cite the file"
+    m = re.search(r"The cheap check, at half the substeps \((\d+)\), is itself unstable at "
+                  r"this size on the (\d+)-point grid\..*?`certified_reference` still tries "
+                  r"the half-substep check first, but when it diverges it now checks upward, "
+                  r"at twice the substeps \((\d+)\), for about twice the primary's cost, "
+                  r"instead of discarding the reference\. On this grid that puts a "
+                  r"\*certified\* dim-256 oscillator reference at more than a week: "
+                  r"([\d.]+) days, the downward check until it diverges, then about "
+                  r"([\d.]+) days more\. Result 1's runner avoids the problem with its "
+                  r"finer (\d+)-point grid, where the (\d+)-substep check is stable: it "
+                  r"prices a certified dim-256 reference at about ([\d.]+) days "
+                  r"\(`run_accuracy_vs_M\.py`\)\.", text)
+    assert m, "section 5.2's certification check sentence has changed shape"
+    half, grid, up, primary_days, check_days, fine, stable, r1_days = m.groups()
+    assert int(half) == primary // 2 and int(up) == 2 * primary
+    assert len(common.TLIST) == int(grid), "run_method_comparison integrates on common.TLIST"
+    assert primary_days == days and _near(check_days, 2 * float(days))
+    # Result 1's grid: its oscillator dim-256 point runs SLB at the stable 64
+    # substeps and checks the 128-substep reference against them, 1.5 solves.
+    import run_accuracy_vs_M as R1
+    import run_frontier_spins as F
+    assert len(common.TLIST_FINE) == int(fine)
+    size, _ladder, slb_sub = R1.SYSTEMS["oscillator_bath"][1][-1]
+    H = common.build_oscillator_bath(size)[0]
+    assert H.shape[0] == 256 and slb_sub == int(stable) == primary // 2
+    dt = float(np.min(np.diff(common.TLIST_FINE)))
+    assert F.spectral_bound(H) * dt / slb_sub < F.RK4_STABILITY_LIMIT
+    per_solve = float(days) * (len(common.TLIST_FINE) - 1) / (len(common.TLIST) - 1)
+    assert _near(r1_days, 1.5 * per_solve), f"{1.5 * per_solve:.2f} days"
+
+
+# --- section 5.2's four-solver grid: projections, step sizes, construction --
+#
+# The grid's oscillator row printed "64 substeps" for dim 256 where the grid's
+# own exact solve diverged at 64: the 64 was the frontier's count on its finer
+# 101-point grid. A substep count is only a step size once its grid is named,
+# so these tests check the step each sentence prints, not the count alone.
+
+def _p2b_timing(system: str) -> dict:
+    path = DATA / f"solver_timing_{system}.json"
+    if not path.exists():
+        pytest.skip(f"{path.name} not committed")
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def _p2b_frontier(system: str) -> dict:
+    path = DATA / f"frontier_spins_{system}.json"
+    if not path.exists():
+        pytest.skip(f"{path.name} not committed")
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def _p2b_step(tlist: dict, substeps: int) -> float:
+    """The RK4 step rk4_mesolve takes: one output interval over `substeps`."""
+    return (tlist["t1"] - tlist["t0"]) / (tlist["n"] - 1) / substeps
+
+
+def test_section52_grid_mesolve_projections_match_the_formula_and_files(doc):
+    """Every italic `mesolve` cell is N_L * N^4 * 16 bytes through
+    run_solver_timing.mesolve_bytes, every skip was the --max-full-dim cap the
+    prose names, and the oscillator file's older Liouvillian-only figures are
+    quoted as what that file records."""
+    rst = pytest.importorskip("run_solver_timing")
+    text = _flat(doc)
+
+    m = re.search(r"Each job capped `mesolve` with `--max-full-dim` \(dim (\d+) on "
+                  r"System A, dim (\d+) on B and C\)", text)
+    assert m, "the grid's cap sentence has changed shape"
+    caps = {"spin_chain": int(m.group(1)), "mixed_chain": int(m.group(2)),
+            "oscillator_bath": int(m.group(2))}
+    points = {}
+    for system, cap in caps.items():
+        document = _p2b_timing(system)
+        assert document["meta"]["max_full_dim"] == cap, f"{system}: cap"
+        for p in document["points"]:
+            points[(p["dim"], p["n_l"])] = (system, p)
+            entry = p["timings"]["mesolve"]
+            if entry.get("skipped"):
+                assert entry["reason"] == f"dim {p['dim']} > --max-full-dim {cap}", (
+                    f"{system} dim {p['dim']} was skipped for another reason: "
+                    f"{entry['reason']}")
+
+    units = {"TB": 1e12, "PB": 1e15}
+    cells = re.findall(r"^\|[^|]*\|\s*(\d+)\s*\|\s*([\d,]+)\s*\|[^|]*\|"
+                       r"\s*\*([\d.,]+) (TB|PB)\*\s*\|", doc, re.M)
+    skipped = [k for k, (_, p) in points.items()
+               if p["timings"]["mesolve"].get("skipped")]
+    assert len(cells) == len(skipped), (
+        f"{len(cells)} italic projections against {len(skipped)} skipped runs")
+    for dim, n_l, printed, unit in cells:
+        key = (int(dim), int(n_l.replace(",", "")))
+        system, p = points[key]
+        need = rst.mesolve_bytes(*key)
+        assert _near(printed, need / units[unit]), (
+            f"{system} dim {dim}: printed {printed} {unit}, formula gives "
+            f"{need / units[unit]:.4g}")
+        recorded = p["timings"]["mesolve"].get("projected_bytes")
+        if recorded is not None:
+            assert recorded == need, f"{system} dim {dim}: file disagrees with formula"
+
+    m = re.search(r"records only the size of one Liouvillian, ([\d.]+) GB at dim "
+                  r"(\d+) and ([\d.]+) GB at dim (\d+); the table's ([\d.]+) TB and "
+                  r"([\d.]+) TB are the formula", text)
+    assert m, "the oscillator file's Liouvillian sentence has changed shape"
+    oscillator = {p["dim"]: p for p in _p2b_timing("oscillator_bath")["points"]}
+    for gb, dim, tb in ((m.group(1), int(m.group(2)), m.group(5)),
+                        (m.group(3), int(m.group(4)), m.group(6))):
+        entry = oscillator[dim]["timings"]["mesolve"]
+        assert "projected_bytes" not in entry, (
+            "the oscillator file now records the formula; drop the caveat")
+        assert entry["projected_liouvillian_bytes"] == (dim ** 2) ** 2 * 16
+        assert _near(gb, entry["projected_liouvillian_bytes"] / 1e9)
+        assert _near(tb, rst.mesolve_bytes(dim, oscillator[dim]["n_l"]) / 1e12)
+
+
+def test_section52_oscillator_dim256_substeps_are_quoted_with_their_grid(doc):
+    """The dim-256 divergence sentence and its Result 5 copy: every substep
+    count is tied to its grid and printed as a step, and the counts are the
+    ones the timing, reach and frontier files ran."""
+    text = _flat(doc)
+    assert "SLB reaches that size at 64 substeps" not in text
+
+    timing = _p2b_timing("oscillator_bath")
+    grid = timing["meta"]["tlist"]
+    row = next(p for p in timing["points"] if p["dim"] == 256)
+    reach_path = DATA / "osc_dim256_reach_substeps128.json"
+    if not reach_path.exists():
+        pytest.skip(f"{reach_path.name} not committed")
+    reach = json.loads(reach_path.read_text(encoding="utf-8"))
+    frontier = _p2b_frontier("oscillator_bath")
+    fgrid = frontier["meta"]["tlist"]
+    fpoint = next(p for p in frontier["points"] if p["dim"] == 256)
+
+    m = re.search(
+        r"On this (\d+)-point grid SLB ran at (\d+) substeps, a step of " + LATEX
+        + r", and native RK4 at (\d+), a step of " + LATEX + r"; both diverged\. "
+        r"SLB does run at this size with (\d+) substeps on the same grid, a step "
+        r"of " + LATEX + r" \(job (\d+)\)\. The frontier's (\d+) substeps at this "
+        r"size \(Result 5\) are on its finer (\d+)-point grid, a step of "
+        + LATEX + r"\.", text)
+    assert m, "section 5.2's dim-256 divergence sentence has changed shape"
+    (n, slb, slb_m, slb_e, native, nat_m, nat_e, ok, ok_m, ok_e, job,
+     fsub, fn, f_m, f_e) = m.groups()
+
+    assert int(n) == grid["n"] == reach["meta"]["tlist"]["n"]
+    assert int(slb) == row["slb_substeps"] and int(native) == row["native_substeps"]
+    for name, sub in (("slb", slb), ("native", native)):
+        entry = row["timings"][name]
+        assert entry.get("diverged") and f"substeps={sub}" in entry["error"], name
+    assert int(ok) == reach["meta"]["substeps"]
+    assert job == reach["meta"]["execution"]["slurm"]["job_id"]
+    reached = next(p for p in reach["points"] if p["dim"] == 256)
+    assert reached["t_slb_fixed"] is not None, "the reach run did not complete"
+    assert int(fsub) == fpoint["substeps"] and int(fn) == fgrid["n"]
+    _assert_latex_rounds_to(_p2b_step(grid, int(slb)), slb_m, slb_e, "SLB step")
+    _assert_latex_rounds_to(_p2b_step(grid, int(native)), nat_m, nat_e, "native step")
+    _assert_latex_rounds_to(_p2b_step(grid, int(ok)), ok_m, ok_e, "reach step")
+    _assert_latex_rounds_to(_p2b_step(fgrid, int(fsub)), f_m, f_e, "frontier step")
+
+    m = re.search(
+        r"These runs use a (\d+)-point time grid, so each substep count below is a "
+        r"step ([\d.]+) times smaller than the same count on §5\.2's (\d+)-point "
+        r"grid\. The oscillator's (\d+) substeps at Fock 128 are a step of " + LATEX
+        + r"; on §5\.2's grid SLB ran stably with (\d+) substeps, a step of "
+        + LATEX + r", while native RK4 diverged at (\d+), a step of " + LATEX
+        + r":", text)
+    assert m, "Result 5's grid sentence has changed shape"
+    (fn, ratio, n, fsub, f_m, f_e, ok, ok_m, ok_e, native, nat_m, nat_e) = m.groups()
+    assert int(fn) == fgrid["n"] and int(n) == grid["n"]
+    assert _near(ratio, _p2b_step(grid, 1) / _p2b_step(fgrid, 1))
+    assert int(fsub) == fpoint["substeps"] and int(ok) == reach["meta"]["substeps"]
+    assert int(native) == row["native_substeps"] and row["timings"]["native"]["diverged"]
+    _assert_latex_rounds_to(_p2b_step(fgrid, int(fsub)), f_m, f_e, "frontier step")
+    _assert_latex_rounds_to(_p2b_step(grid, int(ok)), ok_m, ok_e, "reach step")
+    _assert_latex_rounds_to(_p2b_step(grid, int(native)), nat_m, nat_e, "native step")
+    for p in (_p2b_frontier(s) for s in ("oscillator_bath", "mixed_chain", "spin_chain")):
+        assert p["meta"]["tlist"]["n"] == int(fn), "a frontier file left the 101-point grid"
+
+
+def test_section52_construction_residual_matches_the_frontier_fit(doc):
+    """'5.0 s of propagation against the 52.6 s measured ... residual 47.6 s':
+    the frontier's M=16 and M=64 propagation times at System B dim 256, fitted
+    fixed-plus-linear in M, evaluated at the grid's M and rescaled by RK4 step
+    count; the printed construction range and the 13% gap from the same file."""
+    text = _flat(doc)
+    m = re.search(
+        r"reproduces its untouched \$M=32\$ point to (\d+)% — and evaluating it at "
+        r"\$M=(\d+)\$, scaled from the frontier's (\d+) RK4 steps \((\d+) intervals "
+        r"of (\d+) substeps\) to this grid's (\d+) \((\d+) of (\d+)\), predicts "
+        r"\*\*([\d.]+) s of propagation against the ([\d.]+) s measured\*\*\. The "
+        r"residual, ([\d.]+) s, is bundle construction: combining ([\d,]+) operators "
+        r"into (\d+)\. The frontier timed construction directly at that dimension: "
+        r"([\d.]+) to ([\d.]+) s at \$M\$ = 16, 32 and 64\. The estimate here is "
+        r"(\d+)% above the top of that range", text)
+    assert m, "section 5.2's construction-residual sentence has changed shape"
+    (m32, m_grid, fsteps, fint, fsub, gsteps, gint, gsub, pred, meas, resid,
+     n_l, m_again, lo, hi, gap) = m.groups()
+
+    frontier = _p2b_frontier("mixed_chain")
+    point = next(p for p in frontier["points"] if p["dim"] == 256)
+    runs = point["m_runs"]
+    timing = _p2b_timing("mixed_chain")
+    row = next(p for p in timing["points"] if p["dim"] == 256)
+
+    assert int(fint) == frontier["meta"]["tlist"]["n"] - 1
+    assert int(fsub) == point["substeps"] and int(fsteps) == int(fint) * int(fsub)
+    assert int(gint) == timing["meta"]["tlist"]["n"] - 1
+    assert int(gsub) == row["slb_substeps"] and int(gsteps) == int(gint) * int(gsub)
+    assert int(m_grid) == int(m_again) == row["m_rep"]
+    assert int(n_l.replace(",", "")) == row["n_l"] == point["n_l"]
+
+    slope, intercept = np.polyfit([16, 64], [runs["16"]["t_dyn"], runs["64"]["t_dyn"]], 1)
+    assert _near(m32, 100 * abs((intercept + 32 * slope) / runs["32"]["t_dyn"] - 1))
+    predicted = (intercept + int(m_grid) * slope) * int(gsteps) / int(fsteps)
+    measured = row["timings"]["slb"]["median_s"]
+    assert _near(pred, predicted) and _near(meas, measured)
+    assert _near(resid, measured - predicted)
+
+    prep = [runs[k]["t_bundle_prep"] for k in ("16", "32", "64")]
+    assert _near(lo, min(prep)) and _near(hi, max(prep))
+    assert _near(gap, 100 * ((measured - predicted) / max(prep) - 1))
+
+
+def test_section52_construction_oddity_is_narrowed_by_the_frontier(doc):
+    """Flat construction time on the in-memory path at System B dims 128 and
+    256, near-proportional growth on the streamed path at dim 512 -- every
+    printed time from frontier_spins_mixed_chain.json, and each path taken
+    from the file's own `streaming` flag."""
+    text = _flat(doc)
+    m = re.search(
+        r"no \$M\$ dependence at all — ([\d.]+), ([\d.]+) and ([\d.]+) s at "
+        r"\$M = 16\$, 32 and 64\. The frontier's other System B sizes narrow it "
+        r"down\. At dimension (\d+), where the operator list is also held in "
+        r"memory, construction is flat too: ([\d.]+), ([\d.]+) and ([\d.]+) s\. At "
+        r"dimension (\d+), where the operators are streamed instead, it grows "
+        r"almost in proportion to \$M\$: ([\d,]+), ([\d,]+) and ([\d,]+) s\.", text)
+    assert m, "section 5.2's construction-oddity paragraph has changed shape"
+    g = m.groups()
+    points = {p["dim"]: p for p in _p2b_frontier("mixed_chain")["points"]}
+
+    for dim, printed, streamed in ((256, g[0:3], False), (int(g[3]), g[4:7], False),
+                                   (int(g[7]), g[8:11], True)):
+        point = points[dim]
+        assert point["streaming"] is streamed, f"dim {dim}: wrong path named"
+        prep = [point["m_runs"][k]["t_bundle_prep"] for k in ("16", "32", "64")]
+        for value, measured in zip(printed, prep):
+            assert _near(value, measured), f"dim {dim}: {value} against {measured:.4g}"
+        growth = prep[2] / prep[0]              # M goes up 4x from 16 to 64
+        if streamed:
+            assert 3.0 < growth < 4.5, f"dim {dim}: {growth:.2f}x is not ~4x"
+        else:
+            assert growth < 1.5, f"dim {dim}: {growth:.2f}x is not flat"
+
+
+# --- section 5.2's memory, ratio and control paragraphs ---------------------
+#
+# The control paragraph priced SLB at M = 91 as "2.6x slower" than the exact
+# solve. That set 1,600 RK4 steps (the frontier's 101-point grid at 16
+# substeps) against 624 (the 40-point grid at 16): per step the two cost the
+# same. The same paragraph quoted M* = 91 "at 10 spins", where Result 4 has no
+# point, and a mesolve-denominated 1,891x printed in no table. The ratio
+# paragraph called a 14% gap "within 10%", printed 641 for 641.5, and called
+# System B's gap unexplained after the section had explained it. The memory
+# paragraph read a 1.62 TB limit as 1.55 TB. Every number is pinned below.
+
+def _p2c_timing_points():
+    """Section 5.2's grid: (system, dim) -> (point, meta), all three files."""
+    out = {}
+    for name in ("spin_chain", "mixed_chain", "oscillator_bath"):
+        path = DATA / f"solver_timing_{name}.json"
+        if not path.exists():
+            pytest.skip(f"{path.name} not committed")
+        document = json.loads(path.read_text(encoding="utf-8"))
+        for point in document["points"]:
+            out[(name, point["dim"])] = (point, document["meta"])
+    return out
+
+
+def _p2c_rk4_steps(tlist_meta, substeps):
+    """RK4 steps one solve takes: native_solver.rk4_mesolve runs `substeps`
+    steps in each of the n - 1 intervals of tlist."""
+    return (tlist_meta["n"] - 1) * substeps
+
+
+def test_section52_mesolve_consequence_quotes_the_recorded_memory_limit(doc):
+    """3.9 TB against the 1.62 TB the timing jobs recorded (available_bytes),
+    not 1.55 TB; and the 7-spin ceiling is the largest measured mesolve."""
+    m = re.search(
+        r"System A cannot reach dim (\d+) on any node here: it needs ([\d.]+) TB, "
+        r"and the timing jobs recorded a memory limit of ([\d.]+) TB\. So its "
+        r"`mesolve` ceiling is (\d+) spins, not the (\d+) a dimension-only "
+        r"argument gives\.", _flat(doc))
+    assert m, "section 5.2's mesolve-consequence sentence has changed shape"
+    q_dim, q_need, q_have, q_ceiling, q_dim_only = m.groups()
+    grid = _p2c_timing_points()
+
+    entry = grid[("spin_chain", int(q_dim))][0]["timings"]["mesolve"]
+    assert entry.get("skipped"), f"mesolve did run at dim {q_dim}"
+    assert _near(q_need, entry["projected_bytes"] / 1e12)
+    limits = {p["timings"]["mesolve"]["available_bytes"]
+              for p, _ in grid.values() if "available_bytes" in p["timings"]["mesolve"]}
+    assert len(limits) == 1, f"the timing jobs recorded different limits: {limits}"
+    limit = limits.pop()
+    assert _near(q_have, limit / 1e12), f"recorded limit is {limit / 1e12:.3f} TB"
+    # The reference table at the top of 5.2 quotes the same node size.
+    node = re.search(r"On a ([\d.]+) TB node the measured ceilings are one step "
+                     r"higher", _flat(doc))
+    assert node, "section 5.2's mesolve table row has changed shape"
+    assert _near(node.group(1), limit / 1e12)
+    assert "1.55 TB" not in doc, "1.55 TB is the recorded limit in MiB read as TB"
+    assert entry["projected_bytes"] > limit
+
+    ran = [p for (name, _), (p, _) in grid.items()
+           if name == "spin_chain" and "median_s" in p["timings"]["mesolve"]]
+    largest = max(ran, key=lambda p: p["dim"])
+    assert largest["size"] == int(q_ceiling)
+    # Dimension alone -- one Liouvillian, N^4 * 16 bytes -- would fit at q_dim.
+    nxt = grid[("spin_chain", int(q_dim))][0]
+    assert nxt["size"] == int(q_dim_only) and int(q_dim) ** 4 * 16 < limit
+
+
+def test_section52_peak_rss_is_labelled_as_job_log_data(doc):
+    """The peak-RSS column and the 519 GB OOM figure are in no data file.
+    The document must say so; if a timing file ever records RSS, this fails
+    so the sentence can point at it instead."""
+    text = _flat(doc)
+    assert re.search(
+        r"No data file stores peak memory use\. The peak-RSS column, the error "
+        r"column built from it, the five OOM kills above and the 519 GB below all "
+        r"come from the cluster's job records, so they cannot be checked from this "
+        r"repository\.", text), (
+        "section 5.2 no longer says where its peak-RSS figures come from")
+    assert "The last row is the same solve that was OOM-killed" not in text
+    for (name, dim), (point, _) in _p2c_timing_points().items():
+        assert "rss" not in json.dumps(point).lower(), (
+            f"{name} dim {dim} now records RSS; cite the file, not the job logs")
+
+
+def test_section52_operator_count_ratios_match_the_grid(doc):
+    """2 N_L / M against native / SLB from the grid: 22.8 vs 20.6 (A, 11%
+    high), 421.5 vs 370 (C, 14% high), 8,159 vs 642 (B)."""
+    text = _flat(doc)
+    m = re.search(
+        r"On System A at dim (\d+) that is \$([\d.]+)\$ against \$([\d.]+)\$ "
+        r"measured; on System C at dim (\d+), \$([\d.]+)\$ against \$([\d.]+)\$\. "
+        r"The prediction runs high on both, by (\d+)% on A and (\d+)% on C\.", text)
+    assert m, "section 5.2's 2N_L/M sentence has changed shape"
+    b = re.search(
+        r"\*\*System B does not follow it\*\*: at dim (\d+) the prediction is "
+        r"\$([\d{},]+)\$ and the measurement is \$([\d{},]+)\$\.", text)
+    assert b, "section 5.2's System B ratio sentence has changed shape"
+    grid = _p2c_timing_points()
+
+    def ratios(name, dim):
+        point = grid[(name, int(dim))][0]
+        assert point["native_substeps"] == 2 * point["slb_substeps"], (
+            f"{name}: the 2N_L/M model assumes SLB at half the substeps")
+        t = point["timings"]
+        return (2 * point["n_l"] / point["m_rep"],
+                t["native"]["median_s"] / t["slb"]["median_s"])
+
+    q_a_dim, q_a_pred, q_a_meas, q_c_dim, q_c_pred, q_c_meas, q_a_pct, q_c_pct = m.groups()
+    for name, dim, q_pred, q_meas, q_pct in (
+            ("spin_chain", q_a_dim, q_a_pred, q_a_meas, q_a_pct),
+            ("oscillator_bath", q_c_dim, q_c_pred, q_c_meas, q_c_pct)):
+        pred, meas = ratios(name, dim)
+        assert _near(q_pred, pred), f"{name}: 2N_L/M is {pred}"
+        assert _near(q_meas, meas), f"{name}: native/SLB is {meas:.2f}"
+        assert _near(q_pct, 100 * (pred / meas - 1)), (
+            f"{name}: prediction is {100 * (pred / meas - 1):.1f}% high")
+
+    q_b_dim, q_b_pred, q_b_meas = b.groups()
+    pred, meas = ratios("mixed_chain", q_b_dim)
+    assert _near(q_b_pred, pred) and _near(q_b_meas, meas), (
+        f"System B: 2N_L/M {pred:.2f}, native/SLB {meas:.2f}")
+    c = re.search(
+        r"Most of that gap is the construction cost estimated above: about nine "
+        r"tenths of SLB's ([\d.]+) s there is spent combining ([\d,]+) operators "
+        r"into (\d+) bundles, a cost the operator count leaves out\.", text)
+    assert c, "section 5.2's System B construction sentence has changed shape"
+    point_b = grid[("mixed_chain", int(q_b_dim))][0]
+    assert _near(c.group(1), point_b["timings"]["slb"]["median_s"])
+    assert int(c.group(2).replace(",", "")) == point_b["n_l"]
+    assert int(c.group(3)) == point_b["m_rep"]
+    assert "Both within 10%" not in text
+    assert "is not explained here" not in text
+
+
+def test_section52_control_prices_slb_per_rk4_step(doc):
+    """Result 4 never reaches the target on System A (M = N_L = 43 at 7 spins,
+    73 at 9, misses 1.1x to 4x, through plot_isocost_vs_dim.derive), has no
+    10-spin point, and at M = N_L SLB and the exact solve cost the same per
+    RK4 step: 8.6 s each, from the grid and the frontier."""
+    P = pytest.importorskip("plot_isocost_vs_dim")
+    from isocost_config import run_counts
+    text = _flat(doc)
+    m = re.search(
+        r"On System A, Result 4 never reaches the (\d+)% target\. Even at "
+        r"\$M = N_L\$, the largest bundle count it tries \((\d+) at (\d+) spins, "
+        r"(\d+) at (\d+) spins, its largest size\), the error misses by "
+        r"\$([\d.]+)\\times\$ and \$([\d.]+)\\times\$ at those two sizes, and by "
+        r"\$([\d.]+)\\times\$ to \$([\d.]+)\\times\$ across all eight \((\d+) "
+        r"realizations per size\)\. At (\d+) spins, where Result 4 has no point, that bundle count "
+        r"would be \$N_L = (\d+)\$\.", text)
+    assert m, "section 5.2's control paragraph has changed shape"
+    (q_pct, q_m7, q_s7, q_m9, q_s9, q_miss7, q_miss9, q_lo, q_hi, q_runs, q_s10,
+     q_nl10) = m.groups()
+
+    path = DATA / "isocost_vs_dim_spin_chain.json"
+    if not path.exists():
+        pytest.skip(f"{path.name} not committed")
+    document = json.loads(path.read_text(encoding="utf-8"))
+    n_runs = run_counts("spin_chain")
+    out = P.derive(document, P.TARGET_RMSE, n_runs, P.ESTIMATE_TYPE)
+    slb = out["slb"][max(n_runs)]
+    assert int(q_runs) == max(n_runs), f"Result 4 averages {max(n_runs)} realizations"
+    assert int(q_pct) == round(100 * P.TARGET_REL)
+    assert not slb["ok"].any(), "System A now reaches the target somewhere"
+    assert list(slb["mstar"]) == list(out["n_ls"]), "M* is no longer N_L everywhere"
+    mstar = dict(zip(out["dims"].astype(int), slb["mstar"]))
+    assert mstar[2 ** int(q_s7)] == int(q_m7)
+    assert int(out["dims"][-1]) == 2 ** int(q_s9) and mstar[2 ** int(q_s9)] == int(q_m9)
+    assert 2 ** int(q_s10) not in mstar, "Result 4 now has a 10-spin point"
+    misses = []
+    for point, bias_sq, noise_sq, binding in zip(
+            document["points"], slb["bias_sq"], slb["noise_sq"], slb["binding"]):
+        labels = list(P._obs_axis(point)[1])
+        target = P.observable_targets(point)[labels.index(binding)]
+        misses.append(float(np.sqrt(bias_sq + noise_sq) / target))
+    assert _near(q_lo, min(misses)) and _near(q_hi, max(misses)), misses
+    assert len(misses) == 8, "the sentence says all eight sizes"
+    by_dim = dict(zip(out["dims"].astype(int), misses))
+    assert _near(q_miss7, by_dim[2 ** int(q_s7)]) and _near(q_miss9, by_dim[2 ** int(q_s9)])
+    per = re.search(r"That is per realization\. Result 4's errors are means of (\d+), so "
+                    r"at the accuracy it measured SLB costs about (\d+) times the exact "
+                    r"solve per step, and still misses the target\.", text)
+    assert per and int(per.group(1)) == int(per.group(2)) == max(n_runs)
+
+    grid = _p2c_timing_points()
+    point10, meta = grid[("spin_chain", 2 ** int(q_s10))]
+    assert point10["size"] == int(q_s10) and point10["n_l"] == int(q_nl10)
+
+    s = re.search(
+        r"Measured at dim (\d+) on (\d+)-thread nodes, the exact solve takes "
+        r"([\d.]+) s per step \(([\d,.]+) s for ([\d,]+) steps, in the grid above\)\. "
+        r"SLB takes ([\d.]+) s per step at \$M=(\d+)\$ and ([\d.]+) s at \$M=(\d+)\$ "
+        r"\(the frontier's ([\d,]+)-step solves, job (\d+), on another node\)\. "
+        r"Scaled in proportion to \$M=(\d+)\$, that is ([\d.]+) s, the exact "
+        r"solve's rate, before SLB pays for bundle construction\. The two jobs ran "
+        r"different step counts, so only the per-step costs compare\.", text)
+    assert s, "section 5.2's per-step comparison has changed shape"
+    (q_dim, q_threads, q_exact_rate, q_exact_wall, q_exact_steps, q_rate_a, q_ma,
+     q_rate_b, q_mb, q_front_steps, q_job, q_m91, q_scaled) = s.groups()
+    assert 2 ** int(q_s10) == int(q_dim)
+    exact_steps = _p2c_rk4_steps(meta["tlist"], point10["native_substeps"])
+    exact_wall = point10["timings"]["native"]["median_s"]
+    assert int(q_exact_steps.replace(",", "")) == exact_steps
+    assert _near(q_exact_wall, exact_wall)
+    assert _near(q_exact_rate, exact_wall / exact_steps)
+
+    fpath = DATA / "frontier_spins_spin_chain.json"
+    if not fpath.exists():
+        pytest.skip(f"{fpath.name} not committed")
+    frontier = json.loads(fpath.read_text(encoding="utf-8"))
+    fpoint = next(p for p in frontier["points"] if p["dim"] == int(q_dim))
+    front_steps = _p2c_rk4_steps(frontier["meta"]["tlist"], fpoint["substeps"])
+    assert int(q_front_steps.replace(",", "")) == front_steps
+    rate = {int(k): v["t_dyn"] / front_steps for k, v in fpoint["m_runs"].items()}
+    assert _near(q_rate_a, rate[int(q_ma)]) and _near(q_rate_b, rate[int(q_mb)])
+    assert int(q_m91) == fpoint["n_l"] == point10["n_l"]
+    scaled = rate[int(q_mb)] * fpoint["n_l"] / int(q_mb)
+    assert _near(q_scaled, scaled), f"M=91 scaled rate is {scaled:.3f} s"
+    assert _near(q_scaled, exact_wall / exact_steps), "the two rates no longer agree"
+
+    fe, ge = frontier["meta"]["execution"], meta["execution"]
+    assert fe["slurm"]["job_id"] == q_job
+    assert fe["threads"]["OMP_NUM_THREADS"] == ge["threads"]["OMP_NUM_THREADS"] == q_threads
+    assert fe["hostname"] != ge["hostname"], "the paragraph says another node"
+
+    assert not re.search(r"2\.6(?:\\times\$|×) slower", doc), (
+        "the 2.6x penalty compared 1,600 steps against 624; it must not return")
+    assert "1{,}891" not in doc and "1,891" not in doc
+
+
+def test_section52_grid_ratio_names_its_denominator_and_substeps(doc):
+    """The grid's 20.6x at dim 1024 is native RK4 at 8 substeps over one SLB
+    solve at M = 8 and 4 substeps: printed with both, as a cost."""
+    m = re.search(
+        r"The grid's own ratio at dim (\d+), native RK4 over SLB at \$M=(\d+)\$, is "
+        r"\$([\d.]+)\\times\$ \(([\d,.]+) s against ([\d.]+) s\)\. SLB there takes "
+        r"(\d+) substeps to the exact solve's (\d+), so half the steps, and (\d+) "
+        r"bundles, not the (\d+) above\.", _flat(doc))
+    assert m, "section 5.2's grid-ratio sentence has changed shape"
+    q_dim, q_m, q_ratio, q_nat, q_slb, q_sub_slb, q_sub_nat, q_m2, q_nl = m.groups()
+    point = _p2c_timing_points()[("spin_chain", int(q_dim))][0]
+    t = point["timings"]
+    assert int(q_m) == int(q_m2) == point["m_rep"]
+    assert _near(q_nat, t["native"]["median_s"]) and _near(q_slb, t["slb"]["median_s"])
+    assert _near(q_ratio, t["native"]["median_s"] / t["slb"]["median_s"])
+    assert int(q_sub_slb) == point["slb_substeps"]
+    assert int(q_sub_nat) == point["native_substeps"] == 2 * point["slb_substeps"]
+    assert int(q_nl) == point["n_l"]
+
+
+def test_result3_control_slb_sentence_matches_section52(doc):
+    """Result 3's copy of the control's SLB price: same per RK4 step as the
+    exact solve at M = N_L, not 2.6x slower."""
+    m = re.search(
+        r"SLB fares no better: at \$M = N_L = (\d+)\$ one realization costs the same "
+        r"per RK4 step as the exact solve \(§5\.2\), and Result 4's errors average "
+        r"(\d+) realizations, so at its accuracy SLB costs about (\d+) times as "
+        r"much\.", _flat(doc))
+    assert m, "Result 3's control SLB sentence has changed shape"
+    from isocost_config import run_counts
+    assert int(m.group(2)) == int(m.group(3)) == max(run_counts("spin_chain"))
+    assert int(m.group(1)) == _p2c_timing_points()[("spin_chain", 1024)][0]["n_l"]
+
+
+def test_section52_mcsolve_probe_projections_match_the_500_trajectory_runs(doc):
+    """8-trajectory probe x 500 against the two 500-trajectory runs: 2.9 h vs
+    2.6 h (A, dim 1024) and 4.2 vs 3.8 days (B, dim 256), 11% high on both."""
+    m = re.search(
+        r"At the (\d+) trajectories Result 3 runs, the largest cells project to "
+        r"([\d.]+) h \(System A, dim (\d+)\), ([\d.]+) days \(System B, dim (\d+)\) "
+        r"and \*\*(\d+) days\*\* \(System C, dim (\d+)\).*?The first two have since "
+        r"been run at (\d+): \*\*([\d.]+) h\*\* \(job (\d+)\) and \*\*([\d.]+) days\*\* "
+        r"\(job (\d+)\), so the probe projected (\d+)% high on both\.", _flat(doc))
+    assert m, "section 5.2's mcsolve projection paragraph has changed shape"
+    (q_n, q_a_h, q_a_dim, q_b_d, q_b_dim, q_c_d, q_c_dim, q_n2, q_a_run, q_a_job,
+     q_b_run, q_b_job, q_pct) = m.groups()
+    assert int(q_n) == int(q_n2)
+    grid = _p2c_timing_points()
+    per_traj = {name: grid[(name, int(dim))][0]["timings"]["mcsolve"]["per_trajectory_s"]
+                for name, dim in (("spin_chain", q_a_dim), ("mixed_chain", q_b_dim),
+                                  ("oscillator_bath", q_c_dim))}
+    projected = {name: int(q_n) * t for name, t in per_traj.items()}
+    assert _near(q_a_h, projected["spin_chain"] / 3600)
+    assert _near(q_b_d, projected["mixed_chain"] / 86400)
+    assert _near(q_c_d, projected["oscillator_bath"] / 86400)
+    for name, dim, q_run, q_job, unit in (("spin_chain", q_a_dim, q_a_run, q_a_job, 3600),
+                                          ("mixed_chain", q_b_dim, q_b_run, q_b_job, 86400)):
+        path = DATA / f"method_comparison_{name}_dim{dim}.json"
+        if not path.exists():
+            pytest.skip(f"{path.name} not committed")
+        document = json.loads(path.read_text(encoding="utf-8"))
+        mc = document["point"]["methods"]["mcsolve"]
+        assert mc["ntraj"] == int(q_n)
+        assert document["meta"]["execution"]["slurm"]["job_id"] == q_job
+        assert _near(q_run, mc["wall_s"] / unit)
+        assert _near(q_pct, 100 * (projected[name] / mc["wall_s"] - 1)), (
+            f"{name}: probe projected {100 * (projected[name] / mc['wall_s'] - 1):.1f}% high")

@@ -220,12 +220,15 @@ def run(name, build, sizes, full_budget=FULL_TIME_BUDGET,
         # per-dimension validation series); (c) past the mesolve wall it IS
         # the accuracy reference (with a substep-halving self-check there,
         # since mesolve is no longer available to compare against).
+        # Reset before the branch: a point past native_ref_max used to write
+        # the previous dimension's timings (the committed oscillator dim-256
+        # entry carries dim 128's three repeats; BENCHMARKS.md says so).
+        t_native_reps = []
         if dim <= native_ref_max:
             try:
                 # Timed REPEATS times when asked. The solve is
                 # deterministic, so only the first result is kept; the rest
                 # exist to measure how much the wall-clock itself wanders.
-                t_native_reps = []
                 t0 = time.perf_counter()
                 nat = native_full_reference(H, rho0, c_ops)
                 t_native_reps.append(time.perf_counter() - t0)
