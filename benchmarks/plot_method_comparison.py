@@ -190,10 +190,11 @@ COMPARED_METHODS = ("mcsolve",)
 ALL_COMPARED_METHODS = ("native", "mesolve", "mcsolve")
 
 # M=1 is one bundle carrying every operator -- the maximum-bias setting, and not
-# something anyone would run. It also timed slower than M=2 on the benchmark node
-# despite doing less work, which, on a curve drawn in order of cost, produced a
-# hook that reads as "more compute made it worse". Accuracy is monotone in M at
-# every dimension; only the cost axis misbehaved. --include-m1 restores it.
+# something anyone would run. It also timed slower than M=2 at 3 of the 19
+# dimensions despite doing less work, which, on a curve drawn in order of cost,
+# put a hook that reads as "more compute made it worse". The error falls from
+# M=1 to M=2 on 90 of the 92 curves, and every rise in M, those two included,
+# is smaller than one s.e.m. (BENCHMARKS.md, Result 3). --include-m1 restores it.
 MIN_M_PLOTTED = 2
 
 # How many bundle sizes to draw per curve, counting back from the crossover.

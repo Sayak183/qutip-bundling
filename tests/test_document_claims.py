@@ -742,17 +742,21 @@ def test_result3_dim1024_mcsolve_sentence_matches_the_data(doc):
     import plot_method_comparison as pmc
 
     path = DATA / "method_comparison_spin_chain_dim1024.json"
-    if not path.exists():
-        pytest.skip("dim-1024 mcsolve run not committed")
+    assert path.exists(), f"BENCHMARKS.md quotes {path.name} but it is not committed"
     point = json.loads(path.read_text(encoding="utf-8"))["point"]
     mc = point["methods"]["mcsolve"]
 
+    text = _p6f_region(doc)
     match = re.search(
-        r"dimension 1024 \(10 spins\).*?energy error ([\d.]+)\u00d710\u207b\u00b2, "
-        r"of which\s+([\d.]+)\u00d710\u207b\u00b2 is the sampling s\.e\.m\..*?"
-        r"It took \*\*([\d,]+) s\*\*", doc, re.S)
+        r"dimension 1024 \(10 spins\), scored against the archived certified "
+        r"reference: energy error ([\d.]+)×10⁻² against a sampling s\.e\.m\. of "
+        r"([\d.]+)×10⁻² — ", text)
     assert match, "Result 3's dim-1024 mcsolve sentence has changed shape"
-    q_err, q_sem, q_wall = match.groups()
+    wall = re.search(r"It\s+took\s+\*\*([\d,]+) s\*\*, against [\d,]+ s for native RK4 "
+                     r"at \d+ substeps at the same size", text)
+    assert wall, "Result 3's dim-1024 wall-clock sentence has changed shape"
+    q_err, q_sem = match.groups()
+    q_wall = wall.group(1)
 
     error = [r for r in pmc.method_errors(point, "energy") if r[0] == "mcsolve"][0][2]
     sem = float(np.mean(np.asarray(mc["traj_std"]["energy"]) / np.sqrt(mc["ntraj"])))
@@ -771,19 +775,29 @@ def test_result3_dim2048_sentence_matches_the_data(doc):
     import plot_method_comparison as pmc
 
     path = DATA / "method_comparison_spin_chain_dim2048.json"
-    if not path.exists():
-        pytest.skip("dim-2048 run not committed")
+    assert path.exists(), f"BENCHMARKS.md quotes {path.name} but it is not committed"
     point = json.loads(path.read_text(encoding="utf-8"))["point"]
     mc, nat = point["methods"]["mcsolve"], point["methods"]["native"]
 
+    text = _p6f_region(doc)
     match = re.search(
-        r"dimension 2048 \(11 spins\).*?deviation of ([\d.]+)\u00d710\u207b\u2078"
-        r".*?energy error is ([\d.]+)\u00d710\u207b\u00b2, of which ([\d.]+)\u00d710\u207b\u00b2 "
-        r"is the sampling s\.e\.m\..*?It\s+took \*\*([\d,]+) s\*\*, against "
-        r"\*\*([\d,]+) s\*\* for native RK4.*?\*\*([\d.]+)\u00d7 slower than the exact"
-        r".*?\(([\d]+) s to ([\d]+) s\)", doc, re.S)
+        r"dimension 2048 \(11 spins\) — the first exact solve at that size in this "
+        r"project\. The reference is native RK4 at \d+ substeps, certified against its "
+        r"\d+-substep partner at a deviation of ([\d.]+)×10⁻⁸ \(tolerance "
+        r"10⁻⁴\)\. `mcsolve`'s energy error is ([\d.]+)×10⁻² against a sampling "
+        r"s\.e\.m\. of ([\d.]+)×10⁻² — ratio ([\d.]+) on the energy; sz and coherence "
+        r"land just past the \$\\sqrt\{2\}\$ line \(([\d.]+) and ([\d.]+)\), which for an "
+        r"unbiased method is noise, not bias\. It\s+took\s+\*\*([\d,]+) s\*\*, against "
+        r"\*\*([\d,]+) s\*\* for native RK4 at \d+ substeps on the same grid in the same "
+        r"allocation, so `mcsolve` is \*\*([\d.]+)× slower than the exact solve\*\*",
+        text)
     assert match, "Result 3's dim-2048 paragraph has changed shape"
-    q_dev, q_err, q_sem, q_mc, q_nat, q_ratio, q_traj10, q_traj11 = match.groups()
+    (q_dev, q_err, q_sem, q_r_energy, q_r_sz, q_r_coh, q_mc, q_nat,
+     q_ratio) = match.groups()
+    growth = re.search(r"`mcsolve`'s cost per trajectory rose [\d.]+× "
+                       r"\((\d+) s to (\d+) s\)", text)
+    assert growth, "Result 3's dim-2048 per-trajectory growth has changed shape"
+    q_traj10, q_traj11 = growth.groups()
 
     dev = point["reference"]["selfcheck"]["max_abs_dev"]
     assert point["reference"]["selfcheck"]["passed"] is True
@@ -797,60 +811,95 @@ def test_result3_dim2048_sentence_matches_the_data(doc):
     assert float(q_ratio) == pytest.approx(mc["wall_s"] / nat["wall_s"], abs=0.05)
     assert int(q_traj11) == pytest.approx(mc["wall_s"] / mc["ntraj"], abs=0.5)
 
+    ratios = {}
+    for obs in point["observables"]:
+        row = next(r for r in pmc.method_errors(point, obs) if r[0] == "mcsolve")
+        ratios[obs] = row[2] / row[5]
+    assert _near(q_r_energy, ratios["energy"]) and _near(q_r_sz, ratios["sz"])
+    assert _near(q_r_coh, ratios["coherence"])
+    past = {o for o, r in ratios.items()
+            if o != "zz_per_bond" and r > pmc.BIAS_LIMITED_RATIO}
+    assert past == {"sz", "coherence"}, f"past the sqrt(2) line: {sorted(past)}"
+
     p10 = DATA / "method_comparison_spin_chain_dim1024.json"
-    if p10.exists():
-        mc10 = json.loads(p10.read_text(encoding="utf-8"))["point"]["methods"]["mcsolve"]
-        assert int(q_traj10) == pytest.approx(mc10["wall_s"] / mc10["ntraj"], abs=0.5)
+    assert p10.exists(), f"BENCHMARKS.md quotes {p10.name} but it is not committed"
+    mc10 = json.loads(p10.read_text(encoding="utf-8"))["point"]["methods"]["mcsolve"]
+    assert int(q_traj10) == pytest.approx(mc10["wall_s"] / mc10["ntraj"], abs=0.5)
 
 
 def test_result3_dim2048_growth_is_quoted_at_matched_substeps(doc):
-    """The dim-2048 paragraph once set a 4-substep ratio (4.9x) against an
-    8-substep one (3.5x at 10 spins) and read a growing gap into it. At
-    matched substeps the gap shrank. This pins the corrected comparison AND
-    the fact that makes it valid: both denominators really are 8 substeps --
-    the dim-2048 reference solve and section 5.2's dim-1024 grid timing."""
-    import plot_method_comparison as pmc  # noqa: F401  (same import path as above)
-
+    """The dim-2048 paragraph quotes 4.9x against the 4-substep native solve in
+    its own job, and 2.5x against its own 8-substep reference. It names the
+    10-spin 3.5x (also against 8 substeps) but claims no trend from it: that
+    ratio divides by a solve timed in another job on another node, and the
+    3.5x-to-2.5x change (1.4x) is under section 7's ~1.5x resolution for single
+    timings. The 1.4x is exactly the gap between the two quoted growth factors.
+    An earlier version said the gap "shrank"; this pins the reasons it may not,
+    so the claim cannot come back while they hold."""
     p11 = DATA / "method_comparison_spin_chain_dim2048.json"
     p10 = DATA / "method_comparison_spin_chain_dim1024.json"
     pgrid = DATA / "solver_timing_spin_chain.json"
-    if not (p11.exists() and p10.exists() and pgrid.exists()):
-        pytest.skip("dim-1024 / dim-2048 / timing-grid files not all committed")
-    point = json.loads(p11.read_text(encoding="utf-8"))["point"]
-    mc11, ref11 = point["methods"]["mcsolve"], point["reference"]
-    mc10 = json.loads(p10.read_text(encoding="utf-8"))["point"]["methods"]["mcsolve"]
-    grid = {p["dim"]: p for p in
-            json.loads(pgrid.read_text(encoding="utf-8"))["points"]}[1024]
-
-    assert ref11["selfcheck"]["primary_substeps"] == 8
-    assert grid["native_substeps"] == 8, "the 10-spin denominator is no longer 8 substeps"
+    for path in (p11, p10, pgrid):
+        assert path.exists(), f"BENCHMARKS.md quotes {path.name} but it is not committed"
+    d11 = json.loads(p11.read_text(encoding="utf-8"))
+    d10 = json.loads(p10.read_text(encoding="utf-8"))
+    dgrid = json.loads(pgrid.read_text(encoding="utf-8"))
+    point = d11["point"]
+    mc11, nat11, ref11 = (point["methods"]["mcsolve"], point["methods"]["native"],
+                          point["reference"])
+    mc10 = d10["point"]["methods"]["mcsolve"]
+    grid = {p["dim"]: p for p in dgrid["points"]}[1024]
     g10 = grid["timings"]["native"]["median_s"]
 
     match = re.search(
-        r"8-substep reference solve,\s+\*\*([\d,]+) s\*\*, the ratio is "
-        r"\*\*([\d.]+)\u00d7\*\*.*?\(([\d.]+)\u00d7 to ([\d.]+)\u00d7\)\. Its cost per\s+"
-        r"trajectory rose ([\d.]+)\u00d7 \((\d+) s to (\d+) s\) while the 8-substep "
-        r"exact solve rose ([\d.]+)\u00d7\s+\(([\d,]+) s to ([\d,]+) s\)", doc, re.S)
+        r"That ([\d.]+)× is not comparable with the ([\d.]+)× at 10 spins, which "
+        r"was taken against an (\d+)-substep solve\. Against this job's own (\d+)-substep "
+        r"reference solve, \*\*([\d,]+) s\*\*, the ratio is \*\*([\d.]+)×\*\*\. Even so, "
+        r"no trend from 10 spins is claimed \(([\d.]+)× to ([\d.]+)×\): the 10-spin "
+        r"([\d.]+)× divides by an exact solve timed in another job on another node "
+        r"\(§5\.3\), and a ([\d.]+)× change is inside the ~([\d.]+)× that single "
+        r"timings on a shared node cannot resolve \(§7\)\. That ([\d.]+)× is the gap "
+        r"between two growth factors, each spanning two jobs: `mcsolve`'s cost per "
+        r"trajectory rose ([\d.]+)× \((\d+) s to (\d+) s\), and the (\d+)-substep exact "
+        r"solve rose ([\d.]+)× \(([\d,]+) s to ([\d,]+) s\)\.", _flat(doc))
     assert match, "the dim-2048 matched-substep comparison has changed shape"
-    (q_ref, q_r11, q_r10, q_r11b, q_traj_growth, q_t10, q_t11,
-     q_exact_growth, q_g10, q_ref_b) = match.groups()
+    (q_r4, q_r10, q_sub10, q_sub11, q_ref, q_r11, q_r10b, q_r11b, q_r10c, q_change,
+     q_res, q_change_b, q_traj_growth, q_t10, q_t11, q_sub_exact, q_exact_growth,
+     q_g10, q_ref_b) = match.groups()
 
-    num = lambda s: float(s.replace(",", ""))
-    assert num(q_ref) == pytest.approx(ref11["wall_s"], abs=0.5)
-    assert num(q_ref_b) == pytest.approx(ref11["wall_s"], abs=0.5)
-    assert num(q_g10) == pytest.approx(g10, abs=0.5)
-    assert float(q_r11) == pytest.approx(mc11["wall_s"] / ref11["wall_s"], abs=0.05)
-    assert float(q_r11b) == pytest.approx(mc11["wall_s"] / ref11["wall_s"], abs=0.05)
-    assert float(q_r10) == pytest.approx(mc10["wall_s"] / g10, abs=0.05)
+    # 4.9x: mcsolve over the 4-substep native solve, same job.
+    assert d11["meta"]["substeps"] == 4
+    assert _near(q_r4, mc11["wall_s"] / nat11["wall_s"])
+    # Both 8-substep denominators really are 8 substeps.
+    assert int(q_sub10) == int(q_sub11) == int(q_sub_exact) == 8
+    assert grid["native_substeps"] == 8, "the 10-spin denominator is no longer 8 substeps"
+    assert ref11["selfcheck"]["primary_substeps"] == 8
+    r10, r11 = mc10["wall_s"] / g10, mc11["wall_s"] / ref11["wall_s"]
+    assert _near(q_r10, r10) and _near(q_r10b, r10) and _near(q_r10c, r10)
+    assert _near(q_r11, r11) and _near(q_r11b, r11)
+    assert _near(q_ref, ref11["wall_s"]) and _near(q_ref_b, ref11["wall_s"])
+    assert _near(q_g10, g10)
+    # Why no trend is claimed: another job on another node, one timing each,
+    # and a change smaller than section 7's resolution.
+    job = lambda d: (d["meta"]["execution"]["slurm"]["job_id"],
+                     d["meta"]["execution"]["hostname"])
+    assert job(dgrid)[0] != job(d10)[0] and job(dgrid)[1] != job(d10)[1]
+    assert dgrid["meta"]["params"]["repeats"] == 1
+    assert len(grid["timings"]["native"]["samples_s"]) == 1
+    assert len(mc10["wall_s_repeats"]) == len(mc11["wall_s_repeats"]) == 1
+    assert _near(q_change, r10 / r11) and _near(q_change_b, r10 / r11)
+    res = re.search(r"ratios below ~([\d.]+)x are not resolved\s+without repeats", _flat(doc))
+    assert res, "section 7's timing-resolution note has changed shape"
+    assert float(q_res) == float(res.group(1))
+    assert r10 / r11 < float(q_res), "the change now exceeds the stated resolution"
     t10, t11 = mc10["wall_s"] / mc10["ntraj"], mc11["wall_s"] / mc11["ntraj"]
-    assert int(q_t10) == pytest.approx(t10, abs=0.5)
-    assert int(q_t11) == pytest.approx(t11, abs=0.5)
-    assert float(q_traj_growth) == pytest.approx(t11 / t10, abs=0.05)
-    assert float(q_exact_growth) == pytest.approx(ref11["wall_s"] / g10, abs=0.05)
-    assert float(q_r11) < float(q_r10), "the paragraph says the gap shrank"
-    first = re.search(r"That is not up from the ([\d.]+)\u00d7 at 10 spins", doc)
-    assert first, "the dim-2048 paragraph no longer names the 10-spin ratio"
-    assert float(first.group(1)) == pytest.approx(mc10["wall_s"] / g10, abs=0.05)
+    assert _near(q_t10, t10) and _near(q_t11, t11)
+    assert _near(q_traj_growth, t11 / t10)
+    assert _near(q_exact_growth, ref11["wall_s"] / g10)
+    # the 1.4x is the ratio of the two growth factors, not a separate number
+    assert math.isclose((ref11["wall_s"] / g10) / (t11 / t10), r10 / r11, rel_tol=1e-9)
+    region = _flat(doc).split("#### System A — TFIM chain (dim 64")[1].split("### Result 4")[0]
+    assert "shrank" not in region, "Result 3's System A text reads a trend into cross-job timings"
 
 
 def test_result3_mixed_chain_dim256_paragraph_matches_the_data(doc):
@@ -858,20 +907,63 @@ def test_result3_mixed_chain_dim256_paragraph_matches_the_data(doc):
     its agreement with Result 1's independent reference at the same size,
     both wall-clocks and both ratios (against the 4-substep native solve and
     the 8-substep reference), mcsolve's energy error and s.e.m., and the
-    spread of its error/s.e.m. ratio across all six observables against the
-    sqrt(2) line -- all through plot_method_comparison.method_errors, the
-    scoring the figures use."""
+    spread of its error/s.e.m. ratio across the five distinct observables
+    (zz_per_bond repeats zz) against the sqrt(2) line -- all through
+    plot_method_comparison.method_errors, the scoring the figures use. The
+    result comes first and its provenance second (review part 6, U4)."""
     import plot_method_comparison as pmc
 
     path = DATA / "method_comparison_mixed_chain_dim256.json"
     r1path = DATA / "accuracy_vs_M_mixed_chain_dim256.json"
-    if not (path.exists() and r1path.exists()):
-        pytest.skip("System B dim-256 files not committed")
-    point = json.loads(path.read_text(encoding="utf-8"))["point"]
+    assert path.exists() and r1path.exists(), "the dim-256 paragraph names both files"
+    document = json.loads(path.read_text(encoding="utf-8"))
+    point = document["point"]
     mc, nat, ref = point["methods"]["mcsolve"], point["methods"]["native"], point["reference"]
     r1 = json.loads(r1path.read_text(encoding="utf-8"))
 
+    # The result first, then where it came from (review part 6, U4).
     match = re.search(
+        r"At dimension 256 \(8 spins, \$N_L = ([\d{},]+)\$\), `mcsolve` at (\d+) "
+        r"trajectories took \*\*([\d,]+) s\*\*, (\d+) s per trajectory, against "
+        r"\*\*([\d,]+) s\*\* for native RK4 at (\d+) substeps in the same allocation: "
+        r"\*\*([\d.]+)× slower than the exact solve\*\* \(([\d.]+)× against "
+        r"the (\d+)-substep reference solve, ([\d,]+) s\)\. Its energy error is "
+        r"([\d.]+)×10⁻² and its sampling s\.e\.m\. "
+        r"([\d.]+)×10⁻², a ratio of ([\d.]+), just past the "
+        r"\$\\sqrt\{2\}\$ line above\. Across the (\w+) distinct observables the ratio "
+        r"runs from ([\d.]+) to ([\d.]+): energy, sx and coherence above the line, zz "
+        r"and sz below it\. `mcsolve` has essentially no bias \(§4\), so a point above the "
+        r"line here is noise that landed more than one s\.e\.m\. from the reference, "
+        r"not a bias\. No SLB ran at this size, so no SLB/`mcsolve` ratio is quoted\. "
+        r"These numbers come from job (\d{8}), which also ran a fresh certified "
+        r"reference: native RK4 at (\d+) substeps, certified against its (\d+)-substep "
+        r"partner at a deviation of ([\d.]+)×10⁻⁹\. It is the second "
+        r"certified exact solve at this size, after Result 1's \(job (\d{8})\); the two "
+        r"agree on the energy at \$t=5\$ to all eight decimals Result 1's file stores\. "
+        r"The job ran on (\d+) threads where dims 4–128 ran on (\d+) \(job (\d{8})\), "
+        r"so its wall-clocks are not drawn on the figures above and no growth from dim "
+        r"128 is quoted: the 38× there and the ([\d.]+)× here",
+        _flat(doc))
+    assert match, "Result 3's System B dim-256 paragraph has changed shape"
+    (q_nl, q_ntraj, q_mc, q_traj, q_nat, q_subs, q_r_nat, q_r_ref, q_ref_subs, q_ref,
+     q_err, q_sem, q_ratio, q_count, q_lo, q_hi, q_job, q_ref_subs2, q_pair, q_dev,
+     q_r1job, q_threads, q_threads128, q_job128, q_here) = match.groups()
+    assert _printed(q_nl) == point["n_l"] and int(q_ntraj) == mc["ntraj"]
+    assert int(q_subs) == document["meta"]["substeps"]
+    assert int(q_ref_subs) == int(q_ref_subs2) == document["meta"]["params"]["ref_substeps"]
+    assert ref["selfcheck"]["substeps_pair"] == sorted([int(q_pair), int(q_ref_subs)])
+    assert q_job == str(document["meta"]["execution"]["slurm"]["job_id"])
+    assert int(q_threads) == int(document["meta"]["execution"]["threads"]["OMP_NUM_THREADS"])
+    for dim in (4, 8, 16, 32, 64, 128):
+        other = json.loads((DATA / f"method_comparison_mixed_chain_dim{dim}.json")
+                           .read_text(encoding="utf-8"))["meta"]["execution"]
+        assert str(other["slurm"]["job_id"]) == q_job128, dim
+        assert int(other["threads"]["OMP_NUM_THREADS"]) == int(q_threads128), dim
+    assert {"five": 5}[q_count] == len(point["observables"]) - 1
+
+    # The superseded wording (provenance first, "of which", six observables)
+    # must not come back.
+    superseded = re.search(
         r"dimension 256 \(8 spins.*?deviation of ([\d.]+)\u00d710\u207b\u2079"
         r".*?Result 1's \(job (\d{8})\); the two agree on the energy at \$t=5\$ to all "
         r"eight\s+decimals Result 1's file stores"
@@ -883,9 +975,7 @@ def test_result3_mixed_chain_dim256_paragraph_matches_the_data(doc):
         r"([\d.]+) to ([\d.]+) \u2014 energy, sx and coherence above the line; zz, sz"
         r"\s+and zz_per_bond below it.*?the 38\u00d7 there and the ([\d.]+)\u00d7 here",
         doc, re.S)
-    assert match, "Result 3's System B dim-256 paragraph has changed shape"
-    (q_dev, q_r1job, q_mc, q_traj, q_nat, q_r_nat, q_r_ref, q_ref, q_err, q_sem,
-     q_ratio, q_lo, q_hi, q_here) = match.groups()
+    assert superseded is None, "the superseded dim-256 wording is back"
     num = lambda s: float(s.replace(",", ""))
 
     assert ref["selfcheck"]["passed"] is True
@@ -914,9 +1004,13 @@ def test_result3_mixed_chain_dim256_paragraph_matches_the_data(doc):
     assert float(q_ratio) == pytest.approx(ratios["energy"], abs=0.005)
     assert float(q_lo) == pytest.approx(min(ratios.values()), abs=0.005)
     assert float(q_hi) == pytest.approx(max(ratios.values()), abs=0.005)
-    above = {o for o, r in ratios.items() if r > math.sqrt(2)}
+    assert ratios["zz_per_bond"] == pytest.approx(ratios["zz"], rel=1e-9), (
+        "Result 3 says zz_per_bond repeats zz's ratio")
+    distinct = {o: r for o, r in ratios.items() if o != "zz_per_bond"}
+    above = {o for o, r in distinct.items() if r > math.sqrt(2)}
     assert above == {"energy", "sx", "coherence"}, (
         f"the paragraph names energy, sx and coherence above sqrt(2); data: {sorted(above)}")
+    assert set(distinct) - above == {"zz", "sz"}, "the paragraph names zz and sz below it"
 
 
 def test_result5_reference_wall_sentence_matches_the_data(doc):
@@ -4734,3 +4828,1775 @@ def test_result2_bundle_assembly_growth_follows_n_l(doc):
         # the last is below the fitted one
         local = np.diff(np.log(n_l)) / np.diff(np.log(dims))
         assert np.all(np.diff(local) < 0) and local[-1] < slope, (system, local)
+
+
+# --- part 6 U1: Result 3's solver list, curve thinning, error axis, M=1 ------
+# The list said native RK4 was the reference only "past mesolve limits"; the
+# accuracy paragraph said one point per bundle size from M=2 and called the
+# error a plain "deviation"; the M=1 paragraph said the repeats agreed to under a
+# millisecond and that the error is monotone in M at every dimension. Each claim
+# is now recomputed from the files and from plot_method_comparison itself.
+
+_P6A_WORDS = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6,
+              "seven": 7, "eight": 8, "nine": 9, "ten": 10}
+_P6A_SYSTEMS = {"A": "spin_chain", "B": "mixed_chain", "C": "oscillator_bath"}
+
+
+def _p6a_region(doc: str) -> str:
+    """Result 3 from its heading to the filled-or-hollow subsection, flattened."""
+    text = _flat(doc)
+    start = text.index("### Result 3 — accuracy versus cost: SLB against mcsolve")
+    return text[start:text.index("#### Filled or hollow: which knob to turn", start)]
+
+
+def _p6a_files() -> dict:
+    """{(system, dim): document} for every committed Result 3 file."""
+    out = {}
+    for path in sorted(DATA.glob("method_comparison_*_dim*.json")):
+        system, dim = re.match(r"method_comparison_(\w+?)_dim(\d+)$", path.stem).groups()
+        out[(system, int(dim))] = json.loads(path.read_text(encoding="utf-8"))
+    assert out, "no Result 3 files found"
+    return out
+
+
+def _p6a_curves(min_m: int) -> dict:
+    """{(system, dim, observable): SLB rows from method_errors, sorted by M}.
+
+    zz_per_bond is zz divided by a constant, so it is not an independent curve
+    and is left out of every tally."""
+    import plot_method_comparison as pmc
+    saved = pmc._MIN_M
+    pmc._MIN_M = min_m
+    try:
+        out = {}
+        for (system, dim), document in _p6a_files().items():
+            point = document["point"]
+            if not point["methods"].get("slb"):
+                continue
+            for obs in point["observables"]:
+                if obs == "zz_per_bond":
+                    continue
+                rows = [r for r in pmc.method_errors(point, obs) if r[0] == "slb"]
+                out[(system, dim, obs)] = sorted(rows, key=pmc._m_of)
+        return out
+    finally:
+        pmc._MIN_M = saved
+
+
+def _p6a_figures(doc: str) -> list:
+    """(system, observable) of every Result 3 figure the document embeds."""
+    found = re.findall(
+        r"\]\(benchmark_comparison_(spin_chain|mixed_chain|oscillator_bath)_(\w+)\.png\)",
+        doc)
+    for system, obs in found:
+        png = BENCHMARKS / f"benchmark_comparison_{system}_{obs}.png"
+        assert png.exists(), f"{png.name} is embedded but missing"
+    return found
+
+
+def test_p6a_result3_native_runs_as_reference_and_as_timed_baseline(doc):
+    """Native RK4 runs at 2x SLB's substeps as the certified reference and at
+    SLB's own substeps as the timed baseline; the stored references, and the one
+    dimension quoted from §5.2's 8-substep grid, are the ones the text names."""
+    import inspect
+    import run_method_comparison as rmc
+
+    text = _p6a_region(doc)
+    m = re.search(
+        r"It plays two roles at every dimension, not only where `mesolve` stops\. At twice "
+        r"SLB's substeps it is the certified reference that every error is scored against "
+        r"\((\d+) substeps on Systems A and B, (\d+) on System C, (\d+) at C's dimension "
+        r"(\d+)\)\. At SLB's own substeps \((\d+) on A and B, (\d+) on C, (\d+) at C's "
+        r"dimension (\d+)\) it is the timed baseline behind the `SLB speed vs native` "
+        r"column, so that ratio compares equal step counts\. Two exceptions, both on "
+        r"System A: at dimensions (\d+), (\d+) and (\d+) the reference is a stored certified "
+        r"run at the same (\d+) substeps, reused rather than rerun in the job; and at (\d+) "
+        r"there is no timed run at SLB's substeps, so the text quotes §5\.2's exact solve at "
+        r"(\d+) substeps instead\.",
+        text)
+    assert m, "Result 3's native RK4 list item has changed shape"
+    (ref_ab, ref_c, ref_hi, dim_hi, sub_ab, sub_c, sub_hi, dim_hi2,
+     r1, r2, r3, stored_sub, no_timed, grid_sub) = map(int, m.groups())
+    assert dim_hi == dim_hi2
+    assert "| SLB speed vs native |" in doc
+
+    # The timed native run uses SLB's substeps; the reference uses ref_substeps,
+    # which defaults to twice that.
+    source = inspect.getsource(rmc.run)
+    assert re.search(r"run_native\([^)]*args\.slb_substeps\)", source), \
+        "the timed native run no longer uses SLB's substeps"
+    assert re.search(r"certified_reference\(\s*H, rho0, c_ops, ref_substeps\)", source)
+    assert re.search(r"ref_substeps = args\.ref_substeps or 2 \* args\.slb_substeps", source)
+
+    files = _p6a_files()
+    for (system, dim), document in files.items():
+        meta, point = document["meta"], document["point"]
+        substeps, ref_sub = meta["substeps"], meta["params"]["ref_substeps"]
+        assert point["reference"]["method"] == f"native_rk4_substeps{ref_sub}", (system, dim)
+        assert point["reference"]["selfcheck"]["passed"], (system, dim)
+        assert ref_sub == 2 * substeps, f"{system} dim {dim}: reference is not at 2x SLB's substeps"
+        if system == "oscillator_bath":
+            want = (ref_hi, sub_hi) if dim == dim_hi else (ref_c, sub_c)
+        else:
+            want = (ref_ab, sub_ab)
+        assert (ref_sub, substeps) == want, f"{system} dim {dim}: {(ref_sub, substeps)} != {want}"
+        if point["methods"].get("slb"):
+            assert "wall_s" in point["methods"].get("native", {}), \
+                f"{system} dim {dim}: SLB ran with no timed native baseline"
+
+    reused = sorted(k for k, d in files.items()
+                    if d["point"]["reference"].get("reused_from_archive"))
+    assert reused == [("spin_chain", r1), ("spin_chain", r2), ("spin_chain", r3)], reused
+    for _, dim in reused:
+        archive = json.loads((DATA / f"high_dim_reference_spin_chain_dim{dim}.json")
+                             .read_text(encoding="utf-8"))
+        assert archive["meta"]["substeps"] == stored_sub == ref_ab, dim
+        assert archive["point"]["selfcheck"]["passed"], dim
+    untimed = sorted(k for k, d in files.items()
+                     if "wall_s" not in d["point"]["methods"].get("native", {}))
+    assert untimed == [("spin_chain", no_timed)], untimed
+    grid = json.loads((DATA / "solver_timing_spin_chain.json").read_text(encoding="utf-8"))
+    row = [p for p in grid["points"] if p["dim"] == no_timed]
+    assert len(row) == 1 and "median_s" in row[0]["timings"]["native"]
+    assert row[0]["native_substeps"] == grid_sub == 2 * row[0]["slb_substeps"]
+
+
+def test_p6a_result3_curve_thinning_matches_the_plotter(doc):
+    """At most MAX_CURVE_POINTS per curve, ending at the largest M or at the
+    first M from which every point is hollow; the start-M tally over the
+    figures the document embeds."""
+    import inspect
+    import plot_method_comparison as pmc
+
+    text = _p6a_region(doc)
+    m = re.search(
+        r"A curve does not show every bundle size from \$M=(\d+)\$ up; it shows at most "
+        r"(\w+)\. It ends at the largest \$M\$ run, or sooner, at the first \$M\$ where that "
+        r"point and every larger one are hollow \(mostly sampling noise; see below\), and "
+        r"keeps up to (\w+) sizes before that end\. So of the (\d+) SLB curves in the (\w+) "
+        r"figures below, (\d+) start at \$M=(\d+)\$, (\d+) at \$M=(\d+)\$ and (\d+) at "
+        r"\$M=(\d+)\$ or later, and (\w+) are a single point\. Pass `--full-curves` to draw "
+        r"every \$M\$\.", text)
+    assert m, "Result 3's curve-thinning sentence has changed shape"
+    m_min, most, before, total, n_fig, na, ma, nb, mb, nc, mc, n_single = m.groups()
+    assert _P6A_WORDS[most] == pmc.MAX_CURVE_POINTS
+    assert _P6A_WORDS[before] == pmc.MAX_CURVE_POINTS - 1
+    assert int(m_min) == pmc.MIN_M_PLOTTED
+    assert "--full-curves" in inspect.getsource(pmc.main)
+
+    figures = set(_p6a_figures(doc))
+    assert len(figures) == _P6A_WORDS[n_fig], sorted(figures)
+
+    saved = pmc._MAX_POINTS
+    pmc._MAX_POINTS = pmc.MAX_CURVE_POINTS
+    try:
+        starts, sizes = [], []
+        for (system, dim, obs), rows in _p6a_curves(pmc.MIN_M_PLOTTED).items():
+            # The rule as the prose states it, computed independently.
+            cut = len(rows)
+            for i in range(len(rows)):
+                if not any(pmc._bias_limited(r[2], r[5]) for r in rows[i:]):
+                    cut = i + 1
+                    break
+            want = rows[:cut][-pmc.MAX_CURVE_POINTS:]
+            window = pmc._curve_window(rows)
+            assert window == want, (system, dim, obs)
+            if (system, obs) in figures:
+                starts.append(pmc._m_of(window[0]))
+                sizes.append(len(window))
+    finally:
+        pmc._MAX_POINTS = saved
+    assert len(starts) == int(total)
+    assert starts.count(int(ma)) == int(na)
+    assert starts.count(int(mb)) == int(nb)
+    assert sum(s >= int(mc) for s in starts) == int(nc)
+    assert int(na) + int(nb) + int(nc) == int(total)
+    assert sizes.count(1) == _P6A_WORDS[n_single]
+
+
+def test_p6a_result3_error_axis_is_absolute_bias_sem_average(doc):
+    """The plotted error is mean_t sqrt(bias^2 + sem^2) in the observable's own
+    units, for SLB (16 realizations) and mcsolve (500 trajectories) alike."""
+    import plot_method_comparison as pmc
+
+    text = _p6a_region(doc)
+    m = re.search(
+        r"\*\*What the error axis measures\.\*\* At each time, the error is "
+        r"\$\\sqrt\{\\text\{bias\}\^2 \+ \\text\{s\.e\.m\.\}\^2\}\$ against the certified "
+        r"reference, and the plotted value is its average over the (\d+) time points\. Both "
+        r"methods use this same formula\. SLB's s\.e\.m\. comes from its (\d+) realizations, "
+        r"`mcsolve`'s from its (\d+) trajectories\. The error is in the observable's own units, "
+        r"not a fraction of its size\.", text)
+    assert m, "Result 3's error-axis paragraph has changed shape"
+    n_t, n_runs, ntraj = map(int, m.groups())
+    budget = re.search(r"`mcsolve` is a single fixed-budget point at "
+                       r"\$N_\{\\text\{traj\}\} = (\d+)\$", text)
+    assert budget, "Result 3's mcsolve-budget sentence has changed shape"
+    assert int(budget.group(1)) == ntraj, "the two quotes of mcsolve's budget disagree"
+
+    checked = 0
+    for (system, dim), document in _p6a_files().items():
+        point = document["point"]
+        assert document["meta"]["tlist"]["n"] == n_t, (system, dim)
+        mc = point["methods"].get("mcsolve")
+        slb = point["methods"].get("slb", [])
+        for row in slb:
+            assert int(row["n_runs"]) == n_runs, (system, dim, row["M"])
+        if mc and "skipped" not in mc:
+            assert int(mc["ntraj"]) == ntraj, (system, dim)
+        if not (slb and mc):
+            continue
+        for obs_index, obs in enumerate(point["observables"]):
+            reference = pmc.mean_curve(point["reference"]["curves"][obs])
+            assert len(reference) == n_t
+            rows = pmc.method_errors(point, obs)
+            # mcsolve, recomputed by hand: no normalisation anywhere.
+            curve = pmc.mean_curve(mc["curves"][obs])
+            sem = np.asarray(mc["traj_std"][obs], dtype=float) / np.sqrt(ntraj)
+            want = float(np.mean(np.sqrt((curve - reference) ** 2 + sem ** 2)))
+            got = [r for r in rows if r[0] == "mcsolve"][0][2]
+            assert math.isclose(got, want, rel_tol=1e-12), (system, dim, obs, "mcsolve")
+            # SLB at every bundle size the figures can draw.
+            for row in slb:
+                if int(row["M"]) < pmc.MIN_M_PLOTTED:
+                    continue
+                samples = np.asarray(row["samples"], dtype=float)[:, obs_index, :]
+                bias = samples.mean(axis=0) - reference
+                s = samples.std(axis=0, ddof=1) / np.sqrt(samples.shape[0])
+                want = float(np.mean(np.sqrt(bias ** 2 + s ** 2)))
+                got = [r for r in rows if r[0] == "slb" and r[3] == f"M={row['M']}"][0][2]
+                assert math.isclose(got, want, rel_tol=1e-12), (system, dim, obs, row["M"])
+                checked += 1
+    assert checked, "no file carries both SLB and mcsolve"
+
+
+def test_p6a_result3_m1_paragraph_matches_the_data(doc):
+    """Where M=1 timed slower than M=2, the dim-32 medians and repeat spreads,
+    the M=1 -> 2 tally and its exceptions, the rises past M=2, and the largest
+    rise in units of the s.e.m. of the point it reaches."""
+    import inspect
+    import plot_method_comparison as pmc
+
+    text = _p6a_region(doc)
+    assert "--include-m1" in inspect.getsource(pmc.main)
+    files = _p6a_files()
+
+    m = re.search(
+        r"At (\w+) dimensions \(System A at (\d+), System B at (\d+), System C at (\d+)\) it "
+        r"also timed \*slower\* than \$M=2\$ in the same job at the same substeps, despite "
+        r"doing strictly less arithmetic; at the other (\d+) it was faster\.", text)
+    assert m, "Result 3's M=1 timing sentence has changed shape"
+    n_slow, da, db, dc, n_fast = m.groups()
+    slower, faster = [], 0
+    for (system, dim), document in files.items():
+        slb = {int(r["M"]): r for r in document["point"]["methods"].get("slb", [])}
+        if not slb:
+            continue
+        assert 1 in slb and 2 in slb, (system, dim)
+        if slb[1]["wall_s"] > slb[2]["wall_s"]:
+            slower.append((system, dim))
+        else:
+            faster += 1
+    assert sorted(slower) == sorted([(_P6A_SYSTEMS["A"], int(da)), (_P6A_SYSTEMS["B"], int(db)),
+                                     (_P6A_SYSTEMS["C"], int(dc))]), slower
+    assert len(slower) == _P6A_WORDS[n_slow]
+    assert faster == int(n_fast)
+
+    m = re.search(
+        r"On System A at dimension (\d+) it took ([\d.]+) s against ([\d.]+) s, each the "
+        r"median of (\w+) repeats; the \$M=1\$ repeats spread by under (\d+) ms, the \$M=2\$ "
+        r"repeats by (\d+) ms\.", text)
+    assert m, "Result 3's M=1 repeats sentence has changed shape"
+    dim, t1, t2, n_rep, under1, spread2 = m.groups()
+    slb = {int(r["M"]): r for r in files[("spin_chain", int(dim))]["point"]["methods"]["slb"]}
+    reps1, reps2 = slb[1]["wall_s_repeats"], slb[2]["wall_s_repeats"]
+    assert len(reps1) == len(reps2) == _P6A_WORDS[n_rep]
+    assert _near(t1, float(np.median(reps1))) and _near(t1, slb[1]["wall_s"]), t1
+    assert _near(t2, float(np.median(reps2))) and _near(t2, slb[2]["wall_s"]), t2
+    # The tightest whole-millisecond bound: "under 2 ms" would also be true.
+    assert int(under1) - 1 <= 1000 * (max(reps1) - min(reps1)) < int(under1)
+    assert _near(spread2, 1000 * (max(reps2) - min(reps2)))
+
+    m = re.search(
+        r"Across all (\d+) SLB curves in the files \(every distinct observable, not only "
+        r"the (\w+) drawn per system\), going from \$M=1\$ to \$M=2\$ lowers "
+        r"the error on (\d+)\. The (\w+) exceptions are (\w+) at System A dimension (\d+) and "
+        r"System C dimension (\d+)\. Past \$M=2\$ the error does not fall at every step "
+        r"either: (\d+) of the (\d+) curves rise at least once\. Every rise, the (\w+) from "
+        r"\$M=1\$ included, is smaller than the s\.e\.m\. of the point it rises to \(([\d.]+) "
+        r"of it at most\)\.", text)
+    assert m, "Result 3's monotonicity sentences have changed shape"
+    (total, n_drawn, n_lower, n_exc, obs, ea, ec, n_rise, total2, n_exc2,
+     q_max) = m.groups()
+    drawn = {}
+    for system, fig_obs in _p6a_figures(doc):
+        drawn.setdefault(system, set()).add(fig_obs)
+    assert all(len(v) == _P6A_WORDS[n_drawn] for v in drawn.values()), drawn
+
+    curves = _p6a_curves(1)
+    assert len(curves) == int(total) == int(total2)
+    exceptions = []
+    for key, rows in curves.items():
+        assert [pmc._m_of(r) for r in rows[:2]] == [1, 2], key
+        if not rows[1][2] < rows[0][2]:
+            exceptions.append(key)
+    assert len(curves) - len(exceptions) == int(n_lower)
+    assert len(exceptions) == _P6A_WORDS[n_exc] == _P6A_WORDS[n_exc2]
+    assert sorted(exceptions) == sorted([("spin_chain", int(ea), obs),
+                                         ("oscillator_bath", int(ec), obs)]), exceptions
+
+    rising_past_2, ratios = set(), []
+    for key, rows in curves.items():
+        for i, (a, b) in enumerate(zip(rows, rows[1:])):
+            if b[2] >= a[2]:
+                ratios.append((b[2] - a[2]) / b[5])
+                if i >= 1:
+                    rising_past_2.add(key)
+    assert len(rising_past_2) == int(n_rise)
+    assert max(ratios) < 1, "a rise now exceeds the s.e.m. of the point it reaches"
+    _assert_rounds_to(max(ratios), q_max, "largest rise in s.e.m. units")
+
+
+def test_p6a_result3_slb_sweep_starts_at_m1(doc):
+    """The SLB list item: the sweep runs from M=1 (every file has it), the top
+    bundle size reached, the figures' first M and the realization count."""
+    import plot_method_comparison as pmc
+
+    m = re.search(
+        r"4\. \*\*SLB:\*\* Stochastically bundled dissipators, \$M\$ swept from (\d+) up to "
+        r"(\d+) where the sweep reached it \(the figures start at \$M=(\d+)\$\), (\d+) "
+        r"realizations per point\.", _p6a_region(doc))
+    assert m, "Result 3's SLB list item has changed shape"
+    low, high, first, n_runs = map(int, m.groups())
+    sweeps = [[int(r["M"]) for r in d["point"]["methods"]["slb"]]
+              for d in _p6a_files().values() if d["point"]["methods"].get("slb")]
+    assert sweeps
+    assert all(min(s) == low for s in sweeps)
+    assert max(max(s) for s in sweeps) == high
+    assert first == pmc.MIN_M_PLOTTED
+    assert all(int(r["n_runs"]) == n_runs for d in _p6a_files().values()
+               for r in d["point"]["methods"].get("slb", []))
+
+
+# --- Result 3, "Filled or hollow": which knob to turn -----------------------
+# Every count, ratio and fitted crossover in that subsection is recomputed
+# through plot_method_comparison (method_errors, _bias_limited), the functions
+# that fill or hollow each marker on the figures.
+
+def _p6b_point(system: str, dim: int) -> dict:
+    path = DATA / f"method_comparison_{system}_dim{dim}.json"
+    assert path.exists(), f"{path.name} is quoted in Result 3 but not committed"
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def _p6b_slb(point: dict, observable: str) -> dict:
+    """{M: (error/s.e.m., error, wall_s, s.e.m.)} for SLB, via method_errors."""
+    import plot_method_comparison as pmc
+    return {pmc._m_of(r): (r[2] / r[5], r[2], r[1], r[5])
+            for r in pmc.method_errors(point, observable) if r[0] == "slb"}
+
+
+def _p6b_crossover(ratios: dict, lo: int, hi: float = math.inf) -> float:
+    """Where a log-log line through error/s.e.m. against M, fitted over
+    lo <= M <= hi, meets sqrt(2)."""
+    ms = sorted(m for m in ratios if lo <= m <= hi)
+    fit = linregress(np.log(ms), np.log([ratios[m][0] for m in ms]))
+    return float(np.exp((np.log(math.sqrt(2)) - fit.intercept) / fit.slope))
+
+
+def _p6b_region(doc: str) -> str:
+    start = doc.index("#### Filled or hollow: which knob to turn")
+    end = doc.index("**Where `mcsolve` sits against its own noise", start)
+    return doc[start:end]
+
+
+def test_p6b_filled_markers_are_counted_per_observable(doc):
+    """'Nearly every SLB point is filled' holds for the energy only. The
+    counts over every method_comparison file (M >= 2, zz_per_bond left out as
+    zz rescaled), System B's share, and which observables go hollow at B dim
+    64 are all recomputed through _bias_limited."""
+    import plot_method_comparison as pmc
+
+    text = _flat(_p6b_region(doc))
+    m = re.search(
+        r"\*\*On the energy, nearly every SLB point is filled\*\*: (\d+) of (\d+), "
+        r"over all three systems at every \$M \\ge (\d+)\$\. .*?Across all "
+        r"distinct observables, (\d+) of (\d+) points are filled, about two in three\. "
+        r"On System B only about half are \((\d+) of (\d+)\)\. At dimension 64 there, "
+        r"`coherence` is hollow from \$M=(\d+)\$ up, `sx` from \$M=(\d+)\$ to "
+        r"(\d+), `zz` from \$M=(\d+)\$ and `sz` from \$M=(\d+)\$\.", text)
+    assert m, "Result 3's filled/hollow count paragraph has changed shape"
+    (e_f, e_n, min_m, a_f, a_n, b_f, b_n,
+     coh_lo, sx_lo, sx_hi, zz_lo, sz_lo) = map(int, m.groups())
+    assert min_m == pmc.MIN_M_PLOTTED
+
+    counts = {}
+    for system in pmc.SYSTEMS:
+        for dim in pmc.discover_dims(system):
+            point = _p6b_point(system, dim)["point"]
+            for obs in point["observables"]:
+                if obs == "zz_per_bond":
+                    continue
+                for _, error, _, sem in _p6b_slb(point, obs).values():
+                    key = (system, obs)
+                    filled, total = counts.get(key, (0, 0))
+                    counts[key] = (filled + pmc._bias_limited(error, sem),
+                                   total + 1)
+
+    def tally(pred):
+        return tuple(sum(v[i] for k, v in counts.items() if pred(k)) for i in (0, 1))
+
+    assert (e_f, e_n) == tally(lambda k: k[1] == "energy")
+    assert (a_f, a_n) == tally(lambda k: True)
+    assert (b_f, b_n) == tally(lambda k: k[0] == "mixed_chain")
+    assert e_f / e_n > 0.9, "'nearly every' energy point must be filled"
+    assert 0.6 < a_f / a_n < 0.7, "'about two in three'"
+    assert 0.45 < b_f / b_n < 0.55, "'about half' on System B"
+
+    point = _p6b_point("mixed_chain", 64)["point"]
+    hollow = {obs: {mm for mm, row in _p6b_slb(point, obs).items()
+                    if not pmc._bias_limited(row[1], row[3])}
+              for obs in ("coherence", "sx", "zz", "sz")}
+    ms = sorted(_p6b_slb(point, "energy"))
+    assert {coh_lo, sx_lo, sx_hi, zz_lo, sz_lo} <= set(ms), "a quoted bound is not a swept M"
+    assert (min(hollow["coherence"]), max(hollow["coherence"])) == (coh_lo, max(ms))
+    assert (min(hollow["sx"]), max(hollow["sx"])) == (sx_lo, sx_hi)
+    assert min(hollow["zz"]) == zz_lo and min(hollow["sz"]) == sz_lo
+    assert hollow["coherence"] == {mm for mm in ms if mm >= coh_lo}
+    assert hollow["sx"] == {mm for mm in ms if sx_lo <= mm <= sx_hi}
+    assert hollow["zz"] == {mm for mm in ms if mm >= zz_lo}
+    assert hollow["sz"] == {mm for mm in ms if mm >= sz_lo}
+
+
+def test_p6b_sixteen_realizations_buy_little_on_a_bias_limited_energy(doc):
+    """B dim 64 energy: error/s.e.m. from M=2 to M=256, and how much 16
+    realizations lower the error against one realization (common.tavg_rmse
+    with n_eff=1 keeps the bias and uses one realization's spread), against
+    the sqrt(16) = 4x that pure noise would give."""
+    text = _flat(_p6b_region(doc))
+    m = re.search(
+        r"The energy ratio at that size runs from ([\d.]+) at \$M=(\d+)\$ down to "
+        r"([\d.]+) at \$M=(\d+)\$ — bias-limited throughout\. So averaging (\d+) "
+        r"realizations instead of 1 lowers the energy error only ([\d.]+)x at "
+        r"\$M=(\d+)\$ and ([\d.]+)x at \$M=(\d+)\$; even at \$M=(\d+)\$ it is "
+        r"([\d.]+)x, short of the (\d+)x that pure noise would give\.", text)
+    assert m, "Result 3's 16-versus-1 realization sentence has changed shape"
+    (hi, m_hi, lo, m_lo, n_runs, g1, m1, g2, m2, m3, g3, pure) = m.groups()
+
+    import plot_method_comparison as pmc
+
+    point = _p6b_point("mixed_chain", 64)["point"]
+    ratios = _p6b_slb(point, "energy")
+    assert m_hi == str(min(ratios)) and m_lo == str(max(ratios))
+    assert _near(hi, ratios[int(m_hi)][0]) and _near(lo, ratios[int(m_lo)][0])
+    assert all(pmc._bias_limited(row[1], row[3]) for row in ratios.values()), (
+        "'bias-limited throughout'")
+
+    index = point["observables"].index("energy")
+    reference = pmc.mean_curve(point["reference"]["curves"]["energy"])
+    rows = {int(r["M"]): r for r in point["methods"]["slb"]}
+    for printed, bundles in ((g1, m1), (g2, m2), (g3, m3)):
+        row = rows[int(bundles)]
+        samples = np.asarray(row["samples"], dtype=float)[:, index, :]
+        assert samples.shape[0] == int(n_runs) == int(row["n_runs"])
+        gain = (common.tavg_rmse(samples, reference, n_eff=1)
+                / common.tavg_rmse(samples, reference))
+        assert _near(printed, gain), f"M={bundles}: gain {gain:.4f} vs {printed}"
+    assert int(pure) == round(math.sqrt(int(n_runs)))
+
+
+def test_p6b_hollow_point_still_gains_from_a_larger_bundle(doc):
+    """B dim 128 coherence: hollow at M=16, yet M=256 cut the error by more
+    than sqrt(the wall-clock ratio), which is the most the same wall-clock
+    spent on more realizations could buy -- because each realization's spread
+    also shrinks with M. Both walls are one job at one substep count."""
+    import plot_method_comparison as pmc
+
+    text = _flat(_p6b_region(doc))
+    m = re.search(
+        r"System B's `coherence` at dimension (\d+) is hollow at \$M=(\d+)\$ "
+        r"\(error/s\.e\.m\. ([\d.]+)\)\. Going to \$M=(\d+)\$ cut its error "
+        r"([\d.]+)x for ([\d.]+)x the \$M=(\d+)\$ wall-clock \(both with (\d+) "
+        r"realizations run in series, in one job, at the same (\d+) substeps\)\. "
+        r"Spending that "
+        r"([\d.]+)x on more realizations at \$M=(\d+)\$ instead would have cut the "
+        r"error at most ([\d.]+)x \(\$\\sqrt\{([\d.]+)\}\$\)", text)
+    assert m, "Result 3's hollow-point example has changed shape"
+    (dim, m_a, ratio, m_b, cut, cost, m_base, n_runs, substeps, cost_again,
+     m_base_again, noise_cut, under_root) = m.groups()
+    assert m_base == m_base_again == m_a and cost_again == under_root == cost
+
+    document = _p6b_point("mixed_chain", int(dim))
+    point = document["point"]
+    slb = _p6b_slb(point, "coherence")
+    a, b = slb[int(m_a)], slb[int(m_b)]
+    assert not pmc._bias_limited(a[1], a[3]), "the M=16 point must be hollow"
+    assert _near(ratio, a[0])
+    assert _near(cut, a[1] / b[1])
+    assert _near(cost, b[2] / a[2])
+    assert _near(noise_cut, math.sqrt(b[2] / a[2]))
+    assert a[1] / b[1] > math.sqrt(b[2] / a[2]), "a larger M must beat more samples here"
+    assert int(substeps) == document["meta"]["substeps"]
+    rows = {int(r["M"]): r for r in point["methods"]["slb"]}
+    assert int(rows[int(m_a)]["n_runs"]) == int(rows[int(m_b)]["n_runs"]) == int(n_runs)
+    index = point["observables"].index("coherence")
+    spread = {mm: float(np.mean(np.asarray(rows[mm]["samples"], dtype=float)
+                                [:, index, :].std(axis=0, ddof=1)))
+              for mm in (int(m_a), int(m_b))}
+    assert spread[int(m_b)] < spread[int(m_a)], "one realization's spread falls with M"
+
+
+def test_p6b_crossover_table_and_its_fit(doc):
+    """The crossover table: energy error/s.e.m. at each dimension's largest M,
+    the fitted crossover (log-log line over M >= 4, solved for sqrt(2)), N_L,
+    the status, and the job; the prose's pre-extension prediction (fit over
+    M=2..32 at dim 64), the dim-16 fit swing, and the fitted values repeated
+    in the limits paragraph."""
+    import plot_method_comparison as pmc
+
+    region = _p6b_region(doc)
+    start = region.index("| dim | energy error/s.e.m. at the largest `M` | "
+                         "fitted crossover `M` | `N_L` | status |")
+    block = region[start:region.index("\n\n", start)]
+    rows = re.findall(
+        r"^\| \**(\d+)\** \| \**([\d.]+)\** \(at `?M=(\d+)(=N_L)?`?\) \| "
+        r"(~ (\d+)|none: stops falling) \| ([\d,]+) \| (.+?) \|$", block, re.M)
+    assert len(rows) == 4, "Result 3's crossover table has changed shape"
+
+    text = _flat(region)
+    job = re.search(r"sweep to \$M=256\$ \(job (\d{8})\) pushed one energy curve", text)
+    assert job, "the crossover paragraph no longer names its job"
+    window = re.search(r"The fitted crossover is where a straight line through "
+                       r"log\(error/s\.e\.m\.\) against log \$M\$, fitted over "
+                       r"\$M \\ge (\d+)\$, meets \$\\sqrt\{2\}\$", text)
+    assert window, "the crossover fit is no longer defined next to its table"
+    lo = int(window.group(1))
+    fits = {}
+    for dim, ratio, largest, at_n_l, fit_cell, fit, n_l, status in rows:
+        document = _p6b_point("mixed_chain", int(dim))
+        point = document["point"]
+        assert str(pmc.execution_key(document)[1]) == job.group(1)
+        slb = _p6b_slb(point, "energy")
+        assert int(largest) == max(slb)
+        assert _near(ratio, slb[int(largest)][0])
+        assert int(n_l.replace(",", "")) == int(point["n_l"])
+        crossed = not pmc._bias_limited(slb[int(largest)][1], slb[int(largest)][3])
+        assert ("crossed" in status) == crossed
+        if at_n_l:
+            assert int(largest) == int(point["n_l"]) and "beyond" in status
+            assert fit_cell.startswith("none")
+        else:
+            fits[int(dim)] = _p6b_crossover(slb, lo)
+            assert _near(fit, fits[int(dim)]), f"dim {dim}: fit {fits[int(dim)]:.1f}"
+    assert [r[0] for r in rows if "crossed" in r[7]] == ["32"], (
+        "'Of the four sizes, it is the only one that crosses'")
+
+    m = re.search(
+        r"So the dimension-(\d+) curve ends on a hollow marker: at \$M=(\d+)\$ there, "
+        r"bias no longer dominates the energy error, so more realizations now help too, "
+        r"not only a larger bundle\. "
+        r"Of the four sizes, it is the only one that crosses\. At dimension 64 the "
+        r"ratio is still ([\d.]+) at \$M=(\d+)\$\. A fit over the (\w+) points "
+        r"\$M=(\d+)\$ to (\d+), made before the sweep was extended, "
+        r"predicted the crossover there at \$M\\approx(\d+)\$\.", text)
+    assert m, "the dim-64 prediction sentence has changed shape"
+    b64 = _p6b_slb(_p6b_point("mixed_chain", 64)["point"], "energy")
+    hollow_dim, hollow_m, still, at, count, first, last, predicted = m.groups()
+    # "the dimension-32 curve ends on a hollow marker": the one crossed row,
+    # at its largest M, and that point really is hollow.
+    assert [r[0] for r in rows if "crossed" in r[7]] == [hollow_dim]
+    b_hollow = _p6b_slb(_p6b_point("mixed_chain", int(hollow_dim))["point"], "energy")
+    assert int(hollow_m) == max(b_hollow)
+    assert not pmc._bias_limited(b_hollow[int(hollow_m)][1], b_hollow[int(hollow_m)][3])
+    assert _near(still, b64[int(at)][0]) and int(at) == max(b64)
+    assert int(first) in b64 and int(last) in b64 and int(first) == min(b64), (
+        "the pre-extension fit window must start at the first swept M and end on a swept M")
+    window64 = [mm for mm in b64 if int(first) <= mm <= int(last)]
+    assert count == {5: "five"}.get(len(window64)), window64
+    assert _near(predicted, _p6b_crossover(b64, int(first), int(last)))
+
+    m = re.search(
+        r"predicted the crossover there at \$M\\approx(\d+)\$\. The data have not "
+        r"crossed by 256, so that prediction was about a quarter low, or more\. "
+        r"The fitted column errs both ways: (\d+) at dimension 64, where the data "
+        r"have not crossed by 256, and (\d+) at dimension 32, where they have\.",
+        text)
+    assert m, "the crossover prediction sentence has changed shape"
+    assert max(b64) == 256 and b64[256][0] > pmc.BIAS_LIMITED_RATIO
+    assert 0.2 < 1 - int(m.group(1)) / 256 < 0.3, "'about a quarter low'"
+    assert _near(m.group(2), fits[64]) and fits[64] < 256
+    assert _near(m.group(3), fits[32]) and fits[32] > 256
+
+    m = re.search(
+        r"At dimension 16 the ratio stops falling \(([\d.]+), ([\d.]+) and ([\d.]+) "
+        r"at \$M=(\d+)\$, (\d+) and (\d+)\), and the fitted value swings from (\d+) "
+        r"to (\d+) when the \$M=(\d+)\$ point is added, so none is given; \$M\$ "
+        r"cannot pass \$N_L=(\d+)\$ there anyway\.", text)
+    assert m, "the dim-16 crossover sentence has changed shape"
+    point16 = _p6b_point("mixed_chain", 16)["point"]
+    b16 = _p6b_slb(point16, "energy")
+    for printed, bundles in zip(m.groups()[0:3], m.groups()[3:6]):
+        assert _near(printed, b16[int(bundles)][0])
+    assert b16[int(m.group(6))][0] > b16[int(m.group(5))][0], "'stops falling'"
+    assert int(m.group(6)) == max(b16) == int(m.group(10)) == int(point16["n_l"])
+    assert int(m.group(9)) == min(b16) < lo
+    assert _near(m.group(7), _p6b_crossover(b16, lo))
+    assert _near(m.group(8), _p6b_crossover(b16, int(m.group(9))))
+
+    m = re.search(r"\*\*shifts with size\*\* with no steady trend \(fitted (\d+), "
+                  r"(\d+) and (\d+) at dimensions (\d+), (\d+) and (\d+)\)", text)
+    assert m, "the crossover-limits sentence has changed shape"
+    for printed, dim in zip(m.groups()[:3], m.groups()[3:]):
+        assert _near(printed, fits[int(dim)])
+    values = [fits[int(d)] for d in m.groups()[3:]]
+    assert not (values == sorted(values) or values == sorted(values, reverse=True)), (
+        "'no steady trend': the fitted crossover is now monotone in dimension")
+
+
+# --- part 6, U2b: Result 3, mcsolve against its own noise -----------------
+#
+# Result 3 called a filled mcsolve marker "an error mcsolve genuinely has",
+# although section 4 shows mcsolve has no bias at any trajectory count; called
+# System B's 1.43 at dim 256 "right on the line" while System C's 1.43 was a
+# plain "filled"; and quoted a coherence swing of 33.7x -> 16.5x from the
+# retired bias-only scoring without saying so. Every number below is
+# recomputed through plot_method_comparison, the module that draws the figures.
+
+_p6c_superseded_commit = "00ba14f"   # replaced job 19559989's System B dim-64 file
+
+
+def _p6c_region(doc: str) -> str:
+    """Result 3 from the mcsolve-noise paragraph up to System C's heading."""
+    start = doc.index("**Where `mcsolve` sits against its own noise, by the same rule.**")
+    end = doc.index("#### System C — oscillator (dim 64", start)
+    return doc[start:end]
+
+
+def _p6c_point(system: str, dim: int) -> dict:
+    path = DATA / f"method_comparison_{system}_dim{dim}.json"
+    assert path.exists(), f"{path.name} is quoted in BENCHMARKS.md but not committed"
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def _p6c_mcsolve(point: dict, observable: str):
+    """(error, s.e.m.) of mcsolve through method_errors, the figures' scoring,
+    or None when the file ran no mcsolve."""
+    import plot_method_comparison as pmc
+    row = next((r for r in pmc.method_errors(point, observable)
+                if r[0] == "mcsolve"), None)
+    if row is None:
+        return None
+    assert row[4] == 500, f"mcsolve ran {row[4]} trajectories, not 500"
+    return row[2], row[5]
+
+
+def _p6c_files():
+    """(system, dim) of every canonical Result 3 data file."""
+    canonical = re.compile(r"^method_comparison_(.+)_dim(\d+)$")
+    return sorted((m.group(1), int(m.group(2)))
+                  for p in DATA.glob("method_comparison_*_dim*.json")
+                  if (m := canonical.match(p.stem)))
+
+
+def _p6c_superseded_mixed64() -> dict:
+    """Job 19559989's System B dim-64 file, as committed just before the
+    re-run replaced it. The prose names it, so a missing history fails."""
+    import subprocess
+    spec = (f"{_p6c_superseded_commit}^:benchmarks/data/"
+            "method_comparison_mixed_chain_dim64.json")
+    try:
+        out = subprocess.run(["git", "show", spec], cwd=BENCHMARKS.parent,
+                             capture_output=True, check=True, timeout=60)
+    except (OSError, subprocess.SubprocessError) as exc:
+        pytest.fail(f"Result 3 quotes a superseded file from git history ({spec}): {exc}")
+    return json.loads(out.stdout.decode("utf-8"))
+
+
+def test_p6c_result3_mcsolve_noise_table_matches_the_data(doc):
+    """The three-row table: mcsolve's energy error, s.e.m., their ratio and
+    the sqrt(2) marker at dimension 64 on each system."""
+    import plot_method_comparison as pmc
+    region = _p6c_region(doc)
+    assert re.search(
+        r"Scored on the same \$\\sqrt\{\\text\{bias\}\^2\+\\text\{s\.e\.m\.\}\^2\}\$ "
+        r"as SLB, on the energy at dimension 64 on each system, 500 trajectories "
+        r"each:", _flat(region)), "the table's lead-in no longer names its observable"
+    table = re.search(r"^\| system \| `mcsolve` error \| its s\.e\.m\. \| ratio \| marker \|\n"
+                      r"\|[-|]+\|\n((?:\|[^\n]*\|\n)+)", region, re.M)
+    assert table, "Result 3's mcsolve-noise table has moved or changed its header"
+    rows = re.findall(r"^\| ([ABC]) \w+ \| ([^|]+?) \| ([^|]+?) \| \*\*([\d.]+)\*\* "
+                      r"\| (hollow|filled) \|$", table.group(1), re.M)
+    assert [r[0] for r in rows] == ["A", "C", "B"]
+    letter_to_system = {"A": "spin_chain", "B": "mixed_chain", "C": "oscillator_bath"}
+    for letter, q_err, q_sem, q_ratio, q_marker in rows:
+        err, sem = _p6c_mcsolve(_p6c_point(letter_to_system[letter], 64)["point"], "energy")
+        for printed, measured in ((q_err, err), (q_sem, sem)):
+            value, half = _decode_with_precision(printed)
+            assert abs(measured - value) <= half, (letter, printed, measured)
+        assert _near(q_ratio, err / sem), (letter, q_ratio, err / sem)
+        assert q_marker == ("filled" if pmc._bias_limited(err, sem) else "hollow"), letter
+
+
+def test_p6c_result3_filled_mcsolve_markers_are_called_noise(doc):
+    """A filled mcsolve marker is noise landing past sqrt(2) s.e.m., not a
+    bias: the tally of filled points over every Result 3 file, the Gaussian
+    32%, and how far C at dim 64 and B at dim 256 sit past the line."""
+    import plot_method_comparison as pmc
+    text = _flat(_p6c_region(doc))
+    for stale in ("genuinely has", "right on the line", "noise floor, not a converged"):
+        assert stale not in text, f"Result 3 still says {stale!r}"
+    assert "`mcsolve` has no bias at any trajectory count (§4)" in text
+    assert "**Every `mcsolve` error in this section is sampling noise**" in text
+    m = re.search(
+        r"If the noise moved the whole curve by one Gaussian draw, the marker would "
+        r"be filled (\d+)% of the time: the chance that a draw lands more than one "
+        r"standard deviation out\. Across the (\d+) Result 3 files with an `mcsolve` "
+        r"run, (\d+) of the (\d+) `mcsolve` points are filled, at ratios from "
+        r"([\d.]+) to ([\d.]+)\. The observables of one run share its (\d+) "
+        r"trajectories, so the (\d+) are far fewer independent draws\. C's ratio in "
+        r"the table \(([\d.]+)\) sits ([\d.]+)% past the \$\\sqrt\{2\}\$ line and "
+        r"System B's at dimension 256 \(([\d.]+), below\) sits ([\d.]+)% past it", text)
+    assert m, "Result 3's filled-means-noise paragraph has changed shape"
+    (q_gauss, q_files, q_filled, q_points, q_lo, q_hi, q_ntraj, q_points_again,
+     q_c, q_c_past, q_b, q_b_past) = m.groups()
+
+    assert int(q_ntraj) == 500 and q_points_again == q_points
+    # The paragraph's own trajectory counts, at its start and at its end.
+    head = re.search(r"whether this run's (\d+)-trajectory mean happened to land", text)
+    tail = re.search(r"ratio as a ratio against (\d+) trajectories, not against a "
+                     r"converged `mcsolve`\.", text)
+    assert head and tail, "the trajectory counts in the filled-marker paragraph moved"
+    assert head.group(1) == tail.group(1) == q_ntraj
+    assert _near(q_gauss, 100 * math.erfc(1 / math.sqrt(2)))
+    files, ratios, filled = 0, [], 0
+    for system, dim in _p6c_files():
+        point = _p6c_point(system, dim)["point"]
+        if _p6c_mcsolve(point, point["observables"][0]) is None:
+            continue
+        files += 1
+        scored = {obs: _p6c_mcsolve(point, obs) for obs in point["observables"]}
+        if "zz_per_bond" in scored:
+            # zz divided by a constant: the same error/s.e.m. ratio as zz.
+            (e1, s1), (e2, s2) = scored.pop("zz_per_bond"), scored["zz"]
+            assert e1 / s1 == pytest.approx(e2 / s2, rel=1e-9), (system, dim)
+        for err, sem in scored.values():
+            ratios.append(err / sem)
+            filled += bool(pmc._bias_limited(err, sem))
+    assert int(q_files) == files
+    assert int(q_points) == len(ratios)
+    assert int(q_filled) == filled
+    # "filled, at ratios from ... to ...": the range of the filled points only.
+    filled_ratios = [r for r in ratios if r > pmc.BIAS_LIMITED_RATIO]
+    assert len(filled_ratios) == filled
+    assert _near(q_lo, min(filled_ratios)) and _near(q_hi, max(filled_ratios))
+
+    for printed, past, system, dim in ((q_c, q_c_past, "oscillator_bath", 64),
+                                       (q_b, q_b_past, "mixed_chain", 256)):
+        err, sem = _p6c_mcsolve(_p6c_point(system, dim)["point"], "energy")
+        assert pmc._bias_limited(err, sem), f"{system} dim {dim} is not filled"
+        assert _near(printed, err / sem)
+        assert _near(past, 100 * (err / sem / pmc.BIAS_LIMITED_RATIO - 1))
+
+
+def test_p6c_result3_coherence_seed_swing_matches_both_runs(doc):
+    """System B dim 64 ran twice. The coherence deficit on the old bias-only
+    score (33.7x -> 16.5x) and on the current combined score (10.0x -> 8.3x),
+    recomputed from the superseded file in git history and the committed one."""
+    import inspect
+    import plot_method_comparison as pmc
+    import run_method_comparison
+    m = re.search(
+        r"System B at dimension 64 ran twice, (\d+) trajectories each: job (\d{8}) on "
+        r"(\w+) \(its file is superseded and kept in git history\) and job (\d{8}) on "
+        r"(\w+) \(the file drawn here\)\. `mcsolve` draws fresh random numbers each "
+        r"run, while SLB's seed is fixed, so SLB's \$M=16\$ coherence error \((\d+) "
+        r"realizations\) is identical in both files\. On the old bias-only score, "
+        r"`mcsolve`'s coherence error changed by ([\d.]+)x between the runs, and "
+        r"SLB's coherence deficit went from ([\d.]+)x worse to ([\d.]+)x worse\. On the current score "
+        r"`mcsolve`'s coherence error changed by only ([\d.]+)x, and SLB's deficit "
+        r"reads \*\*([\d.]+)x worse\*\* in the first run and \*\*([\d.]+)x worse\*\* "
+        r"in the second, the value the table below quotes\. Both coherence points "
+        r"are hollow \(ratios ([\d.]+) and ([\d.]+)\)\.", _flat(_p6c_region(doc)))
+    assert m, "Result 3's coherence seed-swing paragraph has changed shape"
+    (q_ntraj, q_old_job, q_old_host, q_new_job, q_new_host, q_runs, q_bias_swing,
+     q_bias_old, q_bias_new, q_comb_swing, q_comb_old, q_comb_new,
+     q_hollow_old, q_hollow_new) = m.groups()
+    old, new = _p6c_superseded_mixed64(), _p6c_point("mixed_chain", 64)
+
+    # mcsolve is called with no seed; SLB's seed is the same in both files.
+    assert "seed" not in inspect.getsource(run_method_comparison.run_mcsolve)
+    assert not any("seed" in key for key in common.MC_OPTIONS)
+    assert old["meta"]["params"]["rng_slb"] == new["meta"]["params"]["rng_slb"]
+
+    out = {}
+    for tag, document, q_job, q_host in (("old", old, q_old_job, q_old_host),
+                                         ("new", new, q_new_job, q_new_host)):
+        execution = document["meta"]["execution"]
+        assert q_job == str(execution["slurm"]["job_id"]), tag
+        assert q_host == execution["hostname"], tag
+        point = document["point"]
+        assert point["methods"]["mcsolve"]["ntraj"] == int(q_ntraj)
+        err, sem = _p6c_mcsolve(point, "coherence")
+        reference = pmc.mean_curve(point["reference"]["curves"]["coherence"])
+        bias = _deviation(pmc.mean_curve(point["methods"]["mcsolve"]["curves"]["coherence"]),
+                          reference)
+        slb = next(r for r in pmc.method_errors(point, "coherence")
+                   if r[0] == "slb" and r[3] == "M=16")
+        assert slb[4] == int(q_runs)
+        samples = next(r for r in point["methods"]["slb"] if r["M"] == 16)["samples"]
+        out[tag] = dict(err=err, sem=sem, bias=bias, slb=slb[2], samples=samples)
+    assert out["old"]["samples"] == out["new"]["samples"], "SLB's M=16 run differs"
+    assert q_old_host != q_new_host
+
+    assert _near(q_bias_swing, out["new"]["bias"] / out["old"]["bias"])
+    assert _near(q_bias_old, out["old"]["slb"] / out["old"]["bias"])
+    assert _near(q_bias_new, out["new"]["slb"] / out["new"]["bias"])
+    assert _near(q_comb_swing, out["new"]["err"] / out["old"]["err"])
+    assert _near(q_comb_old, out["old"]["slb"] / out["old"]["err"])
+    assert _near(q_comb_new, out["new"]["slb"] / out["new"]["err"])
+    for printed, tag in ((q_hollow_old, "old"), (q_hollow_new, "new")):
+        assert not pmc._bias_limited(out[tag]["err"], out[tag]["sem"]), tag
+        assert _near(printed, out[tag]["err"] / out[tag]["sem"])
+
+    # "the value the table below quotes": System B's coherence row.
+    start = doc.index("#### System B — mixed-field chain (dim 64")
+    section_b = doc[start:doc.index("\n#### ", start + 1)]
+    row = re.search(r"^\| `coherence` \| [^|]+ \| [^|]+ \| \*\*([\d.]+)x worse\*\* \|",
+                    section_b, re.M)
+    assert row and row.group(1) == q_comb_new
+
+
+# --- Result 3, System C: the table, the two costs, the observable split ------
+#
+# The System C part of Result 3 printed "470" for a table cell of 472x, said
+# bias dominates one SLB run "on this system" when that holds for the energy
+# alone, and called `x_sx` and `sz` the "independent" observables when all four
+# of n, n2, sz and x_sx are terms of the energy. Its six-row table was not read
+# by any test. These pin all three to the file they quote, through
+# plot_method_comparison.method_errors, common.tavg_bias_sem_rmse and
+# common.reconstruct_energy.
+
+_P6D_WORDS = {"four": 4, "five": 5, "six": 6}
+
+
+def _p6d_region(doc: str) -> str:
+    """Result 3's System C subsection, raw (tables are matched line by line)."""
+    start = doc.index("#### System C — oscillator (dim 64")
+    end = doc.index("#### System B — mixed-field chain", start)
+    return doc[start:end]
+
+
+def _p6d_oscillator() -> dict:
+    """Per observable at dim 64, M=16: Result 3's scored errors for SLB and
+    mcsolve, and one SLB run's spread, the 16-run mean's bias and one run's
+    mean distance from the reference."""
+    import plot_method_comparison as pmc
+
+    path = DATA / "method_comparison_oscillator_bath_dim64.json"
+    if not path.exists():
+        pytest.fail(f"{path.name} is quoted in BENCHMARKS.md but not committed")
+    document = json.loads(path.read_text(encoding="utf-8"))
+    point = document["point"]
+    slb16 = next(r for r in point["methods"]["slb"] if r["M"] == 16)
+    samples_all = np.asarray(slb16["samples"], dtype=float)
+    out = {"observables": list(point["observables"]),
+           "substeps": document["meta"]["substeps"],
+           "native_wall": point["methods"]["native"]["wall_s"],
+           "slb_wall": slb16["wall_s"], "n_runs": int(slb16["n_runs"]),
+           "reference": {}, "obs": {}}
+    for index, obs in enumerate(point["observables"]):
+        rows = pmc.method_errors(point, obs)
+        mc = next(r for r in rows if r[0] == "mcsolve")
+        slb = next(r for r in rows if r[0] == "slb" and r[3] == "M=16")
+        reference = pmc.mean_curve(point["reference"]["curves"][obs])
+        samples = samples_all[:, index, :]
+        bias = common.tavg_bias_sem_rmse(samples, reference)[0]
+        out["reference"][obs] = reference
+        out["obs"][obs] = {
+            "mc": mc, "slb": slb,
+            "ratio": mc[2] / slb[2],
+            "bias": bias,
+            "spread": float(np.mean(samples.std(axis=0, ddof=1))),
+            "single": float(np.mean([_deviation(s, reference) for s in samples])),
+        }
+    return out
+
+
+def test_p6d_result3_oscillator_table_matches_the_data(doc):
+    """All six rows of System C's table: SLB's and mcsolve's scored errors,
+    their ratio, and the 16-realization ensemble's speed against native."""
+    d = _p6d_oscillator()
+    region = _p6d_region(doc)
+    assert "| observable | SLB (`M=16`) error | `mcsolve` error | SLB/mc ratio | SLB speed vs native |" in region
+    rows = re.findall(r"^\| `(\w+)` \| ([^|]+) \| ([^|]+) \| \**([\d.]+)x better\** \| ([\d.]+)x \|$",
+                      region, re.M)
+    assert [r[0] for r in rows] == d["observables"], (
+        f"the table lists {[r[0] for r in rows]}; the file has {d['observables']}")
+    assert d["n_runs"] == 16
+    for obs, slb_cell, mc_cell, q_ratio, q_speed in rows:
+        o = d["obs"][obs]
+        assert o["mc"][4] == 500 and o["slb"][4] == 16
+        for measured, cell, what in ((o["slb"][2], slb_cell, "SLB"), (o["mc"][2], mc_cell, "mcsolve")):
+            value, half = _decode_with_precision(cell)
+            assert abs(measured - value) <= half, (
+                f"{obs} {what} error: measured {measured:.4e}, printed {cell}")
+        _assert_rounds_to(o["ratio"], q_ratio, f"{obs} SLB/mc ratio")
+        _assert_rounds_to(d["native_wall"] / d["slb_wall"], q_speed, f"{obs} ensemble speed")
+
+
+def test_p6d_result3_oscillator_two_costs_paragraph_matches_the_data(doc):
+    """'Two costs for SLB': the ensemble and one-run speeds, and the claim
+    that one run suffices only on the energy, where one run's spread is below
+    the 16-run mean's bias; on every other observable it is not."""
+    d = _p6d_oscillator()
+    m = re.search(
+        r"\*\*Two costs for SLB\.\*\* The `SLB speed vs native` column is the "
+        r"(\d+)-realization ensemble \(([\d.]+)x\); the paragraph below quotes one run "
+        r"\((\d+)x; §5\.1\)\. One run is enough only where its bias outweighs its noise, "
+        r"and here that is the energy alone: one run's spread \(the standard deviation "
+        r"across the (\d+) realizations, " + LATEX + r"\) is below the bias of their mean "
+        r"\(" + LATEX + r"\)\. On the other (\w+) observables one run's spread is "
+        r"([\d.]+) to ([\d.]+) times the bias, and the mean of (\d+) sits ([\d.]+) to "
+        r"([\d.]+) times closer, so use the ensemble\.",
+        _flat_ws(_p6d_region(doc)))
+    assert m, "Result 3's System C 'Two costs for SLB' paragraph has changed shape"
+    (q_ens, q_34, q_54, q_runs, sp_m, sp_e, b_m, b_e,
+     q_others, lo_sb, hi_sb, q_mean2, lo_cl, hi_cl) = m.groups()
+    n = d["n_runs"]
+    assert int(q_ens) == int(q_runs) == int(q_mean2) == n == 16
+    _assert_rounds_to(d["native_wall"] / d["slb_wall"], q_34, "ensemble vs native")
+    _assert_rounds_to(d["native_wall"] / (d["slb_wall"] / n), q_54, "one run vs native")
+
+    energy = d["obs"]["energy"]
+    _assert_latex_rounds_to(energy["spread"], sp_m, sp_e, "one run's energy spread")
+    _assert_latex_rounds_to(energy["bias"], b_m, b_e, "16-run energy bias")
+
+    # 'the energy alone': the only observable whose one-run spread is below
+    # the bias of the 16-run mean.
+    below = [o for o, v in d["obs"].items() if v["spread"] < v["bias"]]
+    assert below == ["energy"], f"one run's spread is below the bias on {below}"
+    others = [v for o, v in d["obs"].items() if o != "energy"]
+    assert _P6D_WORDS[q_others] == len(others)
+    spread_over_bias = [v["spread"] / v["bias"] for v in others]
+    closer = [v["single"] / v["bias"] for v in others]
+    _assert_rounds_to(min(spread_over_bias), lo_sb, "smallest spread/bias")
+    _assert_rounds_to(max(spread_over_bias), hi_sb, "largest spread/bias")
+    _assert_rounds_to(min(closer), lo_cl, "smallest one-vs-sixteen")
+    _assert_rounds_to(max(closer), hi_cl, "largest one-vs-sixteen")
+
+
+def test_p6d_result3_oscillator_observable_split_matches_the_data(doc):
+    """'The 914x headline is real but observable-dependent': the headline
+    itself, the energy as exactly the four-term sum (common.reconstruct_energy),
+    the span of each term, the 472-914x on energy/n/n2, the three smaller
+    ratios, x_sx as the smallest of the six and the only tie within noise."""
+    d = _p6d_oscillator()
+    m = re.search(
+        r"\*\*The (\d+)x headline is real but observable-dependent\.\*\* "
+        r"The energy is built from (\w+) of the other observables \(§2\.4\): \$\$ "
+        r"\\langle H\\rangle = \\omega_0\\left\(\\langle n\\rangle\+\\tfrac12\\right\) \+ "
+        r"\\chi\\langle n\^2\\rangle \+ \\tfrac\{\\Delta\}\{2\}\\langle\\sigma_z\\rangle \+ "
+        r"g_\{\\rm int\}\\langle x\\sigma_x\\rangle \$\$ The first two terms carry almost "
+        r"all of the energy's motion\. Over the run the energy spans ([\d.]+); the `n` "
+        r"term spans ([\d.]+) and the `n2` term ([\d.]+), while the `sz` term spans "
+        r"([\d.]+) and the `x_sx` term ([\d.]+)\. So `energy`, `n` and `n2` are nearly one "
+        r"curve, and in the table above SLB's advantage on them is (\d+)–(\d+)x\. The "
+        r"energy barely registers the other two terms, so its (\d+)x says nothing about "
+        r"them: the advantage drops to \*\*([\d.]+)x\*\* on `sz` and "
+        r"\*\*([\d.]+)x\*\* on `x_sx`, and the second is a tie within noise, its gap "
+        r"smaller than `mcsolve`'s s\.e\.m\. The coherence, the one observable that is not a "
+        r"term of \$H\$, gives ([\d.]+)x\. The `x_sx` figure is included because it is "
+        r"the harshest of the (\w+)\.", _flat_ws(_p6d_region(doc)))
+    assert m, "Result 3's System C observable paragraph has changed shape"
+    (q_headline, q_four, q_e, q_n, q_n2, q_sz, q_xsx, lo, hi, q_energy, r_sz, r_xsx,
+     r_coh, q_six) = m.groups()
+
+    ref = d["reference"]
+    terms = ("n", "n2", "sz", "x_sx")
+    assert _P6D_WORDS[q_four] == len(terms)
+    rebuilt = common.reconstruct_energy("oscillator_bath", {t: ref[t] for t in terms})
+    assert rebuilt is not None and "coherence" not in terms
+    span = float(np.ptp(ref["energy"]))
+    assert float(np.max(np.abs(rebuilt - ref["energy"]))) < 1e-9 * span, (
+        "the energy is no longer the four-term sum of n, n2, sz and x_sx")
+    p = common.OSCILLATOR_PARAMS
+    weight = {"n": p["omega0"], "n2": p["anh"], "sz": 0.5 * p["spin_gap"], "x_sx": p["coupling"]}
+    term_span = {t: float(np.ptp(weight[t] * ref[t])) for t in terms}
+    _assert_rounds_to(span, q_e, "energy span")
+    for t, printed in zip(terms, (q_n, q_n2, q_sz, q_xsx)):
+        _assert_rounds_to(term_span[t], printed, f"span of the {t} term")
+    assert term_span["n"] + term_span["n2"] > 0.99 * span, "the first two terms no longer carry the energy"
+
+    ratio = {o: v["ratio"] for o, v in d["obs"].items()}
+    trio = [ratio[o] for o in ("energy", "n", "n2")]
+    _assert_rounds_to(min(trio), lo, "smallest of energy/n/n2")
+    _assert_rounds_to(max(trio), hi, "largest of energy/n/n2")
+    _assert_rounds_to(ratio["energy"], q_energy, "energy ratio")
+    _assert_rounds_to(ratio["sz"], r_sz, "sz ratio")
+    _assert_rounds_to(ratio["x_sx"], r_xsx, "x_sx ratio")
+    _assert_rounds_to(ratio["coherence"], r_coh, "coherence ratio")
+    assert _P6D_WORDS[q_six] == len(ratio)
+    assert min(ratio, key=ratio.get) == "x_sx", "x_sx is no longer the harshest observable"
+    _assert_rounds_to(ratio["energy"], q_headline, "headline energy ratio")
+    # Result 3's gap rule: x_sx is the one tie, and mcsolve holds the larger s.e.m.
+    verdict = {o: _p6g_verdict(v["slb"], v["mc"]) for o, v in d["obs"].items()}
+    assert [o for o, v in verdict.items() if v != "win"] == ["x_sx"], verdict
+    x_sx = d["obs"]["x_sx"]
+    assert x_sx["mc"][5] > x_sx["slb"][5], "the larger s.e.m. on x_sx is no longer mcsolve's"
+    figure = "benchmark_comparison_oscillator_bath_x_sx.png"
+    assert (BENCHMARKS / figure).exists(), f"{figure} is embedded but not committed"
+    assert f"]({figure})" in _p6d_region(doc)
+
+
+# --- Document review part 6, unit U4: Result 3, System B -------------------
+#
+# The System B subsection quoted M=16 numbers the figures above it do not draw,
+# blamed two noise-dominated losses on the estimator, set a 13.5x headline
+# against a hollow mcsolve point without saying so, counted zz_per_bond (zz
+# divided by a constant) as a sixth observable, and named no denominator for
+# its speed ratios. Every number below is recomputed through
+# plot_method_comparison.method_errors, the scoring the figures use.
+
+_P6E_DISTINCT = ("energy", "zz", "sx", "sz", "coherence")
+_P6E_COUNT = {"three": 3, "four": 4, "five": 5, "six": 6}
+
+
+def _p6e_region(doc: str) -> str:
+    """Result 3's System B subsection, flattened."""
+    text = _flat(doc)
+    start = text.index("#### System B — mixed-field chain (dim 64")
+    return text[start:text.index("#### System A — TFIM chain", start)]
+
+
+def _p6e_file(dim: int) -> dict:
+    """One System B Result 3 file, which the subsection names."""
+    path = DATA / f"method_comparison_mixed_chain_dim{dim}.json"
+    assert path.exists(), f"{path.name} is named by Result 3 but not committed"
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def _p6e_point_of(dim: int) -> dict:
+    """The 'point' block of one System B Result 3 file."""
+    return _p6e_file(dim)["point"]
+
+
+def _p6e_rows(dim: int, observable: str) -> dict:
+    """{'mcsolve' | 'M=16' | ...: method_errors row} for one observable."""
+    import plot_method_comparison as pmc
+    rows = pmc.method_errors(_p6e_point_of(dim), observable)
+    return {("mcsolve" if r[0] == "mcsolve" else r[3]): r
+            for r in rows if r[0] in ("mcsolve", "slb")}
+
+
+def _p6e_ratio(row) -> float:
+    """error / s.e.m. of one method_errors row."""
+    return row[2] / row[5]
+
+
+def _p6e_spread(row) -> float:
+    """One sample's time-averaged standard deviation: s.e.m. x sqrt(n)."""
+    return row[5] * math.sqrt(row[4])
+
+
+def _p6e_sci(mantissa: str, exponent: str) -> float:
+    """('4.06', '⁻²') -> 1e-2, the scale of a printed mantissa."""
+    return 10.0 ** int(exponent.translate(SUPERSCRIPT))
+
+
+def test_p6e_system_b_figures_do_not_draw_m16(doc, monkeypatch):
+    """The note under the System B figures: which bundle sizes each curve
+    draws at dims 64 and 128, through the plotter's own window rule."""
+    import plot_method_comparison as pmc
+    monkeypatch.setattr(pmc, "_MAX_POINTS", pmc.MAX_CURVE_POINTS)
+    monkeypatch.setattr(pmc, "_MIN_M", pmc.MIN_M_PLOTTED)
+    text = _p6e_region(doc)
+    m = re.search(
+        r"The tables below quote \$M=16\$, which these figures do not draw at "
+        r"dimensions (\d+) and (\d+)\. Each curve keeps at most (\w+) bundle sizes"
+        r".*?at dimension \1 the curves show \$M=(\d+)\$ to (\d+) on energy and sx "
+        r"and \$M=(\d+)\$ to (\d+) on coherence, and at dimension \2 they show "
+        r"\$M=(\d+)\$ to (\d+) on all three\. The \$M=(\d+)\$ numbers come from the same "
+        r"data files \(`method_comparison_mixed_chain_dim(\d+)\.json` and "
+        r"`_dim(\d+)\.json`\), scored the same way\.", text)
+    assert m, "the note on which bundle sizes the System B figures draw has changed shape"
+    d1, d2, most, e_lo, e_hi, c_lo, c_hi, b_lo, b_hi, tabled, f1, f2 = m.groups()
+    assert int(tabled) == 16 and (f1, f2) == (d1, d2)
+    for dim in (int(f1), int(f2)):
+        assert any(r["M"] == int(tabled) for r in _p6e_point_of(dim)["methods"]["slb"])
+    assert _P6E_COUNT[most] == pmc.MAX_CURVE_POINTS
+    for image in ("energy", "sx", "coherence"):
+        assert (BENCHMARKS / f"benchmark_comparison_mixed_chain_{image}.png").exists()
+        assert f"(benchmark_comparison_mixed_chain_{image}.png)" in text
+
+    def window(dim, observable):
+        rows = pmc.method_errors(_p6e_point_of(dim), observable)
+        return [pmc._m_of(r) for r in pmc._curve_window([r for r in rows if r[0] == "slb"])]
+
+    for observable in ("energy", "sx"):
+        drawn = window(int(d1), observable)
+        assert (drawn[0], drawn[-1]) == (int(e_lo), int(e_hi)), (observable, drawn)
+    drawn = window(int(d1), "coherence")
+    assert (drawn[0], drawn[-1]) == (int(c_lo), int(c_hi)), drawn
+    for observable in ("energy", "sx", "coherence"):
+        drawn = window(int(d2), observable)
+        assert (drawn[0], drawn[-1]) == (int(b_lo), int(b_hi)), (observable, drawn)
+    for dim in (int(d1), int(d2)):
+        for observable in ("energy", "sx", "coherence"):
+            assert 16 not in window(dim, observable), (dim, observable)
+
+
+def test_p6e_system_b_tables_match_the_data(doc):
+    """Every cell of the three System B tables (dim 64 at M=16, dim 128's
+    cost table, dim 128 at M=256), recomputed through method_errors."""
+    start = doc.index("#### System B — mixed-field chain (dim 64")
+    raw = doc[start:doc.index("#### System A — TFIM chain", start)]
+    sci = r"([\d.]+)×10([⁻⁰¹²³⁴⁵⁶⁷⁸⁹]+)"
+
+    def check(mantissa, exponent, measured):
+        assert _near(mantissa, measured / _p6e_sci(mantissa, exponent)), (
+            mantissa, exponent, measured)
+
+    def ratio_of(a, b):
+        return max(a, b) / min(a, b)
+
+    rows64 = re.findall(r"^\| `(\w+)` \| " + sci + r" \| " + sci
+                        + r" \| \**([\d.]+)x (better|worse)\** \| ([\d.]+)x \|$", raw, re.M)
+    assert [r[0] for r in rows64] == list(_p6e_point_of(64)["observables"])
+    native = _p6e_point_of(64)["methods"]["native"]["wall_s"]
+    for obs, sm, se, mm, me, ratio, word, speed in rows64:
+        r = _p6e_rows(64, obs)
+        check(sm, se, r["M=16"][2])
+        check(mm, me, r["mcsolve"][2])
+        assert word == ("worse" if r["M=16"][2] > r["mcsolve"][2] else "better"), obs
+        assert _near(ratio, ratio_of(r["M=16"][2], r["mcsolve"][2])), obs
+        assert _near(speed, native / r["M=16"][1]), obs
+
+    cost = re.findall(r"^\| (`mcsolve`, (\d+) trajectories|SLB, `M=(\d+)`) \| ([\d,]+) s \| "
+                      + sci + r" \| (—|\**([\d.]+)x (better|worse)\**) \|$", raw, re.M)
+    assert len(cost) == 3, cost
+    r128 = _p6e_rows(128, "energy")
+    for _label, ntraj, m_value, wall, mant, exp, _cell, ratio, word in cost:
+        row = r128[f"M={m_value}"] if m_value else r128["mcsolve"]
+        if ntraj:
+            assert int(ntraj) == row[4]
+        assert _near(wall, row[1]), _label
+        check(mant, exp, row[2])
+        if m_value:
+            assert word == ("worse" if row[2] > r128["mcsolve"][2] else "better")
+            assert _near(ratio, ratio_of(row[2], r128["mcsolve"][2]))
+
+    rows256 = re.findall(r"^\| `(\w+)` \| " + sci + r" \| " + sci
+                         + r" \| \**([\d.]+)x (better|worse)\** \|$", raw, re.M)
+    assert sorted(r[0] for r in rows256) == sorted(_p6e_point_of(128)["observables"])
+    for obs, sm, se, mm, me, ratio, word in rows256:
+        r = _p6e_rows(128, obs)
+        check(sm, se, r["M=256"][2])
+        check(mm, me, r["mcsolve"][2])
+        assert word == ("worse" if r["M=256"][2] > r["mcsolve"][2] else "better"), obs
+        assert _near(ratio, ratio_of(r["M=256"][2], r["mcsolve"][2])), obs
+
+
+def test_p6e_zz_per_bond_repeats_zz(doc):
+    """Result 3 says once, near its top, that zz_per_bond is zz over the bond
+    count and is left out of every tally. In every Result 3 file its error and
+    s.e.m. are zz's divided by the bond count (size - 1), for mcsolve and every
+    SLB M, and no other Result 3 paragraph repeats the explanation."""
+    import plot_method_comparison as pmc
+    m = re.search(r"`zz_per_bond` is `zz` divided by the bond count, so every ratio on "
+                  r"its row repeats `zz`'s\. The tables keep the row, but every count and "
+                  r"tally in this section leaves it out and counts distinct observables "
+                  r"only\.", _p6a_region(doc))
+    assert m, "the zz_per_bond note at the top of Result 3 has changed shape"
+    checked = 0
+    for (system, dim), document in _p6a_files().items():
+        point = document["point"]
+        if "zz_per_bond" not in point["observables"]:
+            continue
+        zz = {(r[0], r[3]): r for r in pmc.method_errors(point, "zz")
+              if r[0] in ("mcsolve", "slb")}
+        per = {(r[0], r[3]): r for r in pmc.method_errors(point, "zz_per_bond")
+               if r[0] in ("mcsolve", "slb")}
+        assert zz.keys() == per.keys() and zz, (system, dim)
+        bonds = point["size"] - 1  # an open chain of `size` spins
+        assert bonds >= 1, (system, dim)
+        for key in zz:
+            assert zz[key][2] == pytest.approx(bonds * per[key][2], rel=1e-9), (system, dim, key)
+            assert zz[key][5] == pytest.approx(bonds * per[key][5], rel=1e-9), (system, dim, key)
+        checked += 1
+    assert checked, "no Result 3 file carries zz_per_bond"
+    start = doc.index("### Result 3 — accuracy versus cost")
+    prose = " ".join(line for line in doc[start:doc.index("### Result 4", start)].splitlines()
+                     if not line.startswith("|"))
+    assert prose.count("`zz_per_bond`") == 1, "Result 3 explains zz_per_bond more than once"
+
+
+def test_p6e_system_b_dim64_speed_and_tally(doc):
+    """SLB at M=16 against mcsolve and native RK4 at dim 64: all three walls,
+    both ratios, the matched substep count, and the verdicts under Result 3's
+    gap rule -- coherence the only real difference, the other four ties."""
+    text = _p6e_region(doc)
+    m = re.search(
+        r"At \$M=16\$ SLB's (\d+) realizations take ([\d.]+) s\. That is \*\*(\d+)x less "
+        r"time\*\* than `mcsolve`'s (\d+) trajectories \(([\d,]+) s; `mcsolve` steps "
+        r"adaptively, so the step counts differ\) and \*\*([\d.]+)x less\*\* than native "
+        r"RK4 at the same (\d+) substeps \(([\d,]+) s\)\. On accuracy only `coherence` is "
+        r"a real difference: SLB is \*\*([\d.]+)x worse\*\*\. On energy, zz and sz its "
+        r"error is ([\d.]+)x to ([\d.]+)x smaller, and on `sx` ([\d.]+)x larger, but each "
+        r"of those (\w+) gaps is smaller than the larger of the two s\.e\.m\.s, so they are "
+        r"ties within noise\.", text)
+    assert m, "the dim-64 speed sentence has changed shape"
+    (n_runs, slb_s, r_mc, ntraj, mc_s, r_nat, subs, nat_s, q_coh, q_lo, q_hi, q_sx,
+     q_ties) = m.groups()
+    document = _p6e_file(64)
+    point = document["point"]
+    slb = next(r for r in point["methods"]["slb"] if r["M"] == 16)
+    mc, nat = point["methods"]["mcsolve"], point["methods"]["native"]
+    assert int(n_runs) == slb["n_runs"] and int(ntraj) == mc["ntraj"]
+    assert int(subs) == document["meta"]["substeps"]
+    assert _near(slb_s, slb["wall_s"]) and _near(mc_s, mc["wall_s"]) and _near(nat_s, nat["wall_s"])
+    assert _near(r_mc, mc["wall_s"] / slb["wall_s"])
+    assert _near(r_nat, nat["wall_s"] / slb["wall_s"])
+    rows = {o: _p6e_rows(64, o) for o in _P6E_DISTINCT}
+    verdict = {o: _p6g_verdict(rows[o]["M=16"], rows[o]["mcsolve"]) for o in _P6E_DISTINCT}
+    assert verdict == {"energy": "tie", "zz": "tie", "sx": "tie", "sz": "tie",
+                       "coherence": "loss"}, verdict
+    ratio = {o: rows[o]["M=16"][2] / rows[o]["mcsolve"][2] for o in _P6E_DISTINCT}
+    assert _near(q_coh, ratio["coherence"]) and _near(q_sx, ratio["sx"]) and ratio["sx"] > 1
+    better = [1 / ratio[o] for o in ("energy", "zz", "sz")]
+    assert min(better) > 1, "SLB's error is no longer smaller on energy, zz and sz"
+    assert _near(q_lo, min(better)) and _near(q_hi, max(better))
+    assert _P6E_COUNT[q_ties] == sum(v == "tie" for v in verdict.values())
+    assert "modestly" not in text
+
+
+def test_p6e_system_b_dim64_losses_are_noise(doc):
+    """The sx and coherence losses at dim 64: all four points are hollow, the
+    sample-budget factor, each method's one-sample spread, and the spread at
+    M=256 that makes a larger M the second knob."""
+    import plot_method_comparison as pmc
+    text = _p6e_region(doc)
+    m = re.search(
+        r"Neither the `sx` gap nor the `coherence` loss shows a bias behind it\. All four "
+        r"points behind those two ratios are hollow: SLB's error is ([\d.]+) and ([\d.]+) "
+        r"times its s\.e\.m\., "
+        r"`mcsolve`'s ([\d.]+) and ([\d.]+)\. So both gaps come from SLB's larger "
+        r"sampling noise, "
+        r"(\d+) realizations against (\d+) trajectories, and that budget alone is worth "
+        r"a factor \$\\sqrt\{(\d+)/(\d+)\} = ([\d.]+)\$ in s\.e\.m\. Per sample, one SLB "
+        r"realization is less noisy than one trajectory on `sx` \(spread ([\d.]+) against "
+        r"([\d.]+)\) and ([\d.]+)x noisier on `coherence` \(([\d.]+) against ([\d.]+)\); "
+        r"the spread is one sample's standard deviation, averaged over time\. More "
+        r"realizations would narrow both gaps, and so would a larger \$M\$, which makes "
+        r"each realization less noisy \(§4\): at \$M=(\d+)\$ the spread is ([\d.]+) on "
+        r"`sx` and ([\d.]+) on `coherence`\.", text)
+    assert m, "the dim-64 sx/coherence loss paragraph has changed shape"
+    (s_sx, s_coh, m_sx, m_coh, n16, n500, a, b, budget,
+     sp_s, sp_m, noisier, cp_s, cp_m, m_big, big_sx, big_coh) = m.groups()
+    sx, coh = _p6e_rows(64, "sx"), _p6e_rows(64, "coherence")
+    assert _p6g_verdict(sx["M=16"], sx["mcsolve"]) == "tie", "the paragraph calls sx a gap"
+    assert _p6g_verdict(coh["M=16"], coh["mcsolve"]) == "loss", "the paragraph calls coherence a loss"
+    assert sx["M=16"][5] > sx["mcsolve"][5] and coh["M=16"][5] > coh["mcsolve"][5], (
+        "'SLB's larger sampling noise': SLB's s.e.m. is no longer the larger on both")
+    for printed, row in ((s_sx, sx["M=16"]), (s_coh, coh["M=16"]),
+                         (m_sx, sx["mcsolve"]), (m_coh, coh["mcsolve"])):
+        assert _near(printed, _p6e_ratio(row))
+        assert not pmc._bias_limited(row[2], row[5]), "the paragraph calls this point hollow"
+    assert (int(n16), int(n500)) == (int(b), int(a)) == (sx["M=16"][4], sx["mcsolve"][4])
+    assert _near(budget, math.sqrt(int(a) / int(b)))
+    assert _near(sp_s, _p6e_spread(sx["M=16"])) and _near(sp_m, _p6e_spread(sx["mcsolve"]))
+    assert _p6e_spread(sx["M=16"]) < _p6e_spread(sx["mcsolve"])
+    assert _near(cp_s, _p6e_spread(coh["M=16"])) and _near(cp_m, _p6e_spread(coh["mcsolve"]))
+    assert _near(noisier, _p6e_spread(coh["M=16"]) / _p6e_spread(coh["mcsolve"]))
+    big = f"M={m_big}"
+    assert _near(big_sx, _p6e_spread(sx[big])) and _near(big_coh, _p6e_spread(coh[big]))
+    assert _p6e_spread(sx[big]) < _p6e_spread(sx["M=16"])
+    assert _p6e_spread(coh[big]) < _p6e_spread(coh["M=16"])
+    assert "resolves off-diagonal density-matrix elements better" not in text
+
+
+def test_p6e_system_b_dim64_m16_energy_is_bias(doc):
+    """'M=16 is the wrong setting at this size' rests on a filled energy point."""
+    import plot_method_comparison as pmc
+    m = re.search(r"Even here its energy error is ([\d.]+) times its s\.e\.m\., a filled "
+                  r"point by the \$\\sqrt\{2\}\$ rule, so it is mostly bias", _p6e_region(doc))
+    assert m, "the reason M=16 is the wrong setting at dim 64 has changed shape"
+    row = _p6e_rows(64, "energy")["M=16"]
+    assert _near(m.group(1), _p6e_ratio(row))
+    assert pmc._bias_limited(row[2], row[5])
+
+
+def test_p6e_system_b_dim128_walls_name_their_denominator(doc):
+    """38x and 19x against native RK4 at 4 substeps and the 8-substep reference."""
+    text = _p6e_region(doc)
+    m = re.search(
+        r"\*\*At dim 128\*\* \(\$N_L = ([\d{},]+)\$\) `mcsolve` takes ([\d,]+) s at "
+        r"\$N_\{\\text\{traj\}\}=(\d+)\$, because every jump must test all ([\d,]+) collapse "
+        r"operators\. That is \*\*(\d+)x\*\* the wall-clock of native RK4 at SLB's (\d+) "
+        r"substeps \(([\d,]+) s\), and (\d+)x that of the (\d+)-substep certified reference "
+        r"\(([\d,]+) s\)\.", text)
+    assert m, "the dim-128 mcsolve wall sentence has changed shape"
+    n_l, mc_s, ntraj, n_ops, r_nat, subs, nat_s, r_ref, ref_subs, ref_s = m.groups()
+    document = _p6e_file(128)
+    point = document["point"]
+    mc, nat, ref = point["methods"]["mcsolve"], point["methods"]["native"], point["reference"]
+    assert _printed(n_l) == _printed(n_ops) == point["n_l"]
+    assert int(ntraj) == mc["ntraj"]
+    assert int(subs) == document["meta"]["substeps"]
+    assert int(ref_subs) == document["meta"]["params"]["ref_substeps"]
+    assert ref["method"] == f"native_rk4_substeps{ref_subs}" and ref["selfcheck"]["passed"]
+    assert _near(mc_s, mc["wall_s"]) and _near(nat_s, nat["wall_s"]) and _near(ref_s, ref["wall_s"])
+    assert _near(r_nat, mc["wall_s"] / nat["wall_s"])
+    assert _near(r_ref, mc["wall_s"] / ref["wall_s"])
+    # mcsolve ran at every smaller dimension of the same job, so "for the
+    # first time" must not come back
+    job = document["meta"]["execution"]["slurm"]["job_id"]
+    for dim in (4, 8, 16, 32, 64):
+        smaller = _p6e_file(dim)
+        assert smaller["meta"]["execution"]["slurm"]["job_id"] == job
+        assert smaller["point"]["methods"]["mcsolve"]["wall_s"] > 0
+    assert "for the first time" not in text and "25.6 hours" not in text
+
+
+def test_p6e_system_b_dim128_headline_is_against_mcsolve_noise(doc):
+    """The 13.5x caveat: mcsolve's energy error is noise because mcsolve is
+    unbiased (not because of its marker), the 13.5x is a real win under the
+    gap rule, the projected cost of four times the trajectories, and SLB's
+    M=256 point is filled."""
+    import plot_method_comparison as pmc
+    text = _p6e_region(doc)
+    m = re.search(
+        r"`mcsolve`'s energy error in that table, ([\d.]+)×10⁻², is only ([\d.]+) times "
+        r"its s\.e\.m\. of ([\d.]+)×10⁻², and like every `mcsolve` error here it is "
+        r"noise\. So the ([\d.]+)x is against (\d+) trajectories, not a converged "
+        r"`mcsolve`: (\w+) times the trajectories would roughly halve its error, and the "
+        r"\4x with it, at a projected ([\d,]+) s: (\d+)x SLB's ([\d,]+) s\. SLB's "
+        r"\$M=256\$ point is filled \(error ([\d.]+) times its s\.e\.m\.\)", text)
+    assert m, "the dim-128 mcsolve-noise caveat has changed shape"
+    err, ratio, sem, headline, ntraj, times, projected, vs, slb_s, slb_ratio = m.groups()
+    assert "point in that table is hollow" not in text
+    r = _p6e_rows(128, "energy")
+    mc, slb = r["mcsolve"], r["M=256"]
+    assert pmc._bias_limited(slb[2], slb[5])
+    assert _p6g_verdict(slb, mc) == "win", "the 13.5x is no longer larger than the noise"
+    assert _near(err, 100 * mc[2]) and _near(sem, 100 * mc[5]) and _near(ratio, _p6e_ratio(mc))
+    assert _near(headline, mc[2] / slb[2]) and int(ntraj) == mc[4]
+    factor = _P6E_COUNT[times]
+    assert math.sqrt(factor) == 2, "'roughly halve' needs four times the trajectories"
+    # Printed to the thousand, so half a unit in the last printed digit is 500 s;
+    # a finer printed value would carry a finer tolerance.
+    assert _printed(projected) % 1000 == 0, "the projection is quoted to the thousand"
+    assert abs(_printed(projected) - factor * mc[1]) <= 500
+    assert _near(slb_s, slb[1]) and _near(vs, factor * mc[1] / slb[1])
+    assert _near(slb_ratio, _p6e_ratio(slb))
+
+
+def test_p6e_system_b_dim128_m256_costs_and_tallies(doc):
+    """SLB at M=256 against all three solves, and the verdicts under Result 3's
+    gap rule over the five distinct observables at M=16 and at M=256."""
+    m = re.search(
+        r"\*\*At \$M=16\$ SLB is clearly behind only on `coherence`\*\* \(([\d.]+)x "
+        r"worse\)\. On the other (\w+) it is ([\d.]+)x to ([\d.]+)x worse, but each gap is "
+        r"smaller than the larger of the two s\.e\.m\.s, so those are ties within noise\. "
+        r"At \$M=256\$ it takes ([\d,]+) s: still \*\*(\d+)x less time\*\* than `mcsolve` "
+        r"\(not at matched steps\), ([\d.]+)x less than native RK4 at the same (\d+) "
+        r"substeps, and ([\d.]+)x less than the (\d+)-substep reference\. It is clearly "
+        r"ahead on energy, sz and zz \(([\d.]+)x, ([\d.]+)x and ([\d.]+)x better\); `sx` "
+        r"and `coherence` are ties within noise\. Each ratio below is against (\d+) "
+        r"`mcsolve` trajectories:", _p6e_region(doc))
+    assert m, "the dim-128 M=256 cost and tally sentence has changed shape"
+    (q_coh, q_other, lo, hi, slb_s, r_mc, r_nat, subs, r_ref, ref_subs, q_e, q_sz, q_zz,
+     q_ntraj) = m.groups()
+    document = _p6e_file(128)
+    point = document["point"]
+    assert int(subs) == document["meta"]["substeps"]
+    assert int(ref_subs) == document["meta"]["params"]["ref_substeps"]
+    rows = {o: _p6e_rows(128, o) for o in _P6E_DISTINCT}
+    v16 = {o: _p6g_verdict(rows[o]["M=16"], rows[o]["mcsolve"]) for o in _P6E_DISTINCT}
+    assert v16 == {"energy": "tie", "zz": "tie", "sx": "tie", "sz": "tie",
+                   "coherence": "loss"}, v16
+    worse16 = {o: rows[o]["M=16"][2] / rows[o]["mcsolve"][2] for o in _P6E_DISTINCT}
+    assert _near(q_coh, worse16["coherence"])
+    others = [r for o, r in worse16.items() if o != "coherence"]
+    assert min(others) > 1 and _P6E_COUNT[q_other] == len(others)
+    assert _near(lo, min(others)) and _near(hi, max(others))
+    v256 = {o: _p6g_verdict(rows[o]["M=256"], rows[o]["mcsolve"]) for o in _P6E_DISTINCT}
+    assert v256 == {"energy": "win", "zz": "win", "sx": "tie", "sz": "win",
+                    "coherence": "tie"}, v256
+    for name, printed in (("energy", q_e), ("sz", q_sz), ("zz", q_zz)):
+        assert _near(printed, rows[name]["mcsolve"][2] / rows[name]["M=256"][2]), name
+    assert int(q_ntraj) == rows["energy"]["mcsolve"][4]
+    wall = rows["energy"]["M=256"][1]
+    assert _near(slb_s, wall)
+    assert _near(r_mc, point["methods"]["mcsolve"]["wall_s"] / wall)
+    assert _near(r_nat, point["methods"]["native"]["wall_s"] / wall)
+    assert _near(r_ref, point["reference"]["wall_s"] / wall)
+
+
+def test_p6e_system_b_coherence_setting_paragraph(doc):
+    """'A setting, not a property': the two coherence ratios, both SLB points
+    hollow, the one-sample spreads, and the dim-64 -> 128 energy reversal."""
+    import plot_method_comparison as pmc
+    text = _p6e_region(doc)
+    m = re.search(
+        r"at this dimension it is ([\d.]+)x worse at \$M=16\$ and ([\d.]+)x at \$M=256\$\. "
+        r"Both coherence points are hollow \(error ([\d.]+) and ([\d.]+) times the "
+        r"s\.e\.m\.\), so raising \$M\$ closed most of the gap by cutting noise, not bias: "
+        r"a larger \$M\$ makes each realization less noisy, with a spread of ([\d.]+) at "
+        r"\$M=16\$ and ([\d.]+) at \$M=256\$, against ([\d.]+) for one `mcsolve` trajectory\. "
+        r"At \$M=256\$ one realization is ([\d.]+)x less noisy than one trajectory, so what "
+        r"remains of the \2x is the budget, (\d+) realizations against (\d+), and more "
+        r"realizations would close it\. And \*\*\$M\$ must grow with the system\*\*: SLB's "
+        r"own \$M=16\$ energy error grows ([\d.]+)x, from ([\d.]+)×10⁻² at dimension "
+        r"(\d+) to ([\d.]+)×10⁻² at (\d+), and is mostly bias at both sizes \(([\d.]+) and "
+        r"([\d.]+) times its s\.e\.m\.\)", text)
+    assert m, "the coherence setting-not-property paragraph has changed shape"
+    (worse16, worse256, e16, e256, sp16, sp256, sp_mc, less_noisy, n_runs, ntraj,
+     grows, err64, d64, err128, d128, f64, f128) = m.groups()
+    assert (int(d64), int(d128)) == (64, 128)
+    coh = _p6e_rows(128, "coherence")
+    lo, hi, mc = coh["M=16"], coh["M=256"], coh["mcsolve"]
+    assert _near(worse16, lo[2] / mc[2]) and _near(worse256, hi[2] / mc[2])
+    for printed, row in ((e16, lo), (e256, hi)):
+        assert _near(printed, _p6e_ratio(row))
+        assert not pmc._bias_limited(row[2], row[5])
+    assert _near(sp16, _p6e_spread(lo)) and _near(sp256, _p6e_spread(hi))
+    assert _near(sp_mc, _p6e_spread(mc))
+    assert _near(less_noisy, _p6e_spread(mc) / _p6e_spread(hi))
+    assert (int(n_runs), int(ntraj)) == (hi[4], mc[4])
+    e64, e128 = _p6e_rows(64, "energy"), _p6e_rows(128, "energy")
+    assert _near(grows, e128["M=16"][2] / e64["M=16"][2])
+    assert _near(f64, _p6e_ratio(e64["M=16"])) and _near(f128, _p6e_ratio(e128["M=16"]))
+    assert "edged out" not in text, "'M must grow' rests on a tie within noise again"
+    assert _near(err64, 100 * e64["M=16"][2]) and _near(err128, 100 * e128["M=16"][2])
+    assert pmc._bias_limited(e64["M=16"][2], e64["M=16"][5])
+    assert pmc._bias_limited(e128["M=16"][2], e128["M=16"][5])
+    assert "ample at dimension 64" not in text
+    assert "not a larger" not in text, "a larger M still cuts the spread here"
+
+
+# --- Part 6, unit U5: Result 3's System A text (dims 64, 1024, 2048) ---------
+#
+# The dim-64 paragraph said the exact solve "costs the same as bundling" (it is
+# ~10x cheaper than the 16-realization ensemble) and that SLB "is worse than
+# mcsolve on every observable" (two of the four distinct observables are ties
+# within noise, and zz_per_bond repeats zz). The dim-1024 tally counted
+# zz_per_bond as a sixth observable, and the dim-1024 ratio did not say its
+# denominator was timed in another job. These tests pin the corrected text.
+
+def _p6f_load(name: str) -> dict:
+    path = DATA / f"method_comparison_{name}.json"
+    assert path.exists(), f"BENCHMARKS.md quotes {path.name} but it is not committed"
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def _p6f_region(doc: str) -> str:
+    """Result 3's System A section, flattened."""
+    text = _flat(doc)
+    start = text.index("#### System A — TFIM chain (dim 64")
+    return text[start:text.index("### Result 4", start)]
+
+
+def _p6f_scores(point: dict, observable: str, bundles: int):
+    """(slb row, mcsolve row) from plot_method_comparison.method_errors."""
+    import plot_method_comparison as pmc
+    rows = pmc.method_errors(point, observable)
+    mc = next(r for r in rows if r[0] == "mcsolve")
+    slb = next(r for r in rows if r[0] == "slb" and r[3] == f"M={bundles}")
+    return slb, mc
+
+
+def _p6f_is_rescaled_zz(point: dict) -> bool:
+    """zz_per_bond is zz divided by one integer constant on the reference curve."""
+    zz = np.asarray(point["reference"]["curves"]["zz"], dtype=float)
+    per = np.asarray(point["reference"]["curves"]["zz_per_bond"], dtype=float)
+    keep = np.abs(per) > 1e-12
+    scale = zz[keep] / per[keep]
+    return bool(np.allclose(scale, scale[0], rtol=1e-9)
+                and abs(scale[0] - round(scale[0])) < 1e-9)
+
+
+_p6f_words = {"four": 4, "five": 5, "six": 6}
+
+
+def test_p6f_system_a_dim64_table_matches_the_data(doc):
+    """Every cell of the System A dim-64 table, through method_errors."""
+    point = _p6f_load("spin_chain_dim64")["point"]
+    region = _p6f_region(doc)
+    rows = re.findall(r"\| `(\w+)` \| ([^|]+) \| ([^|]+) \| \*{0,2}([\d.]+)x (better|worse)"
+                      r"\*{0,2} \| ([\d.]+)x \|", region.split("This is Control 1")[0])
+    assert [r[0] for r in rows] == point["observables"]
+    nat = point["methods"]["native"]["wall_s"]
+    for name, c_slb, c_mc, q_ratio, word, q_speed in rows:
+        slb, mc = _p6f_scores(point, name, 16)
+        v, half = _decode_with_precision(c_slb)
+        assert abs(v - slb[2]) <= half, name
+        v, half = _decode_with_precision(c_mc)
+        assert abs(v - mc[2]) <= half, name
+        assert word == ("worse" if slb[2] > mc[2] else "better")
+        assert _near(q_ratio, max(slb[2], mc[2]) / min(slb[2], mc[2])), name
+        assert _near(q_speed, nat / slb[1]), name
+
+
+def test_p6f_control1_paragraph_matches_the_data(doc):
+    """The exact solve is ~10x cheaper than SLB's 16-realization ensemble, not
+    the same; SLB is clearly worse only on energy and sx; zz and coherence are
+    ties within noise; every mcsolve error is noise-limited and every SLB error
+    at M=16 bias-limited."""
+    import plot_method_comparison as pmc
+    document = _p6f_load("spin_chain_dim64")
+    point, meta = document["point"], document["meta"]
+    text = _p6f_region(doc)
+
+    m = re.search(
+        r"This is Control 1\. Davies grouping leaves only (\d+) operators, so the exact "
+        r"solve is cheap\. In job (\d{8}), with both at (\d+) substeps, native RK4 took "
+        r"([\d.]+) s and SLB's (\d+)-realization ensemble at \$M=(\d+)\$ took ([\d.]+) s\. "
+        r"So the exact solve is about (\d+)x cheaper than the ensemble \(the table's "
+        r"([\d.]+)x\), and ([\d.]+)x dearer than one realization \(([\d.]+) s\)\. SLB has "
+        r"no speed advantage when \$N_L\$ is this small\.", text)
+    assert m, "the Control 1 cost sentence has changed shape"
+    (q_nl, q_job, q_sub, q_nat, q_runs, q_m, q_slb, q_x, q_tab, q_dear,
+     q_one) = m.groups()
+    assert int(q_nl) == point["n_l"]
+    assert meta["execution"]["slurm"]["job_id"] == q_job
+    assert meta["substeps"] == int(q_sub)
+    nat = point["methods"]["native"]["wall_s"]
+    row = next(r for r in point["methods"]["slb"] if r["M"] == int(q_m))
+    assert row["n_runs"] == int(q_runs)
+    one = row["wall_s"] / row["n_runs"]
+    assert _near(q_nat, nat) and _near(q_slb, row["wall_s"]) and _near(q_one, one)
+    assert _near(q_x, row["wall_s"] / nat) and _near(q_tab, nat / row["wall_s"])
+    assert _near(q_dear, nat / one)
+
+    e = re.search(
+        r"On accuracy it is \*\*clearly worse than `mcsolve` on the energy \(([\d.]+)x\) "
+        r"and `sx` \(([\d.]+)x\)\*\*: there the gap is larger than either method's "
+        r"s\.e\.m\. On `zz` and `coherence` it is ([\d.]+)x worse, but the gaps "
+        r"\(([\d.]+)×10⁻³ and ([\d.]+)×10⁻³\) are smaller than either method's "
+        r"s\.e\.m\., so those two are ties within noise\. Every `mcsolve` point is "
+        r"hollow \((\d+) trajectories, error ([\d.]+) to ([\d.]+) times its s\.e\.m\.\)\. "
+        r"Every SLB error at \$M=(\d+)\$ is bias-limited \(filled\)", text)
+    assert e, "the Control 1 accuracy sentence has changed shape"
+    (q_e, q_sx, q_tie, q_gzz, q_gcoh, q_traj, q_lo, q_hi, q_m2) = e.groups()
+    bundles = int(q_m)
+    assert int(q_m2) == bundles
+    for name, q in (("energy", q_e), ("sx", q_sx)):
+        slb, mc = _p6f_scores(point, name, bundles)
+        assert _near(q, slb[2] / mc[2]), name
+        assert slb[2] - mc[2] > max(slb[5], mc[5]), f"{name}: the gap is not resolved"
+        assert _p6g_verdict(slb, mc) == "loss", name
+    for name, q_gap in (("zz", q_gzz), ("coherence", q_gcoh)):
+        slb, mc = _p6f_scores(point, name, bundles)
+        assert _near(q_tie, slb[2] / mc[2]), name
+        assert _near(q_gap, 1000 * (slb[2] - mc[2])), name
+        assert 0 < slb[2] - mc[2] < min(slb[5], mc[5]), f"{name}: the gap is resolved"
+        assert _p6g_verdict(slb, mc) == "tie", name
+    assert _p6f_is_rescaled_zz(point)
+    zz, zzb = _p6f_scores(point, "zz", bundles), _p6f_scores(point, "zz_per_bond", bundles)
+    assert math.isclose(zz[0][2] / zz[1][2], zzb[0][2] / zzb[1][2], rel_tol=1e-9)
+    ratios = []
+    for name in point["observables"]:
+        slb, mc = _p6f_scores(point, name, bundles)
+        assert mc[4] == int(q_traj)
+        assert not pmc._bias_limited(mc[2], mc[5]), f"{name}: mcsolve point is filled"
+        assert pmc._bias_limited(slb[2], slb[5]), f"{name}: SLB point is hollow"
+        ratios.append(mc[2] / mc[5])
+    assert _near(q_lo, min(ratios)) and _near(q_hi, max(ratios))
+
+
+def test_p6f_dim1024_tally_counts_distinct_observables(doc):
+    """At dim 1024 mcsolve's ratio is below the sqrt(2) line on every distinct
+    observable (zz_per_bond is zz rescaled, so five, not six), and the smaller
+    sizes' energy ratios straddle the line."""
+    import plot_method_comparison as pmc
+    text = _p6f_region(doc)
+    m = re.search(
+        r"— a ratio of ([\d.]+), and below the \$\\sqrt\{2\}\$ line on all (\w+) "
+        r"distinct observables\. At smaller sizes on this system the energy point sits "
+        r"either side of that line, at ratios ([\d.]+) to ([\d.]+);", text)
+    assert m, "the dim-1024 below-the-line tally has changed shape"
+    q_energy, q_n, q_lo, q_hi = m.groups()
+    assert "independent observables" not in text
+    point = _p6f_load("spin_chain_dim1024")["point"]
+    assert _p6f_is_rescaled_zz(point)
+    independent = [o for o in point["observables"] if o != "zz_per_bond"]
+    assert _p6f_words[q_n] == len(independent)
+    for name in point["observables"]:
+        mc = next(r for r in pmc.method_errors(point, name) if r[0] == "mcsolve")
+        assert not pmc._bias_limited(mc[2], mc[5]), name
+        if name == "energy":
+            assert _near(q_energy, mc[2] / mc[5])
+    smaller = []
+    for dim in pmc.discover_dims("spin_chain"):
+        if dim >= 1024:
+            continue
+        p = _p6f_load(f"spin_chain_dim{dim}")["point"]
+        mc = next(r for r in pmc.method_errors(p, "energy") if r[0] == "mcsolve")
+        smaller.append(mc[2] / mc[5])
+    assert _near(q_lo, min(smaller)) and _near(q_hi, max(smaller))
+    assert min(smaller) < pmc.BIAS_LIMITED_RATIO < max(smaller)
+
+
+def test_p6f_dim1024_ratio_names_its_cross_job_denominator(doc):
+    """The 10-spin 3.5x divides mcsolve (job 19606788) by section 5.2's
+    8-substep grid timing, which ran in another job on another node; the
+    sentence must say so and quote both walls and the ratio correctly."""
+    m = re.search(
+        r"It took \*\*([\d,]+) s\*\*, against ([\d,]+) s for native RK4 at (\d+) "
+        r"substeps at the same size on the same grid \(§5\.2\), timed in another job "
+        r"on another node \(§5\.3\)\. So on the control system `mcsolve` is "
+        r"\*\*([\d.]+)× slower than the exact solve\*\*", _p6f_region(doc))
+    assert m, "the dim-1024 mcsolve-vs-exact sentence has changed shape"
+    q_mc, q_grid, q_sub, q_ratio = m.groups()
+    d10 = _p6f_load("spin_chain_dim1024")
+    pgrid = DATA / "solver_timing_spin_chain.json"
+    assert pgrid.exists(), "BENCHMARKS.md quotes solver_timing_spin_chain.json"
+    dgrid = json.loads(pgrid.read_text(encoding="utf-8"))
+    grid = {p["dim"]: p for p in dgrid["points"]}[1024]
+    mc = d10["point"]["methods"]["mcsolve"]
+    g10 = grid["timings"]["native"]["median_s"]
+    assert int(q_sub) == grid["native_substeps"]
+    assert _near(q_mc, mc["wall_s"]) and _near(q_grid, g10)
+    assert _near(q_ratio, mc["wall_s"] / g10)
+    e10, eg = d10["meta"]["execution"], dgrid["meta"]["execution"]
+    assert e10["slurm"]["job_id"] != eg["slurm"]["job_id"]
+    assert e10["hostname"] != eg["hostname"]
+
+
+# --- Part 6 follow-up (p6g): one gap rule, and the text outside Result 3 ------
+#
+# Result 3 scored wins and losses by two standards: System A called a gap
+# smaller than the s.e.m.s a tie, System B counted such gaps as wins or losses.
+# The document now states one rule, once. The walls table in section 5.2, the
+# seed-robustness note in section 6, section 3.3's sampling table and the
+# plotter's M=1 comment had drifted from Result 3; these pin them.
+
+def _p6g_verdict(slb_row, mc_row) -> str:
+    """Result 3's rule on two method_errors rows: a gap between the errors is
+    a win or a loss for SLB only when it is larger than the larger of the two
+    s.e.m.s; otherwise it is a tie within noise."""
+    gap = slb_row[2] - mc_row[2]
+    if abs(gap) <= max(slb_row[5], mc_row[5]):
+        return "tie"
+    return "loss" if gap > 0 else "win"
+
+
+def _p6g_result3(doc: str) -> str:
+    """All of Result 3, flattened."""
+    text = _flat(doc)
+    start = text.index("### Result 3 — accuracy versus cost: SLB against mcsolve")
+    return text[start:text.index("### Result 4", start)]
+
+
+def _p6g_mcsolve_ratios() -> list:
+    """error/s.e.m. of every mcsolve point in every Result 3 file, distinct
+    observables only, through method_errors."""
+    ratios = []
+    for system, dim in _p6c_files():
+        point = _p6c_point(system, dim)["point"]
+        for obs in point["observables"]:
+            if obs == "zz_per_bond":
+                continue
+            scored = _p6c_mcsolve(point, obs)
+            if scored is not None:
+                ratios.append(scored[0] / scored[1])
+    assert ratios, "no Result 3 file ran mcsolve"
+    return ratios
+
+
+def test_p6g_result3_states_the_gap_rule_once(doc):
+    """The win/loss/tie rule is stated exactly once, next to the paragraph
+    that explains mcsolve's noise, and every verdict test uses _p6g_verdict."""
+    rule = (r"\*\*So a gap between the two errors counts as a win or a loss only if it "
+            r"is larger than the larger of the two s\.e\.m\.s; a smaller gap is a tie "
+            r"within noise\.\*\*")
+    assert len(re.findall(rule, _p6g_result3(doc))) == 1, "state the gap rule once"
+    assert re.search(rule, _flat(_p6c_region(doc))), (
+        "the gap rule no longer sits with the mcsolve-noise paragraph")
+    # the helper is the rule as written: ties at and below the larger s.e.m.
+    assert _p6g_verdict((0, 0, 1.0, 0, 0, 0.5), (0, 0, 1.4, 0, 0, 0.4)) == "tie"
+    assert _p6g_verdict((0, 0, 1.0, 0, 0, 0.1), (0, 0, 1.4, 0, 0, 0.3)) == "win"
+    assert _p6g_verdict((0, 0, 1.4, 0, 0, 0.3), (0, 0, 1.0, 0, 0, 0.1)) == "loss"
+
+
+def test_p6g_sampling_table_result3_row_matches_the_sweep(doc):
+    """Section 3.3's sampling table: Result 3's M range is the files' sweep,
+    the figures' first M is the plotter's, and the realization count holds."""
+    import plot_method_comparison as pmc
+    m = re.search(r"^\| four-method comparison \(Result 3\) \| (\d+)–(\d+) \(swept; "
+                  r"figures from (\d+)\) \| (\d+) \| S/√N_r \(SEM\) \|$", doc, re.M)
+    assert m, "section 3.3's Result 3 sampling row has changed shape"
+    low, high, first, n_runs = map(int, m.groups())
+    slb = [d["point"]["methods"]["slb"] for d in _p6a_files().values()
+           if d["point"]["methods"].get("slb")]
+    swept = [int(r["M"]) for rows in slb for r in rows]
+    assert (min(swept), max(swept)) == (low, high)
+    assert first == pmc.MIN_M_PLOTTED
+    assert all(int(r["n_runs"]) == n_runs for rows in slb for r in rows)
+
+
+def test_p6g_section52_mcsolve_wall_reads_filled_as_noise(doc):
+    """The walls table's mcsolve row: its error/s.e.m. range over every
+    Result 3 point, and a point past the sqrt(2) line read as noise."""
+    import plot_method_comparison as pmc
+    row = next((line for line in doc.splitlines()
+                if line.startswith("| **QuTiP `mcsolve`**")), None)
+    assert row, "section 5.2's mcsolve wall row is missing"
+    m = re.search(r"\(error/s\.e\.m\. ([\d.]+) to ([\d.]+) across observables\), so some "
+                  r"points land past Result 3's \$\\sqrt\{2\}\$ line, which for an unbiased "
+                  r"method is noise, not bias;", row)
+    assert m, "section 5.2's mcsolve wall reading has changed shape"
+    ratios = _p6g_mcsolve_ratios()
+    assert _near(m.group(1), min(ratios)) and _near(m.group(2), max(ratios))
+    assert min(ratios) < pmc.BIAS_LIMITED_RATIO < max(ratios), "'some points' past the line"
+    assert "bias-limited by Result 3" not in row
+
+
+def test_p6g_section6_seed_sentence_uses_the_gap_rule(doc):
+    """Section 6 describes Result 3's System A comparison with the same
+    verdicts Result 3 gives: energy and sx losses, zz and coherence ties."""
+    m = re.search(r"Result 3's System A comparison at dimension (\d+) \(\$M=(\d+)\$ against "
+                  r"\$\\texttt\{ntraj\}=(\d+)\$\), where SLB is clearly worse on the energy "
+                  r"and `sx` and ties within noise on `zz` and `coherence`\.", _flat(doc))
+    assert m, "section 6's seed-robustness sentence has changed shape"
+    dim, bundles, ntraj = map(int, m.groups())
+    point = _p6f_load(f"spin_chain_dim{dim}")["point"]
+    verdict = {}
+    for name in point["observables"]:
+        if name == "zz_per_bond":
+            continue
+        slb, mc = _p6f_scores(point, name, bundles)
+        assert mc[4] == ntraj, name
+        verdict[name] = _p6g_verdict(slb, mc)
+    assert verdict == {"energy": "loss", "sx": "loss", "zz": "tie", "coherence": "tie"}, verdict
+    assert "loses on every observable" not in _flat(doc)
+
+
+def test_p6g_plotter_m1_comment_matches_the_data():
+    """The comment above MIN_M_PLOTTED: how many dimensions timed M=1 slower
+    than M=2, and how many curves fall from M=1 to M=2, with every rise under
+    one s.e.m. -- recomputed as Result 3's M=1 paragraph is."""
+    import plot_method_comparison as pmc
+    source = (BENCHMARKS / "plot_method_comparison.py").read_text(encoding="utf-8")
+    block = source[:source.index("\nMIN_M_PLOTTED = ")]
+    comment = re.sub(r"\s*\n#\s*", " ", block[block.rindex("# M=1 is one bundle"):])
+    assert "monotone" not in comment, "the plotter comment says accuracy is monotone in M"
+    m = re.search(r"It also timed slower than M=2 at (\d+) of the (\d+) dimensions despite "
+                  r"doing less work", comment)
+    f = re.search(r"The error falls from M=1 to M=2 on (\d+) of the (\d+) curves, and every "
+                  r"rise in M, those two included, is smaller than one s\.e\.m\.", comment)
+    assert m and f, "the plotter's M=1 comment has changed shape"
+    slower = total = 0
+    for document in _p6a_files().values():
+        slb = {int(r["M"]): r for r in document["point"]["methods"].get("slb", [])}
+        if slb:
+            total += 1
+            slower += slb[1]["wall_s"] > slb[2]["wall_s"]
+    assert (int(m.group(1)), int(m.group(2))) == (slower, total)
+    curves = _p6a_curves(1)
+    falls = sum(rows[1][2] < rows[0][2] for rows in curves.values())
+    assert (int(f.group(1)), int(f.group(2))) == (falls, len(curves))
+    rises = [(b[2] - a[2]) / b[5] for rows in curves.values()
+             for a, b in zip(rows, rows[1:]) if b[2] >= a[2]]
+    assert max(rises) < 1, "a rise now exceeds the s.e.m. of the point it reaches"
+    assert pmc.MIN_M_PLOTTED == 2
