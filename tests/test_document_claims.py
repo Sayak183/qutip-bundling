@@ -2750,3 +2750,1101 @@ def test_section52_mcsolve_probe_projections_match_the_500_trajectory_runs(doc):
         assert _near(q_run, mc["wall_s"] / unit)
         assert _near(q_pct, 100 * (projected[name] / mc["wall_s"] - 1)), (
             f"{name}: probe projected {100 * (projected[name] / mc['wall_s'] - 1):.1f}% high")
+
+
+# --- section 5.3: the provenance intro and table -------------------------
+#
+# The table's dates were written from memory: Result 4 "ended" a day before its
+# mixed-chain file was written, Result 5's frontier "started" a day after its
+# oscillator sweep did, and the certified references were dated to August
+# although every file says Jul 31. Job 19603810 sat among Result 2's figure
+# jobs although its file is named so the plotter cannot load it, and the intro
+# said "every file" records the 0.6.4 tolerance while three July files in
+# data/ record none. These pin all of it to the files' own metadata.
+
+_P3A_MONTHS = ("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep",
+               "Oct", "Nov", "Dec")
+
+
+def _p3a_json(path: Path) -> dict:
+    if not path.exists():
+        pytest.skip(f"{path.name} not committed")
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def _p3a_stamp(document: dict):
+    import datetime
+    return datetime.datetime.fromisoformat(document["meta"]["timestamp"])
+
+
+def _p3a_walls(obj) -> float:
+    """Seconds of solving a file records: every number under a key starting
+    't_', every entry of a 'samples_s' list, every entry of a 'cost' list."""
+    total = 0.0
+    if isinstance(obj, dict):
+        for key, value in obj.items():
+            if key == "meta":
+                continue
+            if key.startswith("t_") and isinstance(value, (int, float)):
+                total += float(value or 0.0)
+            elif key in ("samples_s", "cost") and isinstance(value, list):
+                total += sum(float(v) for v in value if v)
+            else:
+                total += _p3a_walls(value)
+    elif isinstance(obj, list):
+        total += sum(_p3a_walls(v) for v in obj)
+    return total
+
+
+def _p3a_day(moment) -> str:
+    return f"{_P3A_MONTHS[moment.month - 1]} {moment.day}"
+
+
+def _p3a_span(start, end) -> str:
+    """'Jul 31', 'Sep 16 – 18' or 'Aug 7 – Sep 18', as the table prints them."""
+    start, end = start.date(), end.date()
+    if start == end:
+        return _p3a_day(start)
+    if (start.year, start.month) == (end.year, end.month):
+        return f"{_p3a_day(start)} – {end.day}"
+    return f"{_p3a_day(start)} – {_p3a_day(end)}"
+
+
+def _p3a_end_stamped(paths):
+    """Files written when their run finished: the stamps bound the run."""
+    stamps = [_p3a_stamp(_p3a_json(p)) for p in paths]
+    return min(stamps), max(stamps)
+
+
+def _p3a_start_stamped(paths):
+    """Files stamped when their run started: the end adds the recorded solves."""
+    import datetime
+    starts, ends = [], []
+    for p in paths:
+        document = _p3a_json(p)
+        starts.append(_p3a_stamp(document))
+        ends.append(starts[-1] + datetime.timedelta(seconds=_p3a_walls(document)))
+    return min(starts), max(ends)
+
+
+def _p3a_table(doc: str) -> dict:
+    """Section 5.3's provenance rows: bold label -> (jobs cell, dates cell)."""
+    start = doc.index("| Result | Slurm jobs | dates |")
+    block = doc[start:doc.index("\n\n", start)]
+    rows = re.findall(r"^\|\s*\*\*([^*]+)\*\*[^|]*\|([^|]*)\|([^|]*)\|\s*$",
+                      block, re.M)
+    assert rows, "section 5.3's provenance table has changed shape"
+    return {label.strip(): (jobs.strip(), dates.strip()) for label, jobs, dates in rows}
+
+
+def _p3a_jobs(paths) -> set[str]:
+    return {str(_p3a_json(p)["meta"]["execution"]["slurm"]["job_id"]) for p in paths}
+
+
+def test_section53_intro_version_and_tolerance_match_the_files(doc):
+    """'every file those Results read records degeneracy_tol = 1e-10' under
+    0.6.4: every file smoke_test attributes to Results 1-5 carries both."""
+    m = re.search(r"\*\*Results 1 through 5 run on data regenerated under ([\d.]+)\*\*, "
+                  r"so every operator count matches the shipped code, and every file "
+                  r"those Results read records `degeneracy_tol = ([\de.+-]+)`, the "
+                  r"shipped default\.", _flat(doc))
+    assert m, "section 5.3's opening sentence has changed shape"
+    version, tol = m.group(1), float(m.group(2))
+    assert common.QUTIP_BUNDLING_VERSION == version
+    assert common.DAVIES_DEGENERACY_TOL == tol
+    import smoke_test
+    checked = 0
+    for result in "12345":
+        for pattern in smoke_test.RESULT_DATA_GLOBS[result]:
+            for path in sorted(DATA.glob(pattern)):
+                meta = _p3a_json(path)["meta"]
+                assert meta.get("qutip_bundling") == version, path.name
+                assert meta.get("davies", {}).get("degeneracy_tol") == tol, path.name
+                checked += 1
+    assert checked, "no Result 1-5 files found"
+
+
+def test_section53_names_the_stale_frontier_files(doc):
+    """The three July oscillator frontier files in data/: no tolerance,
+    version or job; operator counts that the shipped code no longer builds;
+    read by no Result, only by plot_frontier.py and the CSV export."""
+    import fnmatch
+    import smoke_test
+    m = re.search(
+        r"Three older files still sit in `data/` and must not be quoted: "
+        r"`frontier_oscillator_bath_dim(\d+)\.json`, `_dim(\d+)\.json` and "
+        r"`_dim(\d+)\.json`, written on (\w+ \d+) before ([\d.]+)\. They record no "
+        r"tolerance, package version or job, and at dims (\d+) and (\d+) they hold "
+        r"([\d,]+) and ([\d,]+) operators where the shipped code builds ([\d,]+) "
+        r"and ([\d,]+)\. No Result reads them; only the superseded "
+        r"`plot_frontier\.py` and the CSV export do\.", _flat(doc))
+    assert m, "section 5.3's stale-file sentence has changed shape"
+    (d1, d2, d3, day, version, da, db, old_a, old_b, new_a, new_b) = m.groups()
+    named = {int(d1), int(d2), int(d3)}
+    on_disk = {int(re.search(r"_dim(\d+)\.json$", p.name).group(1))
+               for p in DATA.glob("frontier_oscillator_bath_dim*.json")}
+    assert named == on_disk, f"data/ holds frontier_oscillator_bath dims {sorted(on_disk)}"
+    assert version == common.QUTIP_BUNDLING_VERSION
+    for dim in named:
+        path = DATA / f"frontier_oscillator_bath_dim{dim}.json"
+        document = _p3a_json(path)
+        meta = document["meta"]
+        for key in ("qutip_bundling", "davies", "execution"):
+            assert key not in meta, f"{path.name} records {key}"
+        assert _p3a_day(_p3a_stamp(document)) == day, path.name
+        for result, patterns in smoke_test.RESULT_DATA_GLOBS.items():
+            assert not any(fnmatch.fnmatch(path.name, p) for p in patterns), (
+                f"{path.name} is attributed to Result {result}")
+    for dim, old, new in ((int(da), old_a, new_a), (int(db), old_b, new_b)):
+        document = _p3a_json(DATA / f"frontier_oscillator_bath_dim{dim}.json")
+        assert document["n_l"] == int(_printed(old))
+        H, X, _ = common.build_oscillator_bath(dim // 2)
+        shipped = len(common.build_davies_operators(H, X))
+        assert shipped == int(_printed(new))
+        assert shipped != document["n_l"]
+    assert 'glob(f"frontier_{nm}_dim*.json")' in (BENCHMARKS / "plot_frontier.py").read_text(
+        encoding="utf-8")
+    assert '"frontier_": export_frontier' in (BENCHMARKS / "export_csv.py").read_text(
+        encoding="utf-8")
+    import datetime
+    released = re.search(rf"^## {re.escape(version)} — (\d{{4}}-\d{{2}}-\d{{2}})$",
+                         (BENCHMARKS.parent / "CHANGELOG.md").read_text(encoding="utf-8"),
+                         re.M)
+    assert released, f"CHANGELOG.md has no dated {version} entry"
+    release_day = datetime.date.fromisoformat(released.group(1))
+    for dim in named:
+        stamp = _p3a_stamp(_p3a_json(DATA / f"frontier_oscillator_bath_dim{dim}.json"))
+        assert stamp.date() < release_day, f"dim {dim} was written after {version}"
+    manifest = (DATA / "README.md").read_text(encoding="utf-8")
+    assert "`frontier_<system>_dim<D>.json`" not in manifest, (
+        "data/README.md still lists the stale frontier files as canonical")
+    assert "| 3. Method comparison | `method_comparison_<system>_dim<D>.json` |" in manifest
+    copy = re.search(r"written on (\w+ \d+), before ([\d.]+)\. .*?at dims (\d+) and (\d+) "
+                     r"they hold ([\d,]+) and ([\d,]+) operators where the shipped code "
+                     r"builds ([\d,]+) and ([\d,]+)\.", _flat(manifest))
+    assert copy, "data/README.md's stale-file paragraph has changed shape"
+    assert copy.groups() == (day, version, da, db, old_a, old_b, new_a, new_b)
+
+
+def test_section53_section6_sentence_matches_the_progress_files(doc):
+    """Section 6's spin-chain panels were re-run under 0.6.4 at dims 128-512 by
+    one job; its oscillator panels carry no metadata (pre-0.6.4)."""
+    m = re.search(r"Section 6's spin-chain jackknife check was re-run under ([\d.]+) "
+                  r"at dims (\d+)–(\d+) \(job (\d+)\)\. Its oscillator panels and its "
+                  r"seed and substep figures are preserved from the original "
+                  r"pre-[\d.]+ runs", _flat(doc))
+    assert m, "section 5.3's section-6 sentence has changed shape"
+    version, lo, hi, job = m.group(1), int(m.group(2)), int(m.group(3)), m.group(4)
+    import plot_jackknife_rate_strip as strip
+    spin = [json.loads((BENCHMARKS / f).read_text(encoding="utf-8"))
+            for f, _ in strip.SYSTEMS["spin_chain"]["panels"]]
+    assert (min(d["dim"] for d in spin), max(d["dim"] for d in spin)) == (lo, hi)
+    for d in spin:
+        assert d["meta"]["qutip_bundling"] == version
+        assert str(d["meta"]["execution"]["slurm"]["job_id"]) == job
+    for f, _ in strip.SYSTEMS["oscillator_bath"]["panels"]:
+        assert "meta" not in json.loads((BENCHMARKS / f).read_text(encoding="utf-8")), f
+
+
+def test_section53_provenance_dates_match_the_file_timestamps(doc):
+    """Every date cell of the provenance table, recomputed from the files: the
+    stamp range for runners that write at the end, and stamp plus recorded
+    solve time for the three that stamp before their solves."""
+    m = re.search(r"Dates are the UTC timestamps the files carry\. Most runners stamp a "
+                  r"file when it is finished, so a job can have started the day before "
+                  r"its row's first date\. Result 5's frontier sweeps, the §5\.2 grid and "
+                  r"§6's check stamp theirs before the solves they time, so their end "
+                  r"dates add the solve times the files record\.", _flat(doc))
+    assert m, "section 5.3's date convention sentence has changed shape"
+    table = _p3a_table(doc)
+    g = lambda pattern, where=DATA: sorted(where.glob(pattern))
+    figures = [DATA / f"cost_scaling_{name}.json"
+               for name in ("spin_chain", "mixed_chain", "oscillator_bath")]
+    side = [p for p in g("cost_scaling_*.json") if p not in figures]
+    spin6 = [p for p in g("convergence_progress_*.json", BENCHMARKS)
+             if "meta" in json.loads(p.read_text(encoding="utf-8"))]
+    expected = {
+        "1": _p3a_span(*_p3a_end_stamped(g("accuracy_vs_M_*.json"))),
+        "2": (_p3a_span(*_p3a_end_stamped(figures)) + "; side run "
+              + _p3a_span(*_p3a_end_stamped(side))),
+        "3": _p3a_span(*_p3a_end_stamped(g("method_comparison_*.json"))),
+        "4": _p3a_span(*_p3a_end_stamped(g("isocost_vs_dim_*.json"))),
+        "5": (_p3a_span(*_p3a_end_stamped(g("extreme_dimension_*.json"))) + ", "
+              + _p3a_span(*_p3a_start_stamped(g("frontier_spins_*.json")))),
+        "Certified references": _p3a_span(*_p3a_end_stamped(
+            g("high_dim_reference_spin_chain_dim*.json"))),
+        "§5.2": _p3a_span(*_p3a_start_stamped(g("solver_timing_*.json"))),
+        "6": _p3a_span(*_p3a_start_stamped(spin6)),
+    }
+    for label, want in expected.items():
+        assert label in table, f"provenance table has no '{label}' row"
+        assert table[label][1] == want, (
+            f"row '{label}' prints '{table[label][1]}', the files give '{want}'")
+
+
+def test_section53_result2_row_separates_the_unplotted_side_run(doc):
+    """Result 2's figures read cost_scaling_<system>.json only (4 threads);
+    the 32-thread dim-1024 re-time is listed apart as not plotted."""
+    jobs = _p3a_table(doc)["2"][0]
+    m = re.fullmatch(r"([\d, ]+); (\d{8}) is a (\d+)-thread side run, not plotted", jobs)
+    assert m, f"Result 2's jobs cell has changed shape: {jobs!r}"
+    figure_jobs = set(re.findall(r"\d{8}", m.group(1)))
+    names = ("spin_chain", "mixed_chain", "oscillator_bath")
+    figures = [DATA / f"cost_scaling_{name}.json" for name in names]
+    assert figure_jobs == _p3a_jobs(figures)
+    assert 'load_data(f"cost_scaling_{name}.json")' in (
+        BENCHMARKS / "plot_cost_scaling.py").read_text(encoding="utf-8")
+    side = [p for p in sorted(DATA.glob("cost_scaling_*.json")) if p not in figures]
+    assert _p3a_jobs(side) == {m.group(2)}
+    for p in side:
+        threads = _p3a_json(p)["meta"]["execution"]["threads"]["OMP_NUM_THREADS"]
+        assert threads == m.group(3), p.name
+    for p in figures:
+        assert _p3a_json(p)["meta"]["execution"]["threads"]["OMP_NUM_THREADS"] != m.group(3)
+
+
+def test_section53_certified_reference_row_matches_its_files(doc):
+    """The certified-reference row: its job, its dims, and the Result 3 files
+    that reuse its archives."""
+    rows = _p3a_table(doc)
+    assert "Certified references" in rows
+    jobs, _ = rows["Certified references"]
+    m = re.search(r"\|\s*\*\*Certified references\*\*, System A dims (\d+)–(\d+) "
+                  r"\(`high_dim_reference_spin_chain_dim\*\.json`; Result 3 reuses "
+                  r"(\d+)–(\d+)\)\s*\|", doc)
+    assert m, "the certified-reference row label has changed shape"
+    lo, hi, rlo, rhi = map(int, m.groups())
+    paths = sorted(DATA.glob("high_dim_reference_spin_chain_dim*.json"))
+    dims = [_p3a_json(p)["meta"]["params"]["dimension"] for p in paths]
+    assert (min(dims), max(dims)) == (lo, hi)
+    assert _p3a_jobs(paths) == set(re.findall(r"\d{8}", jobs))
+    reused = sorted(
+        _p3a_json(p)["point"]["dim"]
+        for p in DATA.glob("method_comparison_spin_chain_dim*.json")
+        if _p3a_json(p)["point"]["reference"].get("reused_from_archive"))
+    assert (min(reused), max(reused)) == (rlo, rhi)
+
+
+# --- Part 3, unit U2: section 5.3's comparability, thread and record claims --
+#
+# Section 5.3 said every Result 3 figure was one allocation (two join two
+# jobs), that the 2.3x thread speed-up had "every other setting identical"
+# (the node differed), and that every file records its thread settings (three
+# do not). These tests pin the corrected sentences to meta.execution.
+
+def _p3b_load(name: str) -> dict:
+    path = DATA / name
+    if not path.exists():
+        pytest.skip(f"{path.name} not committed")
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def _p3b_job(document: dict) -> str:
+    return document["meta"]["execution"]["slurm"]["job_id"]
+
+
+def _p3b_host(document: dict) -> str:
+    return document["meta"]["execution"]["hostname"]
+
+
+def _p3b_threads(document: dict) -> int:
+    return int(document["meta"]["execution"]["threads"]["OMP_NUM_THREADS"])
+
+
+def _p3b_point(document: dict, dim: int) -> dict:
+    return next(p for p in document["points"] if p["dim"] == dim)
+
+
+def _p3b_ratio_near(printed: str, measured: float) -> bool:
+    """A printed '2.3' (a ratio, 'x' stripped) against the measured ratio."""
+    return abs(float(printed) - measured) <= _rounding_tolerance(printed) * (1 + 1e-9)
+
+
+def test_p3b_result4_is_one_allocation_on_one_grid(doc):
+    """Result 4's panels share a job, a thread count and a grid; the chains
+    hold 4 substeps and the oscillator steps up as section 5.3 says."""
+    text = _flat(doc)
+    m = re.search(r"all three of its panels come from job (\d{8}), at (\d+) threads, "
+                  r"on the (\d+)-point grid\. So its seconds compare across panels",
+                  text)
+    assert m, "section 5.3's Result 4 allocation sentence has changed shape"
+    job, threads, n = m.groups()
+    s = re.search(r"Both chains run at (\d+) substeps at every dimension\. The "
+                  r"oscillator runs at (\d+) up to dim (\d+), then (\d+) at dim "
+                  r"(\d+) and (\d+) at dim (\d+), as Result 4 notes\.", text)
+    assert s, "section 5.3's Result 4 substep sentence has changed shape"
+    chain_sub, low_sub, low_top, mid_sub, mid_dim, top_sub, top_dim = map(int, s.groups())
+    expected_osc = {mid_dim: mid_sub, top_dim: top_sub}
+    for system in ("spin_chain", "mixed_chain", "oscillator_bath"):
+        document = _p3b_load(f"isocost_vs_dim_{system}.json")
+        assert _p3b_job(document) == job, system
+        assert _p3b_threads(document) == int(threads), system
+        assert document["meta"]["tlist"]["n"] == int(n), system
+        for p in document["points"]:
+            if system != "oscillator_bath":
+                want = chain_sub
+            else:
+                want = low_sub if p["dim"] <= low_top else expected_osc[p["dim"]]
+            assert p["substeps"] == want, f"{system} dim {p['dim']}"
+
+
+def test_p3b_result3_cross_job_ratio_names_its_jobs(doc):
+    """Result 3's System A text compares across jobs three times: the 3.5x at
+    dim 1024 (mcsolve against section 5.2's exact solve), and at dim 2048 the
+    exact solve's and mcsolve's growth. Section 5.3 names every job and node."""
+    m = re.search(
+        r"The ([\d.]+)x at dim (\d+) sets `mcsolve` \((\d+) trajectories, job "
+        r"(\d{8}) on (\w+)\) against §5\.2's (\d+)-substep exact solve \(job "
+        r"(\d{8}) on (\w+)\)\. At dim (\d+) the exact solve's rise from ([\d,]+) s "
+        r"to ([\d,]+) s \(([\d.]+)x\) sets that same job \d{8} against job (\d{8}) "
+        r"on (\w+), and `mcsolve`'s per-trajectory rise from (\d+) s to (\d+) s "
+        r"\(([\d.]+)x\) sets job \d{8} against \d{8}, both on \w+\. All ran at "
+        r"(\d+) threads on the (\d+)-point grid\.", _flat(doc))
+    assert m, "section 5.3's cross-job Result 3 sentence has changed shape"
+    (ratio, dim, ntraj, mc_job, mc_host, sub, ex_job, ex_host, big, ex_lo, ex_hi,
+     ex_x, big_job, big_host, mc_lo, mc_hi, mc_x, threads, n) = m.groups()
+    big_doc = _p3b_load(f"method_comparison_spin_chain_dim{big}.json")
+    assert (_p3b_job(big_doc), _p3b_host(big_doc)) == (big_job, big_host)
+    assert _p3b_threads(big_doc) == int(threads)
+    assert big_doc["meta"]["tlist"]["n"] == int(n)
+    ref_hi = big_doc["point"]["reference"]["wall_s"]
+    big_mc = big_doc["point"]["methods"]["mcsolve"]
+    assert _near(ex_hi, ref_hi)
+    mc_doc = _p3b_load(f"method_comparison_spin_chain_dim{dim}.json")
+    timing = _p3b_load("solver_timing_spin_chain.json")
+    mc = mc_doc["point"]["methods"]["mcsolve"]
+    assert mc["ntraj"] == int(ntraj)
+    assert (_p3b_job(mc_doc), _p3b_host(mc_doc)) == (mc_job, mc_host)
+    assert (_p3b_job(timing), _p3b_host(timing)) == (ex_job, ex_host)
+    assert mc_job != ex_job and mc_host != ex_host
+    assert _p3b_threads(mc_doc) == _p3b_threads(timing) == int(threads)
+    assert mc_doc["meta"]["tlist"]["n"] == timing["meta"]["tlist"]["n"] == int(n)
+    exact = _p3b_point(timing, int(dim))
+    assert exact["native_substeps"] == int(sub)
+    assert _p3b_ratio_near(ratio, mc["wall_s"] / exact["timings"]["native"]["median_s"])
+    # dim 2048: exact 2,685 s (job ex_job) -> 17,426 s; mcsolve per trajectory
+    assert _near(ex_lo, exact["timings"]["native"]["median_s"])
+    assert _p3b_ratio_near(ex_x, ref_hi / exact["timings"]["native"]["median_s"])
+    per_lo, per_hi = mc["wall_s"] / mc["ntraj"], big_mc["wall_s"] / big_mc["ntraj"]
+    assert _near(mc_lo, per_lo) and _near(mc_hi, per_hi)
+    assert _p3b_ratio_near(mc_x, per_hi / per_lo)
+
+
+def test_p3b_result3_figures_join_the_jobs_section53_names(doc):
+    """System A's and C's Result 3 figures each join two jobs on one node;
+    the mixed chain's is one job; plot_method_comparison's guard sees it."""
+    pmc = pytest.importorskip("plot_method_comparison")
+    text = _flat(doc)
+    m = re.search(
+        r"System A's takes dims (\d+)–(\d+) from job (\d{8}) and dims (\d+) and "
+        r"(\d+) from job (\d{8})\. System C's takes dims (\d+)–(\d+) from (\d{8}) "
+        r"and dim (\d+) from (\d{8})\. Each pair ran on the same node, (\w+), at "
+        r"(\d+) threads", text)
+    assert m, "section 5.3's Result 3 figure-provenance sentence has changed shape"
+    (a_lo, a_hi, a_job1, a_d1, a_d2, a_job2, c_lo, c_hi, c_job1, c_dim, c_job2,
+     host, threads) = m.groups()
+    groups = {
+        "spin_chain": {**{d: a_job1 for d in pmc.discover_dims("spin_chain")
+                          if int(a_lo) <= d <= int(a_hi)},
+                       int(a_d1): a_job2, int(a_d2): a_job2},
+        "oscillator_bath": {**{d: c_job1 for d in pmc.discover_dims("oscillator_bath")
+                               if int(c_lo) <= d <= int(c_hi)},
+                            int(c_dim): c_job2},
+    }
+    for system, jobs in groups.items():
+        assert min(jobs) == int(a_lo if system == "spin_chain" else c_lo)
+        documents = {d: _p3b_load(f"method_comparison_{system}_dim{d}.json")
+                     for d in jobs}
+        for d, document in documents.items():
+            assert _p3b_job(document) == jobs[d], f"{system} dim {d}"
+            assert _p3b_host(document) == host, f"{system} dim {d}"
+            assert _p3b_threads(document) == int(threads), f"{system} dim {d}"
+        keys = {pmc.execution_key(document) for document in documents.values()}
+        assert len(keys) == 2, f"{system}: the guard should see two allocations"
+
+    s = re.search(r"System C's dim-(\d+) file also ran at (\d+) substeps, where "
+                  r"dims (\d+)–(\d+) ran at (\d+)\.", text)
+    assert s, "the oscillator substep clause has changed shape"
+    top, top_sub, lo, hi, low_sub = map(int, s.groups())
+    for d in pmc.discover_dims("oscillator_bath"):
+        document = _p3b_load(f"method_comparison_oscillator_bath_dim{d}.json")
+        if d == top:
+            assert document["meta"]["substeps"] == top_sub
+        elif lo <= d <= hi:
+            assert document["meta"]["substeps"] == low_sub, f"dim {d}"
+
+    b = re.search(r"The mixed chain's figure \(dims (\d+)–(\d+)\) is one job, (\d{8})\.",
+                  text)
+    assert b, "the mixed chain's one-job sentence has changed shape"
+    lo, hi, job = int(b.group(1)), int(b.group(2)), b.group(3)
+    dims = [d for d in pmc.discover_dims("mixed_chain") if lo <= d <= hi]
+    assert dims and min(dims) == lo and max(dims) == hi
+    for d in dims:
+        assert _p3b_job(_p3b_load(f"method_comparison_mixed_chain_dim{d}.json")) == job
+
+
+def test_p3b_thread_speedup_names_its_node_and_sample_confounds(doc):
+    """The 2.3x compares Result 2's 4-thread run with job 19603810's 32-thread
+    one: same grid and substeps, different node, one sample against three."""
+    text = _flat(doc)
+    m = re.search(
+        r"Job `(\d{8})` re-ran System A's exact solver and SLB at (\d+) and (\d+) "
+        r"spins with (\d+) threads, where the Result 2 data uses (\d+)\. At (\d+) "
+        r"spins both came out about ([\d.]+)x faster: ([\d.]+) s against ([\d.]+) s "
+        r"on the reference, and ([\d.]+) s against ([\d.]+) s on SLB "
+        r"\(\$M=(\d+)\$, one realization\)\. The (\d+)-point grid and the substeps "
+        r"match \((\d+) on the reference, (\d+) on SLB\)\. The node does not: "
+        r"(\d{8}) ran on (\w+) and Result 2's job (\d{8}) on (\w+)\. Job (\d{8}) "
+        r"also timed each solve once, where Result 2 takes the median of three\.",
+        text)
+    assert m, "section 5.3's thread-count paragraph has changed shape"
+    (job, s1, s2, t_new, t_old, size, ratio, ref_new, ref_old, slb_new, slb_old,
+     m_rep, n, ref_sub, slb_sub, job_again, host_new, job_old, host_old,
+     job_third) = m.groups()
+    assert job == job_again == job_third
+    new = _p3b_load("cost_scaling_spin_chain_dim1024.json")
+    old = _p3b_load("cost_scaling_spin_chain.json")
+    assert new["meta"]["params"]["sizes"] == [int(s1), int(s2)]
+    for document, j, host, threads in ((new, job, host_new, t_new),
+                                       (old, job_old, host_old, t_old)):
+        assert _p3b_job(document) == j
+        assert _p3b_host(document) == host
+        assert _p3b_threads(document) == int(threads)
+        assert document["meta"]["tlist"]["n"] == int(n)
+        assert document["meta"]["substeps"] == int(slb_sub)
+        assert document["meta"]["params"]["NATIVE_REF_SUBSTEPS"] == int(ref_sub)
+        assert document["meta"]["params"]["M_REP"] == int(m_rep)
+    assert host_new != host_old
+    dim = 2 ** int(size)
+    p_new, p_old = _p3b_point(new, dim), _p3b_point(old, dim)
+    assert _near(ref_new, p_new["t_native_ref"])
+    assert _near(ref_old, p_old["t_native_ref"])
+    assert _near(slb_new, p_new["t_slb_fixed"])
+    assert _near(slb_old, p_old["t_slb_fixed"])
+    assert _p3b_ratio_near(ratio, p_old["t_native_ref"] / p_new["t_native_ref"])
+    assert _p3b_ratio_near(ratio, p_old["t_slb_fixed"] / p_new["t_slb_fixed"])
+    assert len(p_new["t_native_ref_repeats"]) == len(p_new["t_slb_fixed_repeats"]) == 1
+    assert len(p_old["t_native_ref_repeats"]) == len(p_old["t_slb_fixed_repeats"]) == 3
+
+
+def test_p3b_thread_gain_varies_between_runs_and_systems(doc):
+    """A second 32-thread run of the same 9-spin solves, and the oscillator's
+    reference on one node at 4 and 32 threads."""
+    m = re.search(
+        r"§5\.2's job (\d{8}) timed the same two (\d+)-spin solves again, also at "
+        r"(\d+) threads on (\w+), once each: ([\d.]+) s and ([\d.]+) s\. That is "
+        r"([\d.]+)x and ([\d.]+)x faster than Result 2, not ([\d.]+)x\. On the "
+        r"oscillator the gain vanishes\. On (\w+) and the same (\d+)-point grid, its "
+        r"dimension-(\d+) reference at (\d+) substeps took ([\d.]+) s at (\d+) "
+        r"threads \(job (\d{8}), median of three\) and ([\d.]+) s at (\d+) \(job "
+        r"(\d{8}), one sample\)\.", _flat(doc))
+    assert m, "section 5.3's thread-variation paragraph has changed shape"
+    (job, size, threads, host, ref_s, slb_s, ref_x, slb_x, claimed, osc_host, n,
+     osc_dim, osc_sub, osc_old_s, osc_old_t, osc_old_job, osc_new_s, osc_new_t,
+     osc_new_job) = m.groups()
+    timing = _p3b_load("solver_timing_spin_chain.json")
+    assert _p3b_job(timing) == job and _p3b_host(timing) == host
+    assert _p3b_threads(timing) == int(threads)
+    assert timing["meta"]["params"]["repeats"] == 1
+    assert timing["meta"]["tlist"]["n"] == int(n)
+    dim = 2 ** int(size)
+    t = _p3b_point(timing, dim)
+    assert (t["native_substeps"], t["slb_substeps"]) == (8, 4)
+    assert _near(ref_s, t["timings"]["native"]["median_s"])
+    assert _near(slb_s, t["timings"]["slb"]["median_s"])
+    old = _p3b_point(_p3b_load("cost_scaling_spin_chain.json"), dim)
+    assert _p3b_ratio_near(ref_x, old["t_native_ref"] / t["timings"]["native"]["median_s"])
+    assert _p3b_ratio_near(slb_x, old["t_slb_fixed"] / t["timings"]["slb"]["median_s"])
+    # "not 2.3x": the thread-count paragraph's 4-to-32-thread speed-up
+    side = _p3b_point(_p3b_load("cost_scaling_spin_chain_dim1024.json"), dim)
+    assert _p3b_ratio_near(claimed, old["t_native_ref"] / side["t_native_ref"])
+
+    osc_old = _p3b_load("cost_scaling_oscillator_bath.json")
+    osc_new = _p3b_load("solver_timing_oscillator_bath.json")
+    assert _p3b_job(osc_old) == osc_old_job and _p3b_job(osc_new) == osc_new_job
+    assert _p3b_host(osc_old) == _p3b_host(osc_new) == osc_host
+    assert _p3b_threads(osc_old) == int(osc_old_t)
+    assert _p3b_threads(osc_new) == int(osc_new_t)
+    assert osc_old["meta"]["tlist"]["n"] == osc_new["meta"]["tlist"]["n"] == int(n)
+    assert osc_old["meta"]["params"]["NATIVE_REF_SUBSTEPS"] == int(osc_sub)
+    assert osc_new["meta"]["params"]["repeats"] == 1
+    p_old = _p3b_point(osc_old, int(osc_dim))
+    p_new = _p3b_point(osc_new, int(osc_dim))
+    assert len(p_old["t_native_ref_repeats"]) == 3
+    assert p_new["native_substeps"] == int(osc_sub)
+    assert _near(osc_old_s, p_old["t_native_ref"])
+    assert _near(osc_new_s, p_new["timings"]["native"]["median_s"])
+    assert float(osc_new_s) >= float(osc_old_s), "the 32-thread run is not faster"
+
+
+def test_p3b_result3_32_thread_points_ran_no_slb(doc):
+    """The Result 3 points section 5.3 calls 32-thread and SLB-free are exactly
+    those, each from a job of its own; every other point of those two sweeps
+    ran SLB at the stated threads."""
+    m = re.search(r"System A at dims (\d+) and (\d+) and System B at (\d+) ran no SLB, "
+                  r"so they quote no SLB ratio\. They also ran on (\d+) threads, where "
+                  r"the rest of their sweeps ran on (\d+) \(A\) or (\d+) \(B\)",
+                  _flat(doc))
+    assert m, "section 5.3's 32-thread-points sentence has changed shape"
+    a1, a2, b1, t_new, t_a, t_b = map(int, m.groups())
+    pmc = pytest.importorskip("plot_method_comparison")
+    for system, extra, rest in (("spin_chain", {a1, a2}, t_a),
+                                ("mixed_chain", {b1}, t_b)):
+        rest_jobs, extra_jobs = set(), set()
+        for d in pmc.discover_dims(system):
+            document = _p3b_load(f"method_comparison_{system}_dim{d}.json")
+            has_slb = "slb" in document["point"]["methods"]
+            if d in extra:
+                assert not has_slb and _p3b_threads(document) == t_new, f"{system} {d}"
+                extra_jobs.add(_p3b_job(document))
+            else:
+                assert has_slb and _p3b_threads(document) == rest, f"{system} {d}"
+                rest_jobs.add(_p3b_job(document))
+        # the guard would see them: none shares a job with the drawn points
+        assert not (extra_jobs & rest_jobs), system
+
+
+def test_p3b_every_current_data_file_records_its_execution_context(doc):
+    """Only the three named pre-0.6.4 frontier files lack meta.execution, and
+    only the named file has an empty threads block."""
+    text = _flat(doc)
+    m = re.search(r"except the three pre-0\.6\.4 oscillator frontier files named at the "
+                  r"top of this section\. No Result uses them\. An empty `threads` block "
+                  r"means no thread count was set\. One file has it, `([\w.]+)`", text)
+    assert m, "section 5.3's execution-record sentence has changed shape"
+    # The three files as the top of section 5.3 names them, with their date.
+    top = re.search(r"`frontier_oscillator_bath_dim(\d+)\.json`, `_dim(\d+)\.json` and "
+                    r"`_dim(\d+)\.json`, written on Jul (\d+) before 0\.6\.4", text)
+    assert top, "section 5.3's stale-file sentence has changed shape"
+    named = {f"frontier_oscillator_bath_dim{d}.json" for d in top.group(1, 2, 3)}
+    missing, empty = set(), set()
+    for path in sorted(DATA.glob("*.json")):
+        meta = json.loads(path.read_text(encoding="utf-8"))["meta"]
+        execution = meta.get("execution")
+        if execution is None:
+            missing.add(path.name)
+            # 0.6.4 shipped on 29 July; these ran before it
+            assert meta["timestamp"].startswith(f"2026-07-{int(top.group(4)):02d}"), path.name
+            continue
+        assert execution.get("hostname"), path.name
+        assert (execution.get("slurm") or {}).get("job_id"), path.name
+        assert "threads" in execution, path.name
+        if not execution["threads"]:
+            empty.add(path.name)
+    assert missing == named
+    assert empty == {m.group(1)}
+    # "no Result uses them": the document shows no frontier figure and names
+    # the oscillator frontier files only in this sentence
+    assert "benchmark_frontier_" not in doc
+    assert text.count("frontier_oscillator_bath") == 1
+
+
+# --- section 5.3: Result 2's re-timing ------------------------------------
+#
+# The re-timing passage called the 88,443 s reference and Result 3's 2,413 s
+# "the same quantity, 37x apart"; 2,413 s is Result 3's 4-substep solve, and
+# the same 8-substep solve is its 4,819 s reference, 18x apart. Its inflation
+# table said N_L 3-513 inflated 1.1-2.4x while System A's dims 256 and 512 were
+# 3.1x and 3.7x, and "1.03x or better at every headline point" held for the
+# exact side only. The superseded files live in git history, one commit before
+# the re-timing, so the before/after numbers are recomputed from there.
+
+_p3c_retime_commit = "014f92c"
+_p3c_letter = {"A": "spin_chain", "B": "mixed_chain", "C": "oscillator_bath"}
+
+
+def _p3c_superseded(system: str) -> dict:
+    """cost_scaling_<system>.json as committed just before the re-timing."""
+    import subprocess
+    spec = f"{_p3c_retime_commit}^:benchmarks/data/cost_scaling_{system}.json"
+    try:
+        out = subprocess.run(["git", "show", spec], cwd=BENCHMARKS.parent,
+                             capture_output=True, check=True, timeout=60)
+    except (OSError, subprocess.SubprocessError):
+        pytest.skip("git history with the pre-re-timing files is not available")
+    return json.loads(out.stdout.decode("utf-8"))
+
+
+def _p3c_current(system: str) -> dict:
+    path = DATA / f"cost_scaling_{system}.json"
+    if not path.exists():
+        pytest.skip(f"{path.name} not committed")
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def _p3c_pairs(system: str):
+    """(dim, old point, new point) wherever both files timed the exact solve."""
+    old = {p["dim"]: p for p in _p3c_superseded(system)["points"]}
+    return [(p["dim"], old[p["dim"]], p) for p in _p3c_current(system)["points"]
+            if p.get("t_native_ref") is not None
+            and old.get(p["dim"], {}).get("t_native_ref") is not None]
+
+
+def _p3c_spread(samples) -> float:
+    return max(samples) / min(samples)
+
+
+def test_section53_retiming_jobs_and_inflation_table_match_git_history(doc):
+    text = _flat(doc)
+    head = re.search(
+        r"Jobs (\d{8}), (\d{8}) and (\d{8}) re-timed all three systems on "
+        r"exclusive nodes, three samples per native-RK4 and SLB solve; `mesolve`, "
+        r"the reference up to dim 32, was timed once in both runs\. They replace "
+        r"the timings of the first runs \(jobs (\d{8}), (\d{8}) and (\d{8})\)\.", text)
+    assert head, "section 5.3's re-timing job sentence has changed shape"
+    systems = ("mixed_chain", "spin_chain", "oscillator_bath")
+    new_jobs = {str(_p3c_current(s)["meta"]["execution"]["slurm"]["job_id"])
+                for s in systems}
+    assert set(head.groups()[:3]) == new_jobs
+    old_jobs = {str(_p3c_superseded(s)["meta"]["execution"]["slurm"]["job_id"])
+                for s in systems}
+    assert set(head.groups()[3:]) == old_jobs
+    import merge_retimed
+    for s in systems:
+        old, new = _p3c_superseded(s), _p3c_current(s)
+        # "On the same grid and substeps"; "no thread variables"; three samples.
+        for key in ("tlist", "substeps"):
+            assert old["meta"][key] == new["meta"][key], (s, key)
+        assert (old["meta"]["params"]["NATIVE_REF_SUBSTEPS"]
+                == new["meta"]["params"]["NATIVE_REF_SUBSTEPS"])
+        assert not old["meta"]["execution"].get("threads"), s
+        assert all(len(p["t_native_ref_repeats"]) == 3 for _, _, p in _p3c_pairs(s))
+        # "All three files passed" merge_retimed's check.
+        assert merge_retimed.check(new, old) == [], s
+
+    table = re.search(r"^\| system \| dims \| inflation of the native RK4 solve \|\n"
+                      r"\|[-|]+\|\n((?:\|[^\n]*\|\n)+)", doc, re.M)
+    assert table, "section 5.3's inflation table has moved or changed its header"
+    rows = re.findall(r"^\|\s*([ABC])\s*\|\s*\**(\d+)(?:\s*–\s*(\d+))?\**\s*\|"
+                      r"\s*\**([\d.]+)(?:\s*–\s*([\d.]+))?×\**\s*\|$",
+                      table.group(1), re.M)
+    assert len(rows) == 5, f"section 5.3's inflation table has changed shape: {rows}"
+    for letter, lo, hi, f_lo, f_hi in rows:
+        system = _p3c_letter[letter]
+        hi = hi or lo
+        factors = {d: o["t_native_ref"] / n["t_native_ref"]
+                   for d, o, n in _p3c_pairs(system) if int(lo) <= d <= int(hi)}
+        assert int(lo) in factors and int(hi) in factors, (letter, lo, hi)
+        assert _near(f_lo, min(factors.values())), (letter, f_lo, factors)
+        assert _near(f_hi or f_lo, max(factors.values())), (letter, f_hi, factors)
+    covered = {(l, d) for l, lo, hi, _, _ in rows for d, _, _ in
+               _p3c_pairs(_p3c_letter[l]) if int(lo) <= d <= int(hi or lo)}
+    every = {(l, d) for l, s in _p3c_letter.items() for d, _, _ in _p3c_pairs(s)}
+    assert covered == every, f"points missing from the table: {every - covered}"
+
+
+def test_section53_headline_ratios_before_and_after_retiming(doc):
+    text = _flat(doc)
+    b = re.search(
+        r"On System B the certified exact solve \((\d+) substeps\) over one SLB "
+        r"solve \(\$M=(\d+)\$, (\d+) substeps\) falls from \$([\d{},]+)\\times\$ to "
+        r"\$([\d{},]+)\\times\$ at dim 128, and from \$(\d+)\\times\$ to "
+        r"\$(\d+)\\times\$ at dim 64\. SLB's own solves had been inflated less there "
+        r"\(\$([\d.]+)\\times\$ and \$([\d.]+)\\times\$\)\.", text)
+    assert b, "section 5.3's System B before/after sentence has changed shape"
+    meta = _p3c_current("mixed_chain")["meta"]
+    assert int(b.group(1)) == meta["params"]["NATIVE_REF_SUBSTEPS"]
+    assert int(b.group(2)) == meta["params"]["M_REP"]
+    assert int(b.group(3)) == meta["substeps"]
+    pairs = {d: (o, n) for d, o, n in _p3c_pairs("mixed_chain")}
+    for dim, before, after, slb in ((128, 4, 5, 8), (64, 6, 7, 9)):
+        o, n = pairs[dim]
+        assert _near(b.group(before), o["t_native_ref"] / o["t_slb_fixed"]), dim
+        assert _near(b.group(after), n["t_native_ref"] / n["t_slb_fixed"]), dim
+        assert _near(b.group(slb), o["t_slb_fixed"] / n["t_slb_fixed"]), dim
+        assert o["t_slb_fixed"] / n["t_slb_fixed"] < o["t_native_ref"] / n["t_native_ref"]
+
+    c = re.search(
+        r"On System C the dim-128 ratio \((\d+) substeps over one SLB solve at "
+        r"\$M=(\d+)\$, (\d+) substeps\) rises, \$(\d+)\\times\$ to \$(\d+)\\times\$, "
+        r"because its SLB solve had been inflated slightly more than its exact "
+        r"solve \(\$([\d.]+)\\times\$ against \$([\d.]+)\\times\$\)\.", text)
+    assert c, "section 5.3's System C before/after sentence has changed shape"
+    meta = _p3c_current("oscillator_bath")["meta"]
+    assert int(c.group(1)) == meta["params"]["NATIVE_REF_SUBSTEPS"]
+    assert int(c.group(2)) == meta["params"]["M_REP"]
+    assert int(c.group(3)) == meta["substeps"]
+    o, n = {d: (o, n) for d, o, n in _p3c_pairs("oscillator_bath")}[128]
+    assert _near(c.group(4), o["t_native_ref"] / o["t_slb_fixed"])
+    assert _near(c.group(5), n["t_native_ref"] / n["t_slb_fixed"])
+    slb, ref = o["t_slb_fixed"] / n["t_slb_fixed"], o["t_native_ref"] / n["t_native_ref"]
+    assert slb > ref
+    assert _near(c.group(6), slb) and _near(c.group(7), ref)
+
+
+def test_section53_result3_times_the_same_solve_on_a_shared_node(doc):
+    """88,443 s and 2,413 s were printed as 'the same quantity, 37x apart'.
+    The same solve in Result 3 is the 8-substep reference, 4,819 s: 18x."""
+    m = re.search(
+        r"Result 3 times the same System B solve \(dim (\d+), (\d+) substeps, the "
+        r"same (\d+)-point grid\) at ([\d,]+) s\. The old Result 2 file had "
+        r"([\d,]+) s, \$(\d+)\\times\$ more, and that mismatch is how the "
+        r"inflation was found\. Result 3's time is still \$([\d.]+)\\times\$ the "
+        r"re-measured ([\d,]+) s\. It ran in another job \((\d{8})\) on another "
+        r"node, and its script, `(slurm_[\w]+\.sh)`, does not ask for an "
+        r"exclusive node\.", _flat(doc))
+    assert m, "section 5.3's Result 3 comparison has changed shape"
+    dim, subs, grid, r3, old, gap, still, new, job, script = m.groups()
+    r3_doc = json.loads((DATA / f"method_comparison_mixed_chain_dim{dim}.json")
+                        .read_text(encoding="utf-8"))
+    r2_point = next(p for p in _p3c_current("mixed_chain")["points"]
+                    if p["dim"] == int(dim))
+    old_point = next(p for p in _p3c_superseded("mixed_chain")["points"]
+                     if p["dim"] == int(dim))
+    ref = r3_doc["point"]["reference"]
+    # The same solve: same method, grid, operator count and trajectory.
+    assert ref["method"] == r2_point["reference_method"] == f"native_rk4_substeps{subs}"
+    assert r3_doc["meta"]["tlist"] == _p3c_current("mixed_chain")["meta"]["tlist"]
+    assert r3_doc["meta"]["tlist"]["n"] == int(grid)
+    assert r3_doc["point"]["n_l"] == r2_point["n_l"]
+    assert np.allclose(ref["curves"]["energy"], r2_point["reference"], atol=1e-10)
+    assert _near(r3, ref["wall_s"]) and _near(old, old_point["t_native_ref"])
+    assert _near(gap, old_point["t_native_ref"] / ref["wall_s"])
+    assert _near(new, r2_point["t_native_ref"])
+    assert _near(still, ref["wall_s"] / r2_point["t_native_ref"])
+    execution = r3_doc["meta"]["execution"]
+    assert str(execution["slurm"]["job_id"]) == job
+    assert execution["hostname"] != _p3c_current("mixed_chain")["meta"]["execution"]["hostname"]
+    sbatch = (BENCHMARKS / script).read_text(encoding="utf-8")
+    assert f"--job-name={execution['slurm']['job_name']}" in sbatch
+    assert "--exclusive" not in sbatch
+
+
+def test_section53_timing_spread_paragraph_matches_the_repeats(doc):
+    """'1.03x or better at every headline point' held for the exact solves
+    only; System B's SLB samples spread 1.21x and 1.15x."""
+    m = re.search(
+        r"Each published native-RK4 and SLB time is the median of three samples; "
+        r"`mesolve`'s is one\. Across all points, "
+        r"the slowest of the three is ([\d.]+) to ([\d.]+) times the fastest\. "
+        r"At the three headline points \(System B at dims 64 and 128, System C at "
+        r"dim 128\) the exact solves agree to \$([\d.]+)\\times\$ or better\. The "
+        r"SLB solves agree to \$([\d.]+)\\times\$ on System C, but only to "
+        r"\$([\d.]+)\\times\$ and \$([\d.]+)\\times\$ on System B, where one SLB "
+        r"solve takes under (\d+) s\. Dividing the median exact solve by each SLB "
+        r"sample in turn gives \$(\d+)\\times\$ to \$(\d+)\\times\$ at dim 64 and "
+        r"\$([\d{},]+)\\times\$ to \$([\d{},]+)\\times\$ at dim 128, around the "
+        r"published \$(\d+)\\times\$ and \$([\d{},]+)\\times\$\.", _flat(doc))
+    assert m, "section 5.3's timing-spread paragraph has changed shape"
+    (lo, hi, ref_worst, c_slb, b64, b128, under,
+     r64a, r64b, r128a, r128b, pub64, pub128) = m.groups()
+
+    spreads = []
+    for s in _p3c_letter.values():
+        for p in _p3c_current(s)["points"]:
+            if p.get("t_native_ref") is None or p.get("t_slb_fixed") is None:
+                continue
+            for key, median in (("t_native_ref_repeats", "t_native_ref"),
+                                ("t_slb_fixed_repeats", "t_slb_fixed")):
+                assert len(p[key]) == 3 and float(np.median(p[key])) == p[median]
+                spreads.append(_p3c_spread(p[key]))
+    assert _near(lo, min(spreads)) and _near(hi, max(spreads))
+
+    b = {p["dim"]: p for p in _p3c_current("mixed_chain")["points"]}
+    c = {p["dim"]: p for p in _p3c_current("oscillator_bath")["points"]}
+    headline = (b[64], b[128], c[128])
+    worst = max(_p3c_spread(p["t_native_ref_repeats"]) for p in headline)
+    assert worst <= _printed(ref_worst) + _rounding_tolerance(ref_worst)
+    assert _near(c_slb, _p3c_spread(c[128]["t_slb_fixed_repeats"]))
+    assert _near(b64, _p3c_spread(b[64]["t_slb_fixed_repeats"]))
+    assert _near(b128, _p3c_spread(b[128]["t_slb_fixed_repeats"]))
+    assert max(b[64]["t_slb_fixed_repeats"] + b[128]["t_slb_fixed_repeats"]) < int(under)
+    for p, a, z, pub in ((b[64], r64a, r64b, pub64), (b[128], r128a, r128b, pub128)):
+        each = [p["t_native_ref"] / t for t in p["t_slb_fixed_repeats"]]
+        assert _near(a, min(each)) and _near(z, max(each)), (a, z, each)
+        assert _near(pub, p["t_native_ref"] / p["t_slb_fixed"])
+
+
+def test_section53_thread_probe_is_the_one_the_retiming_script_quotes(doc):
+    """The pinned/unpinned times live only in job 19599549's log; the text says
+    they are quoted in slurm_r2_retime.sh, and the probe's settings are in
+    slurm_thread_pinning_probe.sh. Pin both, and the hedged cause."""
+    m = re.search(
+        r"The cause was never pinned down\. The re-timing script, `(slurm_\w+\.sh)`, "
+        r"names other jobs on the same node as the most likely one, so each re-run "
+        r"took a whole node\. Thread settings were ruled out\. The first runs set "
+        r"none \(their files record no thread variables\), but job (\d{8}) timed "
+        r"System B at dim (\d+) both ways, back to back in one allocation: "
+        r"([\d.]+) s with (\d+) threads pinned, ([\d.]+) s unpinned\.", _flat(doc))
+    assert m, "section 5.3's thread-probe sentence has changed shape"
+    script, job, dim, pinned, threads, unpinned = m.groups()
+    retime = (BENCHMARKS / script).read_text(encoding="utf-8")
+    assert "#SBATCH --exclusive" in retime
+    assert "most likely" in retime and "node contention" in retime
+    assert f"Job {job}" in retime
+    assert f"{pinned} s against {unpinned} s" in re.sub(r"\s+", " ", retime)
+    probe = (BENCHMARKS / "slurm_thread_pinning_probe.sh").read_text(encoding="utf-8")
+    assert f"export OMP_NUM_THREADS={threads}" in probe
+    assert "for MODE in unpinned pinned" in probe
+    # --sizes 6 on the mixed chain is 6 spins: dim 2**6.
+    assert "--system mixed_chain --sizes 6" in probe and int(dim) == 2 ** 6
+    for s in _p3c_letter.values():
+        assert _p3c_current(s)["meta"]["execution"]["threads"], s
+
+
+# --- section 5.3: the code behind the data, and the old operator counts ----
+#
+# Section 5.3 said the Result 1 and Result 4 runners "are byte-identical" to
+# the cluster copies, in the present tense, long after both had changed. It
+# credited mcsolve with a 3.1x speed-up from two timings taken on different
+# machines and grids, and it quoted System A's old N_L = 113 without saying
+# which older construction produced it, while section 6 quotes counts from two
+# other ones. These pin the corrected sentences to the files and the code.
+
+def _p3d_text(doc: str) -> str:
+    """Section 5.3's bullets are indented, which _flat keeps; fold that too."""
+    return _flat_ws(_flat(doc))
+
+
+def _p3d_load(path: Path) -> dict:
+    if not path.exists():
+        pytest.skip(f"{path.name} not committed")
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def _p3d_date(text: str):
+    """'25 August 2026' -> date."""
+    import datetime
+    return datetime.datetime.strptime(text, "%d %B %Y").date()
+
+
+def _p3d_written(document: dict):
+    """The UTC date a data file was written, from its own metadata."""
+    import datetime
+    return datetime.datetime.fromisoformat(document["meta"]["timestamp"]).date()
+
+
+def test_section53_result4_runner_change_predates_its_files(doc):
+    """Result 4's runner changed once after the 25 August check (it began
+    recording s_repeats), and every committed Result 4 file was written by
+    that version: one job, after the change, s_repeats on every mcsolve row,
+    and the same settings the runner uses today."""
+    m = re.search(
+        r"So on (\d+ \w+ (\d{4})) the cluster's working copies were diffed against "
+        r"`main`: `run_accuracy_vs_M\.py` and `run_isocost_vs_dim\.py` were "
+        r"\*\*byte-identical\*\* to the published ones that day\. Both have changed "
+        r"since\. None of the changes can move a committed number: "
+        r"- \*\*Result 4\.\*\* `run_isocost_vs_dim\.py` changed once after the check, "
+        r"in commit (\w+) \((\d+ \w+)\)\. The change added dim 128 on the mixed chain "
+        r"and the oscillator, made the sweep cover every observable and stop on the "
+        r"worst one, and made it record `s_repeats`, the spread across `mcsolve` "
+        r"trajectories\. Job (\d+) wrote every Result 4 file between (\d+ \w+) and "
+        r"(\d+ \w+) \(the files' timestamps\), so the cluster copy already had the "
+        r"change: every `mcsolve` row in them carries `s_repeats`\.", _p3d_text(doc))
+    assert m, "section 5.3's runner check has changed shape"
+    checked, year, commit, changed, job, first, last = m.groups()
+    checked = _p3d_date(checked)
+    # The one commit to the runner after the check, and its date.
+    import subprocess
+    try:
+        out = subprocess.run(["git", "log", "--format=%h %ad", "--date=short",
+                              "--", "benchmarks/run_isocost_vs_dim.py"],
+                             cwd=BENCHMARKS.parent, capture_output=True, check=True,
+                             timeout=60).stdout.decode("utf-8").split("\n")
+    except (OSError, subprocess.SubprocessError):
+        pytest.skip("git history is not available")
+    import datetime
+    after = [line.split() for line in out if line.strip()
+             and datetime.date.fromisoformat(line.split()[1]) > checked]
+    assert [h for h, _ in after] == [commit], f"commits since the check: {after}"
+    assert datetime.date.fromisoformat(after[0][1]) == _p3d_date(f"{changed} {year}")
+    written = []
+
+    import run_isocost_vs_dim as R
+    rows = 0
+    for name, (_, points) in R.SYSTEMS.items():
+        document = _p3d_load(DATA / f"isocost_vs_dim_{name}.json")
+        meta = document["meta"]
+        assert meta["execution"]["slurm"]["job_id"] == job, name
+        written.append(_p3d_written(document))
+        params = meta["params"]
+        assert params["sizes"] == [size for size, _ in points], name
+        assert params["substeps_by_size"] == {str(s): ss for s, ss in points}, name
+        assert params["M_GRID"] == R.M_GRID and params["MC_FIT_GRID"] == R.MC_FIT_GRID
+        assert params["MC_REPEATS"] == R.MC_REPEATS and params["rng_sweep"] == R.RNG_SWEEP
+        for point in document["points"]:
+            for row in point["mc_fit"]:
+                assert len(row["s_repeats"]) == len(row["rmse_repeats"]), (
+                    f"{name} dim {point['dim']} ntraj {row['ntraj']}: no s_repeats")
+                rows += 1
+    assert rows > 0
+    assert (min(written), max(written)) == (_p3d_date(f"{first} {year}"),
+                                            _p3d_date(f"{last} {year}"))
+
+
+def test_section53_result1_files_match_the_runner_as_it_stands(doc):
+    """Every Result 1 file records the seed, M ladder, substeps, time grid and
+    realization count it ran with; each matches run_accuracy_vs_M.py today.
+    The old-layout files are exactly the 7 August job's, the files carrying
+    sweep_complete are exactly the jobs the sentence names, and every file
+    predates the cheaper reference check."""
+    m = re.search(
+        r"- \*\*Result 1\.\*\* All (\d+) files record the seed, \$M\$ ladder, "
+        r"substeps, time grid and realization count they ran with\. Each matches "
+        r"what `run_accuracy_vs_M\.py` uses for that size today\. The (\d+) files "
+        r"from (\d+ \w+) \(job (\d+)\) predate the check: an older version wrote "
+        r"them, one that recorded only energy and coherence\. .*?"
+        r"a `--realizations` option \(default still (\d+); any other count gets its "
+        r"own `_r<R>` file, like job (\d+)'s (\d+)-realization run\), a cap of (\d+) "
+        r"realizations on System A's (\d+)-spin size, and a save after every \$M\$\. "
+        r"Since (\d+ \w+) its reference check no longer repeats the reference solve "
+        r"\(([\d.]+) solves instead of ([\d.]+)\); every committed file is older\. "
+        r".*?Four files were run by the changed version and carry the "
+        r"`sweep_complete` field only it writes: jobs (\d+), (\d+), (\d+) and (\d+)\.",
+        _p3d_text(doc))
+    assert m, "section 5.3's Result 1 runner bullet has changed shape"
+    (q_files, q_old_n, q_old_day, q_old_job, q_default, q_side_job, q_side_r,
+     q_cap, q_cap_spins, q_since, q_new, q_old, *q_jobs) = m.groups()
+    checked = re.search(r"So on (\d+ \w+ (\d{4})) the cluster's working copies",
+                        _p3d_text(doc))
+    assert checked, "section 5.3 no longer dates the runner check"
+    year = checked.group(2)
+
+    import run_accuracy_vs_M as R1
+    assert int(q_default) == R1.DEFAULT_REALIZATIONS
+    assert R1.REALIZATION_CAPS == {("spin_chain", int(q_cap_spins)): int(q_cap)}
+    assert (float(q_new), float(q_old)) == (1.5, 2.5)
+    grid = {"t0": float(common.TLIST_FINE[0]), "t1": float(common.TLIST_FINE[-1]),
+            "n": len(common.TLIST_FINE)}
+
+    paths = sorted(DATA.glob("accuracy_vs_M_*_dim*.json"))
+    assert len(paths) == int(q_files), f"{len(paths)} Result 1 files, not {q_files}"
+    later, old_layout, newest = set(), [], None
+    for path in paths:
+        document = json.loads(path.read_text(encoding="utf-8"))
+        meta, params = document["meta"], document["meta"]["params"]
+        name, size = params["system"], params["size"]
+        ladder, substeps = {s: (lad, sub) for s, lad, sub in R1.SYSTEMS[name][1]}[size]
+        assert params["rng"] == R1.RNG, path.name
+        assert params["M_LADDER"] == ladder, path.name
+        assert document["substeps"] == substeps, path.name
+        assert {k: meta["tlist"][k] for k in grid} == grid, path.name
+        suffix = re.search(r"_r(\d+)$", path.stem)
+        realizations = int(suffix.group(1)) if suffix else R1.DEFAULT_REALIZATIONS
+        assert params["N_REALIZATIONS"] == realizations, path.name
+        job = meta["execution"]["slurm"]["job_id"]
+        if suffix:
+            assert (job, realizations) == (q_side_job, int(q_side_r)), path.name
+        if "sweep_complete" in document:
+            later.add(job)
+        if "observables" not in document:          # energy/coherence-only layout
+            old_layout.append((job, _p3d_written(document)))
+        written = _p3d_written(document)
+        newest = written if newest is None else max(newest, written)
+    assert later == set(q_jobs)
+    assert len(old_layout) == int(q_old_n)
+    assert {job for job, _ in old_layout} == {q_old_job}
+    assert {day for _, day in old_layout} == {_p3d_date(f"{q_old_day} {year}")}
+    assert _p3d_date(f"{q_old_day} {year}") < _p3d_date(checked.group(1))
+    assert newest < _p3d_date(f"{q_since} {year}"), "a file postdates the check change"
+    more = re.search(r"Jobs (\d+) \((\d+ \w+)\) and (\d+) \((\d+ \w+)\) also ran "
+                     r"before it, under versions that differ from the checked one "
+                     r"only by the sizes added in (\w+) and (\w+)\. So for those "
+                     r"(\d+) the recorded settings", _p3d_text(doc))
+    assert more, "section 5.3's pre-check job sentence has changed shape"
+    job_a, day_a, job_b, day_b, _c1, _c2, total = more.groups()
+    stamps = {}
+    for path in paths:
+        document = json.loads(path.read_text(encoding="utf-8"))
+        stamps.setdefault(document["meta"]["execution"]["slurm"]["job_id"], set()).add(
+            _p3d_written(document))
+    for job, day in ((job_a, day_a), (job_b, day_b)):
+        assert stamps[job] == {_p3d_date(f"{day} {year}")}, (job, stamps[job])
+        assert _p3d_date(f"{day} {year}") < _p3d_date(checked.group(1))
+    assert int(total) == int(q_old_n) + 2
+
+
+def test_section53_mcsolve_timings_at_the_two_counts_are_not_comparable(doc):
+    """The old and new mcsolve timings on the chain at dim 64 differ in machine,
+    time grid and code, not only in N_L; the sentence must say so, and every
+    fact it gives about the two files must hold."""
+    m = re.search(
+        r"on the chain at dim (\d+) the count fell \$([\d.]+)\\times\$, from (\d+) "
+        r"\((0\.6\.\d)'s count\) to (\d+)\. No run has timed `mcsolve` at both counts "
+        r"on one machine\. The timings at (\d+) \(`data/legacy/([\w.]+)`, (\d+) to "
+        r"(\d+) trajectories\) ran on a Windows machine on the (\d+)-point grid\. "
+        r"Result 3's at (\d+) \((\d+) trajectories, job (\d+)\) ran on `(\w+)` on the "
+        r"(\d+)-point grid\. Machine, grid and code version all differ, so the two "
+        r"cannot be compared\. .*?the old data allowed `M` up to (\d+), the corrected "
+        r"construction caps it at (\d+)\.", _p3d_text(doc))
+    assert m, "section 5.3's mcsolve paragraph has changed shape"
+    (dim, ratio, old, version, new, old2, legacy_name, lo, hi, old_grid, new2, ntraj,
+     job, host, new_grid, old3, new3) = m.groups()
+    assert old == old2 == old3 and new == new2 == new3
+
+    legacy = _p3d_load(DATA / "legacy" / legacy_name)
+    assert legacy["dim"] == int(dim) and legacy["n_l"] == int(old)
+    assert legacy["meta"]["qutip_bundling"] == version
+    assert legacy["meta"]["platform"].startswith("Windows")
+    assert "execution" not in legacy["meta"], "the legacy run has no Slurm record"
+    assert legacy["meta"]["tlist"]["n"] == int(old_grid)
+    counts = sorted(row["ntraj"] for row in legacy["mc"])
+    assert (counts[0], counts[-1]) == (int(lo), int(hi))
+
+    current = _p3d_load(DATA / f"method_comparison_spin_chain_dim{dim}.json")
+    point, meta = current["point"], current["meta"]
+    assert point["dim"] == int(dim) and point["n_l"] == int(new)
+    assert point["methods"]["mcsolve"]["ntraj"] == int(ntraj)
+    assert meta["execution"]["slurm"]["job_id"] == job
+    assert meta["execution"]["hostname"] == host
+    assert meta["qutip_bundling"] != version
+    assert meta["tlist"]["n"] == int(new_grid) != int(old_grid)
+    assert _near(ratio, int(old) / int(new))
+
+
+def test_section53_old_operator_counts_name_their_construction(doc, monkeypatch):
+    """Section 5.3's table of System A's operator counts under four
+    constructions: 0.6.4 recomputed through davies_operator_count, the
+    no-cutoff count through the same code with its roundoff floor set to zero,
+    and the 0.6.3 and 0.6.2 counts read from the files that recorded them."""
+    from qutip_bundling import operators
+
+    rows = {label: tuple(int(v) for v in values) for label, *values in re.findall(
+        r"^\| (0\.6\.4|0\.6\.3|0\.6\.2|no cutoff)[,:][^|]*\| (\d+) \| (\d+) \| (\d+) \|",
+        doc, re.M)}
+    assert set(rows) == {"0.6.4", "0.6.3", "0.6.2", "no cutoff"}, (
+        "section 5.3's operator-count table has changed shape")
+
+    def count(H, X):
+        return operators.davies_operator_count(
+            H, X, common.gamma, degeneracy_tol=common.DAVIES_DEGENERACY_TOL)
+
+    chains = [common.build_spin_chain(spins)[:2] for spins in (4, 5, 6)]
+    assert rows["0.6.4"] == tuple(count(H, X) for H, X in chains)
+    monkeypatch.setattr(operators, "_coupling_roundoff_floor", lambda X_eig: 0.0)
+    assert rows["no cutoff"] == tuple(count(H, X) for H, X in chains)
+
+    for dim, n_l in zip((16, 32, 64), rows["0.6.3"]):
+        legacy = _p3d_load(DATA / "legacy" / f"accuracy_vs_M_spin_chain_dim{dim}.json")
+        assert legacy["meta"]["qutip_bundling"] == "0.6.3"
+        assert legacy["meta"]["davies"]["construction"] == "grouped_frequency_sectors"
+        assert "coupling_block_floor" not in legacy["meta"]["davies"]
+        assert (legacy["dim"], legacy["n_l"]) == (dim, n_l)
+
+    for suffix, dim, n_l in zip(("", "_dim32", "_dim64"), (16, 32, 64), rows["0.6.2"]):
+        old = _p3d_load(BENCHMARKS / f"convergence_progress_spin_chain{suffix}.json")
+        assert "meta" not in old, "the pre-0.6.3 files carry no provenance block"
+        assert (old["dim"], old["n_l"]) == (dim, n_l)
+
+
+def test_section53_mesolve_retiming_is_its_largest_single_sample_move(doc):
+    """mesolve was timed once in both runs, so the inflation table leaves it
+    out; the sentence quotes its largest move, old over new t_full, over every
+    system and dimension both files timed."""
+    m = re.search(r"`mesolve`, timed once each time, moved more at small sizes: up "
+                  r"to ([\d.]+)x on System ([ABC]) at dim (\d+) \(([\d.]+) s to "
+                  r"([\d.]+) s\)\.", _flat(doc))
+    assert m, "section 5.3's mesolve re-timing sentence has changed shape"
+    q_ratio, q_letter, q_dim, q_old, q_new = m.groups()
+    moves = []
+    for letter, system in _p3c_letter.items():
+        old = {p["dim"]: p for p in _p3c_superseded(system)["points"]}
+        for point in _p3c_current(system)["points"]:
+            before = old.get(point["dim"], {}).get("t_full")
+            after = point.get("t_full")
+            if before and after and math.isfinite(before) and math.isfinite(after):
+                moves.append((before / after, letter, point["dim"], before, after))
+    ratio, letter, dim, before, after = max(moves)
+    assert (letter, dim) == (q_letter, int(q_dim)), (letter, dim)
+    assert _near(q_ratio, ratio) and _near(q_old, before) and _near(q_new, after)
+

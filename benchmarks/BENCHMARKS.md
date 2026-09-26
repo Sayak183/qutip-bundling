@@ -1124,7 +1124,8 @@ the fixed 500-trajectory budget for `mcsolve` and the exact solvers.
 >    64 and 4,819 s against 2,413 s at dim 128, 2.0x each), so at matched
 >    substeps the gap is about $175\times$ and $507\times$. Those wall-clocks were re-measured on
 >    exclusive nodes in August 2026; §5.3 records what the earlier numbers were
->    and why they were wrong.
+>    and how far to trust the new ones (the cause of the slowdown was never
+>    pinned down).
 > 3. **Result 3 — the four-method comparison:** across three systems and six
 >    observables, SLB, `mcsolve`, and the exact solvers are compared
 >    head-to-head at dim 64. On error at a fixed budget (SLB at $M=16$ with 16
@@ -1472,86 +1473,161 @@ since been run at 500: **2.6 h** (job 19606788) and **3.8 days** (job
 
 ### 5.3 Provenance
 
-**Results 1 through 5 run on data regenerated under 0.6.4**, so every operator count
-matches the shipped code, and every file records `degeneracy_tol = 1e-10`, the
-shipped default. Section 6's spin-chain jackknife check was re-run under 0.6.4 at dims 128–512 (job 19609868); its oscillator panels and its seed and substep figures are preserved from the original pre-0.6.4 runs, as §6 notes. Job IDs, read from the committed files rather than from
-memory:
+**Results 1 through 5 run on data regenerated under 0.6.4**, so every operator
+count matches the shipped code, and every file those Results read records
+`degeneracy_tol = 1e-10`, the shipped default. Three older files still sit in
+`data/` and must not be quoted: `frontier_oscillator_bath_dim16.json`,
+`_dim32.json` and `_dim64.json`, written on Jul 18 before 0.6.4. They record
+no tolerance, package version or job, and at dims 32 and 64 they hold 478 and
+1,172 operators where the shipped code builds 408 and 890. No Result reads
+them; only the superseded `plot_frontier.py` and the CSV export do.
+
+Section 6's spin-chain jackknife check was re-run under 0.6.4 at dims 128–512
+(job 19609868). Its oscillator panels and its seed and substep figures are
+preserved from the original pre-0.6.4 runs, as §6 notes.
+
+Job IDs and dates below are read from the committed files. Dates are the UTC
+timestamps the files carry. Most runners stamp a file when it is finished, so
+a job can have started the day before its row's first date. Result 5's
+frontier sweeps, the §5.2 grid and §6's check stamp theirs before the solves
+they time, so their end dates add the solve times the files record.
 
 | Result | Slurm jobs | dates |
 |---|---|---|
 | **1** accuracy vs `M` | 19585257, 19592647, 19597390, 19598577, 19598578, 19604740, 19604858, 19604940, 19605304 | Aug 7 – Sep 18 |
-| **2** cost scaling | 19599550, 19599671, 19599672, 19603810 | Aug 29 – Sep 6 |
+| **2** cost scaling | 19599550, 19599671, 19599672; 19603810 is a 32-thread side run, not plotted | Aug 29; side run Sep 6 |
 | **3** method comparison | 19559720, 19559854, 19559945, 19594145, 19606788, 19607136, 19607138 | Aug 1 – Sep 17 |
-| **4** iso-accuracy cost | 19599793 | Aug 30 – Sep 1 |
-| **5** past the reference wall | 19592848, 19603729, 19603731, 19603809 | Aug 18, Sep 5 – 7 |
-| **Certified References** | 19559570 | Aug 1 – 2 |
+| **4** iso-accuracy cost | 19599793 | Aug 30 – Sep 2 |
+| **5** past the reference wall | 19592848, 19603729, 19603731, 19603809 | Aug 18, Sep 4 – 7 |
+| **Certified references**, System A dims 4–1024 (`high_dim_reference_spin_chain_dim*.json`; Result 3 reuses 256–1024) | 19559570 | Jul 31 |
 | **§5.2** four-solver timing grid | 19604462, 19604735, 19604736 | Sep 7 – 8 |
 | **6** jackknife rate check, spin chain | 19609868 | Sep 16 – 18 |
 
-Result 4 spent a while split across three allocations, while the mixed chain
-and the oscillator were extended to dimension 128 one job at a time, and its
-absolute wall-clocks were comparable only within each panel. Job 19599793 re-ran
-all three systems together on one exclusive node, so that caveat has lifted and
-the panels are again comparable across systems. Other Results still span several
-jobs, which is safe because their claims are about *slopes* and *ratios* rather
-than absolute seconds — none of them require one machine.
+**Which wall-clocks can be compared.** Seconds compare only within one Slurm
+allocation: one job on one node at one thread count, and then only at equal RK4
+step counts. Result 4 is one allocation: all three of its panels come from job
+19599793, at 4 threads, on the 80-point grid. So its seconds compare across
+panels as well as within them. Both chains run at 4 substeps at every
+dimension. The oscillator runs at 4 up to dim 32, then 16 at dim 64 and 32 at
+dim 128, as Result 4 notes.
 
-Results 1 and 3 each carry points from an older job alongside newer ones, which
-is safe for the same reason: Result 1 compares the exponent of $M$ at each
-dimension separately, and Result 3's wall-clock comparisons are checked by
-`plot_method_comparison.py`, which refuses to draw a cost axis across
-allocations unless forced.
+Results 1 to 3 span several jobs, so they compare seconds inside one job, with
+the exceptions named here. Result 1's claims are about error against $M$; the
+times in its figure captions come from one file each. Result 2 fits each
+system's slopes from one file, so from one job. Result 3's SLB-to-`mcsolve`
+ratios pair solves from one file at each dimension. Its text on System A at
+dims 1024 and 2048 does compare across jobs, three times. The 3.5x at dim
+1024 sets `mcsolve` (500 trajectories, job 19606788 on landau42) against §5.2's
+8-substep exact solve (job 19604735 on landau44). At dim 2048 the exact
+solve's rise from 2,685 s to 17,426 s (6.5x) sets that same job 19604735
+against job 19607136 on landau42, and `mcsolve`'s per-trajectory rise from
+19 s to 88 s (4.7x) sets job 19606788 against 19607136, both on landau42. All
+ran at 32 threads on the 40-point grid.
 
-**Result 2's wall-clocks were re-measured, and the first set was wrong.** An
-outside reviewer noticed that the mixed chain's dimension-128 exact solve
-appears as 88,443 s in Result 2 and 2,413 s in Result 3 — the same quantity, 37×
-apart, in one document. That was worth taking seriously and it turned out to be
-real.
+Two of Result 3's figures also join two jobs. System A's takes dims 4–128 from
+job 19559720 and dims 256 and 512 from job 19559854. System C's takes dims 8–64
+from 19559720 and dim 128 from 19559945. Each pair ran on the same node,
+landau44, at 8 threads, but as separate jobs, so a cost read *across
+dimensions* in those two figures crosses allocations. System C's dim-128 file
+also ran at 32 substeps, where dims 8–64 ran at 16. The mixed chain's figure
+(dims 4–128) is one job, 19594145. `plot_method_comparison.py` refuses to draw
+a figure whose files come from more than one host or job unless it is given
+`--allow-mixed-jobs`, so redrawing A or C needs that flag.
 
-The first hypothesis was thread pinning: all three original `cost_scaling` runs
-had `OMP_NUM_THREADS` unset while the mixed-chain `method_comparison` runs up
-to dim 128 (job 19594145), the ones being compared, pinned it to 4.
-Job 19599549 tested it directly, running both configurations back to back in one
-allocation on one node, and **disproved it** — 204.9 s pinned against 206.2 s
-unpinned. The cause was node sharing, not threading.
+**Result 2's wall-clocks are the re-measured ones; the first set ran slow.**
+Jobs 19599550, 19599671 and 19599672 re-timed all three systems on exclusive
+nodes, three samples per native-RK4 and SLB solve; `mesolve`, the reference up
+to dim 32, was timed once in both runs. They replace the timings of the first
+runs (jobs 19591128, 19592644 and 19592645). On the same grid and substeps,
+those first native RK4 solves took this many times longer than the new
+medians:
 
-Re-run on `--exclusive` nodes with three timing samples per point (jobs
-19599550, 19599671 and 19599672, superseding the timings from the original
-19591128, 19592644 and 19592645), the inflation tracks the size of the operator
-list almost perfectly:
+| system | dims | inflation of the native RK4 solve |
+|---|---|---|
+| A | 4 – 512 | 1.2 – 3.7× |
+| B | 4 – 32 | 1.1 – 2.3× |
+| B | 64 | 5.6× |
+| B | **128** | **27.2×** |
+| C | 8 – 128 | 1.4 – 2.0× |
 
-| `N_L` | inflation of the exact reference |
-|---|---|
-| 3 – 513 | 1.1 – 2.4× |
-| 890 – 1,686 | 1.4 – 2.0× |
-| 2,017 | 5.6× |
-| **8,193** | **27.2×** |
+`mesolve`, timed once each time, moved more at small sizes: up to 47.9x on
+System B at dim 8 (2.54 s to 0.053 s).
 
-The heaviest solve in the document was hit hardest, and it is the one carrying
-the headline. The mixed chain's widest gap falls from $2{,}263\times$ to
-$1{,}013\times$, and dim 64 from $577\times$ to $353\times$. The oscillator's
-ratios barely move and two of them *rise* (dim 128, $303\times$ to $327\times$),
-because both sides of its ratio were inflated about equally. All of these
-ratios run the exact solve at twice SLB's substeps (§5.1); at matched substeps
-each gap is about half as wide.
+The cause was never pinned down. The re-timing script, `slurm_r2_retime.sh`,
+names other jobs on the same node as the most likely one, so each re-run took a
+whole node. Thread settings were ruled out. The first runs set none (their files
+record no thread variables), but job 19599549 timed System B at dim 64 both
+ways, back to back in one allocation: 204.9 s with 4 threads pinned, 206.2 s
+unpinned. Those two numbers come from that job's log, as quoted in the same
+script; no data file keeps them.
 
-**What did not change is the reason to believe any of it.** Every RMSE in every
-sweep reproduced to the last printed digit — the accuracy results are
-deterministic at fixed seed and were never in question. `merge_retimed.py`
-checks exactly that before allowing a merge: same settings, same dimensions,
-same operator counts, same RMSE at every bundle size. All three files passed.
+The worst-hit native solve carries the headline. On System B the certified exact solve
+(8 substeps) over one SLB solve ($M=8$, 4 substeps) falls from $2{,}263\times$
+to $1{,}013\times$ at dim 128, and from $577\times$ to $353\times$ at dim 64.
+SLB's own solves had been inflated less there ($12.2\times$ and $3.4\times$).
+On System C the dim-128 ratio (64 substeps over one SLB solve at $M=8$, 32
+substeps) rises, $303\times$ to $327\times$, because its SLB solve had been
+inflated slightly more than its exact solve ($2.1\times$ against $2.0\times$).
+All of these ratios run the exact solve at twice SLB's substeps (§5.1); at
+matched substeps each gap is about half as wide.
 
-Three samples per point now agree to **1.00–1.31×**, and to 1.03× or better at
-every point carrying a quoted headline. So these wall-clocks are
-reproducible to a few percent on a node the job does not share — the original
-numbers were not noisy, they were inflated, and by a diagnosable amount.
+Result 3 times the same System B solve (dim 128, 8 substeps, the same 40-point
+grid) at 4,819 s. The old Result 2 file had 88,443 s, $18\times$ more, and that
+mismatch is how the inflation was found. Result 3's time is still $1.5\times$
+the re-measured 3,249 s. It ran in another job (19594145) on another node, and
+its script, `slurm_r3_mixed_extendM.sh`, does not ask for an exclusive node. So
+compare Result 3's seconds only within its own job.
+
+**The accuracy numbers did not change.** Every RMSE in every sweep reproduced
+to the last printed digit — the accuracy results are deterministic at fixed
+seed and were never in question. `merge_retimed.py` checks exactly that before
+allowing a merge: same settings, same dimensions, same operator counts, same
+RMSE at every bundle size. All three files passed.
+
+**How far to trust the new seconds.** Each published native-RK4 and SLB time
+is the median of three samples; `mesolve`'s is one. Across all points, the slowest of the three is 1.00 to 1.31
+times the fastest. At the three headline points (System B at dims 64 and 128,
+System C at dim 128) the exact solves agree to $1.03\times$ or better. The
+SLB solves agree to $1.02\times$ on System C, but only to $1.21\times$ and
+$1.15\times$ on System B, where one SLB solve takes under 4 s. Dividing the
+median exact solve by each SLB sample in turn gives $346\times$ to $420\times$
+at dim 64 and $892\times$ to $1{,}029\times$ at dim 128, around the published
+$353\times$ and $1{,}013\times$. So those two ratios hold to the SLB spread,
+not to a few percent.
 
 **The code that produced the data.** Every file records the package version it
 ran under, but that number is written by the running process about itself — it
 cannot show that the cluster checkout matched what this repository publishes.
-Checked directly instead, by diffing the cluster's working copies against
-`main`: `run_accuracy_vs_M.py` and `run_isocost_vs_dim.py` are **byte-identical**,
-so every Result 1 and Result 4 number came from the published runner.
+So on 25 August 2026 the cluster's working copies were diffed against `main`:
+`run_accuracy_vs_M.py` and `run_isocost_vs_dim.py` were **byte-identical** to
+the published ones that day. Both have changed since. None of the changes
+can move a committed number:
+
+- **Result 4.** `run_isocost_vs_dim.py` changed once after the check, in
+  commit 35f4554 (2 September). The change added dim 128 on the mixed chain
+  and the oscillator, made the sweep cover every observable and stop on the
+  worst one, and made it record `s_repeats`, the spread across `mcsolve`
+  trajectories. Job 19599793 wrote every Result 4 file between 30 August and
+  2 September (the files' timestamps), so the cluster copy already had the
+  change: every `mcsolve` row in them carries `s_repeats`. The runner has not
+  changed since.
+- **Result 1.** All 17 files record the seed, $M$ ladder, substeps, time grid
+  and realization count they ran with. Each matches what
+  `run_accuracy_vs_M.py` uses for that size today. The 9 files from 7 August
+  (job 19585257) predate the check: an older version wrote them, one that
+  recorded only energy and coherence. Jobs 19592647 (17 August) and 19597390
+  (24 August) also ran before it, under versions that differ from the checked
+  one only by the sizes added in 519c974 and 5c7c5d2. So for those 11 the
+  recorded settings, not the diff, are the evidence. Since the check the runner has gained
+  more sizes, a `--realizations` option (default still 200; any other count
+  gets its own `_r<R>` file, like job 19604940's 800-realization run), a cap
+  of 16 realizations on System A's 11-spin size, and a save after every $M$.
+  Since 23 September its reference check no longer repeats the reference
+  solve (1.5 solves instead of 2.5); every committed file is older. None of
+  these changes the settings above or how a sample is computed. Four files
+  were run by the changed version and carry the `sweep_complete` field only
+  it writes: jobs 19604740, 19604858, 19604940 and 19605304.
+
 `run_extreme_dimension.py` sat one commit behind when checked, at the revision
 immediately preceding the sector-resolved correction — and that correction is
 applied when the figure is drawn, by `sector_resolved_energy()` in
@@ -1569,43 +1645,72 @@ method.** The 0.6.4 floor removed operators contributing $10^{-24}$ relative or
 less, so the dissipator is unchanged to double precision and every *accuracy*
 conclusion from the older data survived. The *cost* comparisons did not:
 
-> **Removing the spurious operators made `mcsolve` faster.** Its cost scales
-> with `N_L`, since every jump evaluates all `N_L` jump probabilities. On the
-> chain at dim 64 that is 0.174 s per trajectory at the old `N_L=113` against
-> 0.056 s at the corrected 31 — a 3.1x speed-up, tracking the 3.6x drop in
-> operator count. Bundling also lost headroom, since `M` can never exceed
-> `N_L`: the old data allowed `M` up to 113, the corrected construction caps it
-> at 31.
+> **Removing the spurious operators should make each `mcsolve` jump cheaper,
+> but by how much was never measured.** Every jump evaluates all `N_L` jump
+> probabilities, and on the chain at dim 64 the count fell $3.6\times$, from
+> 113 (0.6.3's count) to 31. No run has timed `mcsolve` at both counts on one
+> machine. The timings at 113 (`data/legacy/frontier_spin_chain_dim64.json`,
+> 10 to 200 trajectories) ran on a Windows machine on the 80-point grid.
+> Result 3's at 31 (500 trajectories, job 19559720) ran on `landau44` on the
+> 40-point grid. Machine, grid and code version all differ, so the two cannot
+> be compared. Bundling also lost headroom, since `M` can never exceed
+> `N_L`: the old data allowed `M` up to 113, the corrected construction caps
+> it at 31.
 
 The pre-0.6.4 inputs are kept under `data/legacy/` rather than deleted, so the
 older figures remain reproducible and the difference is auditable.
 
-**Thread count is part of the measurement.** Job `19603810` re-measured System
-A's exact solver and SLB at 9 and 10 spins with 32 threads, where the Result 2
-data uses 4. Its 9-spin figures come out **2.3x faster for that reason alone** —
-331.7 s against 765.7 s on the reference, 26.2 s against 59.0 s on SLB, both
-moving by the same factor, with substeps, node exclusivity and every other
-setting identical. **Never compare a wall-clock across the two.** Each file
-records `meta.execution.threads`, so the check is always available. That run is
-kept as `cost_scaling_spin_chain_dim1024.json`, a name `plot_cost_scaling.py`
-cannot load, precisely so it cannot drift into Result 2's figures.
+This document quotes System A's operator count under four different
+constructions, so its numbers disagree. Every row was reproduced by running
+that version's code:
 
-It is worth reading the other way too: **8x the cores bought 2.3x the speed.**
-Core count is a weak lever here, and that is now measured rather than assumed.
+| construction | dim 16 | dim 32 | dim 64 | quoted in |
+|---|---|---|---|---|
+| 0.6.4, shipped: sectors, roundoff floor | 13 | 21 | 31 | every Result |
+| 0.6.3: sectors, fixed $10^{-14}$ cutoff | 15 | 41 | 113 | `data/legacy/`, this section |
+| 0.6.2: one operator per coupled eigenstate pair, same cutoff | 64 | 218 | 869 | §6, old convergence panels |
+| no cutoff: every nonzero block kept | 81 | 243 | 729 | §6's floor check (dim 16) |
 
-**Wall-clock comparability.** Times are comparable *within* a figure, where all
-methods ran in one Slurm allocation on one node, and in general **not between**
-figures. Result 4's three panels come from one exclusive Slurm allocation
-(19599793), so their absolute seconds are comparable across panels as well as
-within them. The speedup *ratios* were never at risk either way: at every
-dimension where both SLB and `mcsolve` ran, they ran in the same allocation.
-The Result 3 points that ran no SLB — System A at 1024 and 2048, System B at
-256 — quote no SLB ratio. They also ran on 32 threads where the rest of their
-sweeps ran on 8 (A) or 4 (B), so they are reported in text. The committed
-figures predate them, and redrawing must pass `--dims` to keep them off: the
-allocation guard checks host and job, not threads. Every data file records its hostname, job ID and thread
-settings for exactly this check — `plot_method_comparison.py` refuses to draw a
-cost axis across files that disagree unless forced.
+"Sectors" means transitions grouped by Bohr frequency. A fixed cutoff can
+give different counts on different machines, because LAPACK builds put
+roundoff in different places. That is why 0.6.4 replaced it with a floor
+that scales with the coupling operator.
+
+**Thread count is part of the measurement.** Job `19603810` re-ran System A's
+exact solver and SLB at 9 and 10 spins with 32 threads, where the Result 2 data
+uses 4. At 9 spins both came out about 2.3x faster: 331.7 s against 765.7 s on
+the reference, and 26.2 s against 59.0 s on SLB ($M=8$, one realization). The
+40-point grid and the substeps match (8 on the reference, 4 on SLB). The node
+does not: 19603810 ran on landau44 and Result 2's job 19599671 on landau42.
+Job 19603810 also timed each solve once, where Result 2 takes the median of
+three. So the 2.3x is threads and node together, not threads alone. **Never
+compare a wall-clock across the two.** That run is kept as
+`cost_scaling_spin_chain_dim1024.json`, a name `plot_cost_scaling.py` cannot
+load, precisely so it cannot drift into Result 2's figures.
+
+**The gain from more threads varies.** §5.2's job 19604735 timed the same two
+9-spin solves again, also at 32 threads on landau44, once each: 412.9 s and
+28.7 s. That is 1.9x and 2.1x faster than Result 2, not 2.3x. On the
+oscillator the gain vanishes. On landau41 and the same 40-point grid, its
+dimension-64 reference at 64 substeps took 544.7 s at 4 threads (job 19599672,
+median of three) and 571.9 s at 32 (job 19604462, one sample). Core count is a
+weak lever here.
+
+**Result 3's 32-thread points.** System A at dims 1024 and 2048 and System B at
+256 ran no SLB, so they quote no SLB ratio. They also ran on 32 threads, where
+the rest of their sweeps ran on 8 (A) or 4 (B), so they are reported in text
+only. The committed figures predate them, and a redraw must leave them out
+with `--dims`. For System B the guard would refuse the mix anyway, since dim 256
+is a separate job. For System A it cannot help: that figure already needs
+`--allow-mixed-jobs`, and the flag lets dims 1024 and 2048 in too.
+
+Every JSON file directly in `data/` records its host, Slurm job and thread
+settings in `meta.execution`, except the three pre-0.6.4 oscillator frontier
+files named at the top of this section. No Result uses them.
+An empty `threads` block means no thread count was set. One file has it,
+`accuracy_vs_M_spin_chain_dim128.json`, and Result 1 compares no times across
+files. Section 6's pre-0.6.4 `convergence_progress_*.json` files (spin chain
+dims 16–64 and every oscillator dim) record no `meta` at all.
 
 ### Result 1 — convergence dynamics versus the bundle size $M$
 
@@ -2689,6 +2794,8 @@ relative comparisons. A few notes:
   produced it — and re-styling or re-targeting a figure never requires
   re-running the benchmark. [`data/README.md`](data/README.md) lists the
   canonical filenames and separates them from superseded data.
-  `python export_csv.py` flattens every canonical data file into
-  Excel-friendly CSVs under `data/csv/`: the observable dynamics over time
-  with their std in tidy long format, plus the scalar summaries.
+  `python export_csv.py` flattens the canonical `accuracy_vs_M_*`,
+  `cost_scaling_*` and `isocost_vs_dim_*` files (not yet `method_comparison_*`)
+  into Excel-friendly CSVs under `data/csv/`: the observable dynamics over time
+  with their std in tidy long format, plus the scalar summaries. The committed
+  CSVs date from 29 July, before 0.6.4; re-run it before using them.
