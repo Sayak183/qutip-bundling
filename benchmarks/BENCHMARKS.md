@@ -33,9 +33,9 @@ Everything below is produced by self-contained scripts in this folder:
   whether its fixed-step integrator stayed stable at the chosen substep count,
   so an under-resolved reference is flagged rather than trusted.
 - `run_extreme_dimension.py` + `plot_extreme_dimension.py` — past the reference
-  wall as it stood when the run was made (Result 5), where the operator list no
-  longer fits in memory; the run is scored on convergence, trace preservation,
-  and the thermal limit, and has since been checked against two exact solves
+  wall as it stood when the run was made (Result 5). SLB never forms the 34 GB
+  operator list. The run is scored on convergence in $M$, trace preservation
+  and the long-time limit, and has since been checked against two exact solves
   at its size.
 
 `run_frontier.py` + `plot_frontier.py` produced an earlier version of Result 3
@@ -1148,11 +1148,11 @@ the fixed 500-trajectory budget for `mcsolve` and the exact solvers.
 >    never reaches the target at all.
 > 5. **Result 5 — past the reference wall:** System B at dimension 256, where
 >    the operator list alone would be 34 GB (31.9 GiB) and no exact solve
->    existed when it ran. Scored on convergence rate, trace preservation, and
->    the thermal limit
->    rather than against an exact answer — and checked since against two exact
->    solves made later, which its extrapolated energy matches to 8.6×10⁻⁴ —
->    0.14% of the energy's change over the run.
+>    existed when it ran. Scored on convergence in $M$, trace preservation and
+>    the long-time limit rather than against an exact answer. The long-time
+>    check finds a bias of 0.0174 from finite $M$, resolved at 10.3 s.e.m., so
+>    it is not a pass. Two exact solves made later match the run's extrapolated
+>    energy to 8.6×10⁻⁴, 0.14% of the energy's change over the run.
 
 ### Reference state and spectrum profiles
 
@@ -1196,7 +1196,8 @@ of one run, which is the whole difference between 3.4x and 54x. **Say which
 baseline** — Result 2's exact curve carries a deliberate 2x substep margin and
 its ratios are inflated by roughly that, while Result 3's native runs at SLB's
 own substeps and carries none. **Say measured or projected** — Result 4's
-`mcsolve` cost is a fit, not a run, and its caveats say where that fit is thin.
+`mcsolve` cost is a projection, not a run, and its caveats say where that
+projection is thin.
 
 **What one point on the cost axis means.** Every wall-clock here is the *total*
 for that method's whole ensemble, with its samples run one after another: all
@@ -2499,14 +2500,14 @@ can be.
 
 ### Result 4 — iso-accuracy cost versus dimension
 
-Results 2 and 3 each leave half a question: Result 2 scales cost with dimension against the *exact* solver, while Result 3 races SLB against `mcsolve` at a *single* dimension. Result 4 answers the combined question: **at each dimension, what does it cost each method to reach the exact same accuracy?**
+Result 2 scales cost with dimension against the exact solver. Result 3 compares SLB with `mcsolve` at a fixed 500 trajectories, one dimension at a time. Result 4 asks both questions at once: **at each dimension, what does each method cost to reach the same accuracy?**
 
-At every $N$, both methods are given the same target and asked for the cheapest configuration that achieves it:
-- **For SLB:** The smallest bundle count $M^\ast$ whose ensemble RMSE clears the target on **all six observables**.
-- **For `mcsolve`:** The trajectory count $N_{\rm traj}^\ast = (S/\text{target})^2$ required to reach the target on the hardest observable.
+At every $N$, both methods get the same target, and each is priced at the cheapest setting that meets it:
+- **For SLB:** the smallest bundle count $M^\ast$ on the ladder $1, 2, 4, \dots, 128$ (capped at $N_L$) at which the mean of 16 realizations (4 on System A) meets the target on **all six observables**. Its error is $\sqrt{\text{bias}^2 + \text{s.e.m.}^2}$. The cost is the time of those 16 (or 4) solves.
+- **For `mcsolve`:** a projection, not a full run. It needs $N_{\rm traj}^\ast = (S/\text{target})^2$ trajectories for the observable that needs the most, where $S$ is the spread across trajectories. $S$ is measured on 400 to 2,800 trajectories per size; the time budget allowed only 400 at dims 64 and 128 on B and C and at dim 512 on A. The cost is $N_{\rm traj}^\ast$ times the measured cost of one trajectory.
 
-> **The target is 3% of each observable's own dynamic span.**  
-> A single absolute tolerance cannot serve observables differing by 50,000x in scale (e.g. at oscillator dim 64, an absolute RMSE of 0.02 is 0.008% of $n^2$'s span but 374% of coherence). Scoring each observable against 3% of its own physical span establishes a fair, scale-invariant standard and guarantees that the entire quantum state is resolved.
+> **The target is 3% of each observable's own span** over the reference curve.  
+> One absolute tolerance cannot serve all six: their spans differ by up to 16,800x (System C, dim 128), where a tolerance of 0.02 is 0.0005% of $n^2$'s span but 8.7% of the coherence's. The relative target holds each of the six to the same standard. It certifies those six quantities, not the whole state.
 
 ![System A iso-cost](benchmark_isocost_vs_dim_spin_chain.png)
 ![System B iso-cost](benchmark_isocost_vs_dim_mixed_chain.png)
@@ -2514,82 +2515,80 @@ At every $N$, both methods are given the same target and asked for the cheapest 
 
 #### Summary of Iso-Accuracy Scaling
 
-| | `N_L` (to largest dim) | `M*` | binding observable | target met? | speedup at the largest dim |
+| | `N_L` (to largest dim) | `M*` | binding observable | target met? | SLB's speedup over projected `mcsolve` at the largest dim |
 |---|---|---|---|---|---|
-| **A** TFIM chain (to 512) | 3 → 73 | 3 → **73** = N_L | `coherence` | **never** | *not quotable* |
+| **A** TFIM chain (to 512) | 3 → 73 | 3 → **73** = N_L | `zz` → `energy` → `coherence` | **never** (4 realizations) | *not quotable* |
 | **B** mixed chain (to 128) | 7 → 8,193 | 4 → **64** | `energy` | everywhere | **394x** |
 | **C** oscillator (to 128) | 32 → 1,686 | 8 → **2** | `x_sx` | everywhere | **850x** |
 
-**Fitted scaling laws (where target is reached):**
+Each ratio is the projected `mcsolve` cost over the measured cost of 16 SLB realizations. At dim 128 `mcsolve` would need 976 trajectories on B and 632 on C. The step counts do not match: SLB takes 4 fixed RK4 substeps on B and 32 on C, while `mcsolve` steps adaptively.
+
+**At dim 128 the exact solve is also far cheaper than `mcsolve`.** Result 4 saves exact-solve times only up to dim 32 (QuTiP `mesolve`, the gray line). Its certified reference, native RK4 at twice SLB's substeps, runs at every size, but its time is not saved. Result 3 times native RK4 at dim 128 at SLB's substeps, in the same job as SLB, on a 40-point grid (half of Result 4's 80). Native RK4 takes 2,413 s on B and 3,991 s on C; 16 SLB realizations at Result 4's $M^\ast$ take 377 s ($M=64$) and 112 s ($M=2$). At matched substeps, SLB is 6.4x faster on B and 35.5x on C. In the B job `mcsolve` took 92,174 s for 500 trajectories, 38x the exact solve. So 394x and 850x are margins over the slowest of the three methods.
+
+**Fitted scaling laws (least squares over every size, all of which meet the target: dims 4–128 on B, 6 sizes; 8–128 on C, 5 sizes):**
 
 | System | SLB Cost Scaling | `mcsolve` Cost Scaling |
 |---|---|---|
 | **B** mixed chain | $N^{1.95}$ | $N^{2.52}$ |
 | **C** oscillator | $N^{2.23}$* | $N^{3.29}$ |
 
-*\* **Oscillator substep scaling:** The oscillator sweep increases RK4 substeps with dimension for numerical stability (4 up to dim 32, 16 at dim 64, 32 at dim 128). Substeps therefore grow $8\times$ across a $16\times$ span of $N$, adding $\log 8/\log 16 = 0.75$ to SLB's fitted exponent on its own; at uniform substeps the scaling would sit near $N^{1.48}$.*
+*\* **Oscillator substeps:** SLB's substeps rise with dimension for stability (4 up to dim 32, 16 at dim 64, 32 at dim 128). Fitted the same way, the substep count alone grows as $N^{0.80}$. Dividing SLB's cost by its substeps before fitting gives $N^{1.43}$.*
 
-> **Note on empirical scaling regimes:** The empirical exponents $N^{1.95}$ to $N^{2.23}$ measured over $N \in [4, 128]$ reflect sub-asymptotic chunking and interpreter overhead before crossing into the asymptotic $O(N^3)$ dense linear algebra regime at larger $N$. Unlike Result 2 (which held accuracy on energy alone against exact RK4), Result 4 enforces the 3% target simultaneously across all six observables against `mcsolve`.
+> **What sets these exponents.** On B, $M^\ast$ grows from 4 to 64 (a fit of $N^{0.69}$), and one run at a fixed $M$ grows as $N^{1.4}$ at $M \le 4$ (six sizes) and $N^{2.0}$ at $M=64$ (four sizes). On C, $M^\ast$ falls from 8 to 2, so SLB's exponent comes from the cost per run and the rising substeps. `mcsolve`'s cost per trajectory grows faster: $N^{2.67}$ on B and $N^{3.54}$ on C. These fits cover at most six sizes; do not extrapolate them. At fixed $M$, Result 5 measures one SLB run growing as $N^{2.6}$ on System A's chain at dims 512–2048.
 
 ---
 
 #### System-by-System Findings
 
 - **System A (Control — Zero Compression):**  
-  Swept from dimension 4 to 512, $M^\ast$ equals $N_L$ exactly at every size from 16 onward ($13/13, 21/21, 31/31, 43/43, 57/57, 73/73$). Even at $M^\ast = N_L$, the binding observable (`coherence`) still misses the 3% target by $1.10\times$ to $3.99\times$ due to residual bundling noise. Because the target is not achieved, no speedup is quoted. The control behaves as predicted: **when $N_L$ is small, there is nothing to compress, and exact methods should be used.**
+  Swept from dimension 4 to 512, $M$ reaches $N_L$ at every size ($3/3$ up to $73/73$), and the error still misses the 3% target by $1.10\times$ (dim 16) to $3.99\times$ (dim 512). The worst observable is `zz` at dims 4 to 16, `energy` at 32 and `coherence` from 64. Not all of the miss is noise from the 4 realizations used: at dims 4, 8, 32, 64 and 512, some observable's estimated bias alone is over its target, and more realizations do not shrink bias. At dims 16, 128 and 256 every observable's estimated bias is under its target, and there part of the miss is sampling noise. So no speedup is quoted. The control behaves as predicted: **when $N_L$ is small, there is nothing to compress, and exact methods should be used.**
 
 - **System B (Mixed chain — Compounding Advantage):**  
-  As $N_L$ explodes 1,170-fold ($7 \to 8,193$), $M^\ast$ grows only 16-fold ($4 \to 64$). The speedup over `mcsolve` widens from $24\times$ at dim 16 to **$394\times$ at dim 128**. SLB scales as $N^{1.95}$ against $N^{2.52}$ for `mcsolve` — roughly half a power of $N$ in hand, and the gap is still opening at the largest size measured. The binding observable is `energy` across all dimensions.
+  As $N_L$ grows 1,170-fold ($7 \to 8{,}193$), $M^\ast$ grows only 16-fold ($4 \to 64$). SLB (16 realizations) is $86\times$ cheaper than `mcsolve`'s projected cost at dim 4 and $23\times$ at dim 8, and the ratio then grows at every doubling, to **$394\times$ at dim 128**. Fitted over all six sizes, SLB's cost grows as $N^{1.95}$ and `mcsolve`'s as $N^{2.52}$. The small sizes flatten that fit: from dim 4 to 16, SLB's cost rises only 4.2-fold and `mcsolve`'s 1.2-fold. Fitted from dim 16 up (four points), the two grow as $N^{2.57}$ and $N^{3.95}$, about 1.4 powers of $N$ apart. The binding observable is `energy` at every size, for both methods.
 
 - **System C (Oscillator — Extreme Compression):**  
-  $M^\ast$ drops from $8 \to 2$ while $N_L$ climbs from $32 \to 1,686$, reaching a **$843\times$ compression ratio** ($M^\ast/N_L = 1/843$). Just 2 bundles achieve the precision `mcsolve` needs 632 trajectories for, yielding an **$850\times$ speedup** at dim 128. The binding observable is `x_sx` (spin-boson interaction) throughout.
+  $M^\ast$ drops from $8 \to 2$ while $N_L$ climbs from $32 \to 1{,}686$, a **$843\times$ compression ratio** ($M^\ast/N_L = 1/843$). At dim 128, 16 realizations at $M = 2$ take 224 s in all. `mcsolve` is projected to need 632 trajectories, or 52.9 h, to reach the same target: an **$850\times$ speedup**. SLB's binding observable is `x_sx` (spin-boson interaction) throughout.
 
 ---
 
 #### Methodological Notes & Caveats
 
 1. **`mcsolve` trajectory estimation — corrected, and the numbers came down.**  
-   $N_{\rm traj}^\ast = (S/\text{target})^2$ needs $S$, the per-trajectory standard deviation. Earlier data estimated it from the time-averaged RMSE, which combines the sample mean's own deviation with the s.e.m. — but `mcsolve` is unbiased, so those are one quantity counted twice. It inflated $S$ by 1.2 to 1.5 times and $N_{\rm traj}^\ast$ by 1.5 to 2.1 times. Job `19599793` re-ran all three systems with $S$ measured directly across trajectories, and the figures above use it. The headline speedups fell with it: $468\times \to 394\times$ on the mixed chain, $1{,}739\times \to 850\times$ on the oscillator.
-2. **Wall-clock comparability:**  
-   All three systems were re-run in a single exclusive Slurm allocation (`19599793`), so absolute wall-clock times are comparable *across* the three panels as well as within them, and the speedup ratios are exact. Note that `mcsolve`'s projected budget at dim 128 *rose* despite the $S$ correction — from ~35 h to 45.5 h — because the earlier timings were taken on a shared node. The correction and the honest timing push in opposite directions, and the timing wins.
+   $N_{\rm traj}^\ast = (S/\text{target})^2$ needs $S$, the per-trajectory standard deviation. Earlier data estimated it from the time-averaged RMSE, which combines the sample mean's own deviation with the s.e.m. — but `mcsolve` is unbiased, so those are one quantity counted twice. Applied to the committed data, that estimate makes $S$ 1.13 to 1.75 times too large, and $N_{\rm traj}^\ast$ 1.28 to 3.06 times. Job `19599793` re-ran all three systems with $S$ measured directly across trajectories, and the numbers in the tables and text above use it. The headline speedups fell: $468\times \to 394\times$ on the mixed chain, $1{,}739\times \to 850\times$ on the oscillator.
+2. **Wall-clock comparability, and what is projected:**  
+   All three systems ran in one exclusive Slurm allocation (`19599793`), so wall-clock times compare *across* the three panels as well as within them. The `mcsolve` projection defined above is thinnest at dims 64 and 128 on Systems B and C, and at 512 on System A: there only four repeats of 100 trajectories ran, and the 200- and 400-trajectory runs were skipped under a one-hour `mcsolve` budget per size. At dim 128 the projected trajectory counts are 2.4 (B) and 1.6 (C) times the 400 that ran. The scatter of $S$ across the four repeats gives the $394\times$ a standard error of about 5% and the $850\times$ one of about 39%.
 
-#### Target Sensitivity: 3% vs. 1% and Tighter Precision
+#### Target sensitivity: 3% against 1%
 
-The headline 3% target in Result 4 represents a standard, balanced physical threshold across all 6 observables simultaneously. Because SLB and `mcsolve` obey fundamentally different mathematical error scaling classes, **tightening the accuracy target widens SLB's advantage dramatically**:
+In the two columns below that reach both targets, tightening the target from 3% to 1% of each observable's span widens SLB's lead over projected `mcsolve`: 4.4 times on System B at dim 128 and 3.2 times on the oscillator at dim 64. That is not a rule. On the oscillator at dim 16 the lead shrinks, from 67x to 34x. The table rescores the committed sweeps with the same `derive_slb` and `derive_mc`:
 
-- **SLB (Linear Precision Scaling, $O(1/\epsilon)$):**  
-  Because SLB's systematic bias falls as $O(1/M)$, achieving a $3\times$ tighter tolerance (from 3% to 1%) only requires a $2\times$ to $3\times$ increase in bundle size $M$.
-- **`mcsolve` (Quadratic Precision Scaling, $O(1/\epsilon^2)$):**  
-  Because Monte Carlo sampling error scales as $O(1/\sqrt{N_{\rm traj}})$, achieving a $3\times$ tighter tolerance requires $3^2 = \mathbf{9\times\text{ more trajectories}}$ ($N_{\rm traj}^\ast \propto 1/\epsilon^2$).
+| target | System B, dim 128 | System C, dim 64 | System C, dim 128 |
+|---|---|---|---|
+| 3% | $M^\ast = 64$: 415 s against 45.5 h, **394x** | $M^\ast = 4$: 42 s against 3.7 h, **313x** | $M^\ast = 2$: 224 s against 52.9 h, **850x** |
+| 1% | $M^\ast = 128$: 843 s against 409 h, **1,749x** | $M^\ast = 16$: 119 s against 33.2 h, **1,008x** | not reached: $M = 8$, the largest swept, misses by $1.2\times$ |
 
-$$\text{Iso-Accuracy Speedup}(\epsilon) = \frac{\text{Cost}_{\rm mcsolve}(\epsilon)}{\text{Cost}_{\rm SLB}(\epsilon)} \propto \frac{1/\epsilon^2}{1/\epsilon} = \frac{1}{\epsilon}$$
+Both sides are priced as in the summary table: 16 SLB realizations, at 4 substeps on System B and 16 and 32 on the oscillator at dims 64 and 128, against projected `mcsolve`. The oscillator's dim-128 sweep stopped at $M = 8$ because the runner stops once every observable's error is below 0.01 in absolute terms, and 1% of `x_sx`'s span is smaller than that.
 
-| Target Accuracy $\epsilon$ | System B Speedup (dim 128) | System C Speedup (dim 128) | `mcsolve` Compute Budget | SLB Feasibility |
-|---|---|---|---|---|
-| **3.0% (Headline)** | **394x** | **850x** | 45.5 hours | $M^\ast = 64$ (~6.9 min) |
-| **1.0% (High Precision)** | **~1,200x** | **~2,500x** | ~410 hours (~17 days) | $M^\ast = 128$ (~14 min) |
-| **0.1% (Ultra Precision)** | **> 10,000x** | **> 25,000x** | ~4.7 years (Infeasible) | $M^\ast = 256$ or Jackknife (~1.5 h) |
+A $3\times$ tighter target multiplies `mcsolve`'s projected trajectory count by 9 (976 to 8,788 on System B at dim 128). There SLB's $M^\ast$ and cost only doubled (415 s to 843 s). Bias falling as $1/M$ asks for about $3\times$ the bundles, and the $M$ grid doubles, so the step shows as 2x or 4x. On System B it is 2x at dims 8, 32 and 128 and 4x at dim 64; dims 4 and 16 miss 1% even at their largest $M$ (7 and 64). On the oscillator it is 4x to 32x at dims 16 to 64, and dims 8 and 128 miss 1% at their largest $M$ (32 and 8). There the binding `x_sx` is limited at 3% more by the s.e.m. of 16 realizations than by bias, at every size, so the $1/M$ rule does not set the step.
 
-At high precision ($\le 1\%$), Monte Carlo trajectory methods hit a hard statistical noise wall, establishing SLB as the only viable method for large open quantum systems.
+Nothing committed measures 0.1%: no point in any of the three sweeps reaches it. On System B at dim 128, $M = 128$, the largest swept, misses it by $7.1\times$, and its s.e.m. alone is $3.9\times$ the target. An s.e.m. shrinks only as one over the square root of the realization count, so once SLB is limited by its s.e.m., its cost also grows as $1/\text{target}^2$, like `mcsolve`'s. The exact solve's cost does not depend on the target, and on System A neither stochastic method beats it at any size measured (Result 3).
 
 ### Result 5 — past the reference wall
 
 Every benchmark above compares SLB against an exact reference, which caps each study at the dimension where an exact solve is still affordable. **That wall is per system, not global.** Measured from the committed Result 1 files, the largest dimension carrying an exact reference is **1024 on System A** (native RK4 at 8 substeps, job 19605304), **256 on System B** (job 19604858), and **128 on the oscillator**, which the fixed-step reference cannot pass at these substeps. Result 3 also certifies System A at 2048 (job 19607136).
 
-On the two chains, certification has caught up with the sizes §5.2 first timed, so there the wall is now plain cost. The oscillator is where propagation still outruns certification: a reference is only usable once a second run at a different resolution agrees with it, and that second run is what gets expensive first. §5.2 makes the argument there, where a dimension-256 reference propagates in ~2.4 days on the 40-point grid and certifying it there takes more than a week in all; Result 1's finer grid brings that to about 7.3 days.
+On the two chains that wall is now set by cost alone; on the oscillator, by certification, which §5.2 prices at about 7.3 days for a dimension-256 reference.
 
-Result 5 stepped past that wall as it stood when it ran — System B's first certified dim-256 reference came later (job 19604858) — into the regime SLB was built for: **where the Lindblad operator list cannot fit in RAM.**
+Result 5 asks what can be checked without an exact answer. Its first run is System B at dimension 256 (8 spins, $N_L = 32{,}637$), scored on three checks that need no reference: convergence in $M$, trace preservation, and the long-time limit. It ran before any exact solve existed at this size (job 19592848). Two exist now: its extrapolation to large $M$ misses their energy by 0.14% of the change over the run (end of Checks 1 and 2).
 
-At dimension 256 for System B (8 spins), there are $N_L = 32{,}637$ Davies operators. Storing them as dense matrices would consume **34 GB** (31.9 GiB, which the figure prints as "31.9 GB") just for the operator list, before simulation begins. `mesolve_ensemble_davies` avoids this entirely: operators are streamed, accumulated into bundles on the fly, and immediately discarded, keeping memory constant at a small chunk buffer.
-
-Without an exact reference at dimension 256 when it ran, the run was validated on **three physical consistency checks** — and has been checked since against the exact answer, at the end of Checks 1 and 2:
+Stored as dense matrices, the operator list would consume **34 GB** (31.9 GiB, which the figure prints as "31.9 GB"). Result 1's exact solve at this size (job 19604858) built the whole list and ran; SLB folds the operators into its bundles in small chunks and never forms the list.
 
 ![Extreme dimension](benchmark_extreme_dimension_mixed_chain.png)
 
-#### Check 1 & Check 2: Convergence in $M$ and Integrator Stability
+#### Check 1 & Check 2: Convergence in $M$ and Trace Preservation
 
 1. **Systematic Bias scales as $1/M$ (Right Panel):**  
-   The $M \to \infty$ energy limit is predicted to follow a straight line in $1/M$. Doubling $M$ precisely halves the energy difference:
+   Each point averages 16 realizations. If the bias falls as $1/M$, doubling $M$ halves the change; it very nearly does (ratio 0.515):
    
    | `M` | ⟨H⟩ at `t=5` | change | ratio |
    |---|---|---|---|
@@ -2597,26 +2596,26 @@ Without an exact reference at dimension 256 when it ran, the run was validated o
    | 16 | −10.78844 | 0.04646 | |
    | 32 | −10.81238 | 0.02395 | **0.515** |
 
-   The observed ratio of 0.515 closely matches the theoretical 0.500. Independent pairwise extrapolations give $-10.8349$ and $-10.8363$ (agreeing to $0.0014$), with a three-point intercept at $-10.8356$.
+   Extrapolating each pair of points to $M \to \infty$ gives $-10.8349$ and $-10.8363$, $0.0014$ apart; a straight-line fit through all three gives $-10.8356$.
 2. **Trace Preservation:** Max $|\mathrm{Tr}(\rho)-1| = 4.4 \times 10^{-16}$ across all sweeps (machine precision).
 
-**Checked since against the exact answer.** Two certified exact solves now
+**Scored against the exact answer.** Two certified exact solves now
 exist at this size — job 19604858 for Result 1 and job 19607138 for Result 3,
 which agree on the energy at $t=5$ to all eight decimals Result 1's file
 stores — and the second is on this run's own 40-point grid. Against its $\langle H\rangle(5) = -10.83476$, the
 three endpoints above sit $0.0928$, $0.0463$ and $0.0224$ high, each deviation
-roughly halving (ratios $0.499$ and $0.483$), and the three-point intercept
+roughly halving (ratios $0.499$ and $0.483$), and the three-point fit's intercept
 lands $8.6\times10^{-4}$ from the exact answer — 0.14% of the energy's change
 over the run, $\langle H\rangle$ falling from $-10.20$ to $-10.83$. The
 reference-free extrapolation was right.
 
 ---
 
-#### Check 3: The Stationary State & Symmetry Sectors (Left Panel)
+#### Check 3: The Long-Time Limit & Symmetry Sectors (Left Panel)
 
-The generator annihilates the global Gibbs state to machine precision ($1.2\times10^{-14}$), confirming detailed balance. However, the stationary state is **not unique** because the coupling operator $X = \sum \sigma^x_i$ respects left-right reflection symmetry ($i \leftrightarrow n-1-i$), splitting the Hilbert space into **two disconnected symmetry sectors** (136 and 120 states at dim 256).
+**The long-time energy sits 0.0174 above the true limit, 10.3 s.e.m. away: a clearly resolved bias.** The thermal run ($M=32$, 16 realizations) is flat from $t \approx 20$ to its end at $t = 60$, at $-10.8732$ (s.e.m. $0.0017$). The true limit is $-10.8906$, Gibbs within the symmetry sector the chain starts in, not global Gibbs. So Check 3 measures the bias of finite $M$; it does not confirm the answer.
 
-Because transitions between sectors are forbidden, the true physical limit is **sector-resolved Gibbs**:
+**Why the limit is not global Gibbs.** The generator annihilates the global Gibbs state to machine precision (a residual below $10^{-14}$ at dim 16), but that state is **not the only** stationary one. The coupling $X = \sum \sigma^x_i$ respects left-right reflection ($i \leftrightarrow n-1-i$), so the levels split into **two sectors** that never exchange population: 136 and 120 levels at dim 256, with the chain starting wholly in the larger one. The limit is Gibbs within each sector, weighted by where $\rho_0$ starts; the unbundled dynamics confirms it:
 
 | system | dim | limit | global Gibbs off by | sector-resolved off by |
 |---|---|---|---|---|
@@ -2625,19 +2624,23 @@ Because transitions between sectors are forbidden, the true physical limit is **
 | A spin chain | 16 | −3.505400 | 3.16×10⁻² | 2.4×10⁻⁵ |
 | C oscillator | 16 | +0.224910 | one sector, so the two agree | — |
 
-**Why Dim 256 sits near Global Gibbs at $M=32$:**  
-Bundling strictly preserves sector blocks (cross-sector matrix elements are $< 2.0\times 10^{-16}$). What finite $M$ perturbs is detailed balance *within* each sector ($O(1/M)$ bias). The simulation traverses 99.9% of the distance from initial energy $\langle H\rangle(0) = -10.2$ to equilibrium, leaving an unrelaxed gap of only $\approx 0.07\%$ to global Gibbs ($0.0005$, within $0.3\text{ s.e.m.}$). At $M=32$ against $N_L = 32{,}637$ ($N_L/M \approx 1{,}020$), the bundled generator has barely begun to resolve the subtle $\sim 0.017$ sector-resolved offset. As calibrated on System B at Dimension 16 (where exact reference is available), the gap to the sector limit converges steadily as $1/M$:
+**Why the run lands near global Gibbs.** Bundling preserves the sectors (cross-sector elements below $10^{-15}$ at dim 16) and perturbs detailed balance only *within* each. At $M=32$ that lifts the energy by $0.0174$, and the sector limit happens to sit $0.0169$ below global Gibbs, so the run ends $0.0005$ (0.3 s.e.m.) from global Gibbs. A coincidence of sizes, not a pass.
 
-| `M` (System B, Dim 16 calibration) | 4 | 8 | 16 | 32 | 64 | 121 = `N_L` |
+**How the bias falls with the bundle count.** On System B at dim 16 ($N_L = 121$) a bundled generator's stationary state can be solved for exactly. Averaged over 64 random draws (seeds 0–63, recomputed in `tests/test_document_claims.py`), its energy sits above the sector limit by:
+
+| `M` (System B, dim 16) | 4 | 8 | 16 | 32 | 64 | 121 = `N_L` |
 |---|---|---|---|---|---|---|
-| gap to sector limit | 0.0230 | 0.0110 | 0.0061 | 0.0033 | 0.0017 | 0.00094 |
+| gap to sector limit | 0.033 | 0.014 | 0.0070 | 0.0035 | 0.0017 | 0.00093 |
+
+$M$ times the gap stays between 0.11 and 0.13, so the gap falls as $1/M$. It does not vanish at $M = N_L$: a bundle there is still a random mix of operators. At dim 256, $M=32$ is one bundle per 1,020 operators, not 3.8, and the gap is five times larger (0.0174 against 0.0035).
+
+Only this check depends on the limit. Results 1–4 and Checks 1 and 2 stop at $t=5$ and compare SLB with an exact solve of the same generator, or with itself at other $M$.
 
 ---
 
 #### Computational Cost and Provenance
 
 - **Wall-Clock Time:** 5.3 hours total on 1 node (4 CPUs) on Landau (`job 19592848`). Counting $N_L=32{,}637$ took 1.3 s with zero matrix allocations.
-- **Scope:** Transient benchmark results (§5.1–§5.4, $t \le 5$) are unaffected because they operate far from the stationary regime.
 
 #### A reference-free check, run on all three systems
 
@@ -2646,7 +2649,8 @@ ran — System A's dim 2048 has one now (Result 3), but the frontier stored no
 curves to score — so the question becomes what *can* still be measured. One thing can: how far apart two
 different bundle counts land. If $M=32$ and $M=64$ agree, the answer has stopped
 depending on $M$ — necessary for convergence, though not sufficient for
-correctness.
+correctness. Each distance below compares one random draw of the bundles at
+$M=32$ with one at $M=64$, in the state at $t=5$.
 
 The check was run on all three systems on exclusive nodes (jobs `19603729`,
 `19603731` and `19603809`, saved as `frontier_spins_*.json`). These runs use a 101-point
@@ -2670,41 +2674,41 @@ step of $2.0\times10^{-3}$:
 | **A** 11 spins | 2,048 | 111 | 16 | 1.26 × 10⁻¹ | 1.34 × 10⁻¹ |
 
 **Only the oscillator improves.** Its distance falls by four orders of magnitude
-— a factor of 25,000 — as the system grows. Doubling it makes the difference
-between 32 bundles and 64 bundles *less* important, not more. Both chains sit
-near $10^{-1}$ and stay there: the mixed chain flat within a factor of 1.4 and
-without direction, the simple chain rising from $8.2\times10^{-2}$ and then
-levelling off. At its largest size the oscillator is **five orders of magnitude**
-below either of them.
+— a factor of 25,120 — as the system grows: each doubling of the Fock cutoff
+shrinks the gap between 32 and 64 bundles. Both chains sit near $10^{-1}$ and
+stay there: the mixed chain flat within a factor of 1.4 and without direction,
+the simple chain rising from $8.2\times10^{-2}$ and then levelling off. With
+one draw on each side, that level mixes the scatter between draws with any real
+change from 32 to 64 bundles; these runs cannot split the two.
 
-**The separator is not locality.** Systems A and B have almost the same mean
-transition distance — 27.6% against 26.8% — and behave differently. What
-distinguishes them is how much of the dissipator a fixed $M$ can capture:
+**Locality does not separate A from B.** At dimension 64 their operators reach
+almost equally far, 27% against 26% of the spectrum (§2.5), yet they behave
+differently. What differs is how much of the dissipator a fixed $M$ can capture:
 
 * **A** has 73 to 111 operators. At 9 spins $M=64$ is 88% of the whole list; by
   11 spins it is 58%. A fixed bundle count captures steadily *less* as the system
-  grows, so 32 and 64 drift apart. Below 9 spins the comparison cannot be made at
-  all — $M=64$ exceeds $N_L$, and 64 bundles cannot be formed.
+  grows, so 32 and 64 can drift apart. Below 9 spins the comparison cannot be
+  made at all — $M=64$ exceeds $N_L$, and 64 bundles cannot be formed.
 * **B** has 8,193 to 131,001. Both 32 and 64 are a vanishing fraction of the
   list — 0.05% at 9 spins — so both sit deep in the sampling regime and the gap
   between them does not move.
-* **C** has 890 to 5,034, but its couplings are local (3.2% mean transition
-  distance). A handful of bundles carries the dynamics, so more of them makes the
-  answer converge rather than merely resample it.
+* **C** has 890 to 5,034, but its couplings are local (3.1% of the spectrum at
+  dimension 64, §2.5). A handful of bundles carries the dynamics, so more of
+  them makes the answer converge rather than merely resample it.
 
 That agrees with Result 4 measured a different way. There $M^\ast$ — the bundle
-count needed to hold 3% on every observable — runs
-$8 \to 4 \to 4 \to 4 \to \mathbf{2}$ on the oscillator, while tracking
-$N_L$ upward on System A. Two
-instruments, no exact solve required by this one.
+count at which an average of 16 runs holds 3% on every observable — runs
+$8 \to 4 \to 4 \to 4 \to \mathbf{2}$ on the oscillator over dims 8 to 128. On
+System A even $M = N_L$, averaged over 4 runs, misses 3% at every size from 4
+to 512. Two instruments, and this one needs no exact solve.
 
 **What it does not establish.** Two bundle counts agreeing means the answer has
 converged in $M$; it does not mean it converged to the right thing. A shared
 systematic error — a time step too coarse, a truncated Fock space — would move
-both together and go unseen. The check earns its place because it agrees with
-the reference-backed results at the sizes where both exist, not on its own. The
-absolute values are also not strictly comparable *across* systems, which run at
-different sizes and substep counts; what compares is the trend within each.
+both together and go unseen. So the check is read alongside the reference-backed
+results, not in place of them. The absolute values are also not strictly
+comparable *across* systems, which run at different sizes and substep counts;
+what compares is the trend within each.
 
 Three properties of these runs are worth recording.
 
@@ -2714,16 +2718,22 @@ run's values to the digit at the two sizes they share (4.532 × 10⁻⁴ and
 8.199 × 10⁻² and 1.241 × 10⁻¹. Accuracy is deterministic at fixed seed
 throughout this document; only wall-clocks move.
 
-**Substeps are set by stability, not by a table.** The oscillator's counts — 16,
-32, 64, 128 — come from RK4's limit $|\lambda\,\Delta t| \le 2\sqrt{2}$ against a
-Gershgorin bound on $H$. Its anharmonic $n^2$ term makes the top energy grow as
-the *square* of the Fock cutoff, so a rule that doubled substeps per octave held
-for four octaves and then diverged at Fock 512.
+**Substeps come from a table, checked for stability.** The oscillator's 16, 32,
+64 and 128 are the benchmark's fixed table, doubling with the Fock cutoff. The
+runner raises a count only where RK4's limit $|\lambda\,\Delta t| \le 2\sqrt{2}$,
+with $|\lambda|$ from a Gershgorin bound on $H$, needs more; at these four sizes
+it never did. At Fock 256 the table runs at $|\lambda\,\Delta t| = 2.64$, 7%
+inside the limit. The anharmonic $n^2$ term makes the top energy grow as the
+*square* of the cutoff, so before this check existed the table's 256 substeps
+diverged at Fock 512 (job 19602988, $|\lambda\,\Delta t| = 5.2$); that failure
+is why the runner now checks.
 
-**Cost scales as $N^{2.6}$, not $N^3$.** The spin chain's three doublings cost
-5.4× to 6.4× each, consistently across all three $M$ values — below the $N^3$ of
-dense matrix multiplication, and firmly against an earlier reading of $N^{4.7}$
-taken from a job that had been sharing its node. The same sweep took 32 h on an
+**Cost scales as $N^{2.6}$, not $N^3$.** Only the spin chain's last two
+doublings, dim 512 → 1024 → 2048, keep all three $M$ values at an unchanged 16
+substeps. Each costs 5.4× to 6.4× in propagation time, one run per $M$, and fits
+over those three sizes give exponents of 2.56 to 2.58 — below the $N^3$ of dense
+matrix multiplication, and firmly against an earlier reading of $N^{4.7}$ taken
+from a job that had been sharing its node. The same sweep took 32 h on an
 exclusive node against more than 117 h without one.
 
 ---

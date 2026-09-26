@@ -447,8 +447,7 @@ def test_result5_convergence_table_matches_the_frontier_data(doc):
     systems = {}
     for name in ("oscillator_bath", "mixed_chain", "spin_chain"):
         path = DATA / f"frontier_spins_{name}.json"
-        if not path.exists():
-            pytest.skip(f"frontier sweep for {name} not committed")
+        assert path.exists(), f"{path.name} is quoted by Result 5 but not committed"
         for point in json.loads(path.read_text(encoding="utf-8"))["points"]:
             if point.get("self_convergence"):
                 systems[point["n_l"]] = (name, point)
@@ -496,9 +495,11 @@ def test_result5_convergence_table_matches_the_frontier_data(doc):
         assert values[-1] >= values[0] * 0.5, (
             f"Result 5 claims only the oscillator improves, but {name} fell "
             f"from {values[0]:.3g} to {values[-1]:.3g}")
-        assert min(values) > 100 * max(oscillator[-1], 1e-30), (
-            f"{name} is claimed to stay near 1e-1 while the oscillator reaches "
-            f"{oscillator[-1]:.3g}; got {values}")
+        # "Both chains sit near 10^-1": every value rounds to 10^-1 in log10.
+        # This used to require a 100x gap to the oscillator, which guarded a
+        # cross-system comparison the section's own caveat rules out.
+        assert all(round(math.log10(v)) == -1 for v in values), (
+            f"{name} is claimed to sit near 1e-1; got {values}")
 
 
 def _rounding_tolerance(published):
@@ -1021,7 +1022,7 @@ def test_result5_reference_wall_sentence_matches_the_data(doc):
     match = re.search(
         r"largest dimension carrying an exact reference is \*\*(\d+) on System A\*\* "
         r"\(native RK4 at 8 substeps, job (\d{8})\), \*\*(\d+) on System B\*\* "
-        r"\(job (\d{8})\), and \*\*(\d+) on the oscillator\*\*", doc)
+        r"\(job (\d{8})\), and \*\*(\d+) on the oscillator\*\*", _flat(doc))
     assert match, "Result 5's reference-wall sentence has changed shape"
     a_dim, a_job, b_dim, b_job, c_dim = match.groups()
 
@@ -1379,9 +1380,10 @@ def test_intro_run_script_safety_sentence_matches_the_code(doc):
 # Every number below is recomputed through the module that draws its figure.
 
 def _flat(doc: str) -> str:
-    """The document with line breaks and blockquote markers folded to single
-    spaces, so a sentence matches however it is wrapped."""
-    return re.sub(r"\s*\n(?:>\s*)?", " ", doc)
+    """The document with line breaks, blockquote markers and the indentation
+    of continuation lines folded to single spaces, so a sentence matches
+    however it is wrapped, inside a list item or out of it."""
+    return re.sub(r"\s*\n(?:>\s*)?[ \t]*", " ", doc)
 
 
 def _printed(value: str) -> float:
@@ -6600,3 +6602,1835 @@ def test_p6g_plotter_m1_comment_matches_the_data():
              for a, b in zip(rows, rows[1:]) if b[2] >= a[2]]
     assert max(rises) < 1, "a rise now exceeds the s.e.m. of the point it reaches"
     assert pmc.MIN_M_PLOTTED == 2
+
+
+# --- part 7, unit U1: Result 4's definitions, target, table and fits ---------
+#
+# Result 4 never said how many SLB realizations make up its "ensemble" (16 on B
+# and C, 4 on A), called the mcsolve side a count rather than a projection,
+# gave a span example (0.008% / 374% / 50,000x) that no committed file
+# produces, said six observables resolve "the entire quantum state", let
+# System A's "never" stand without its 4-realization caveat, left the exact
+# solve out above dim 32, and explained its exponents by a move "into the
+# O(N^3) regime" that Result 5 measures against. Every number below is
+# recomputed through plot_isocost_vs_dim, run_isocost_vs_dim or the committed
+# Result 3 and Result 5 files.
+
+_P7A_SYSTEMS = {"A": "spin_chain", "B": "mixed_chain", "C": "oscillator_bath"}
+
+
+def _p7f_between(text: str, start: str, end: str) -> str:
+    """text from the heading `start` up to the next heading `end`. A moved or
+    renamed heading fails with that heading's name, not a bare ValueError."""
+    i = text.find(start)
+    assert i >= 0, f"heading {start!r} has moved or been renamed"
+    j = text.find(end, i + len(start))
+    assert j >= 0, f"heading {end!r} has moved or been renamed"
+    return text[i:j]
+
+
+def _p7a_region(doc: str) -> str:
+    """Result 4 from its heading to the system-by-system findings, flattened."""
+    return _p7f_between(_flat(doc), "### Result 4 — iso-accuracy cost versus dimension",
+                        "#### System-by-System Findings")
+
+
+def _p7a_derived(name: str):
+    """(document, out, slb, n_runs) exactly as plot_isocost_vs_dim.main derives
+    them for the committed figure."""
+    P = pytest.importorskip("plot_isocost_vs_dim")
+    from isocost_config import run_counts
+    path = DATA / f"isocost_vs_dim_{name}.json"
+    assert path.exists(), f"{path.name} is quoted in Result 4 but not committed"
+    document = json.loads(path.read_text(encoding="utf-8"))
+    n_runs = run_counts(name)
+    out = P.derive(document, P.TARGET_RMSE, n_runs, P.ESTIMATE_TYPE)
+    return document, out, out["slb"][max(n_runs)], max(n_runs)
+
+
+def _p7a_slope(x, y) -> float:
+    """Least-squares slope in log-log, as the fitted-scaling table uses."""
+    return float(np.polyfit(np.log(np.asarray(x, float)),
+                            np.log(np.asarray(y, float)), 1)[0])
+
+
+def test_p7a_result4_definitions_state_realizations_ladder_and_projection(doc):
+    """The SLB bullet names its realization counts and its M ladder; the
+    mcsolve bullet calls N* a projection and says how many trajectories S was
+    measured on."""
+    P = pytest.importorskip("plot_isocost_vs_dim")
+    import run_isocost_vs_dim as R
+    from isocost_config import run_counts
+    text = _p7a_region(doc)
+    m = re.search(
+        r"the smallest bundle count \$M\^\\ast\$ on the ladder \$1, 2, 4, \\dots, "
+        r"(\d+)\$ \(capped at \$N_L\$\) at which the mean of (\d+) realizations "
+        r"\((\d+) on System A\) meets the target on \*\*all (\w+) observables\*\*\. "
+        r"Its error is \$\\sqrt\{\\text\{bias\}\^2 \+ \\text\{s\.e\.m\.\}\^2\}\$\. "
+        r"The cost is the time of those (\d+) \(or (\d+)\) solves\.", text)
+    assert m, "Result 4's SLB definition has changed shape"
+    q_top, q_runs, q_runs_a, q_six, q_runs2, q_runs_a2 = m.groups()
+    assert R.M_GRID == [2 ** k for k in range(len(R.M_GRID))]
+    assert int(q_top) == R.M_GRID[-1]
+    assert (int(q_runs) == int(q_runs2) == max(run_counts("mixed_chain"))
+            == max(run_counts("oscillator_bath")))
+    assert int(q_runs_a) == int(q_runs_a2) == max(run_counts("spin_chain"))
+    assert P.ESTIMATE_TYPE == "ensemble", "the bullet describes the ensemble estimate"
+    assert q_six == "six"
+
+    c = re.search(
+        r"\*\*For `mcsolve`:\*\* a projection, not a full run\. It needs "
+        r"\$N_\{\\rm traj\}\^\\ast = \(S/\\text\{target\}\)\^2\$ trajectories for the "
+        r"observable that needs the most, where \$S\$ is the spread across "
+        r"trajectories\. \$S\$ is measured on ([\d,]+) to ([\d,]+) trajectories per "
+        r"size; the time budget allowed only ([\d,]+) at dims (\d+) and (\d+) on B "
+        r"and C and at dim (\d+) on A\.", text)
+    assert c, "Result 4's mcsolve definition has changed shape"
+    q_lo, q_hi, q_only, q_d1, q_d2, q_da = c.groups()
+    counts = {}
+    for tag, name in _P7A_SYSTEMS.items():
+        document, *_ = _p7a_derived(name)
+        for point in document["points"]:
+            assert len(P._obs_axis(point)[1]) == 6, f"{name} dim {point['dim']}"
+            used = sum(r["ntraj"] * len(r["s_repeats"]) for r in point["mc_fit"])
+            counts[(tag, int(point["dim"]))] = used
+            if used == _printed(q_only):
+                assert point["mc_skipped"], f"{name} dim {point['dim']}: nothing skipped"
+    lo, hi = min(counts.values()), max(counts.values())
+    assert (_printed(q_lo), _printed(q_hi), _printed(q_only)) == (lo, hi, lo), counts
+    fewest = {k for k, v in counts.items() if v == lo}
+    assert fewest == {("B", int(q_d1)), ("B", int(q_d2)), ("C", int(q_d1)),
+                      ("C", int(q_d2)), ("A", int(q_da))}, fewest
+
+
+def test_p7a_result4_target_span_example_matches_the_data(doc):
+    """'spans differ by up to 16,800x (System C, dim 128), where a tolerance of
+    0.02 is 0.0005% of n^2's span but 8.7% of the coherence's' -- the largest
+    max/min span ratio over every committed point, through observable_targets.
+    The plotter's comment quotes the same numbers."""
+    P = pytest.importorskip("plot_isocost_vs_dim")
+    text = _p7a_region(doc)
+    m = re.search(
+        r"\*\*The target is (\d+)% of each observable's own span\*\* over the "
+        r"reference curve\. One absolute tolerance cannot serve all six: their "
+        r"spans differ by up to ([\d,]+)x \(System ([ABC]), dim (\d+)\), where a "
+        r"tolerance of ([\d.]+) is ([\d.]+)% of \$n\^2\$'s span but ([\d.]+)% of the "
+        r"coherence's\. The relative target holds each of the six to the same "
+        r"standard\. It certifies those six quantities, not the whole state\.", text)
+    assert m, "Result 4's target paragraph has changed shape"
+    q_pct, q_ratio, q_sys, q_dim, q_abs, q_n2, q_coh = m.groups()
+    assert int(q_pct) == round(100 * P.TARGET_REL)
+    assert float(q_abs) == P.TARGET_RMSE
+    best = None
+    for tag, name in _P7A_SYSTEMS.items():
+        document, *_ = _p7a_derived(name)
+        for point in document["points"]:
+            span = P.observable_targets(point) / P.TARGET_REL
+            labels = list(P._obs_axis(point)[1])
+            ratio = float(span.max() / span.min())
+            if best is None or ratio > best[0]:
+                best = (ratio, tag, point["dim"], dict(zip(labels, span)))
+    ratio, tag, dim, span = best
+    assert (q_sys, int(q_dim)) == (tag, dim), f"largest spread is {tag} dim {dim}"
+    assert _near(q_ratio, ratio), f"span ratio {ratio:.1f}"
+    assert max(span, key=span.get) == "n2" and min(span, key=span.get) == "coherence"
+    assert _near(q_n2, 100 * P.TARGET_RMSE / span["n2"])
+    assert _near(q_coh, 100 * P.TARGET_RMSE / span["coherence"])
+    assert "entire quantum state" not in doc
+
+    source = (BENCHMARKS / "plot_isocost_vs_dim.py").read_text(encoding="utf-8")
+    block = source[:source.index("\nTARGET_REL = ")]
+    comment = re.sub(r"\s*\n#\s*", " ", block[block.rindex("# Accuracy target"):])
+    cm = re.search(r"whose spans differ by up to ([\d,]+)x \(oscillator, dim (\d+)\): "
+                   r"there an RMSE of ([\d.]+) is ([\d.]+)% of n2's span and "
+                   r"([\d.]+)% of the coherence's\.", comment)
+    assert cm, "plot_isocost_vs_dim's target comment has changed shape"
+    assert cm.groups() == (q_ratio, q_dim, q_abs, q_n2, q_coh)
+
+
+def test_p7a_result4_table_ratios_name_projection_and_substeps(doc):
+    """The table's 394x and 850x: SLB's 16-realization cost over projected
+    mcsolve at dim 128, with the projected trajectory counts and SLB's
+    substeps printed beside them; System A's row names its 4 realizations.
+    The M* column is the sweep's first and last M* ('= N_L' exactly where the
+    last is N_L), and the binding column lists SLB's binding observables in
+    the order the sizes reach them."""
+    import run_isocost_vs_dim as R
+    text = _p7a_region(doc)
+    rows = {t: rest for t, *rest in re.findall(
+        r"\| \*\*([ABC])\*\* [^|]*\(to \d+\) \|[^|]*\| ([\d,]+) → \*\*([\d,]+)\*\*"
+        r"([^|]*)\| ([^|]*?) \| ([^|]*?) \| ([^|]*?) \|", text)}
+    assert set(rows) == {"A", "B", "C"}, rows
+    assert "SLB's speedup over projected `mcsolve` at the largest dim" in text
+    for tag, name in _P7A_SYSTEMS.items():
+        _, out, slb, _ = _p7a_derived(name)
+        q_lo, q_hi, q_nl, q_bind, _, _ = rows[tag]
+        assert (_printed(q_lo), _printed(q_hi)) == (slb["mstar"][0], slb["mstar"][-1]), tag
+        at_nl = slb["mstar"][-1] == out["n_ls"][-1]
+        assert q_nl.strip() == ("= N_L" if at_nl else ""), (tag, q_nl)
+        assert re.fullmatch(r"`\w+`(?: → `\w+`)*", q_bind), (tag, q_bind)
+        order = [b for i, b in enumerate(slb["binding"])
+                 if i == 0 or b != slb["binding"][i - 1]]
+        assert re.findall(r"`(\w+)`", q_bind) == order, (tag, list(slb["binding"]))
+    _, _, slb_a, n_a = _p7a_derived("spin_chain")
+    assert not slb_a["ok"].any()
+    assert tuple(rows["A"][4:]) == (f"**never** ({n_a} realizations)", "*not quotable*")
+    s = re.search(
+        r"Each ratio is the projected `mcsolve` cost over the measured cost of "
+        r"(\d+) SLB realizations\. "
+        r"At dim (\d+) `mcsolve` would need ([\d,]+) trajectories on B and ([\d,]+) "
+        r"on C\. The step counts do not match: SLB takes (\d+) fixed RK4 substeps "
+        r"on B and (\d+) on C, while `mcsolve` steps adaptively\.", text)
+    assert s, "the sentences under Result 4's table have changed shape"
+    q_runs, q_dim, q_nb, q_nc, q_sub_b, q_sub_c = s.groups()
+    for tag, q_n, q_sub in (("B", q_nb, q_sub_b), ("C", q_nc, q_sub_c)):
+        name = _P7A_SYSTEMS[tag]
+        document, out, slb, n_runs = _p7a_derived(name)
+        assert n_runs == int(q_runs), f"{name}: SLB used {n_runs} realizations"
+        assert int(out["dims"][-1]) == int(q_dim)
+        assert slb["ok"].all() and out["mc_ok"][-1]
+        verdict, speed = rows[tag][4:]
+        assert verdict == "everywhere"
+        q_speed = re.fullmatch(r"\*\*(\d+)x\*\*", speed).group(1)
+        assert _near(q_speed, out["mc_cost"][-1] / slb["cost"][-1])
+        assert _near(q_n, out["mc_star"][-1])
+        assert int(q_sub) == document["points"][-1]["substeps"] == R.SYSTEMS[name][1][-1][1]
+
+
+def test_p7a_result4_system_a_miss_splits_bias_and_noise(doc):
+    """System A's M* is the last rung (N_L) and still misses. With only 4
+    realizations, every observable's estimated bias is under its target at
+    the three sizes the System A bullet names, so part of the miss there is
+    noise; at every other size some observable's bias alone exceeds it.
+    Bias and s.e.m. are split exactly as derive_slb splits them; the binding
+    observable's bias is cross-checked against derive's own. The paragraph
+    that said this a second time, under the table, is gone."""
+    P = pytest.importorskip("plot_isocost_vs_dim")
+    assert "is just the largest $M$ tried" not in _p7a_region(doc)
+    m = re.search(
+        r"At dims (\d+), (\d+) and (\d+) every observable's estimated bias is under "
+        r"its target, and there part of the miss is sampling noise\.", _p7b_region(doc))
+    assert m, "Result 4's System A noise sentence has changed shape"
+    document, out, slb, n_runs = _p7a_derived("spin_chain")
+    assert not slb["ok"].any()
+    under, over = [], []
+    for i, point in enumerate(document["points"]):
+        last = point["slb_sweep"][-1]
+        assert last["M"] == point["n_l"] == slb["mstar"][i], "the sweep ends at N_L"
+        reference, labels = P._obs_axis(point)
+        target = P.observable_targets(point)
+        samples = np.asarray(last["samples"], dtype=float)[:n_runs]
+        mean = samples.mean(axis=0)
+        mse = np.mean((mean - reference) ** 2, axis=1)
+        sem_sq = np.mean(np.var(samples, axis=0, ddof=1), axis=1) / n_runs
+        bias_sq = np.maximum(0.0, mse - sem_sq)
+        b = list(labels).index(slb["binding"][i])
+        assert bias_sq[b] == pytest.approx(slb["bias_sq"][i], rel=1e-9, abs=1e-15)
+        (under if np.all(np.sqrt(bias_sq) < target) else over).append(point["dim"])
+    assert under == [int(d) for d in m.groups()], under
+    assert over and sorted(under + over) == [p["dim"] for p in document["points"]], over
+
+
+def test_p7a_result4_exact_solve_paragraph_matches_result3(doc):
+    """Result 4 times the exact solve only to dim 32; Result 3's dim-128 jobs
+    time native RK4 beside SLB at SLB's substeps: 2,413 vs 377 s (B, M=64) and
+    3,991 vs 112 s (C, M=2), at the bundle counts Result 4 needs there, with
+    mcsolve at 500 trajectories 38x the exact solve on B. Each margin is
+    printed once."""
+    text = _p7a_region(doc)
+    m = re.search(
+        r"\*\*At dim (\d+) the exact solve is also far cheaper than `mcsolve`\.\*\* "
+        r"Result 4 saves exact-solve times only up to dim (\d+) \(QuTiP `mesolve`, "
+        r"the gray line\)\. Its certified reference, native RK4 at twice SLB's "
+        r"substeps, runs at every size, but its time is not saved\. Result 3 times "
+        r"native RK4 at dim (\d+) at SLB's substeps, in the same job as SLB, on a "
+        r"(\d+)-point grid \(half of Result 4's (\d+)\)\. Native RK4 takes "
+        r"([\d,.]+) s on B and ([\d,.]+) s on C; (\d+) SLB realizations at Result "
+        r"4's \$M\^\\ast\$ take ([\d,.]+) s \(\$M=(\d+)\$\) and ([\d,.]+) s "
+        r"\(\$M=(\d+)\$\)\. At matched substeps, SLB is ([\d.]+)x faster on B and "
+        r"([\d.]+)x on C\. In the B job `mcsolve` took ([\d,.]+) s for (\d+) "
+        r"trajectories, ([\d.]+)x the exact solve\. So (\d+)x and (\d+)x are "
+        r"margins over the slowest of the three methods\.", text)
+    assert m, "Result 4's exact-solve paragraph has changed shape"
+    (q_dim0, q_wall, q_dim, q_pts, q_pts4, q_nat_b, q_nat_c, q_runs, q_slb_b, q_m_b,
+     q_slb_c, q_m_c, q_r_b, q_r_c, q_mc, q_ntraj, q_mc_r, q_sp_b, q_sp_c) = m.groups()
+    assert q_dim0 == q_dim
+    assert text.count(f"{q_r_b}x") == text.count(f"{q_r_c}x") == 1, "a margin is printed twice"
+
+    timed = []
+    for name in _P7A_SYSTEMS.values():
+        document, out, *_ = _p7a_derived(name)
+        timed += [int(d) for d, t in zip(out["dims"], out["full_cost"]) if np.isfinite(t)]
+        assert document["meta"]["tlist"]["n"] == int(q_pts4)
+        assert all(bool(np.isfinite(t)) == (d <= int(q_wall))
+                   for d, t in zip(out["dims"], out["full_cost"])), name
+        assert all(p["reference_method"] == f"native_rk4_substeps{2 * p['substeps']}"
+                   and p["reference_selfcheck"]["passed"]
+                   for p in document["points"]), f"{name}: reference is not native RK4"
+        assert all("t_native" not in p for p in document["points"]), \
+            f"{name} now saves the native time; quote it instead of Result 3's"
+    assert max(timed) == int(q_wall)
+
+    for name, q_nat, q_slb, q_m, q_r, q_sp in (
+            ("mixed_chain", q_nat_b, q_slb_b, q_m_b, q_r_b, q_sp_b),
+            ("oscillator_bath", q_nat_c, q_slb_c, q_m_c, q_r_c, q_sp_c)):
+        path = DATA / f"method_comparison_{name}_dim{q_dim}.json"
+        assert path.exists(), f"{path.name} is quoted but not committed"
+        r3 = json.loads(path.read_text(encoding="utf-8"))
+        meta, methods = r3["meta"], r3["point"]["methods"]
+        assert meta["tlist"]["n"] == int(q_pts) and 2 * int(q_pts) == int(q_pts4)
+        iso, out, slb, n_runs = _p7a_derived(name)
+        i = list(out["dims"].astype(int)).index(int(q_dim))
+        assert int(slb["mstar"][i]) == int(q_m), f"{name}: Result 4's M* moved"
+        assert meta["substeps"] == iso["points"][i]["substeps"], f"{name}: substeps"
+        row = next(r for r in methods["slb"] if r["M"] == int(q_m))
+        assert row["n_runs"] == n_runs == int(q_runs)
+        native = methods["native"]["wall_s"]
+        assert _near(q_nat, native) and _near(q_slb, row["wall_s"])
+        assert _near(q_r, native / row["wall_s"])
+        assert _near(q_sp, out["mc_cost"][i] / slb["cost"][i]), f"{name}: table ratio"
+        # "the slowest of the three": projected mcsolve above the native solve
+        # scaled to Result 4's grid, and above SLB.
+        grid = int(q_pts4) / int(q_pts)
+        assert out["mc_cost"][i] > grid * native > slb["cost"][i]
+        if name == "mixed_chain":
+            mc = methods["mcsolve"]
+            assert mc["ntraj"] == int(q_ntraj)
+            assert _near(q_mc, mc["wall_s"]) and _near(q_mc_r, mc["wall_s"] / native)
+    # "a fixed 500 trajectories" in the section's opening sentence.
+    opening = re.search(r"Result 3 compares SLB with `mcsolve` at a fixed (\d+) "
+                        r"trajectories, one dimension at a time\.", text)
+    assert opening and opening.group(1) == q_ntraj
+    fixed = {d["point"]["methods"]["mcsolve"]["ntraj"] for d in _p6a_files().values()
+             if "ntraj" in d["point"]["methods"].get("mcsolve", {})}
+    assert fixed == {int(q_ntraj)}, fixed
+
+
+def test_p7a_result4_fitted_exponents_and_what_sets_them(doc):
+    """The fitted-scaling table, its substep footnote and the note under it:
+    least-squares fits over every size, the substep count's own N^0.80 and the
+    N^1.43 left after dividing it out, M*'s growth on B, the range of fixed-M
+    per-run exponents, mcsolve's per-trajectory exponents, and Result 5's
+    fixed-M N^2.6 on System A's chain at dims 512-2048."""
+    text = _p7a_region(doc)
+    head = re.search(
+        r"\*\*Fitted scaling laws \(least squares over every size, all of which meet "
+        r"the target: dims (\d+)–(\d+) on B, (\d+) sizes; (\d+)–(\d+) on C, (\d+) "
+        r"sizes\):\*\*", text)
+    assert head, "Result 4's fit caption has changed shape"
+    table = {t: (s, c) for t, s, c in re.findall(
+        r"\| \*\*([BC])\*\* [a-z ]+ \| \$N\^\{([\d.]+)\}\$\*? \| \$N\^\{([\d.]+)\}\$ \|", text)}
+    assert set(table) == {"B", "C"}, table
+    for tag, (lo, hi, n) in (("B", head.groups()[0:3]), ("C", head.groups()[3:6])):
+        _, out, slb, _ = _p7a_derived(_P7A_SYSTEMS[tag])
+        dims = out["dims"]
+        assert (int(dims[0]), int(dims[-1]), len(dims)) == (int(lo), int(hi), int(n))
+        assert slb["ok"].all() and out["mc_ok"].all()
+        assert _near(table[tag][0], _p7a_slope(dims, slb["cost"]))
+        assert _near(table[tag][1], _p7a_slope(dims, out["mc_cost"]))
+
+    foot = re.search(
+        r"SLB's substeps rise with dimension for stability \((\d+) up to dim (\d+), "
+        r"(\d+) at dim (\d+), (\d+) at dim (\d+)\)\. Fitted the same way, the substep "
+        r"count alone grows as \$N\^\{([\d.]+)\}\$\. Dividing SLB's cost by its "
+        r"substeps before fitting gives \$N\^\{([\d.]+)\}\$\.", text)
+    assert foot, "the oscillator substep footnote has changed shape"
+    s4, d32, s16, d64, s32, d128, q_sub, q_div = foot.groups()
+    document, out, slb, _ = _p7a_derived("oscillator_bath")
+    sub = {int(p["dim"]): p["substeps"] for p in document["points"]}
+    assert sub == {d: (int(s4) if d <= int(d32) else int(s16) if d == int(d64)
+                       else int(s32)) for d in sub} and max(sub) == int(d128)
+    assert int(d32) == max(d for d in sub if sub[d] == int(s4)), "'up to dim' is not the last"
+    steps = [sub[int(d)] for d in out["dims"]]
+    assert _near(q_sub, _p7a_slope(out["dims"], steps))
+    assert _near(q_div, _p7a_slope(out["dims"], slb["cost"] / np.asarray(steps)))
+    assert "0.75" not in text and "1.48" not in text
+
+    note = re.search(
+        r"On B, \$M\^\\ast\$ grows from (\d+) to (\d+) \(a fit of \$N\^\{([\d.]+)\}\$\), "
+        r"and one run at a fixed \$M\$ grows as \$N\^\{([\d.]+)\}\$ at \$M \\le (\d+)\$ "
+        r"\((\w+) sizes\) and \$N\^\{([\d.]+)\}\$ at \$M=(\d+)\$ \((\w+) sizes\)\. "
+        r"On C, \$M\^\\ast\$ falls from (\d+) "
+        r"to (\d+), so SLB's exponent comes from the cost per run and the rising "
+        r"substeps\. `mcsolve`'s cost per trajectory grows faster: "
+        r"\$N\^\{([\d.]+)\}\$ on B and \$N\^\{([\d.]+)\}\$ on C\. These fits cover at "
+        r"most (\w+) sizes; do not extrapolate them\. At fixed \$M\$, Result 5 "
+        r"measures one SLB run growing as \$N\^\{([\d.]+)\}\$ on System A's chain "
+        r"at dims (\d+)–(\d+)\.", text)
+    assert note, "Result 4's exponent note has changed shape"
+    (b_lo, b_hi, q_mfit, q_fix_lo, q_small, q_n_small, q_fix_hi, q_big, q_n_big,
+     c_hi, c_lo, q_mc_b, q_mc_c, q_most, q_r5, r5_lo, r5_hi) = note.groups()
+    assert "O(N^3)" not in text and "sub-asymptotic" not in text
+    words = {"three": 3, "four": 4, "five": 5, "six": 6, "seven": 7}
+
+    per_traj, by_m = {}, {}
+    for tag in ("B", "C"):
+        document, out, slb, _ = _p7a_derived(_P7A_SYSTEMS[tag])
+        per_traj[tag] = _p7a_slope(out["dims"], [
+            np.mean([r["per_traj_time"] for r in p["mc_fit"]]) for p in document["points"]])
+        if tag == "B":
+            assert (int(slb["mstar"][0]), int(slb["mstar"][-1])) == (int(b_lo), int(b_hi))
+            assert _near(q_mfit, _p7a_slope(out["dims"], slb["mstar"]))
+            assert {p["substeps"] for p in document["points"]} == {4}, "B's substeps vary"
+            for p in document["points"]:
+                for r in p["slb_sweep"]:
+                    by_m.setdefault(r["M"], []).append((p["dim"], r["per_run_cost"]))
+        else:
+            assert (int(slb["mstar"][0]), int(slb["mstar"][-1])) == (int(c_hi), int(c_lo))
+    # Every M run at three or more sizes is fitted; the small-M fits are the
+    # lowest, M=q_big the highest.
+    fits = {m: (_p7a_slope(*zip(*v)), len(v)) for m, v in by_m.items() if len(v) >= 3}
+    small = [m for m in fits if m <= int(q_small)]
+    assert small and all(_near(q_fix_lo, fits[m][0]) and fits[m][1] == words[q_n_small]
+                         for m in small), fits
+    # "M <= 4" is exact: 4 is the largest M of that family, and the next rung
+    # is outside it.
+    assert int(q_small) == max(small), (q_small, sorted(fits))
+    step = fits.get(2 * int(q_small))
+    assert step is None or not (_near(q_fix_lo, step[0]) and step[1] == words[q_n_small]), step
+    assert _near(q_fix_hi, fits[int(q_big)][0]) and fits[int(q_big)][1] == words[q_n_big]
+    assert min(f for f, _ in fits.values()) == min(fits[m][0] for m in small)
+    assert max(f for f, _ in fits.values()) == fits[int(q_big)][0], fits
+    assert _near(q_mc_b, per_traj["B"]) and _near(q_mc_c, per_traj["C"])
+    assert words[q_most] == max(len(_p7a_derived(n)[1]["dims"])
+                                for n in ("mixed_chain", "oscillator_bath"))
+
+    path = DATA / "frontier_spins_spin_chain.json"
+    assert path.exists(), f"{path.name} is quoted in Result 4 but not committed"
+    frontier = json.loads(path.read_text(encoding="utf-8"))
+    points = [p for p in frontier["points"] if int(r5_lo) <= p["dim"] <= int(r5_hi)]
+    assert points[0]["dim"] == int(r5_lo) and points[-1]["dim"] == int(r5_hi)
+    assert len({p["substeps"] for p in points}) == 1, "Result 5's range mixes substeps"
+    common_m = set.intersection(*(set(p["m_runs"]) for p in points))
+    assert common_m, "no bundle count spans Result 5's range"
+    for m_key in common_m:
+        slope = _p7a_slope([p["dim"] for p in points],
+                           [p["m_runs"][m_key]["t_dyn"] for p in points])
+        assert _near(q_r5, slope), f"M={m_key}: N^{slope:.2f}"
+
+
+# Part 7 (U2): Result 4's system-by-system findings and its caveats. The System
+# A bullet said M* = N_L "from 16 onward" and blamed `coherence` for the whole
+# miss; the System B bullet quoted whole-range exponents flattened by dims 4-16
+# without saying so; "2 bundles against 632 trajectories" hid 16 solves and a
+# projection; and the caveats called the ratios "exact" and said mcsolve's
+# budget ROSE from ~35 h, where the pre-correction data projects 77.8 h.
+_P7B_WORDS = {"four": 4, "five": 5, "six": 6, "eight": 8}
+
+
+def _p7b_region(doc):
+    """Result 4 from its system-by-system findings to its target sensitivity."""
+    return _p7f_between(_flat(doc), "#### System-by-System Findings",
+                        "#### Target sensitivity: 3% against 1%")
+
+
+def _p7b_result4(name):
+    """(document, derive() output, SLB rows, run count) for one Result 4 file,
+    exactly as plot_isocost_vs_dim.main derives it."""
+    P = pytest.importorskip("plot_isocost_vs_dim")
+    from isocost_config import run_counts
+    path = DATA / f"isocost_vs_dim_{name}.json"
+    assert path.exists(), f"{path.name} backs Result 4 but is not committed"
+    document = json.loads(path.read_text(encoding="utf-8"))
+    n_runs = run_counts(name)
+    out = P.derive(document, P.TARGET_RMSE, n_runs, P.ESTIMATE_TYPE)
+    return document, out, out["slb"][max(n_runs)], max(n_runs)
+
+
+def _p7b_only(targets, j):
+    """A target vector that scores observable j alone: every other observable
+    gets an infinite target, so plot_isocost_vs_dim's argmax picks j."""
+    only = np.full(len(targets), np.inf)
+    only[j] = targets[j]
+    return only
+
+
+def _p7b_mc_binding(point):
+    """Index of the observable derive_mc needs most trajectories for, found by
+    scoring each observable alone through derive_mc itself."""
+    P = pytest.importorskip("plot_isocost_vs_dim")
+    targets = P.observable_targets(point)
+    need = [P.derive_mc(point, _p7b_only(targets, j))[0] for j in range(len(targets))]
+    return int(np.argmax(need)), need
+
+
+def _p7b_speedup(out, slb):
+    return np.asarray(out["mc_cost"]) / np.asarray(slb["cost"])
+
+
+def _p7b_exponent(dims, cost):
+    return float(np.polyfit(np.log(dims), np.log(cost), 1)[0])
+
+
+def test_p7b_result4_system_a_misses_at_every_size(doc):
+    """M reaches N_L at all eight sizes; the worst observable is zz, then
+    energy, then coherence; and at five sizes some observable's estimated bias
+    alone is over its target, which more realizations cannot remove."""
+    P = pytest.importorskip("plot_isocost_vs_dim")
+    m = re.search(
+        r"Swept from dimension (\d+) to (\d+), \$M\$ reaches \$N_L\$ at every size "
+        r"\(\$(\d+)/(\d+)\$ up to \$(\d+)/(\d+)\$\), and the error still misses the "
+        r"(\d+)% target by \$([\d.]+)\\times\$ \(dim (\d+)\) to \$([\d.]+)\\times\$ "
+        r"\(dim (\d+)\)\. The worst observable is `(\w+)` at dims (\d+) to (\d+), "
+        r"`(\w+)` at (\d+) and `(\w+)` from (\d+)\. Not all of the miss is noise from "
+        r"the (\d+) realizations used: at dims ((?:\d+, )*\d+ and \d+), some "
+        r"observable's estimated bias alone is over its target, and more "
+        r"realizations do not shrink bias\. At dims ((?:\d+, )*\d+ and \d+) every "
+        r"observable's estimated bias is under its target, and there part of the "
+        r"miss is sampling noise\. So no speedup is quoted\.", _p7b_region(doc))
+    assert m, "Result 4's System A bullet has changed shape"
+    (q_lo, q_hi, q_m0, q_nl0, q_m1, q_nl1, q_pct, q_min, q_min_dim, q_max,
+     q_max_dim, q_b1, q_b1_lo, q_b1_hi, q_b2, q_b2_dim, q_b3, q_b3_from, q_runs,
+     q_over, q_under) = m.groups()
+    document, out, slb, n_runs = _p7b_result4("spin_chain")
+    dims = [int(d) for d in out["dims"]]
+    assert (dims[0], dims[-1]) == (int(q_lo), int(q_hi))
+    assert int(q_pct) == round(100 * P.TARGET_REL)
+    assert int(q_runs) == n_runs
+    assert not slb["ok"].any(), "System A now reaches the target somewhere"
+    assert list(slb["mstar"]) == list(out["n_ls"]), "M no longer reaches N_L everywhere"
+    assert (int(q_m0), int(q_nl0)) == (slb["mstar"][0], out["n_ls"][0])
+    assert (int(q_m1), int(q_nl1)) == (slb["mstar"][-1], out["n_ls"][-1])
+
+    # The worst observable's miss at each size, as the plotter scores it.
+    ratios = []
+    for point, b2, n2, bind in zip(document["points"], slb["bias_sq"],
+                                   slb["noise_sq"], slb["binding"]):
+        target = P.observable_targets(point)[point["observables"].index(bind)]
+        ratios.append(math.sqrt(b2 + n2) / target)
+    lo, hi = int(np.argmin(ratios)), int(np.argmax(ratios))
+    assert _near(q_min, ratios[lo]) and dims[lo] == int(q_min_dim), (dims[lo], ratios[lo])
+    assert _near(q_max, ratios[hi]) and dims[hi] == int(q_max_dim), (dims[hi], ratios[hi])
+
+    # The three ranges must tile the sweep: first size, then consecutive sizes.
+    assert int(q_b1_lo) == dims[0] and int(q_b1_hi) in dims
+    assert dims[dims.index(int(q_b1_hi)) + 1] == int(q_b2_dim)
+    assert dims[dims.index(int(q_b2_dim)) + 1] == int(q_b3_from)
+
+    def named(d):
+        if int(q_b1_lo) <= d <= int(q_b1_hi):
+            return q_b1
+        if d == int(q_b2_dim):
+            return q_b2
+        return q_b3 if d >= int(q_b3_from) else None
+    assert list(slb["binding"]) == [named(d) for d in dims], slb["binding"]
+
+    # Bias alone, per observable, at the last bundle count tried (M = N_L).
+    over = []
+    for point in document["points"]:
+        last = point["slb_sweep"][-1]
+        assert last["M"] == point["n_l"]
+        targets = P.observable_targets(point)
+        one_row = dict(point, slb_sweep=[last])
+        biased = False
+        for j, label in enumerate(point["observables"]):
+            _, _, _, b2, _, got = P.derive_slb(one_row, n_runs, _p7b_only(targets, j),
+                                               P.ESTIMATE_TYPE)
+            assert got == label
+            biased |= math.sqrt(b2) > targets[j]
+        if biased:
+            over.append(point["dim"])
+    printed = [int(d) for d in re.findall(r"\d+", q_over)]
+    assert printed == over, f"bias alone over target at dims {over}"
+    under = [int(d) for d in re.findall(r"\d+", q_under)]
+    assert under == [d for d in dims if d not in over], f"bias under target at dims {under}"
+
+
+def test_p7b_result4_system_b_fit_range_and_speedups(doc):
+    """The whole-range exponents N^1.95 / N^2.52 are named as such, the fit
+    from dim 16 up is quoted beside them, and the speedups at dims 4 and 8 are
+    no longer hidden behind 'widens from 24x at dim 16'."""
+    m = re.search(
+        r"As \$N_L\$ grows ([\d,]+)-fold \(\$(\d+) \\to (\d+)\{,\}(\d+)\$\), "
+        r"\$M\^\\ast\$ grows only (\d+)-fold \(\$(\d+) \\to (\d+)\$\)\. SLB \((\d+) "
+        r"realizations\) is \$(\d+)\\times\$ cheaper than `mcsolve`'s projected "
+        r"cost at dim (\d+) and \$(\d+)\\times\$ at dim (\d+), and the ratio then "
+        r"grows at every doubling, "
+        r"to \*\*\$(\d+)\\times\$ at dim (\d+)\*\*\. Fitted over all (\w+) sizes, "
+        r"SLB's cost grows as \$N\^\{([\d.]+)\}\$ and `mcsolve`'s as "
+        r"\$N\^\{([\d.]+)\}\$\. The small sizes flatten that fit: from dim (\d+) to "
+        r"(\d+), SLB's cost rises only ([\d.]+)-fold and `mcsolve`'s ([\d.]+)-fold\. "
+        r"Fitted from dim (\d+) up \((\w+) points\), the two grow as "
+        r"\$N\^\{([\d.]+)\}\$ and \$N\^\{([\d.]+)\}\$, about ([\d.]+) powers of \$N\$ "
+        r"apart\. The binding observable is `(\w+)` at every size, for both "
+        r"methods\.", _p7b_region(doc))
+    assert m, "Result 4's System B bullet has changed shape"
+    (q_fold, q_nl0, q_nl1a, q_nl1b, q_mfold, q_m0, q_m1, q_runs, q_s0, q_d0, q_s1,
+     q_d1, q_top, q_dtop, q_n_all, q_slb_all, q_mc_all, q_f_d0, q_f_d1, q_f_slb, q_f_mc,
+     q_from, q_n_fit, q_slb_fit, q_mc_fit, q_gap, q_bind) = m.groups()
+    document, out, slb, n_runs = _p7b_result4("mixed_chain")
+    assert int(q_runs) == n_runs
+    dims = out["dims"].astype(int)
+    n_ls, mstar = out["n_ls"].astype(int), slb["mstar"]
+    slb_cost, mc_cost = np.asarray(slb["cost"]), np.asarray(out["mc_cost"])
+    assert (n_ls[0], n_ls[-1]) == (int(q_nl0), int(q_nl1a + q_nl1b))
+    assert _near(q_fold, n_ls[-1] / n_ls[0])
+    assert (mstar[0], mstar[-1]) == (int(q_m0), int(q_m1))
+    assert _near(q_mfold, mstar[-1] / mstar[0])
+    assert slb["ok"].all() and out["mc_ok"].all(), "target not met everywhere"
+
+    speed = dict(zip(dims, _p7b_speedup(out, slb)))
+    assert int(q_d0) == dims[0] and _near(q_s0, speed[int(q_d0)])
+    assert _near(q_s1, speed[int(q_d1)])
+    assert int(q_dtop) == dims[-1] and _near(q_top, speed[dims[-1]])
+    tail = [speed[d] for d in dims if d >= int(q_d1)]
+    assert np.all(np.diff(tail) > 0), f"not larger at every doubling from dim {q_d1}: {tail}"
+
+    assert _P7B_WORDS[q_n_all] == len(dims)
+    assert _near(q_slb_all, _p7b_exponent(dims, slb_cost))
+    assert _near(q_mc_all, _p7b_exponent(dims, mc_cost))
+    i0, i1 = list(dims).index(int(q_f_d0)), list(dims).index(int(q_f_d1))
+    assert i0 == 0 and int(q_f_d1) == int(q_from)
+    assert _near(q_f_slb, slb_cost[i1] / slb_cost[i0])
+    assert _near(q_f_mc, mc_cost[i1] / mc_cost[i0])
+    sel = dims >= int(q_from)
+    assert _P7B_WORDS[q_n_fit] == int(sel.sum())
+    slb_fit = _p7b_exponent(dims[sel], slb_cost[sel])
+    mc_fit = _p7b_exponent(dims[sel], mc_cost[sel])
+    assert _near(q_slb_fit, slb_fit) and _near(q_mc_fit, mc_fit)
+    assert _near(q_gap, mc_fit - slb_fit)
+    assert set(slb["binding"]) == {q_bind}
+    mc_binding = {point["observables"][_p7b_mc_binding(point)[0]]
+                  for point in document["points"]}
+    assert mc_binding == {q_bind}, f"mcsolve's binding observables: {mc_binding}"
+
+
+def test_p7b_result4_system_c_names_both_sides_of_850x(doc):
+    """'Just 2 bundles against 632 trajectories' read as one solve against a
+    run: the SLB side is 16 realizations at M = 2, and the 632 trajectories
+    are a projection."""
+    m = re.search(
+        r"\$M\^\\ast\$ drops from \$(\d+) \\to (\d+)\$ while \$N_L\$ climbs from "
+        r"\$(\d+) \\to (\d+)\{,\}(\d+)\$, a \*\*\$(\d+)\\times\$ compression ratio\*\* "
+        r"\(\$M\^\\ast/N_L = 1/(\d+)\$\)\. At dim (\d+), (\d+) realizations at "
+        r"\$M = (\d+)\$ take (\d+) s in all\. `mcsolve` is projected to need (\d+) "
+        r"trajectories, or ([\d.]+) h, to reach the same target: an "
+        r"\*\*\$(\d+)\\times\$ speedup\*\*\. SLB's binding observable is `(\w+)` "
+        r"\(spin-boson interaction\) throughout\.", _p7b_region(doc))
+    assert m, "Result 4's System C bullet has changed shape"
+    (q_m0, q_m1, q_nl0, q_nl1a, q_nl1b, q_ratio, q_inv, q_dim, q_runs, q_m, q_slb_s,
+     q_ntraj, q_hours, q_speed, q_bind) = m.groups()
+    document, out, slb, n_runs = _p7b_result4("oscillator_bath")
+    assert (slb["mstar"][0], slb["mstar"][-1]) == (int(q_m0), int(q_m1))
+    assert int(q_m) == int(q_m1)
+    n_ls = out["n_ls"].astype(int)
+    assert (n_ls[0], n_ls[-1]) == (int(q_nl0), int(q_nl1a + q_nl1b))
+    assert _near(q_ratio, n_ls[-1] / slb["mstar"][-1])
+    assert _near(q_inv, n_ls[-1] / slb["mstar"][-1])
+    assert int(out["dims"][-1]) == int(q_dim) and n_runs == int(q_runs)
+    assert slb["ok"].all() and out["mc_ok"][-1]
+    # The SLB side is n_runs full solves at M*, measured.
+    last = [r for r in document["points"][-1]["slb_sweep"] if r["M"] == int(q_m)][0]
+    assert slb["cost"][-1] == pytest.approx(n_runs * last["per_run_cost"])
+    assert _near(q_slb_s, slb["cost"][-1])
+    assert _near(q_ntraj, out["mc_star"][-1])
+    assert _near(q_hours, out["mc_cost"][-1] / 3600)
+    assert _near(q_speed, _p7b_speedup(out, slb)[-1])
+    assert set(slb["binding"]) == {q_bind}
+
+
+def test_p7b_result4_s_correction_inflation_is_measured(doc):
+    """'1.2 to 1.5 times' and '1.5 to 2.1 times' were one measurement (mixed
+    chain, dim 16) quoted as the whole range. Recomputed on every committed
+    point: derive_mc with the direct S, against derive_mc on the same rows with
+    s_repeats removed (its fallback, the old estimate). The binding observable
+    is the same under both, so the S ratio is the root of the N* ratio."""
+    import copy
+    P = pytest.importorskip("plot_isocost_vs_dim")
+    m = re.search(
+        r"Applied to the committed data, that estimate makes \$S\$ ([\d.]+) to "
+        r"([\d.]+) times too large, and \$N_\{\\rm traj\}\^\\ast\$ ([\d.]+) to "
+        r"([\d.]+) times\. Job `(\d+)` re-ran all three systems with \$S\$ measured "
+        r"directly across trajectories, and the numbers in the tables and text "
+        r"above use it\. The headline speedups fell: \$([\d,{}]+)\\times \\to "
+        r"(\d+)\\times\$ on the mixed chain, \$([\d,{}]+)\\times \\to (\d+)\\times\$ "
+        r"on the oscillator\.", _p7b_region(doc))
+    assert m, "Result 4's first caveat has changed shape"
+    q_s_lo, q_s_hi, q_n_lo, q_n_hi, q_job, q_old_b, q_b, q_old_c, q_c = m.groups()
+    # "468x -> 394x", "1,739x -> 850x": the old numbers through today's derive
+    # on the files as they stood before the re-run, which had no s_repeats.
+    from isocost_config import run_counts
+    for name, q_old in (("mixed_chain", q_old_b), ("oscillator_bath", q_old_c)):
+        old = _p7f_superseded_isocost(name)
+        assert not any("s_repeats" in r for p in old["points"] for r in p["mc_fit"]), name
+        assert old["points"][-1]["dim"] == _p7b_result4(name)[0]["points"][-1]["dim"], name
+        n_runs = run_counts(name)
+        o_out = P.derive(old, P.TARGET_RMSE, n_runs, P.ESTIMATE_TYPE)
+        o_slb = o_out["slb"][max(n_runs)]
+        assert _near(q_old, o_out["mc_cost"][-1] / o_slb["cost"][-1]), name
+    inflation = []
+    for name in ("spin_chain", "mixed_chain", "oscillator_bath"):
+        document, out, slb, _ = _p7b_result4(name)
+        assert document["meta"]["execution"]["slurm"]["job_id"] == q_job, name
+        if name != "spin_chain":
+            quoted = q_b if name == "mixed_chain" else q_c
+            assert _near(quoted, _p7b_speedup(out, slb)[-1]), name
+        for point in document["points"]:
+            targets = P.observable_targets(point)
+            direct, _, _ = P.derive_mc(point, targets)
+            old = copy.deepcopy(point)
+            for row in old["mc_fit"]:
+                assert "s_repeats" in row and "rmse_repeats" in row
+                del row["s_repeats"]
+            fallback, _, _ = P.derive_mc(old, targets)
+            assert _p7b_mc_binding(old)[0] == _p7b_mc_binding(point)[0]
+            inflation.append(fallback / direct)
+    assert _near(q_n_lo, min(inflation)) and _near(q_n_hi, max(inflation))
+    assert _near(q_s_lo, math.sqrt(min(inflation)))
+    assert _near(q_s_hi, math.sqrt(max(inflation)))
+
+
+def test_p7b_result4_caveat_says_what_is_projected(doc):
+    """'The speedup ratios are exact' was wrong: mcsolve's side is a
+    projection, thinnest where only four repeats of 100 trajectories ran. The
+    note points to the projection defined above rather than restating it. The
+    printed standard errors are twice the relative standard error of the
+    binding observable's mean S over the repeats, since N* goes as S^2."""
+    import run_isocost_vs_dim as R
+    region = _p7b_region(doc)
+    for repeat in ("`mcsolve`'s side is projected", "Step counts do not match"):
+        assert repeat not in region, f"the projection disclosure is restated: {repeat!r}"
+    m = re.search(
+        r"All three systems ran in one exclusive Slurm allocation \(`(\d+)`\), so "
+        r"wall-clock times compare \*across\* the three panels as well as within "
+        r"them\. The `mcsolve` projection defined above is thinnest at dims (\d+) "
+        r"and (\d+) on Systems B and C, and at (\d+) on System A: there only (\w+) "
+        r"repeats of (\d+) trajectories ran, and the (\d+)- and (\d+)-trajectory "
+        r"runs were skipped under a one-hour `mcsolve` budget per size\. At dim "
+        r"(\d+) the projected trajectory counts are ([\d.]+) \(B\) and ([\d.]+) "
+        r"\(C\) times the (\d+) that ran\. The scatter of \$S\$ across the four "
+        r"repeats gives the \$(\d+)\\times\$ a standard error of about (\d+)% and "
+        r"the \$(\d+)\\times\$ one of about (\d+)%\.", region)
+    assert m, "Result 4's second caveat has changed shape"
+    (q_job, q_thin0, q_thin1, q_thin_a, q_reps, q_rung, q_skip0, q_skip1, q_dim,
+     q_xb, q_xc, q_ran, q_speed_b, q_se_b, q_speed_c, q_se_c) = m.groups()
+    script = BENCHMARKS / "slurm_r4_regen.sh"
+    assert script.exists(), f"{script.name} launched Result 4 but is not committed"
+    sbatch = script.read_text(encoding="utf-8")
+    assert "#SBATCH --exclusive" in sbatch
+    assert "atol" in common.MC_OPTIONS and "rtol" in common.MC_OPTIONS
+    assert R.MC_TIME_BUDGET_S == 3600.0
+    assert R.MC_REPEATS == _P7B_WORDS[q_reps] and R.MC_FIT_GRID[0] == int(q_rung)
+    assert R.MC_FIT_GRID[1:] == [int(q_skip0), int(q_skip1)]
+    ran = R.MC_REPEATS * int(q_rung)
+    assert ran == int(q_ran)
+
+    thin_expected = {"spin_chain": {int(q_thin_a)},
+                     "mixed_chain": {int(q_thin0), int(q_thin1)},
+                     "oscillator_bath": {int(q_thin0), int(q_thin1)}}
+    stats = {}
+    for name in ("spin_chain", "mixed_chain", "oscillator_bath"):
+        document, out, slb, n_runs = _p7b_result4(name)
+        slurm = document["meta"]["execution"]["slurm"]
+        assert slurm["job_id"] == q_job, name
+        assert f"#SBATCH --job-name={slurm['job_name']}" in sbatch, name
+        thin = set()
+        for point in document["points"]:
+            rungs = [r["ntraj"] for r in point["mc_fit"]]
+            if rungs != [int(q_rung)]:
+                continue
+            thin.add(point["dim"])
+            spent = sum(r["per_traj_time"] * R.MC_REPEATS * r["ntraj"]
+                        for r in point["mc_fit"])
+            assert [s["ntraj"] for s in point["mc_skipped"]] == R.MC_FIT_GRID[1:]
+            assert all(spent + s["projected_s"] > R.MC_TIME_BUDGET_S
+                       for s in point["mc_skipped"])
+            assert len(point["mc_fit"][0]["s_repeats"]) == R.MC_REPEATS
+        assert thin == thin_expected[name], f"{name}: only one rung at {sorted(thin)}"
+        if name == "spin_chain":
+            continue
+        point = document["points"][-1]
+        assert point["dim"] == int(q_dim)
+        j, need = _p7b_mc_binding(point)
+        assert need[j] == pytest.approx(out["mc_star"][-1])
+        s = np.concatenate([np.asarray(r["s_repeats"], dtype=float)[:, j]
+                            for r in point["mc_fit"]])
+        rel_se = 2 * s.std(ddof=1) / math.sqrt(len(s)) / s.mean()
+        stats[name] = (out["mc_star"][-1], _p7b_speedup(out, slb)[-1], rel_se)
+    for name, q_x, q_speed, q_se in (
+            ("mixed_chain", q_xb, q_speed_b, q_se_b),
+            ("oscillator_bath", q_xc, q_speed_c, q_se_c)):
+        ntraj, speed, rel_se = stats[name]
+        assert _near(q_x, ntraj / ran), name
+        assert _near(q_speed, speed), name
+        assert _near(q_se, 100 * rel_se), f"{name}: one standard error {100 * rel_se:.1f}%"
+
+
+# --- Part 7 U3: Result 4's target-sensitivity subsection ------------------
+
+def _p7c_region(doc: str) -> str:
+    """Result 4's target-sensitivity subsection, flattened, up to Result 5."""
+    return _p7f_between(_flat(doc), "#### Target sensitivity: 3% against 1%",
+                        "### Result 5 — past the reference wall")
+
+
+def _p7c_document(system: str) -> dict:
+    path = DATA / f"isocost_vs_dim_{system}.json"
+    assert path.exists(), f"{path.name} is quoted in BENCHMARKS.md but not committed"
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def _p7c_point(system: str, dim: int) -> dict:
+    return next(p for p in _p7c_document(system)["points"] if p["dim"] == dim)
+
+
+def _p7c_score(system: str, point: dict, rel: float) -> dict:
+    """SLB and projected mcsolve at `rel` of each observable's span, exactly
+    as plot_isocost_vs_dim scores Result 4, at the realization count it uses."""
+    P = pytest.importorskip("plot_isocost_vs_dim")
+    from isocost_config import run_counts
+    n_runs = max(run_counts(system))
+    targets = P.observable_targets(point, rel)
+    m_star, cost, ok, bias_sq, noise_sq, binding = P.derive_slb(
+        point, n_runs, targets, P.ESTIMATE_TYPE)
+    ntraj, mc_cost, mc_ok = P.derive_mc(point, targets)
+    _, labels = P._obs_axis(point)
+    return {"m": m_star, "cost": cost, "ok": ok, "ntraj": ntraj,
+            "mc_cost": mc_cost, "mc_ok": mc_ok, "binding": binding,
+            "bias": math.sqrt(bias_sq), "sem": math.sqrt(noise_sq),
+            "target": float(targets[labels.index(binding)]),
+            "largest": point["slb_sweep"][-1]["M"], "n_runs": n_runs,
+            "speedup": mc_cost / cost}
+
+
+def test_p7c_target_sensitivity_table_is_measured_at_1_percent(doc):
+    """The 1% row used to be a 1/epsilon projection (~1,200x, ~2,500x) that
+    its own columns contradicted (410 h over 14 min is ~1,750x). Every cell is
+    now derive_slb / derive_mc at 3% and 1% of each observable's span."""
+    P = pytest.importorskip("plot_isocost_vs_dim")
+    region = _p7c_region(doc)
+    head = re.search(r"\| target \| System B, dim (\d+) \| System C, dim (\d+) \| "
+                     r"System C, dim (\d+) \| \|---\|---\|---\|---\|", region)
+    assert head, "the target-sensitivity table header has changed shape"
+    columns = [("mixed_chain", int(head.group(1))),
+               ("oscillator_bath", int(head.group(2))),
+               ("oscillator_bath", int(head.group(3)))]
+    cell = (r"\$M\^\\ast = (\d+)\$: ([\d,]+) s against ([\d.]+) h, "
+            r"\*\*([\d,]+)x\*\*")
+    rows = {}
+    for pct in ("3", "1"):
+        row = re.search(rf"\| {pct}% \| (.*?) \| (?=\| \d% \||Both sides)", region)
+        assert row, f"the {pct}% row has changed shape"
+        rows[pct] = row.group(1).split(" | ")
+        assert len(rows[pct]) == 3, rows[pct]
+    assert _near("3", 100 * P.TARGET_REL), "the headline target is no longer 3%"
+    for pct in ("3", "1"):
+        for (system, dim), text in zip(columns, rows[pct]):
+            s = _p7c_score(system, _p7c_point(system, dim), int(pct) / 100)
+            m = re.fullmatch(cell, text)
+            if m is None:
+                # Only an unreached target may be printed without a ratio.
+                miss = re.fullmatch(r"not reached: \$M = (\d+)\$, the largest swept, "
+                                    r"misses by \$([\d.]+)\\times\$", text)
+                assert miss, f"{pct}% {system} dim {dim}: {text!r}"
+                assert not s["ok"], f"{system} dim {dim} now reaches {pct}%"
+                assert int(miss.group(1)) == s["m"] == s["largest"]
+                assert _near(miss.group(2),
+                             math.hypot(s["bias"], s["sem"]) / s["target"])
+                continue
+            q_m, q_slb, q_mc, q_speed = m.groups()
+            assert s["ok"] and s["mc_ok"], f"{system} dim {dim} misses {pct}%"
+            assert int(q_m) == s["m"]
+            assert _near(q_slb, s["cost"])
+            assert _near(q_mc, s["mc_cost"] / 3600)
+            assert _near(q_speed, s["speedup"])
+    for stale in ("~1,200x", "~2,500x", "10,000x", "Jackknife", "4.7 years",
+                  "only viable"):
+        assert stale not in region, stale
+
+
+def test_p7c_target_sensitivity_lead_is_scoped_to_its_columns(doc):
+    """The old lead said tightening the target widens SLB's lead
+    'dramatically', as a rule. Measured, it widens in the two columns that
+    reach both targets and shrinks on the oscillator at dim 16."""
+    m = re.search(
+        r"In the two columns below that reach both targets, tightening the target "
+        r"from (\d+)% to (\d+)% of each observable's span widens SLB's lead over "
+        r"projected `mcsolve`: ([\d.]+) times on System B at dim (\d+) and "
+        r"([\d.]+) times on the oscillator at dim (\d+)\. That is not a rule\. On "
+        r"the oscillator at dim (\d+) the lead shrinks, from (\d+)x to (\d+)x\.",
+        _p7c_region(doc))
+    assert m, "the target-sensitivity lead has changed shape"
+    q_lo, q_hi, q_b, q_bdim, q_c, q_cdim, q_sdim, q_s3, q_s1 = m.groups()
+    loose, tight = int(q_lo) / 100, int(q_hi) / 100
+    reached = []
+    for system, dim in (("mixed_chain", 128), ("oscillator_bath", 64),
+                        ("oscillator_bath", 128)):
+        point = _p7c_point(system, dim)
+        a, b = _p7c_score(system, point, loose), _p7c_score(system, point, tight)
+        if a["ok"] and b["ok"]:
+            reached.append((system, dim, b["speedup"] / a["speedup"]))
+    assert [(s, d) for s, d, _ in reached] == [
+        ("mixed_chain", int(q_bdim)), ("oscillator_bath", int(q_cdim))]
+    assert _near(q_b, reached[0][2]) and _near(q_c, reached[1][2])
+    assert all(r > 1 for _, _, r in reached)
+    point = _p7c_point("oscillator_bath", int(q_sdim))
+    a, b = _p7c_score("oscillator_bath", point, loose), _p7c_score("oscillator_bath", point, tight)
+    assert a["ok"] and b["ok"]
+    assert _near(q_s3, a["speedup"]) and _near(q_s1, b["speedup"])
+    assert b["speedup"] < a["speedup"]
+
+
+def test_p7c_target_sensitivity_caveats_match_the_runs(doc):
+    """16 realizations, projected mcsolve, the SLB substeps behind each
+    column, and why the oscillator's dim-128 sweep ends at M = 8: the runner's
+    recorded absolute stop floor was met, and 1% of x_sx's span lies below it."""
+    P = pytest.importorskip("plot_isocost_vs_dim")
+    m = re.search(
+        r"Both sides are priced as in the summary table: (\d+) SLB realizations, "
+        r"at (\d+) substeps on System B and (\d+) and (\d+) on the oscillator at "
+        r"dims (\d+) and (\d+), against projected `mcsolve`\. The oscillator's "
+        r"dim-(\d+) sweep stopped at \$M = (\d+)\$ because the runner stops once "
+        r"every observable's error is below ([\d.]+) in absolute terms, and 1% of "
+        r"`(\w+)`'s span is smaller than that\.", _p7c_region(doc))
+    assert m, "the target-sensitivity caveats have changed shape"
+    (q_runs, q_b, q_c1, q_c2, q_d1, q_d2, q_stop_dim, q_stop_m, q_floor,
+     q_obs) = m.groups()
+    for system in ("mixed_chain", "oscillator_bath"):
+        point = _p7c_document(system)["points"][-1]
+        assert _p7c_score(system, point, 0.03)["n_runs"] == int(q_runs)
+    assert _p7c_point("mixed_chain", 128)["substeps"] == int(q_b)
+    assert _p7c_point("oscillator_bath", int(q_d1))["substeps"] == int(q_c1)
+    assert _p7c_point("oscillator_bath", int(q_d2))["substeps"] == int(q_c2)
+    # The sweep ran every grid value up to the stop, and stopped because the
+    # recorded floor was met on every observable, not at N_L or the grid's end.
+    document = _p7c_document("oscillator_bath")
+    params = document["meta"]["params"]
+    point = _p7c_point("oscillator_bath", int(q_stop_dim))
+    swept = [row["M"] for row in point["slb_sweep"]]
+    assert swept[-1] == int(q_stop_m)
+    assert swept == [g for g in params["M_GRID"] if g <= int(q_stop_m)]
+    assert int(q_stop_m) < point["n_l"] and int(q_stop_m) < max(params["M_GRID"])
+    assert _near(q_floor, params["SWEEP_STOP_RMSE"])
+    reference, labels = P._obs_axis(point)
+    samples = np.asarray(point["slb_sweep"][-1]["samples"], dtype=float)
+    worst = max(common.tavg_rmse(samples[:params["SWEEP_MIN_RUNS"], j], reference[j])
+                for j in range(reference.shape[0]))
+    assert worst <= params["SWEEP_STOP_RMSE"]
+    target = P.observable_targets(point, 0.01)[labels.index(q_obs)]
+    assert target < params["SWEEP_STOP_RMSE"]
+    assert _p7c_score("oscillator_bath", point, 0.01)["binding"] == q_obs
+
+
+def test_p7c_target_sensitivity_steps_follow_the_ladder(doc):
+    """With bias ~ 1/M a 3x tighter target needs ~3x M; the old text said
+    '2x to 3x'. Measured, B's step is 2x or 4x and the oscillator's, which is
+    s.e.m.-limited at 3%, 4x to 32x; the sizes that miss 1% are named."""
+    m = re.search(
+        r"A \$(\d+)\\times\$ tighter target multiplies `mcsolve`'s projected "
+        r"trajectory count by (\d+) \(([\d,]+) to ([\d,]+) on System B at dim "
+        r"(\d+)\)\. There SLB's \$M\^\\ast\$ and cost only doubled \(([\d,]+) s to "
+        r"([\d,]+) s\)\. Bias falling as \$1/M\$ asks for about \$(\d+)\\times\$ the "
+        r"bundles, and the \$M\$ grid doubles, so the step shows as 2x or 4x\. On "
+        r"System B it is 2x at dims (\d+), (\d+) and (\d+) and 4x at dim (\d+); "
+        r"dims (\d+) and (\d+) miss 1% even at their largest \$M\$ \((\d+) and "
+        r"(\d+)\)\. On the oscillator it is (\d+)x to (\d+)x at dims (\d+) to "
+        r"(\d+), and dims (\d+) and (\d+) miss 1% at their largest \$M\$ \((\d+) "
+        r"and (\d+)\)\. There the binding `(\w+)` is limited at 3% more by the "
+        r"s\.e\.m\. of (\d+) realizations than by bias, at every size, so the "
+        r"\$1/M\$ rule does not set the step\.", _p7c_region(doc))
+    assert m, "the target-sensitivity scaling paragraph has changed shape"
+    g = m.groups()
+    q_tight, q_sq, q_n3, q_n1, q_dim, q_c3, q_c1, q_bias_x = g[:8]
+    b_two, b_four = [int(x) for x in g[8:11]], int(g[11])
+    b_miss, b_miss_m = [int(x) for x in g[12:14]], [int(x) for x in g[14:16]]
+    q_lo, q_hi, q_dlo, q_dhi = (int(x) for x in g[16:20])
+    c_miss, c_miss_m = [int(x) for x in g[20:22]], [int(x) for x in g[22:24]]
+    q_obs, q_runs = g[24], int(g[25])
+    osc_dims = [p["dim"] for p in _p7c_document("oscillator_bath")["points"]]
+    assert q_dlo in osc_dims and q_dhi in osc_dims, (q_dlo, q_dhi, osc_dims)
+    assert int(q_tight) == 3 and int(q_bias_x) == int(q_tight)
+    s3 = _p7c_score("mixed_chain", _p7c_point("mixed_chain", int(q_dim)), 0.03)
+    s1 = _p7c_score("mixed_chain", _p7c_point("mixed_chain", int(q_dim)), 0.01)
+    assert _near(q_n3, s3["ntraj"]) and _near(q_n1, s1["ntraj"])
+    assert _near(q_sq, s1["ntraj"] / s3["ntraj"])
+    assert s1["m"] == 2 * s3["m"] and round(s1["cost"] / s3["cost"]) == 2
+    assert _near(q_c3, s3["cost"]) and _near(q_c1, s1["cost"])
+    steps = {}
+    for point in _p7c_document("mixed_chain")["points"]:
+        lo = _p7c_score("mixed_chain", point, 0.03)
+        hi = _p7c_score("mixed_chain", point, 0.01)
+        assert lo["ok"], f"B dim {point['dim']} misses 3%"
+        steps[point["dim"]] = hi["m"] // lo["m"] if hi["ok"] else ("miss", hi["largest"])
+    expected = {d: 2 for d in b_two}
+    expected[b_four] = 4
+    expected.update({d: ("miss", mm) for d, mm in zip(b_miss, b_miss_m)})
+    assert steps == expected, steps
+    ratios, misses = [], {}
+    for point in _p7c_document("oscillator_bath")["points"]:
+        lo = _p7c_score("oscillator_bath", point, 0.03)
+        hi = _p7c_score("oscillator_bath", point, 0.01)
+        assert lo["ok"] and lo["n_runs"] == q_runs
+        assert lo["binding"] == q_obs and lo["sem"] > lo["bias"], point["dim"]
+        if q_dlo <= point["dim"] <= q_dhi:
+            assert hi["ok"], point["dim"]
+            ratios.append(hi["m"] / lo["m"])
+        else:
+            assert not hi["ok"], point["dim"]
+            misses[point["dim"]] = hi["largest"]
+    assert len(ratios) >= 2
+    assert min(ratios) == q_lo and max(ratios) == q_hi
+    assert misses == dict(zip(c_miss, c_miss_m)), misses
+
+
+def test_p7c_nothing_committed_measures_a_tenth_of_a_percent(doc):
+    """The old 0.1% row (M* = 256, >10,000x, 4.7 years) was never run. No
+    point in any Result 4 file reaches 0.1%; at B dim 128 the largest M misses
+    it 7.1x, with an s.e.m. alone 3.9x the target."""
+    m = re.search(
+        r"Nothing committed measures 0\.1%: no point in any of the three sweeps "
+        r"reaches it\. On System B at dim (\d+), \$M = (\d+)\$, the largest swept, "
+        r"misses it by \$([\d.]+)\\times\$, and its s\.e\.m\. alone is "
+        r"\$([\d.]+)\\times\$ the target\. An s\.e\.m\. shrinks only as one over "
+        r"the square root of the realization count, so once SLB is limited by its "
+        r"s\.e\.m\., its cost also grows as \$1/\\text\{target\}\^2\$, like "
+        r"`mcsolve`'s\. The exact solve's cost does not depend on the target, and "
+        r"on System A neither stochastic method beats it at any size measured "
+        r"\(Result 3\)\.", _p7c_region(doc))
+    assert m, "the 0.1% paragraph has changed shape"
+    q_dim, q_m, q_miss, q_sem = m.groups()
+    for system in ("spin_chain", "mixed_chain", "oscillator_bath"):
+        for point in _p7c_document(system)["points"]:
+            assert not _p7c_score(system, point, 0.001)["ok"], (system, point["dim"])
+    s = _p7c_score("mixed_chain", _p7c_point("mixed_chain", int(q_dim)), 0.001)
+    assert s["largest"] == s["m"] == int(q_m)
+    assert _near(q_miss, math.hypot(s["bias"], s["sem"]) / s["target"])
+    assert _near(q_sem, s["sem"] / s["target"])
+    # The control sentence it cites is still in Result 3.
+    result3 = _p7f_between(_flat(doc), "### Result 3", "### Result 4")
+    assert ("Neither stochastic method beats the exact solve on System A at any "
+            "size measured") in result3
+
+
+# --- review part 7, U4: Result 5's dimension-256 run --------------------------
+#
+# Result 5 said the operator list "cannot fit in RAM" after Result 1's exact
+# solve had built it, called a 0.515 ratio "precisely" one half, headed a
+# trace check "Integrator Stability", led its long-time check with a 0.3 s.e.m.
+# match to the WRONG limit, printed a calibration row no file reproduced, and
+# cited a section 5.4 that does not exist. Nothing in it was pinned.
+
+
+def _p7d_region(doc: str) -> str:
+    """Result 5 from its heading to the frontier check, flattened."""
+    return _flat(_p7f_between(doc, "### Result 5 — past the reference wall",
+                              "#### A reference-free check, run on all three systems"))
+
+
+def _p7d_extreme() -> dict:
+    path = DATA / "extreme_dimension_mixed_chain_dim256.json"
+    assert path.exists(), f"{path.name} is quoted but not committed"
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def _p7d_calibration_gaps(m_values=(4, 8, 16, 32, 64, 121), draws=64):
+    """(N_L, {M: mean gap}) for System B at dim 16: the energy of a bundled
+    generator's stationary state minus the sector limit, averaged over
+    bundle(..., rng=seed) for seed in range(draws). The stationary state is
+    solved for within the sector rho0 occupies (bundles are block-diagonal in
+    the sectors, tests/test_stationary_sectors.py), so it is unique there."""
+    import qutip
+    from scipy.sparse import csr_matrix
+    from scipy.sparse.csgraph import connected_components
+    from qutip_bundling import bundle, davies_operators
+    P = pytest.importorskip("plot_extreme_dimension")
+
+    H, X, psi0 = common.build_mixed_field_chain(4)
+    c_ops = davies_operators(H, X, common.gamma,
+                             degeneracy_tol=common.DAVIES_DEGENERACY_TOL)
+    energies, states = H.eigenstates()
+    energies = np.real(energies)
+    V = np.column_stack([s.full().ravel() for s in states])
+    adjacency = (np.abs(V.conj().T @ X.full() @ V) > P.SECTOR_COUPLING_TOL)
+    adjacency = adjacency.astype(np.int8)
+    np.fill_diagonal(adjacency, 1)
+    n_sectors, sector_of = connected_components(csr_matrix(adjacency), directed=False)
+    pops0 = np.real(np.diag(V.conj().T @ qutip.ket2dm(psi0).full() @ V))
+    weights = [float(pops0[sector_of == s].sum()) for s in range(n_sectors)]
+    start = int(np.argmax(weights))
+    assert weights[start] == pytest.approx(1.0, abs=1e-12), "rho0 no longer in one sector"
+    Vs = V[:, sector_of == start]
+    Hs = qutip.Qobj(np.diag(energies[sector_of == start]))
+    limit = P.sector_resolved_energy(
+        {"meta": {"params": {"system": "mixed_chain", "size": 4}}})[0]
+
+    def stationary(ops):
+        L = qutip.liouvillian(
+            Hs, [qutip.Qobj(Vs.conj().T @ c.full() @ Vs) for c in ops]).full()
+        _, sv, vh = np.linalg.svd(L)
+        assert sv[-2] > 1e-6 * sv[0], "the in-sector stationary state is not unique"
+        rho = vh[-1].conj().reshape(Hs.shape, order="F")
+        return float(np.real(np.trace(rho @ Hs.full()) / np.trace(rho)))
+
+    # the unbundled generator lands exactly on the limit, so the gap is bundling's
+    assert abs(stationary(c_ops) - limit) < 1e-10
+    return len(c_ops), {
+        m: float(np.mean([stationary(bundle(c_ops, M=m, rng=seed)) - limit
+                          for seed in range(draws)]))
+        for m in m_values}
+
+
+def test_p7d_result5_operator_list_fits_where_the_exact_solve_ran(doc):
+    """'Cannot fit in RAM' was false: Result 1's runner builds the whole list
+    before its reference, and its dim-256 file ran. The run also predates both
+    exact solves, as the opening says, and its extrapolation lands within the
+    share of the change the opening quotes."""
+    import inspect
+    import run_accuracy_vs_M as r1
+    P = pytest.importorskip("plot_extreme_dimension")
+    text = _p7d_region(doc)
+    assert "cannot fit in RAM" not in text
+    extreme = _p7d_extreme()
+    m = re.search(r"Its first run is System B at dimension (\d+) \((\d+) spins, "
+                  r"\$N_L = ([\d{},]+)\$\)", text)
+    assert m, "Result 5's opening has changed shape"
+    assert int(m.group(1)) == extreme["dim"] == 2 ** int(m.group(2))
+    assert int(m.group(2)) == extreme["meta"]["params"]["size"]
+    assert _printed(m.group(3)) == extreme["n_l"]
+    m = re.search(r"It ran before any exact solve existed at this size \(job (\d{8})\)\. "
+                  r"Two exist now: its extrapolation to large \$M\$ misses their energy by "
+                  r"([\d.]+)% of the change over the run", text)
+    assert m, "Result 5's history sentence has changed shape"
+    assert m.group(1) == str(extreme["meta"]["execution"]["slurm"]["job_id"])
+    point = json.loads((DATA / "method_comparison_mixed_chain_dim256.json")
+                       .read_text(encoding="utf-8"))["point"]
+    exact = float(np.mean(np.atleast_2d(point["reference"]["curves"]["energy"]), axis=0)[-1])
+    r = P.derive(extreme)
+    _assert_rounds_to(100 * abs(r["intercept"] - exact)
+                      / abs(exact - float(extreme["thermal"]["start"])),
+                      m.group(2), "extrapolation miss as a share of the change")
+    later = [json.loads((DATA / name).read_text(encoding="utf-8"))["meta"]["timestamp"]
+             for name in ("accuracy_vs_M_mixed_chain_dim256.json",
+                          "method_comparison_mixed_chain_dim256.json")]
+    assert all(extreme["meta"]["timestamp"] < t for t in later), later
+
+    m = re.search(r"Result 1's exact solve at this size \(job (\d{8})\) built the whole "
+                  r"list and ran; SLB folds the operators into its bundles in small chunks "
+                  r"and never forms the list\.", text)
+    assert m, "the sentence on who held the list has changed shape"
+    r1doc = json.loads((DATA / "accuracy_vs_M_mixed_chain_dim256.json")
+                       .read_text(encoding="utf-8"))
+    assert m.group(1) == str(r1doc["meta"]["execution"]["slurm"]["job_id"])
+    assert r1doc["n_l"] == extreme["n_l"] and r1doc["dim"] == extreme["dim"]
+    assert r1doc["reference_selfcheck"]["passed"] is True
+    assert "streaming" in extreme["meta"]["params"]["route"]
+    source = inspect.getsource(r1.run)
+    built = source.index("c_ops = build_davies_operators(H, X)")
+    assert built < source.index("exact reference"), "the runner no longer builds the list first"
+
+
+def test_p7d_result5_checks_1_and_2_match_the_data(doc):
+    """The 1/M table, its ratio, the pairwise and fitted extrapolations and the
+    trace bound, all through plot_extreme_dimension.derive."""
+    P = pytest.importorskip("plot_extreme_dimension")
+    extreme = _p7d_extreme()
+    r = P.derive(extreme)
+    text = _p7d_region(doc)
+    assert "Integrator Stability" not in text and "precisely halves" not in text
+    assert "#### Check 1 & Check 2: Convergence in $M$ and Trace Preservation" in text
+
+    m = re.search(r"Each point averages (\d+) realizations\. If the bias falls as \$1/M\$, "
+                  r"doubling \$M\$ halves the change; it very nearly does \(ratio ([\d.]+)\)",
+                  text)
+    assert m, "Check 1's ratio sentence has changed shape"
+    assert int(m.group(1)) == extreme["meta"]["params"]["N_REALIZATIONS"]
+    diffs = np.diff(r["finals"])
+    _assert_rounds_to(diffs[1] / diffs[0], m.group(2), "halving ratio")
+
+    rows = re.findall(r"\| (\d+) \| (−[\d.]+) \|\s*([\d.]*)\s*\|\s*(?:\*\*([\d.]+)\*\*)?\s*\|",
+                      text)
+    assert [int(row[0]) for row in rows] == [int(v) for v in r["m_values"]]
+    for k, (_m, e, change, ratio) in enumerate(rows):
+        _assert_rounds_to(r["finals"][k], e.translate(MINUS), f"<H>(5) at M={_m}")
+        if change:
+            _assert_rounds_to(-diffs[k - 1], change, f"change at M={_m}")
+        if ratio:
+            _assert_rounds_to(diffs[1] / diffs[0], ratio, "table ratio")
+
+    m = re.search(r"Extrapolating each pair of points to \$M \\to \\infty\$ gives "
+                  r"\$(-[\d.]+)\$ and \$(-[\d.]+)\$, \$([\d.]+)\$ apart; a straight-line "
+                  r"fit through all three gives \$(-[\d.]+)\$", text)
+    assert m, "Check 1's extrapolation sentence has changed shape"
+    pair = [p[2] for p in r["pairwise"]]
+    _assert_rounds_to(pair[0], m.group(1), "pairwise 8,16")
+    _assert_rounds_to(pair[1], m.group(2), "pairwise 16,32")
+    _assert_rounds_to(abs(pair[1] - pair[0]), m.group(3), "pairwise spread")
+    _assert_rounds_to(r["intercept"], m.group(4), "three-point fit")
+
+    m = re.search(r"Max \$\|\\mathrm\{Tr\}\(\\rho\)-1\| = ([\d.]+) \\times 10\^\{(-\d+)\}\$",
+                  text)
+    assert m, "Check 2's trace bound has changed shape"
+    _assert_latex_rounds_to(max(s["max_trace_deviation"] for s in extreme["sweep"]),
+                            m.group(1), m.group(2), "max trace deviation")
+
+
+def test_p7d_result5_scored_against_the_exact_answer(doc):
+    """The endpoints against Result 3's certified dim-256 solve (job 19607138)."""
+    P = pytest.importorskip("plot_extreme_dimension")
+    r = P.derive(_p7d_extreme())
+    text = _p7d_region(doc)
+    assert "Checked since" not in text
+    m = re.search(
+        r"\*\*Scored against the exact answer\.\*\* Two certified exact solves now exist "
+        r"at this size — job (\d{8}) for Result 1 and job (\d{8}) for Result 3, .*?"
+        r"Against its \$\\langle H\\rangle\(5\) = (-[\d.]+)\$, the three endpoints above "
+        r"sit \$([\d.]+)\$, \$([\d.]+)\$ and \$([\d.]+)\$ high, each deviation roughly "
+        r"halving \(ratios \$([\d.]+)\$ and \$([\d.]+)\$\), and the three-point fit's "
+        r"intercept lands \$([\d.]+)\\times10\^\{(-\d+)\}\$ from the exact answer — "
+        r"([\d.]+)% of the energy's change over the run, \$\\langle H\\rangle\$ falling "
+        r"from \$(-[\d.]+)\$ to \$(-[\d.]+)\$", text)
+    assert m, "the scored-against-the-exact-answer paragraph has changed shape"
+    (j1, j3, q_exact, d8, d16, d32, q1, q2, mant, expo, pct, start, end) = m.groups()
+    for name, job in (("accuracy_vs_M_mixed_chain_dim256.json", j1),
+                      ("method_comparison_mixed_chain_dim256.json", j3)):
+        d = json.loads((DATA / name).read_text(encoding="utf-8"))
+        assert job == str(d["meta"]["execution"]["slurm"]["job_id"]), name
+    point = json.loads((DATA / "method_comparison_mixed_chain_dim256.json")
+                       .read_text(encoding="utf-8"))["point"]
+    assert point["reference"]["selfcheck"]["passed"] is True
+    exact = float(np.mean(np.atleast_2d(point["reference"]["curves"]["energy"]), axis=0)[-1])
+    _assert_rounds_to(exact, q_exact, "exact <H>(5)")
+    dev = r["finals"] - exact
+    for value, printed in zip(dev, (d8, d16, d32)):
+        _assert_rounds_to(value, printed, "endpoint deviation")
+    _assert_rounds_to(dev[1] / dev[0], q1, "first deviation ratio")
+    _assert_rounds_to(dev[2] / dev[1], q2, "second deviation ratio")
+    _assert_latex_rounds_to(abs(r["intercept"] - exact), mant, expo, "intercept error")
+    e0 = float(_p7d_extreme()["thermal"]["start"])
+    _assert_rounds_to(100 * abs(r["intercept"] - exact) / abs(exact - e0), pct,
+                      "intercept error as a share of the change")
+    _assert_rounds_to(e0, start, "<H>(0)")
+    _assert_rounds_to(exact, end, "<H>(5)")
+
+
+def test_p7d_result5_check3_leads_with_the_resolved_bias(doc):
+    """Check 3 measures a bias of 10 s.e.m. against the sector limit; its match
+    to global Gibbs is a coincidence of sizes. Every number via derive and
+    sector_limit."""
+    P = pytest.importorskip("plot_extreme_dimension")
+    extreme = _p7d_extreme()
+    r = P.derive(extreme)
+    limit = P.sector_limit(extreme)
+    text = _p7d_region(doc)
+    for stale in ("99.9%", "barely begun", "§5.4", "Stationary State & Symmetry"):
+        assert stale not in text, f"superseded wording is back: {stale!r}"
+    assert "§5.4" not in doc, "section 5.4 does not exist"
+
+    m = re.search(
+        r"\*\*The long-time energy sits ([\d.]+) above the true limit, ([\d.]+) s\.e\.m\. "
+        r"away: a clearly resolved bias\.\*\* The thermal run \(\$M=(\d+)\$, (\d+) "
+        r"realizations\) is flat from \$t \\approx (\d+)\$ to its end at \$t = (\d+)\$, "
+        r"at \$(-[\d.]+)\$ \(s\.e\.m\. \$([\d.]+)\$\)\. The true limit is \$(-[\d.]+)\$", text)
+    assert m, "Check 3's lead has changed shape"
+    gap, n_sem, q_m, q_n, t_flat, t_end, final, sem, sector = m.groups()
+    thermal = extreme["thermal"]
+    _assert_rounds_to(r["residual_sector"], gap, "gap to the sector limit")
+    _assert_rounds_to(r["residual_sector_in_sem"], n_sem, "gap in s.e.m.")
+    assert int(q_m) == thermal["M"] and int(q_n) == thermal["n_realizations"]
+    _assert_rounds_to(r["t"][-1], t_end, "thermal end time")
+    # "flat from t ~ 20": from there on the curve stays within one s.e.m. of its
+    # end, and five time units earlier it did not
+    def drift_after(t0):
+        return float(np.max(np.abs(r["energy"][r["t"] >= t0] - r["energy"][-1])))
+    assert drift_after(float(t_flat)) < r["sem_thermal"], drift_after(float(t_flat))
+    assert drift_after(float(t_flat) - 5) > r["sem_thermal"], drift_after(float(t_flat) - 5)
+    _assert_rounds_to(r["energy"][-1], final, "long-time energy")
+    _assert_rounds_to(r["sem_thermal"], sem, "thermal s.e.m.")
+    _assert_rounds_to(r["sector"], sector, "sector limit")
+
+    m = re.search(r"(\d+) and (\d+) levels at dim (\d+), with the chain starting wholly "
+                  r"in the larger one", text)
+    assert m, "the sector-size sentence has changed shape"
+    assert [int(m.group(1)), int(m.group(2))] == sorted(limit["sizes"], reverse=True)
+    assert int(m.group(3)) == extreme["dim"]
+    larger = int(np.argmax(limit["sizes"]))
+    assert limit["weights"][larger] == pytest.approx(1.0, abs=1e-12)
+
+    m = re.search(r"At \$M=(\d+)\$ that lifts the energy by \$([\d.]+)\$, and the sector "
+                  r"limit happens to sit \$([\d.]+)\$ below global Gibbs, so the run ends "
+                  r"\$([\d.]+)\$ \(([\d.]+) s\.e\.m\.\) from global Gibbs", text)
+    assert m, "the coincidence sentence has changed shape"
+    assert int(m.group(1)) == thermal["M"]
+    assert r["energy"][-1] > r["gibbs"] > r["sector"], "the run no longer ends above both"
+    _assert_rounds_to(r["residual_sector"], m.group(2), "bias at the thermal M")
+    _assert_rounds_to(r["gibbs"] - r["sector"], m.group(3), "sector below global Gibbs")
+    _assert_rounds_to(r["residual"], m.group(4), "distance to global Gibbs")
+    _assert_rounds_to(r["residual_in_sem"], m.group(5), "distance to global Gibbs in s.e.m.")
+
+    # "Only this check depends on the limit": Results 1-4 run on grids ending at t=5
+    m = re.search(r"Only this check depends on the limit\. Results 1–4 and Checks 1 and 2 "
+                  r"stop at \$t=(\d+)\$", text)
+    assert m, "the scope sentence has changed shape"
+    assert float(common.TLIST[-1]) == float(common.TLIST_FINE[-1]) == float(m.group(1))
+
+
+def test_p7d_result5_calibration_table_is_recomputed(doc):
+    """The dim-16 row once came from no file. It is now the mean over the seeds
+    the prose names, of a stationary state solved for exactly."""
+    P = pytest.importorskip("plot_extreme_dimension")
+    text = _p7d_region(doc)
+    m = re.search(r"On System B at dim (\d+) \(\$N_L = (\d+)\$\) .*? Averaged over (\d+) "
+                  r"random draws \(seeds 0–(\d+), recomputed in "
+                  r"`tests/test_document_claims\.py`\)", text)
+    assert m, "the calibration sentence has changed shape (it must name its source)"
+    assert int(m.group(1)) == 2 ** 4 and int(m.group(4)) == int(m.group(3)) - 1
+    header = re.search(r"\| `M` \(System B, dim 16\) \|((?: \d+ \|)+) (\d+) = `N_L` \|", text)
+    row = re.search(r"\| gap to sector limit \|((?: [\d.]+ \|)+)", text)
+    assert header and row, "the calibration table has changed shape"
+    ms = [int(v) for v in header.group(1).split("|") if v.strip()] + [int(header.group(2))]
+    printed = [v.strip() for v in row.group(1).split("|") if v.strip()]
+    n_l, gaps = _p7d_calibration_gaps(tuple(ms), int(m.group(3)))
+    assert int(m.group(2)) == n_l == ms[-1]
+    assert len(printed) == len(ms)
+    for bundles, value in zip(ms, printed):
+        _assert_rounds_to(gaps[bundles], value, f"gap at M={bundles}")
+
+    m = re.search(r"\$M\$ times the gap stays between ([\d.]+) and ([\d.]+), so the gap "
+                  r"falls as \$1/M\$\. It does not vanish at \$M = N_L\$", text)
+    assert m, "the 1/M sentence has changed shape"
+    products = [bundles * gaps[bundles] for bundles in ms]
+    _assert_rounds_to(min(products), m.group(1), "smallest M * gap")
+    _assert_rounds_to(max(products), m.group(2), "largest M * gap")
+    assert gaps[ms[-1]] > 0
+
+    extreme = _p7d_extreme()
+    r = P.derive(extreme)
+    m = re.search(r"At dim (\d+), \$M=(\d+)\$ is one bundle per ([\d,]+) operators, not "
+                  r"([\d.]+), and the gap is (\w+) times larger \(([\d.]+) against ([\d.]+)\)",
+                  text)
+    assert m, "the dim-256 comparison has changed shape"
+    dim, bundles, per_big, per_small, times, big, small = m.groups()
+    assert int(dim) == r["dim"] and int(bundles) == extreme["thermal"]["M"]
+    _assert_rounds_to(r["n_l"] / int(bundles), per_big, "N_L/M at dim 256")
+    _assert_rounds_to(n_l / int(bundles), per_small, "N_L/M at dim 16")
+    ratio = r["residual_sector"] / gaps[int(bundles)]
+    assert {"four": 4, "five": 5, "six": 6}[times] == round(ratio), ratio
+    _assert_rounds_to(r["residual_sector"], big, "gap at dim 256")
+    _assert_rounds_to(gaps[int(bundles)], small, "gap at dim 16")
+
+
+def test_p7d_result5_provenance_matches_the_file(doc):
+    """5.3 hours = the three sweep solves plus the thermal run; 1.3 s to count
+    the operators; one 4-CPU job."""
+    extreme = _p7d_extreme()
+    text = _p7d_region(doc)
+    m = re.search(r"\*\*Wall-Clock Time:\*\* ([\d.]+) hours total on 1 node \((\d+) CPUs\) "
+                  r"on Landau \(`job (\d{8})`\)\. Counting \$N_L=([\d{},]+)\$ took ([\d.]+) s",
+                  text)
+    assert m, "Result 5's provenance line has changed shape"
+    hours, cpus, job, n_l, count = m.groups()
+    slurm = extreme["meta"]["execution"]["slurm"]
+    total = sum(s["wall_s"] for s in extreme["sweep"]) + extreme["thermal"]["wall_s"]
+    _assert_rounds_to(total / 3600, hours, "Result 5 wall-clock")
+    assert int(cpus) == int(slurm["cpus_per_task"]) and job == str(slurm["job_id"])
+    assert _printed(n_l) == extreme["n_l"]
+    _assert_rounds_to(extreme["t_count"], count, "counting time")
+    assert "- **Scope:**" not in text
+
+
+# --- Result 5's reference-free check: one draw, trends, locality, substeps, cost
+#
+# The section compared ONE draw at M=32 with one at M=64 without saying so,
+# set the oscillator's distances against the chains' five orders apart (which
+# its own caveat rules out), quoted locality as d_bar/(N-1) where section 2.5
+# divides by N, said the stability rule set substeps the table had set, and
+# counted three spin-chain doublings where only two keep all three M values
+# at the same substeps.
+
+_P7E_SYSTEMS = ("oscillator_bath", "mixed_chain", "spin_chain")
+
+
+def _p7e_region(doc: str) -> str:
+    """Result 5's reference-free subsection up to section 6, flattened."""
+    return _p7f_between(_flat(doc), "#### A reference-free check, run on all three systems",
+                        "## 6. Validation and robustness")
+
+
+def _p7e_frontier(system: str) -> dict:
+    path = DATA / f"frontier_spins_{system}.json"
+    assert path.exists(), f"{path.name} is quoted by Result 5 but not committed"
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def _p7e_points(system: str) -> dict:
+    """{dim: point} for one frontier file."""
+    return {p["dim"]: p for p in _p7e_frontier(system)["points"]}
+
+
+def _p7e_tlist(system: str):
+    grid = _p7e_frontier(system)["meta"]["tlist"]
+    return np.linspace(grid["t0"], grid["t1"], grid["n"])
+
+
+def _p7e_locality_percent(label: str) -> tuple[int, float]:
+    """(dim, 100 * d_bar / N) at section 2's dimension-64 size, the
+    convention section 2.5 prints and test_section2_locality_... pins."""
+    import common
+    import explain_structure as es
+    system, _, size64 = SECTION2_BUILDERS[label]
+    H, X, _ = _build(system, size64)
+    c_ops = common.build_davies_operators(H, X)
+    d_bar = es.mean_offdiagonal_distance(es.transition_weight(H, c_ops))
+    return H.shape[0], 100 * d_bar / H.shape[0]
+
+
+def test_p7e_frontier_distance_is_one_draw_each_at_the_final_time(doc):
+    """'Each distance below compares one random draw of the bundles at M=32
+    with one at M=64, in the state at t=5': the runner bundles once per M,
+    keeps the last stored state, and every committed point records a single
+    propagation per M."""
+    import inspect
+    import run_frontier_spins as F
+    m = re.search(
+        r"Each distance below compares one random draw of the bundles at "
+        r"\$M=(\d+)\$ with one at \$M=(\d+)\$, in the state at \$t=(\d+)\$\.",
+        _p7e_region(doc))
+    assert m, "Result 5's one-draw sentence has changed shape"
+    lo, hi, t_end = (int(g) for g in m.groups())
+
+    body = inspect.getsource(F.run_system_frontier)
+    assert body.count("for M in m_values:") == 1, "the runner no longer draws once per M"
+    assert "final_states[M] = np.asarray(res.states[-1].full())" in body
+    assert f"final_states[{hi}] - final_states[{lo}]" in body
+    for system in _P7E_SYSTEMS:
+        document = _p7e_frontier(system)
+        assert document["meta"]["tlist"]["t1"] == t_end, system
+        assert "n_runs" not in document["meta"]["params"], system
+        for point in document["points"]:
+            for run in point["m_runs"].values():
+                assert set(run) == {"t_dyn", "t_bundle_prep"}, (
+                    f"{system} dim {point['dim']} now records more than one run per M")
+            conv = point.get("self_convergence")
+            if conv is not None:
+                assert (conv["from_m"], conv["to_m"]) == (lo, hi), system
+
+
+def test_p7e_trend_paragraph_matches_the_frontier_data(doc):
+    """'falls by four orders of magnitude -- a factor of 25,120 -- ... each
+    doubling of the Fock cutoff shrinks the gap ... near 10^-1 ... flat within
+    a factor of 1.4 and without direction, the simple chain rising from
+    8.2x10^-2 and then levelling off', every figure from the three files."""
+    text = _p7e_region(doc)
+    assert "five orders of magnitude" not in text, (
+        "the cross-system comparison the section's own caveat rules out is back")
+    m = re.search(
+        r"Its distance falls by (\w+) orders of magnitude — a factor of ([\d,]+) "
+        r"— as the system grows: each doubling of the Fock cutoff shrinks the gap "
+        r"between (\d+) and (\d+) bundles\. Both chains sit near \$10\^\{(-?\d+)\}\$ and "
+        r"stay there: the mixed chain flat within a factor of ([\d.]+) and without "
+        r"direction, the simple chain rising from " + LATEX + r" and then levelling "
+        r"off\. With one draw on each side, that level mixes the scatter between draws "
+        r"with any real change from (\d+) to (\d+) bundles; these runs cannot split the "
+        r"two\.", text)
+    assert m, "Result 5's trend paragraph has changed shape"
+    (orders, factor, lo, hi, exponent, flat, first_m, first_e, lo2, hi2) = m.groups()
+    assert (int(lo), int(hi)) == (int(lo2), int(hi2)) == (32, 64)
+
+    def distances(system):
+        points = _p7e_points(system)
+        return [points[d]["self_convergence"]["frobenius"] for d in sorted(points)
+                if points[d].get("self_convergence")]
+
+    osc = distances("oscillator_bath")
+    assert all(b < a for a, b in zip(osc, osc[1:])), f"a Fock doubling did not shrink it: {osc}"
+    ratio = osc[0] / osc[-1]
+    words = {"two": 2, "three": 3, "four": 4, "five": 5, "six": 6}
+    assert math.floor(math.log10(ratio)) == words[orders], f"{ratio:.3g}"
+    assert _near(factor, ratio), f"factor {ratio:.1f}, printed {factor}"
+
+    mixed, simple = distances("mixed_chain"), distances("spin_chain")
+    for name, values in (("mixed_chain", mixed), ("spin_chain", simple)):
+        assert all(round(math.log10(v)) == int(exponent) for v in values), (name, values)
+    assert _near(flat, max(mixed) / min(mixed)), f"{max(mixed) / min(mixed):.3f}"
+    assert mixed != sorted(mixed) and mixed != sorted(mixed, reverse=True), (
+        f"the mixed chain now has a direction: {mixed}")
+    _assert_latex_rounds_to(simple[0], first_m, first_e, "simple chain's first distance")
+    rises = [b - a for a, b in zip(simple, simple[1:])]
+    assert rises[0] > 0 and all(abs(r) < 0.1 * rises[0] for r in rises[1:]), (
+        f"the simple chain no longer rises and then levels off: {simple}")
+
+
+def test_p7e_locality_uses_the_section_2_5_convention(doc):
+    """'27% against 26% of the spectrum (section 2.5)' and '3.1% of the
+    spectrum at dimension 64': d_bar / N at dimension 64, recomputed. The old
+    27.6%, 26.8% and 3.2% divided by N - 1."""
+    text = _p7e_region(doc)
+    for stale in ("27.6%", "26.8%", "3.2%", "The separator is not locality"):
+        assert stale not in text, stale
+    m = re.search(
+        r"\*\*Locality does not separate A from B\.\*\* At dimension (\d+) their "
+        r"operators reach almost equally far, ([\d.]+)% against ([\d.]+)% of the "
+        r"spectrum \(§2\.5\), yet they behave differently\.", text)
+    c = re.search(r"its couplings are local \(([\d.]+)% of the spectrum at dimension "
+                  r"(\d+), §2\.5\)", text)
+    assert m and c, "Result 5's locality sentences have changed shape"
+    for label, printed, dim in (("A", m.group(2), m.group(1)),
+                                ("B", m.group(3), m.group(1)),
+                                ("C", c.group(1), c.group(2))):
+        size, percent = _p7e_locality_percent(label)
+        assert size == int(dim), f"System {label} was measured at dim {size}"
+        assert _near(printed, percent), f"System {label}: {percent:.2f}%, printed {printed}%"
+
+
+def test_p7e_result4_comparison_matches_isocost(doc):
+    """'M* -- the bundle count at which an average of 16 runs holds 3% on every
+    observable -- runs 8 -> 4 -> 4 -> 4 -> 2 on the oscillator over dims 8 to
+    128. On System A even M = N_L, averaged over 4 runs, misses 3% at every
+    size from 4 to 512', through plot_isocost_vs_dim.derive exactly as its
+    main() calls it. 'Tracking N_L upward' used to suggest System A reached
+    the target; it reaches it at no size."""
+    P = pytest.importorskip("plot_isocost_vs_dim")
+    from isocost_config import run_counts
+    text = _p7e_region(doc)
+    assert "tracking $N_L$ upward" not in text
+    m = re.search(
+        r"the bundle count at which an average of (\d+) runs holds (\d+)% on every "
+        r"observable — runs \$([^$]+)\$ on the oscillator over dims (\d+) to (\d+)\. "
+        r"On System A even \$M = N_L\$, averaged over (\d+) runs, misses (\d+)% at "
+        r"every size from (\d+) to (\d+)\.", text)
+    assert m, "Result 5's Result 4 comparison has changed shape"
+    c_runs, pct, chain, c_lo, c_hi, a_runs, a_pct, a_lo, a_hi = m.groups()
+    assert int(pct) == int(a_pct) == round(100 * P.TARGET_REL)
+    assert int(c_runs) == max(run_counts("oscillator_bath"))
+    assert int(a_runs) == max(run_counts("spin_chain"))
+
+    def derived(name):
+        path = DATA / f"isocost_vs_dim_{name}.json"
+        assert path.exists(), f"{path.name} is quoted by Result 4 but not committed"
+        n_runs = run_counts(name)
+        out = P.derive(json.loads(path.read_text(encoding="utf-8")),
+                       P.TARGET_RMSE, n_runs, P.ESTIMATE_TYPE)
+        return out, out["slb"][max(n_runs)]
+
+    out, slb = derived("oscillator_bath")
+    assert [int(x) for x in re.findall(r"\d+", chain)] == [int(x) for x in slb["mstar"]]
+    assert slb["ok"].all(), "the oscillator misses the target somewhere"
+    assert (int(out["dims"][0]), int(out["dims"][-1])) == (int(c_lo), int(c_hi))
+    out, slb = derived("spin_chain")
+    assert not slb["ok"].any(), "System A now reaches the target somewhere"
+    assert list(slb["mstar"]) == list(out["n_ls"]), "M* is no longer N_L everywhere"
+    assert (int(out["dims"][0]), int(out["dims"][-1])) == (int(a_lo), int(a_hi))
+
+
+def test_p7e_oscillator_substeps_are_the_table_checked_for_stability(doc):
+    """The oscillator's substeps are table_substeps at every committed size,
+    choose_substeps never raised them, Fock 256 runs at |lambda dt| = 2.64
+    (7% inside 2 sqrt 2), and the table's count diverged at Fock 512, at
+    |lambda dt| = 5.2, in the job choose_substeps' docstring names: the failure
+    that added the check."""
+    import inspect
+    import common
+    import run_frontier_spins as F
+    text = _p7e_region(doc)
+    assert "set by stability, not by a table" not in text
+    m = re.search(
+        r"\*\*Substeps come from a table, checked for stability\.\*\* The oscillator's "
+        r"(\d+), (\d+), (\d+) and (\d+) are the benchmark's fixed table, doubling with "
+        r"the Fock cutoff\. The runner raises a count only where RK4's limit "
+        r"\$\|\\lambda\\,\\Delta t\| \\le 2\\sqrt\{2\}\$, with \$\|\\lambda\|\$ from a "
+        r"Gershgorin bound on \$H\$, needs more; at these (\w+) sizes it never did\. At "
+        r"Fock (\d+) the table runs at \$\|\\lambda\\,\\Delta t\| = ([\d.]+)\$, (\d+)% "
+        r"inside the limit\. The anharmonic \$n\^2\$ term makes the top energy grow as "
+        r"the \*square\* of the cutoff, so before this check existed the table's "
+        r"(\d+) substeps diverged at Fock (\d+) \(job (\d+), \$\|\\lambda\\,\\Delta "
+        r"t\| = ([\d.]+)\$\); that failure is why the runner now checks\.",
+        text)
+    assert m, "Result 5's substeps paragraph has changed shape"
+    counts = [int(x) for x in m.groups()[:4]]
+    n_sizes, fock_edge, printed_ldt, spare, failed, fock_fail, job, failed_ldt = m.groups()[4:]
+    assert F.RK4_STABILITY_LIMIT == pytest.approx(2 * math.sqrt(2))
+
+    tlist = _p7e_tlist("oscillator_bath")
+    dt = float(np.min(np.diff(tlist)))
+    points = _p7e_points("oscillator_bath")
+    dims = sorted(points)
+    assert {"three": 3, "four": 4, "five": 5}.get(n_sizes) == len(dims), dims
+    assert [points[d]["substeps"] for d in dims] == counts
+    bounds = {}
+    for dim in dims:
+        H = common.build_oscillator_bath(dim // 2)[0]
+        assert H.shape[0] == dim
+        bounds[dim] = F.spectral_bound(H)
+        assert (points[dim]["substeps"] == F.table_substeps("oscillator_bath", dim)
+                == F.choose_substeps(H, tlist, "oscillator_bath")), f"dim {dim}"
+    assert all(b == 2 * a for a, b in zip(counts, counts[1:])), counts
+    assert all(b == 2 * a for a, b in zip(dims, dims[1:])), dims
+
+    edge = 2 * int(fock_edge)
+    assert edge == dims[-1], "the margin is quoted at the largest committed size"
+    ldt = bounds[edge] * dt / points[edge]["substeps"]
+    assert _near(printed_ldt, ldt), f"|lambda dt| = {ldt:.3f}"
+    assert _near(spare, 100 * (1 - ldt / F.RK4_STABILITY_LIMIT))
+
+    H = common.build_oscillator_bath(int(fock_fail))[0]
+    table = F.table_substeps("oscillator_bath", H.shape[0])
+    assert table == int(failed)
+    assert F.spectral_bound(H) * dt / table > F.RK4_STABILITY_LIMIT
+    assert _near(failed_ldt, F.spectral_bound(H) * dt / table)
+    assert F.choose_substeps(H, tlist, "oscillator_bath") > table
+    growth = [bounds[b] / bounds[a] for a, b in zip(dims, dims[1:])]
+    assert all(3 < g < 4.5 for g in growth), f"top energy no longer grows ~quadratically: {growth}"
+    source = inspect.getsource(F.choose_substeps)
+    assert (f"job {job} diverged at Fock {fock_fail} with substeps={failed}"
+            in re.sub(r"\s+", " ", source)), "choose_substeps' docstring names another job"
+    # "before this check existed": the docstring records the table-only era
+    # and the failure that ended it.
+    assert "NO LONGER JUST A TABLE" in source and "and then failed" in re.sub(r"\s+", " ", source)
+
+
+def test_p7e_spin_chain_cost_scaling_matches_the_frontier_timings(doc):
+    """'Only the spin chain's last two doublings ... keep all three M values at
+    an unchanged 16 substeps. Each costs 5.4x to 6.4x ... fits over those three
+    sizes give exponents of 2.56 to 2.58', and the sweep's 32 h."""
+    text = _p7e_region(doc)
+    assert "three doublings" not in text
+    m = re.search(
+        r"\*\*Cost scales as \$N\^\{([\d.]+)\}\$, not \$N\^3\$\.\*\* Only the spin "
+        r"chain's last two doublings, dim (\d+) → (\d+) → (\d+), keep all three "
+        r"\$M\$ values at an unchanged (\d+) substeps\. Each costs ([\d.]+)× to "
+        r"([\d.]+)× in propagation time, one run per \$M\$, and fits over those "
+        r"three sizes give exponents of ([\d.]+) to ([\d.]+) — below the \$N\^3\$ "
+        r"of dense matrix multiplication, and firmly against an earlier reading of "
+        r"\$N\^\{4\.7\}\$ taken from a job that had been sharing its node\. The same "
+        r"sweep took (\d+) h on an exclusive node", text)
+    assert m, "Result 5's cost paragraph has changed shape"
+    (head, d0, d1, d2, sub, r_lo, r_hi, e_lo, e_hi, hours) = m.groups()
+
+    document = _p7e_frontier("spin_chain")
+    m_values = [str(v) for v in document["meta"]["params"]["m_values"]]
+    points = _p7e_points("spin_chain")
+    dims = sorted(points)
+    doublings = list(zip(dims, dims[1:]))
+    assert all(b == 2 * a for a, b in doublings)
+    clean = [(a, b) for a, b in doublings
+             if set(points[a]["m_runs"]) == set(points[b]["m_runs"]) == set(m_values)
+             and points[a]["substeps"] == points[b]["substeps"]]
+    assert clean == [(int(d0), int(d1)), (int(d1), int(d2))], clean
+    assert points[int(d0)]["substeps"] == int(sub)
+
+    sizes = [int(d0), int(d1), int(d2)]
+    ratios, slopes = [], []
+    for M in m_values:
+        t = [points[d]["m_runs"][M]["t_dyn"] for d in sizes]
+        ratios += [b / a for a, b in zip(t, t[1:])]
+        slopes.append(float(np.polyfit(np.log(sizes), np.log(t), 1)[0]))
+    assert _near(r_lo, min(ratios)) and _near(r_hi, max(ratios)), ratios
+    assert _near(e_lo, min(slopes)) and _near(e_hi, max(slopes)), slopes
+    assert all(_near(head, s) for s in slopes), slopes
+    total = sum(p["t_davies"] + sum(r["t_dyn"] + r["t_bundle_prep"]
+                                    for r in p["m_runs"].values())
+                for p in points.values())
+    assert _near(hours, total / 3600), f"{total / 3600:.2f} h"
+
+
+# --- review part 7, fixes: section 5's copies of Result 5, section 5.1's rule,
+# and Result 5's last unpinned numbers
+#
+# The Part 7 rewrite left two older copies of Result 5 behind: the file map and
+# section 5's summary still said the operator list "no longer fits in memory"
+# and scored the run on "the thermal limit", where Result 5 now shows that
+# check finds a resolved bias of finite M. Section 5.1's rule still called
+# Result 4's projection "a fit". Result 5 quoted section 5.2's price, a figure
+# label, two machine-precision residuals (one of them another system's) and
+# its operator counts with nothing checking them.
+
+_P7F_SUPERSEDED_COMMIT = "e203cd0"
+
+
+def _p7f_superseded_isocost(name: str) -> dict:
+    """isocost_vs_dim_<name>.json as it stood before job 19599793 re-ran
+    Result 4 with S measured directly. Commit e203cd0 holds both dim-128
+    files of that era. It is reachable only from the data branches
+    (origin/data-r4-mixed and others), not from main, so a clone of main
+    alone lacks it: skip there, as _p3c_superseded does, rather than fail
+    for a reason unrelated to the document."""
+    import subprocess
+    spec = f"{_P7F_SUPERSEDED_COMMIT}:benchmarks/data/isocost_vs_dim_{name}.json"
+    try:
+        out = subprocess.run(["git", "show", spec], cwd=BENCHMARKS.parent,
+                             capture_output=True, check=True, timeout=60)
+    except (OSError, subprocess.SubprocessError):
+        pytest.skip(f"git history with {spec} is not available (fetch the data branches)")
+    return json.loads(out.stdout.decode("utf-8"))
+
+
+def _p7f_exact_energy_at_256() -> float:
+    point = json.loads((DATA / "method_comparison_mixed_chain_dim256.json")
+                       .read_text(encoding="utf-8"))["point"]
+    assert point["reference"]["selfcheck"]["passed"] is True
+    return float(np.mean(np.atleast_2d(point["reference"]["curves"]["energy"]), axis=0)[-1])
+
+
+def test_p7f_file_map_and_section5_summary_match_result5(doc):
+    """The file map and section 5's item 5 say what Result 5 says: SLB never
+    forms the 34 GB list (the exact solve did), and the long-time check finds
+    a bias of finite M resolved at 10.3 s.e.m., not a pass."""
+    P = pytest.importorskip("plot_extreme_dimension")
+    extreme = _p7d_extreme()
+    r = P.derive(extreme)
+    text = _flat(doc)
+    for stale in ("no longer fits in memory", "the thermal limit",
+                  "convergence rate, trace preservation"):
+        assert stale not in text, f"superseded wording is back: {stale!r}"
+    m = re.search(
+        r"past the reference wall as it stood when the run was made \(Result 5\)\. SLB "
+        r"never forms the (\d+) GB operator list\. The run is scored on convergence in "
+        r"\$M\$, trace preservation and the long-time limit, and has since been checked "
+        r"against two exact solves at its size\.", text)
+    assert m, "the file map's Result 5 entry has changed shape"
+    assert _near(m.group(1), extreme["operator_list_bytes"] / 1e9)
+    assert "streaming" in extreme["meta"]["params"]["route"]
+    assert "#### Check 3: The Long-Time Limit" in doc
+
+    s = re.search(
+        r"Scored on convergence in \$M\$, trace preservation and the long-time limit "
+        r"rather than against an exact answer\. The long-time check finds a bias of "
+        r"([\d.]+) from finite \$M\$, resolved at ([\d.]+) s\.e\.m\., so it is not a "
+        r"pass\. Two exact solves made later match the run's extrapolated energy to "
+        r"([\d.]+×10[⁻⁰¹²³⁴⁵⁶⁷⁸⁹]+), ([\d.]+)% of the energy's change over the run\.",
+        text)
+    assert s, "section 5's Result 5 summary has changed shape"
+    gap, n_sem, miss, pct = s.groups()
+    _assert_rounds_to(r["residual_sector"], gap, "long-time bias")
+    _assert_rounds_to(r["residual_sector_in_sem"], n_sem, "long-time bias in s.e.m.")
+    assert r["residual_sector_in_sem"] > 3, "the bias is no longer resolved"
+    exact = _p7f_exact_energy_at_256()
+    value, half = _decode_with_precision(miss)
+    assert abs(abs(r["intercept"] - exact) - value) <= half, abs(r["intercept"] - exact)
+    _assert_rounds_to(100 * abs(r["intercept"] - exact)
+                      / abs(exact - float(extreme["thermal"]["start"])), pct,
+                      "extrapolation miss as a share of the change")
+    later = [json.loads((DATA / name).read_text(encoding="utf-8"))["meta"]["timestamp"]
+             for name in ("accuracy_vs_M_mixed_chain_dim256.json",
+                          "method_comparison_mixed_chain_dim256.json")]
+    assert all(extreme["meta"]["timestamp"] < t for t in later), later
+
+
+def test_p7f_section51_rule_calls_result4_a_projection(doc):
+    """Section 5.1's third rule named Result 4's mcsolve side 'a fit', the one
+    place the document did not call it a projection."""
+    text = _flat(doc)
+    assert "is a fit, not a run" not in text and "where that fit is thin" not in text
+    m = re.search(r"\*\*Say measured or projected\*\* — Result 4's `mcsolve` cost is a "
+                  r"(\w+), not a run, and its caveats say where that (\w+) is thin\.", text)
+    assert m, "section 5.1's third rule has changed shape"
+    assert m.groups() == ("projection", "projection")
+    assert "**For `mcsolve`:** a projection, not a full run." in _p7a_region(doc)
+
+
+def _p7f_dim16_residuals(seeds=range(8), m_values=(4, 16, 64)):
+    """System B at dim 16: the largest element of L[rho_Gibbs] for the exact
+    generator, and the largest cross-sector element, in the energy basis, of
+    any exact operator or any bundle over the given draws."""
+    import qutip
+    from scipy.sparse import csr_matrix
+    from scipy.sparse.csgraph import connected_components
+    from qutip_bundling import bundle, davies_operators
+    P = pytest.importorskip("plot_extreme_dimension")
+    H, X, _ = common.build_mixed_field_chain(4)
+    c_ops = davies_operators(H, X, common.gamma,
+                             degeneracy_tol=common.DAVIES_DEGENERACY_TOL)
+    energies, states = H.eigenstates()
+    energies = np.real(energies)
+    w = np.exp(-(energies - energies.min()) / common.KT)
+    gibbs = sum(wi * (v * v.dag()) for wi, v in zip(w / w.sum(), states))
+    residual = qutip.vector_to_operator(
+        qutip.liouvillian(H, c_ops) * qutip.operator_to_vector(gibbs))
+    V = np.column_stack([s.full().ravel() for s in states])
+    adjacency = (np.abs(V.conj().T @ X.full() @ V) > P.SECTOR_COUPLING_TOL)
+    adjacency = adjacency.astype(np.int8)
+    np.fill_diagonal(adjacency, 1)
+    n_sectors, sector_of = connected_components(csr_matrix(adjacency), directed=False)
+    assert n_sectors == 2, n_sectors
+    cross = sector_of[:, None] != sector_of[None, :]
+    ops = list(c_ops) + [op for seed in seeds for m in m_values
+                         for op in bundle(c_ops, M=m, rng=seed)]
+    worst = max(float(np.abs(V.conj().T @ op.full() @ V)[cross].max()) for op in ops)
+    return H.shape[0], float(np.abs(residual.full()).max()), worst
+
+
+def test_p7f_result5_price_label_and_residuals(doc):
+    """'about 7.3 days' is section 5.2's price, quoted; 'which the figure
+    prints as "31.9 GB"' is the plotter's own label; the Gibbs residual and
+    the cross-sector elements are recomputed on System B at dim 16, each below
+    the printed power of ten and above the next one down. The old 1.2e-14 was
+    the oscillator's residual, and 2.0e-16 held for exact operators only."""
+    import inspect
+    P = pytest.importorskip("plot_extreme_dimension")
+    text = _p7d_region(doc)
+    m = re.search(r"on the oscillator, by certification, which §5\.2 prices at about "
+                  r"([\d.]+) days for a dimension-(\d+) reference\.", text)
+    s52 = re.search(r"it prices a certified dim-(\d+) reference at about ([\d.]+) days "
+                    r"\(`run_accuracy_vs_M\.py`\)", _flat(doc))
+    assert m and s52, "the certification price has changed shape in Result 5 or section 5.2"
+    assert (m.group(1), m.group(2)) == (s52.group(2), s52.group(1))
+
+    m = re.search(r"would consume \*\*(\d+) GB\*\* \(([\d.]+) GiB, which the figure "
+                  r"prints as \"([\d.]+) GB\"\)", text)
+    assert m, "the figure-label sentence has changed shape"
+    source = inspect.getsource(P)
+    assert re.search(r"\{r\['list_gb'\]:\.1f\} GB", source), (
+        "plot_extreme_dimension no longer labels GiB as 'GB' to one decimal")
+    gib = P.derive(_p7d_extreme())["list_gb"]
+    assert m.group(3) == m.group(2) == f"{gib:.1f}"
+
+    g = re.search(r"The generator annihilates the global Gibbs state to machine precision "
+                  r"\(a residual below \$10\^\{(-\d+)\}\$ at dim (\d+)\)", text)
+    c = re.search(r"Bundling preserves the sectors \(cross-sector elements below "
+                  r"\$10\^\{(-\d+)\}\$ at dim (\d+)\)", text)
+    assert g and c, "the machine-precision sentences have changed shape"
+    for stale in (r"1.2\times10^{-14}", r"2.0\times 10^{-16}"):
+        assert stale not in text, stale
+    dim, residual, cross = _p7f_dim16_residuals()
+    assert int(g.group(2)) == int(c.group(2)) == dim
+    assert 10.0 ** (int(g.group(1)) - 1) < residual < 10.0 ** int(g.group(1)), residual
+    assert 10.0 ** (int(c.group(1)) - 1) < cross < 10.0 ** int(c.group(1)), cross
+
+
+def test_p7f_result5_operator_counts_match_the_frontier_files(doc):
+    """The three bullets under 'Locality does not separate A from B': each
+    system's operator range over the sizes it compares, the share of the
+    list M=64 is, and 'below 9 spins ... M=64 exceeds N_L'."""
+    text = _p7e_region(doc)
+    a = re.search(r"\* \*\*A\*\* has (\d+) to (\d+) operators\. At (\d+) spins \$M=(\d+)\$ "
+                  r"is (\d+)% of the whole list; by (\d+) spins it is (\d+)%\.", text)
+    below = re.search(r"Below (\d+) spins the comparison cannot be made at all — "
+                      r"\$M=(\d+)\$ exceeds \$N_L\$, and (\d+) bundles cannot be formed\.",
+                      text)
+    b = re.search(r"\* \*\*B\*\* has ([\d,]+) to ([\d,]+)\. Both (\d+) and (\d+) are a "
+                  r"vanishing fraction of the list — ([\d.]+)% at (\d+) spins", text)
+    c = re.search(r"\* \*\*C\*\* has ([\d,]+) to ([\d,]+), but its couplings are local",
+                  text)
+    assert a and below and b and c, "Result 5's operator-count bullets have changed shape"
+
+    def compared(system):
+        """Points with a 32-vs-64 distance, by dim; and (from_m, to_m)."""
+        points = [p for p in sorted(_p7e_frontier(system)["points"], key=lambda p: p["dim"])
+                  if p.get("self_convergence")]
+        pair = {(p["self_convergence"]["from_m"], p["self_convergence"]["to_m"])
+                for p in points}
+        assert len(pair) == 1, pair
+        return points, pair.pop()
+
+    spin, (_, big) = compared("spin_chain")
+    a_lo, a_hi, a_sp1, a_m, a_p1, a_sp2, a_p2 = a.groups()
+    assert (int(a_lo), int(a_hi)) == (spin[0]["n_l"], spin[-1]["n_l"])
+    assert int(a_m) == big and (2 ** int(a_sp1), 2 ** int(a_sp2)) == (
+        spin[0]["dim"], spin[-1]["dim"])
+    assert _near(a_p1, 100 * big / spin[0]["n_l"]) and _near(a_p2, 100 * big / spin[-1]["n_l"])
+    q_below, q_m, q_m2 = (int(x) for x in below.groups())
+    assert q_m == q_m2 == big
+    every = sorted(_p7e_frontier("spin_chain")["points"], key=lambda p: p["dim"])
+    first = next(p for p in every if p["n_l"] >= big)
+    assert first["dim"] == 2 ** q_below == spin[0]["dim"], first["dim"]
+    assert all(not p.get("self_convergence") for p in every if p["dim"] < first["dim"])
+
+    mixed, (small_b, big_b) = compared("mixed_chain")
+    b_lo, b_hi, b_m1, b_m2, b_pct, b_sp = b.groups()
+    assert (_printed(b_lo), _printed(b_hi)) == (mixed[0]["n_l"], mixed[-1]["n_l"])
+    assert (int(b_m1), int(b_m2)) == (small_b, big_b)
+    at = next(p for p in mixed if p["dim"] == 2 ** int(b_sp))
+    assert _near(b_pct, 100 * big_b / at["n_l"])
+
+    osc = sorted(_p7e_frontier("oscillator_bath")["points"], key=lambda p: p["dim"])
+    assert (_printed(c.group(1)), _printed(c.group(2))) == (osc[0]["n_l"], osc[-1]["n_l"])

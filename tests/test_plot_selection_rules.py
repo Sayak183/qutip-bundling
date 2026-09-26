@@ -12,10 +12,10 @@ already and would take it again silently:
     every larger M is also hollow.
 
   * `observable_targets` exists because one absolute tolerance is a different
-    standard for each observable. At oscillator dimension 64, an RMSE of 0.02
-    is 0.008% of n^2's span and 374% of the coherence's -- a factor of 47,000
-    on the same system -- and the resulting M* produced a cost curve that FELL
-    with dimension, which is impossible.
+    standard for each observable. At oscillator dimension 128, an RMSE of 0.02
+    is 0.0005% of n^2's span and 8.7% of the coherence's -- spans a factor of
+    16,800 apart on the same system -- and the resulting M* produced a cost
+    curve that FELL with dimension, which is impossible.
 
   * `derive_slb` must take the worst observable relative to ITS OWN target, not
     the largest raw error, or the biggest-scale observable always wins.

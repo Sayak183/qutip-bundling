@@ -23,8 +23,8 @@ from isocost_config import run_counts
 # --- CONFIGURATION ---
 # Accuracy target, as a fraction of each observable's own span over the
 # reference trajectory. A single ABSOLUTE tolerance cannot serve six observables
-# that differ by three orders of magnitude in scale: at oscillator dim 64, an
-# RMSE of 0.02 is 0.008% of n2's span and 374% of the coherence's. Scoring
+# whose spans differ by up to 16,800x (oscillator, dim 128): there an RMSE of
+# 0.02 is 0.0005% of n2's span and 8.7% of the coherence's. Scoring
 # against each observable's own scale is one standard for all of them.
 #
 # 3% is close to what the old absolute 0.02 already demanded of the energy on
