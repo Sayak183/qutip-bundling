@@ -23,18 +23,22 @@ from common import add_settings_footer, as_array, load_data
 # information, and the three values differ by two orders of magnitude, which is
 # itself a result:
 #
-#   System C, 0.005  -- a TIGHTER target is needed, because M*=1 clears 0.02 at
-#                       every size and the curve would be a flat, useless line.
+#   System C, 0.005  -- a TIGHTER target is needed. At 0.02 one run's M* is
+#                       4 -> 2 -> 2 -> 1 -> 1 (dims 8-128): it reaches M=1 at
+#                       dim 64 and can fall no further. At 0.005 M* stays above
+#                       1 at every size (8, 8, 4, 2 over dims 16-128; dim 8 is
+#                       missed because its sweep stopped at M=8).
 #   System B, 0.02   -- discriminating as it stands: M* climbs 4 -> 64.
 #   System A, 0.05   -- a LOOSER target is needed. At 0.02 this system misses at
 #                       every dimension except 4, because M can never exceed N_L
-#                       and even M = N_L parks just above the target (0.024 to
-#                       0.029 across dims 8-512). An all-missed curve says only
-#                       "impossible". At 0.05 it becomes quantitative and says
-#                       something sharper: M* ~ N_L (1/3, 8/13, 31/31, 57/57,
-#                       64/73), i.e. essentially every operator is needed. That
-#                       IS the no-compression result, measured rather than
-#                       asserted.
+#                       and even M = N_L leaves one run above the target (0.024
+#                       to 0.033 across dims 8-512). An all-missed curve says
+#                       only "impossible". At 0.05 it becomes quantitative:
+#                       M* equals N_L at dims 64 and 256; M*/N_L over dims
+#                       4-512 is 1/3, 4/7, 8/13, 16/21, 31/31, 32/43, 57/57,
+#                       64/73, i.e. 57%-100% from dim 8 on: most operators are
+#                       needed. That IS the no-compression result, measured
+#                       rather than asserted.
 #
 # Quote the target whenever quoting a speedup from these panels; a cost at 0.05
 # is not comparable with a cost at 0.005.

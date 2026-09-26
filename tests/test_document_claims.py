@@ -3848,3 +3848,889 @@ def test_section53_mesolve_retiming_is_its_largest_single_sample_move(doc):
     assert (letter, dim) == (q_letter, int(q_dim)), (letter, dim)
     assert _near(q_ratio, ratio) and _near(q_old, before) and _near(q_new, after)
 
+
+# --- Result 2's panel description (part 4, unit U1) ------------------------
+# The panel text described a dashed vertical line no figure draws, called
+# System A's mesolve stop a 60 s budget crossing (it is the size cap), said
+# averaging shrinks a variance as 1/sqrt(N), called the one hatched bar out of
+# reach (its sweep hit the stop floor), and read a 33-59% bias share as "the
+# larger half". Every number below is recomputed through plot_cost_scaling.
+
+_P4A_SYSTEMS = {"A": "spin_chain", "B": "mixed_chain", "C": "oscillator_bath"}
+
+_P4A_COUNT = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6,
+              "seven": 7, "eight": 8}
+
+
+def _p4a_region(doc: str) -> str:
+    """Result 2 from its heading to its cost-curve subsection, flattened."""
+    text = _flat(doc)
+    start = text.index("### Result 2 — cost scaling versus the exact solver")
+    return text[start:text.index("#### The Cost Curves", start)]
+
+
+def _p4a_load(system: str) -> dict:
+    path = DATA / f"cost_scaling_{system}.json"
+    if not path.exists():
+        pytest.skip(f"{path.name} not committed")
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def _p4a_bars(system: str):
+    """{dim: (M*, N_L, bias share in %, sweep entry at M*)} for the dims that
+    reach the target, plus derive_iso's unreached list, as the figure draws
+    them."""
+    pcs = pytest.importorskip("plot_cost_scaling")
+    document = _p4a_load(system)
+    n_acc = document["meta"]["params"]["N_ACC"]
+    m_star, _, bias_sq, noise_sq, unreached = pcs.derive_iso(
+        document["points"], pcs.TARGET_BY_SYSTEM[system], pcs.ESTIMATE_TYPE,
+        pcs.ERROR_TYPE, n_acc)
+    bars = {}
+    for p, m, b, n in zip(document["points"], m_star, bias_sq, noise_sq):
+        if m == m:
+            entry = next(e for e in p["m_sweep"] if e.get("M") == int(m))
+            bars[p["dim"]] = (int(m), p["n_l"], 100.0 * b / (b + n), entry)
+    return bars, unreached
+
+
+def test_result2_top_panel_names_the_mesolve_cap_not_a_vertical_line(doc):
+    """No committed Result 2 figure draws a vertical line: the dashed red line
+    is mesolve's extrapolation. mesolve stops at the max_full_dim cap on all
+    three systems; only B and C had also crossed the 60 s budget there."""
+    text = _p4a_region(doc)
+    source = (BENCHMARKS / "plot_cost_scaling.py").read_text(encoding="utf-8")
+    assert "axvline" not in source, "the figure now draws a vertical line; say so"
+    assert "vertical line" not in text, "no committed figure draws a vertical line"
+
+    m = re.search(r"It stops at dim (\d+) on all three systems, because the "
+                  r"cost-scaling runner never starts `mesolve` above that size "
+                  r"\(`max_full_dim = (\d+)`\)", text)
+    assert m, "Result 2's mesolve-cap sentence has changed shape"
+    cap = int(m.group(1))
+    assert int(m.group(2)) == cap == common.MAX_FULL_DIM
+    slope = re.search(r"extends the curve's two-point slope through dims (\d+) and "
+                      r"(\d+); it is an extrapolation", text)
+    assert slope, "the extrapolation sentence has changed shape"
+    budget = re.search(r"On Systems B and C one `mesolve` solve at dim (\d+) already "
+                       r"took (\d+) s and (\d+) s, over the (\d+) s time budget", text)
+    assert budget, "the B/C budget sentence has changed shape"
+    a = re.search(r"On System A it took ([\d.]+) s there, so only the size cap "
+                  r"stops it", text)
+    assert a, "the System A cap sentence has changed shape"
+    assert int(budget.group(1)) == cap
+    past = re.search(r"The pale dashed red line past dim (\d+) extends", text)
+    native = re.search(r"Past dim (\d+) the exact solver on the plot is native RK4", text)
+    assert past and native and int(past.group(1)) == int(native.group(1)) == cap
+
+    printed = {"mixed_chain": budget.group(2), "oscillator_bath": budget.group(3),
+               "spin_chain": a.group(1)}
+    for system, value in printed.items():
+        document, dims, _, full, _, _ = _cost_curves(system)
+        assert document["meta"]["max_full_dim"] == cap, f"{system}: cap"
+        limit = document["meta"]["full_time_budget_s"]
+        assert float(budget.group(4)) == limit
+        ran = dims[np.isfinite(full)]
+        assert int(ran[-1]) == cap, f"{system}: mesolve's last dim is {ran[-1]}"
+        t_cap = float(full[dims == cap][0])
+        assert _near(value, t_cap), f"{system}: printed {value} s, data {t_cap:.2f} s"
+        _, n, lo, hi = _fit(dims, full)
+        assert (n, lo, hi) == (2, int(slope.group(1)), int(slope.group(2))), system
+        if system == "spin_chain":
+            assert t_cap <= limit and document["wall_dim"] > cap, (
+                "System A's mesolve now crosses the budget; the cap is not the reason")
+        else:
+            assert t_cap > limit and document["wall_dim"] == cap, (
+                f"{system}: mesolve no longer crosses the budget at dim {cap}")
+
+
+def test_result2_light_bar_is_one_runs_variance(doc):
+    """The light bar is Std^2, one run's variance. Averaging N runs divides it
+    by N (SEM^2 = Std^2 / N); only its square root falls as 1/sqrt(N)."""
+    pcs = pytest.importorskip("plot_cost_scaling")
+    text = _p4a_region(doc)
+    assert pcs.ESTIMATE_TYPE == "single", "the bars are no longer one run's split"
+    assert ("The light part is one run's variance ($\\text{Std}^2$). Averaging "
+            "$N_{\\text{real}}$ runs divides it by $N_{\\text{real}}$") in text
+    assert "shrinks the light part" not in text
+    m = re.search(r"Both parts are estimated from the (\d+) runs made at each \$M\$",
+                  text)
+    assert m, "the bottom-panel sample-count sentence has changed shape"
+    for system in _P4A_SYSTEMS.values():
+        document = _p4a_load(system)
+        n_acc = document["meta"]["params"]["N_ACC"]
+        assert n_acc == int(m.group(1)), f"{system}: N_ACC is {n_acc}"
+        entry = next(e for p in document["points"] for e in p.get("m_sweep") or []
+                     if e.get("sem_sq") is not None)
+        split = pcs.get_metrics(entry, n_acc)
+        assert math.isclose(split["single"]["noise_sq"],
+                            n_acc * split["ensemble"]["noise_sq"])
+
+
+def test_result2_hatched_bar_is_a_sweep_stop_not_a_miss(doc):
+    """The only hatched bar, System C at dim 8, is where the sweep stopped
+    because the 16-run average fell below SWEEP_STOP_RMSE, before M reached
+    N_L; the one-run RMSE there is still above the target."""
+    pcs = pytest.importorskip("plot_cost_scaling")
+    text = _p4a_region(doc)
+    m = re.search(
+        r"There is one, System C at dim (\d+), and it does not show the target out "
+        r"of reach: the sweep stopped at \$M=(\d+)\$ of \$N_L=(\d+)\$ because the "
+        r"(\d+)-run average's RMSE \(([\d.]+)\) was already below the sweep's stop "
+        r"floor of ([\d.]+)\. One run's RMSE at \$M=(\d+)\$ is ([\d.]+), above the "
+        r"([\d.]+) target, and \$M=(\d+)\$ and (\d+) were never tried\.", text)
+    assert m, "Result 2's hatched-bar sentence has changed shape"
+    (dim, m_last, n_l, n_runs, ens, floor, m_again, single, target,
+     untried_a, untried_b) = m.groups()
+
+    for letter, system in _P4A_SYSTEMS.items():
+        _, unreached = _p4a_bars(system)
+        dims = [int(u[0]) for u in unreached]
+        assert dims == ([int(dim)] if letter == "C" else []), (
+            f"System {letter}: hatched bars at {dims}")
+
+    document = _p4a_load("oscillator_bath")
+    params = document["meta"]["params"]
+    point = next(p for p in document["points"] if p["dim"] == int(dim))
+    sweep = point["m_sweep"]
+    last = sweep[-1]
+    assert int(m_last) == int(m_again) == last["M"]
+    assert int(n_l) == point["n_l"] and int(n_runs) == params["N_ACC"]
+    assert float(floor) == params["SWEEP_STOP_RMSE"]
+    assert last["rmse"] <= params["SWEEP_STOP_RMSE"], "the sweep did not hit its floor"
+    assert last["M"] < point["n_l"], "the sweep ran out of operators, not floor"
+    assert _near(ens, last["rmse"]), f"ensemble RMSE {last['rmse']:.5f}"
+    one_run = pcs.get_metrics(last, params["N_ACC"])["single"]["rmse"]
+    assert _near(single, one_run), f"one-run RMSE {one_run:.5f}"
+    assert float(target) == pcs.TARGET_BY_SYSTEM["oscillator_bath"] < one_run
+    swept = {e["M"] for e in sweep}
+    never = sorted({min(g, point["n_l"]) for g in params["M_SWEEP_GRID"]} - swept)
+    assert never == [int(untried_a), int(untried_b)], f"untried M: {never}"
+
+
+def test_result2_bias_shares_match_the_bottom_panel(doc):
+    """System A's shares are under half at four of eight sizes, so they are
+    not 'the larger half'; B's are noise-dominated; C's ladder reaches dim 128.
+    Shares are bias^2 / (bias^2 + Std^2) at M*, as the bottom panel draws them."""
+    pcs = pytest.importorskip("plot_cost_scaling")
+    text = _p4a_region(doc)
+    assert "larger half" not in text and "nothing to compress" not in text
+    for letter, system in _P4A_SYSTEMS.items():
+        t = re.search(rf"On \*\*System {letter}\*\* \(target ([\d.]+)\)", text)
+        assert t, f"System {letter}'s bias-share sentence has changed shape"
+        assert float(t.group(1)) == pcs.TARGET_BY_SYSTEM[system]
+
+    # System A: every share, the count under half, and M* against N_L
+    bars, _ = _p4a_bars("spin_chain")
+    m = re.search(r"The bias share is ((?:\d+%, )+\d+%) and (\d+)% across dims "
+                  r"(\d+) to (\d+): under half at (\w+) of the (\w+) sizes", text)
+    assert m, "System A's share list has changed shape"
+    printed = re.findall(r"(\d+)%", m.group(1)) + [m.group(2)]
+    dims = sorted(bars)
+    assert (dims[0], dims[-1]) == (int(m.group(3)), int(m.group(4)))
+    assert len(printed) == len(dims) == _P4A_COUNT[m.group(6)]
+    for value, d in zip(printed, dims):
+        assert _near(value, bars[d][2]), f"A dim {d}: {value}% vs {bars[d][2]:.2f}%"
+    under = sum(bars[d][2] < 50 for d in dims)
+    assert under == _P4A_COUNT[m.group(5)], f"{under} shares under half"
+    r = re.search(r"from dim (\d+) up it is (\d+)% to (\d+)% of \$N_L\$ "
+                  r"\(((?:\d+ of \d+, )+\d+ of \d+)\)", text)
+    assert r, "System A's M*/N_L clause has changed shape"
+    upper = [d for d in dims if d >= int(r.group(1))]
+    pairs = [tuple(map(int, x)) for x in re.findall(r"(\d+) of (\d+)", r.group(4))]
+    assert pairs == [bars[d][:2] for d in upper]
+    fractions = [100.0 * ms / nl for ms, nl in pairs]
+    assert _near(r.group(2), min(fractions)) and _near(r.group(3), max(fractions))
+
+    # System B: the clamped zeros and the range at the other sizes
+    bars, _ = _p4a_bars("mixed_chain")
+    m = re.search(r"the bias share is (\d+)% at dims (\d+) and (\d+) \(there the "
+                  r"estimated \$\\text\{bias\}\^2\$ comes out negative, too small to "
+                  r"see under the noise, and is drawn as zero\) and (\d+)% to "
+                  r"(\d+)% at dims (\d+) to (\d+)\.", text)
+    assert m, "System B's share clause has changed shape"
+    zero_dims = [int(m.group(2)), int(m.group(3))]
+    for d in zero_dims:
+        entry = bars[d][3]
+        assert int(m.group(1)) == 0 and bars[d][2] == 0.0
+        assert entry["mse"] - entry["sem_sq"] < 0, f"B dim {d}: bias not clamped"
+    rest = [d for d in sorted(bars) if d not in zero_dims]
+    assert (rest[0], rest[-1]) == (int(m.group(6)), int(m.group(7)))
+    shares = [bars[d][2] for d in rest]
+    assert _near(m.group(4), min(shares)) and _near(m.group(5), max(shares))
+    assert max(bars[d][2] for d in bars) < 50, "B is no longer noise-dominated"
+
+    # System C: the M* ladder and the share at each rung
+    bars, _ = _p4a_bars("oscillator_bath")
+    m = re.search(r"\(\$((?:\d+ \\to )+\d+)\$ over dims (\d+) to (\d+); bias share "
+                  r"(\d+)% at dim (\d+), (\d+)% at (\d+), (\d+)% at (\d+), (\d+)% at "
+                  r"(\d+)\)", text)
+    assert m, "System C's ladder clause has changed shape"
+    dims = sorted(bars)
+    assert (dims[0], dims[-1]) == (int(m.group(2)), int(m.group(3)))
+    ladder = [int(v) for v in m.group(1).split(r" \to ")]
+    assert ladder == [bars[d][0] for d in dims]
+    g = m.groups()[3:]
+    quoted = {int(g[i + 1]): g[i] for i in range(0, len(g), 2)}
+    assert sorted(quoted) == dims
+    for d, value in quoted.items():
+        assert _near(value, bars[d][2]), f"C dim {d}: {value}% vs {bars[d][2]:.2f}%"
+
+
+# --- Result 2's cost curves: the mesolve cap and the fixed-M exponents -----
+#
+# The paragraph quoted a 219.63 s dim-64 mesolve from Result 3's 8-thread job
+# as if it were this sweep's, and blamed "too slow" for a stop the
+# max_full_dim cap makes. Its System A fit claimed dims 4-512 where the floor
+# keeps 32-512, and its System C bullet described a flattening the data do not
+# show: the local slope rises at every doubling on both systems.
+
+_P4B_WORDS = {"two": 2, "three": 3}
+
+
+def _p4b_local_slopes(dims, times):
+    """Slope of log(time) against log(dim) between each pair of neighbours."""
+    return np.diff(np.log(times)) / np.diff(np.log(dims))
+
+
+def _p4b_fixed_m(system: str):
+    """(dims, one SLB run at fixed M) as the figure plots it, single-run view."""
+    import plot_cost_scaling as pcs
+    document = _cost_curves(system)[0]
+    assert pcs.ESTIMATE_TYPE == "single", "the figure no longer costs one run"
+    dims = common.as_array([p["dim"] for p in document["points"]])
+    slb = common.as_array([p.get("t_slb_fixed") for p in document["points"]])
+    return dims, slb
+
+
+def test_result2_mesolve_cap_and_the_dim64_time_are_sourced(doc):
+    """This sweep stops mesolve at max_full_dim, not because it is slow; the
+    219.63 s comes from Result 3's job, at twice this sweep's threads."""
+    text = _flat(doc)
+    m = re.search(
+        r"This sweep never starts `mesolve` above dim (\d+) \(`max_full_dim = (\d+)` "
+        r"in all three data files\)\. The cap exists because the sweep's ([\d.]+) s "
+        r"budget can act only after a solve returns: it cannot stop one long solve "
+        r"that has already started\. On Systems B and C the dim-(\d+) solve took "
+        r"([\d.]+) s and ([\d.]+) s, past the budget\. On System A it took ([\d.]+) s, "
+        r"so there the cap, not the budget, ends the curve\. `mesolve` does run at "
+        r"dim (\d+) on System A: Result 3 timed it at ([\d.]+) s, but in another job "
+        r"\((\d{8})\) with (\d+) threads against this sweep's (\d+), so that time is "
+        r"not a point on this plot\.", text)
+    assert m, "Result 2's mesolve-cap sentences have changed shape"
+    (cap, cap_meta, budget, cap_dim, t_b, t_c, t_a,
+     dim, secs, job, thr, thr_sweep) = m.groups()
+    assert int(cap) == int(cap_meta) == int(cap_dim) == common.MAX_FULL_DIM
+    assert float(budget) == common.FULL_TIME_BUDGET
+    runs = {}
+    for system in ("spin_chain", "mixed_chain", "oscillator_bath"):
+        document, dims, _, full, _, _ = _cost_curves(system)
+        meta = document["meta"]
+        assert meta["max_full_dim"] == int(cap), system
+        assert meta["full_time_budget_s"] == float(budget), system
+        assert meta["execution"]["threads"]["OMP_NUM_THREADS"] == thr_sweep, system
+        assert not np.isfinite(full[dims > int(cap)]).any(), f"{system}: mesolve past the cap"
+        runs[system] = float(full[dims == int(cap)][0])
+    assert _near(t_a, runs["spin_chain"]) and runs["spin_chain"] < float(budget)
+    assert _near(t_b, runs["mixed_chain"]) and runs["mixed_chain"] > float(budget)
+    assert _near(t_c, runs["oscillator_bath"]) and runs["oscillator_bath"] > float(budget)
+
+    assert int(dim) == 2 * int(cap), "the Result 3 time must be the size just past the cap"
+    path = DATA / f"method_comparison_spin_chain_dim{dim}.json"
+    assert path.exists(), f"BENCHMARKS.md quotes Result 3's dim-{dim} mesolve time but {path.name} is not committed"
+    result3 = json.loads(path.read_text(encoding="utf-8"))
+    assert _near(secs, result3["point"]["methods"]["mesolve"]["wall_s"])
+    execution = result3["meta"]["execution"]
+    assert execution["slurm"]["job_id"] == job
+    assert execution["threads"]["OMP_NUM_THREADS"] == thr and thr != thr_sweep
+
+
+def test_result2_fixed_m_exponents_state_their_range_and_curvature(doc):
+    """Each fixed-M exponent is fit_slope's, over the dimensions it keeps, and
+    the quoted local slopes are the per-doubling ones inside that range."""
+    import plot_cost_scaling as pcs
+    text = _flat(doc)
+    spin = re.search(
+        r"\*\*System A \(Spin chain\):\*\* Fixed \$M\$ cost fits \$N\^\{([\d.]+)\}\$ "
+        r"over dims (\d+) to (\d+) \((\d+) points; dims (\d+) to (\d+) take under "
+        r"([\d.]+) s and are left out\)\. The curve is still bending upward: the local "
+        r"slope rises at every doubling in that range, from \$N\^\{([\d.]+)\}\$ \(dims "
+        r"(\d+) to (\d+)\) to \$N\^\{([\d.]+)\}\$ \(dims (\d+) to (\d+)\)\.", text)
+    assert spin, "Result 2's System A fixed-M bullet has changed shape"
+    mixed = re.search(
+        r"Complete to dimension 128 \(job \d{8}, run on an exclusive node\)\. Fixed "
+        r"\$M\$ cost fits \$N\^\{([\d.]+)\}\$ over dims (\d+) to (\d+) \((\d+) points; "
+        r"dims (\d+) to (\d+) take under ([\d.]+) s and are left out\), and both "
+        r"doublings in that range are near \$N\^\{([\d.]+)\}\$ on their own\.", text)
+    assert mixed, "Result 2's System B fixed-M sentence has changed shape"
+    osc = re.search(
+        r"\*\*System C \(Oscillator\):\*\* Fixed \$M\$ cost fits \$N\^\{([\d.]+)\}\$ "
+        r"over dims (\d+) to (\d+) \((\d+) points\)\. The local slope rises at every "
+        r"doubling: \$N\^\{([\d.]+)\}\$, \$N\^\{([\d.]+)\}\$, \$N\^\{([\d.]+)\}\$ and "
+        r"\$N\^\{([\d.]+)\}\$, from dims (\d+) to (\d+) through dims (\d+) to (\d+)\.",
+        text)
+    assert osc, "Result 2's System C fixed-M bullet has changed shape"
+    assert "BLAS regime" not in text, "the refuted BLAS flattening is back"
+    averages = re.findall(r"So \$N\^\{([\d.]+)\}\$ is an average over a curve", text)
+    assert averages == [spin.group(1), osc.group(1)], averages
+
+    # Systems A and B: the fit, its range and count, and the dropped sizes.
+    for match, system in ((spin, "spin_chain"), (mixed, "mixed_chain")):
+        g = match.groups()
+        dims, slb = _p4b_fixed_m(system)
+        s, n, lo, hi = _fit(dims, slb)
+        assert _near(g[0], s), f"{system}: printed {g[0]}, fit {s:.3f}"
+        assert (int(g[1]), int(g[2]), int(g[3])) == (lo, hi, n), system
+        assert float(g[6]) == pcs.FIT_FLOOR_SECONDS
+        dropped = dims[np.isfinite(slb) & (dims < lo)]
+        assert (int(g[4]), int(g[5])) == (int(dropped[0]), int(dropped[-1])), system
+        assert (slb[np.isin(dims, dropped)] < pcs.FIT_FLOOR_SECONDS).all(), system
+
+    # System A: still steepening; first and last doubling inside the fit.
+    g = spin.groups()
+    dims, slb = _p4b_fixed_m("spin_chain")
+    _, _, lo, hi = _fit(dims, slb)
+    window = (dims >= lo) & (dims <= hi)
+    local = _p4b_local_slopes(dims[window], slb[window])
+    assert (np.diff(local) > 0).all(), f"System A local slopes no longer rise: {local}"
+    assert _near(g[7], local[0]) and (int(g[8]), int(g[9])) == tuple(dims[window][:2])
+    assert _near(g[10], local[-1]) and (int(g[11]), int(g[12])) == tuple(dims[window][-2:])
+
+    # System B: both doublings in the fitted range print as the fit itself.
+    g = mixed.groups()
+    dims, slb = _p4b_fixed_m("mixed_chain")
+    _, _, lo, hi = _fit(dims, slb)
+    window = (dims >= lo) & (dims <= hi)
+    local = _p4b_local_slopes(dims[window], slb[window])
+    assert len(local) == 2 and all(_near(g[7], x) for x in local), local
+    assert g[7] == g[0]
+
+    # System C: every doubling, all rising.
+    g = osc.groups()
+    dims, slb = _p4b_fixed_m("oscillator_bath")
+    s, n, lo, hi = _fit(dims, slb)
+    assert _near(g[0], s) and (int(g[1]), int(g[2]), int(g[3])) == (lo, hi, n)
+    window = (dims >= lo) & (dims <= hi)
+    local = _p4b_local_slopes(dims[window], slb[window])
+    assert (np.diff(local) > 0).all(), f"System C local slopes no longer rise: {local}"
+    assert len(local) == 4 and all(_near(p, x) for p, x in zip(g[4:8], local))
+    assert (int(g[8]), int(g[9])) == tuple(dims[window][:2])
+    assert (int(g[10]), int(g[11])) == tuple(dims[window][-2:])
+
+
+def test_result2_fitted_exponent_note_describes_fit_slope(doc):
+    """The note carried exponents from superseded sweeps, tied to no curve.
+    It now states the rule fit_slope applies: the rising tail, the floor that
+    stops at two points, and the two-point label."""
+    import plot_cost_scaling as pcs
+    text = _flat(doc)
+    m = re.search(
+        r"\*Note on fitted exponents:\* Every exponent in the figure legends, and "
+        r"every fitted cost exponent in Result 2 that does not name its own range, "
+        r"comes from `fit_slope` in `plot_cost_scaling\.py`\. It "
+        r"keeps the longest run of rising times that ends at the largest dimension\. "
+        r"Then it drops leading points under ([\d.]+) s, as long as more than (\w+) "
+        r"remain: .*? A fit left with (\w+) points is labelled a local slope, not an "
+        r"exponent\.", text)
+    assert m, "Result 2's note on fitted exponents has changed shape"
+    floor, keep, label = m.groups()
+    assert float(floor) == pcs.FIT_FLOOR_SECONDS
+    # The two named-range exponents are plain least-squares fits over those dims.
+    eq = re.search(r"The equal-range exponents below \(System A's \$N\^\{([\d.]+)\}\$ "
+                   r"for both curves over dims (\d+) to (\d+), System B's exact "
+                   r"\$N\^\{([\d.]+)\}\$ over dims (\d+) to (\d+)\) are plain "
+                   r"least-squares fits over the dims named", text)
+    assert eq, "the equal-range sentence of the note has changed shape"
+    for system, (q, lo, hi) in (("spin_chain", eq.group(1, 2, 3)),
+                                ("mixed_chain", eq.group(4, 5, 6))):
+        _, dims_eq, native_eq, _, _, _ = _cost_curves(system)
+        sel = (dims_eq >= int(lo)) & (dims_eq <= int(hi)) & np.isfinite(native_eq)
+        slope = np.polyfit(np.log(dims_eq[sel]), np.log(native_eq[sel]), 1)[0]
+        assert _near(q, slope), f"{system}: {q} against {slope:.3f}"
+    assert _P4B_WORDS[label] == pcs.FIT_MIN_POINTS - 1
+    # The rule as stated, on series built to exercise each clause.
+    dims = np.array([4.0, 8.0, 16.0, 32.0])
+    assert pcs.fit_slope(dims, np.array([1.0, 0.5, 1.0, 2.0]))[1] == 3   # rising tail
+    assert pcs.fit_slope(dims, np.array([0.01, 0.02, 0.04, 0.08]))[1] == _P4B_WORDS[keep]
+    assert "$N^{3.35}$" not in text and "$N^{2.36}$" not in text
+
+
+# --- part 4, unit U3: Result 2's iso-accuracy passage ----------------------
+# One run's error, as the figure scores it: plot_cost_scaling.get_metrics'
+# "single" entry (sqrt(bias^2 + Std^2)) with N_ACC from the file's metadata.
+
+def _p4c_doc(system: str) -> dict:
+    path = DATA / f"cost_scaling_{system}.json"
+    if not path.exists():
+        pytest.skip(f"{path.name} not committed")
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def _p4c_single(system: str, bundles: int) -> dict:
+    """{dim: (rmse, bias, std)} of one run at a fixed M, every dim that swept it."""
+    import plot_cost_scaling as pcs
+    document = _p4c_doc(system)
+    n_acc = document["meta"]["params"]["N_ACC"]
+    out = {}
+    for p in document["points"]:
+        for e in p.get("m_sweep") or []:
+            if e.get("M") == bundles and (m := pcs.get_metrics(e, n_acc)):
+                s = m["single"]
+                out[p["dim"]] = (float(s["rmse"]), float(s["bias"]), float(s["std"]))
+    return out
+
+
+def _p4c_ladder(system: str, target: float):
+    """(dims, M* list with NaN for a miss, unreached list) through derive_iso."""
+    import plot_cost_scaling as pcs
+    document = _p4c_doc(system)
+    points = [p for p in document["points"] if p.get("m_sweep")]
+    m_star, *_, unreached = pcs.derive_iso(
+        points, target, "single", "rmse", document["meta"]["params"]["N_ACC"])
+    return [p["dim"] for p in points], list(m_star), unreached
+
+
+def test_p4c_fixed_m_error_grows_on_the_chains_and_falls_on_the_oscillator(doc):
+    """'At a fixed M the RMSE grows with dimension' was stated for all three
+    systems; on System C it falls. Every endpoint is recomputed, and each
+    series is checked to move the way the sentence says, at every size."""
+    m = re.search(
+        r"On the two chains it grows: at \$M=(\d+)\$, one run's energy RMSE rises "
+        r"from ([\d.]+) at dim (\d+) to ([\d.]+) at dim (\d+) on System A, and "
+        r"from ([\d.]+) at dim (\d+) to ([\d.]+) at dim (\d+) on System B\. On "
+        r"System C it falls: at \$M=(\d+)\$ it drops from ([\d.]+) at dim (\d+) "
+        r"to ([\d.]+) at dim (\d+)\. Each of these is one run's error, estimated "
+        r"from (\d+) realizations\.", _flat(doc))
+    assert m, "Result 2's fixed-M error sentence has changed shape"
+    g = m.groups()
+    chains = int(g[0])
+    for system, (lo_v, lo_d, hi_v, hi_d), bundles, rising in (
+            ("spin_chain", g[1:5], chains, True),
+            ("mixed_chain", g[5:9], chains, True),
+            ("oscillator_bath", g[10:14], int(g[9]), False)):
+        series = _p4c_single(system, bundles)
+        dims = sorted(series)
+        assert (int(lo_d), int(hi_d)) == (dims[0], dims[-1]), (system, dims)
+        assert _near(lo_v, series[dims[0]][0]), (system, series[dims[0]][0])
+        assert _near(hi_v, series[dims[-1]][0]), (system, series[dims[-1]][0])
+        values = [series[d][0] for d in dims]
+        steps = np.diff(values)
+        assert (steps > 0).all() if rising else (steps < 0).all(), (system, values)
+        assert _p4c_doc(system)["meta"]["params"]["N_ACC"] == int(g[14])
+
+
+def test_p4c_iso_definition_names_what_it_scores(doc):
+    """The definition left out that the error is ONE run's, energy only, in
+    absolute units, on a grid capped at N_L -- without the cap, System A's
+    31 and 57 cannot come off a 1, 2, 4, 8 grid."""
+    import plot_cost_scaling as pcs
+    import run_cost_scaling as rcs
+    m = re.search(
+        r"takes the smallest bundle size \$M\^\\ast\$ at which \*\*one\*\* SLB run "
+        r"meets a fixed error target, and plots the cost of that one run\. The "
+        r"error is the time-averaged RMSE of the energy alone, in absolute energy "
+        r"units, against the exact reference\. It is one run's error, "
+        r"\$\\sqrt\{\\text\{bias\}\^2 \+ \\text\{Std\}\^2\}\$, estimated from (\d+) "
+        r"realizations; the average of those (\d+) would be more accurate\. The swept "
+        r"grid is \$M = 1, 2, 4, \\dots, (\d+)\$, capped at \$N_L\$ with \$N_L\$ "
+        r"itself included, which is where System A's (\d+) and (\d+) come from\. "
+        r"The grid doubles, so \$M\^\\ast\$ is known only to within a factor of 2\. "
+        r"Result 4 scores differently: the ensemble average's error, on six "
+        r"observables, at (\d+)% of each one's span\.", _flat(doc))
+    assert m, "Result 2's iso-accuracy definition has changed shape"
+    q_nacc, q_nacc2, q_top, q_a, q_b, q_pct = m.groups()
+    assert q_nacc2 == q_nacc
+    assert (pcs.ESTIMATE_TYPE, pcs.ERROR_TYPE) == ("single", "rmse")
+    import inspect
+    body = inspect.getsource(rcs.slb_estimate)
+    assert "e_ops=[H]" in body and "samples[:, 0, :]" in body, "the sweep scores more than H"
+    grid = rcs.M_SWEEP_GRID
+    assert grid == [2 ** k for k in range(len(grid))] and grid[-1] == int(q_top)
+    for system in ("spin_chain", "mixed_chain", "oscillator_bath"):
+        document = _p4c_doc(system)
+        assert document["meta"]["params"]["N_ACC"] == int(q_nacc)
+        assert document["meta"]["params"]["M_SWEEP_GRID"] == grid
+        for p in document["points"]:
+            swept = [e["M"] for e in p.get("m_sweep") or []]
+            assert all(s in grid or s == p["n_l"] for s in swept), (system, swept)
+            assert all(s <= p["n_l"] for s in swept), (system, swept)
+    dims, m_star, _ = _p4c_ladder("spin_chain", pcs.TARGET_BY_SYSTEM["spin_chain"])
+    n_ls = {p["dim"]: p["n_l"] for p in _p4c_doc("spin_chain")["points"]}
+    capped = [(d, int(v)) for d, v in zip(dims, m_star) if v == v and int(v) not in grid]
+    assert [v for _, v in capped] == [int(q_a), int(q_b)]
+    assert all(n_ls[d] == v for d, v in capped), "an off-grid M* that is not N_L"
+    isocost = pytest.importorskip("plot_isocost_vs_dim")
+    assert isocost.ESTIMATE_TYPE == "ensemble"
+    assert _near(q_pct, 100 * isocost.TARGET_REL)
+
+
+def test_p4c_target_table_reasons_hold_for_one_run(doc):
+    """The A row's upper end (0.029) missed 0.033 at dim 256, and the C row's
+    'M*=1 already clears 0.02 at every size' is true only of the 16-run
+    average, which the figure no longer scores."""
+    import plot_cost_scaling as pcs
+    text = _flat(doc)
+    for letter, system in (("A", "spin_chain"), ("B", "mixed_chain"),
+                           ("C", "oscillator_bath")):
+        row = re.search(rf"\|\s*\*\*{letter}\*\*[^|]*\|\s*\*\*([\d.]+)\*\*\s*\|", text)
+        assert row and float(row.group(1)) == pcs.TARGET_BY_SYSTEM[system], letter
+
+    a = re.search(r"At 0\.02 one run misses at every dimension past dim (\d+), "
+                  r"because \$M\$ cannot exceed \$N_L\$ and even \$M=N_L\$ leaves "
+                  r"one run at ([\d.]+) to ([\d.]+) \(dims (\d+) to (\d+)\)\.", text)
+    assert a, "the A row of the target table has changed shape"
+    dims, m_star, unreached = _p4c_ladder("spin_chain", 0.02)
+    assert dims[0] == int(a.group(1)) and m_star[0] == m_star[0]
+    assert all(v != v for v in m_star[1:]) and len(unreached) == len(dims) - 1
+    document = _p4c_doc("spin_chain")
+    at_cap = {}
+    for p in document["points"]:
+        top = next(e for e in p["m_sweep"] if e["M"] == p["n_l"])
+        at_cap[p["dim"]] = float(pcs.get_metrics(
+            top, document["meta"]["params"]["N_ACC"])["single"]["rmse"])
+    window = [v for d, v in at_cap.items() if int(a.group(4)) <= d <= int(a.group(5))]
+    assert (int(a.group(4)), int(a.group(5))) == (dims[1], dims[-1])
+    assert _near(a.group(2), min(window)) and _near(a.group(3), max(window))
+
+    c = re.search(r"At 0\.02 one run's \$M\^\\ast\$ is \$((?:\d+ \\to )+\d+)\$ \(dims "
+                  r"(\d+) to (\d+)\)\. It reaches \$M=1\$ at dim (\d+) and can fall "
+                  r"no further, so dims (\d+) and (\d+) look the same\. At 0\.005, "
+                  r"\$M\^\\ast\$ stays above 1 wherever the target is met "
+                  r"\(\$((?:\d+ \\to )+\d+)\$ over dims (\d+) to (\d+); dim (\d+) is "
+                  r"missed, the hatched bar above\)\.", text)
+    assert c, "the C row of the target table has changed shape"
+    dims, m_star, _ = _p4c_ladder("oscillator_bath", 0.02)
+    reached = [(d, int(v)) for d, v in zip(dims, m_star) if v == v]
+    assert [int(v) for v in c.group(1).split(r" \to ")] == [v for _, v in reached]
+    assert (int(c.group(2)), int(c.group(3))) == (reached[0][0], reached[-1][0])
+    at_floor = [d for d, v in reached if v == 1]
+    assert at_floor == [int(c.group(5)), int(c.group(6))] and at_floor[0] == int(c.group(4))
+    tight_dims, tight, unreached = _p4c_ladder("oscillator_bath", 0.005)
+    assert all(v > 1 for v in tight if v == v)
+    met = [(d, int(v)) for d, v in zip(tight_dims, tight) if v == v]
+    assert [int(v) for v in c.group(7).split(r" \to ")] == [v for _, v in met]
+    assert (int(c.group(8)), int(c.group(9))) == (met[0][0], met[-1][0])
+    assert [u[0] for u in unreached] == [int(c.group(10))], unreached
+    assert all(u[2] > 1 for u in unreached), "a miss at M=1 would not be 'above 1'"
+
+
+def test_p4c_system_a_mstar_and_the_matched_range_exponents(doc):
+    """'M* tracks N_L almost exactly' held at 2 of 8 sizes, and 'N^2.7 against
+    N^2.6' compared a 5-point fit (dims 32-512) with a 6-point one (16-512).
+    Over the same dims both are N^2.7; the curves run parallel."""
+    import plot_cost_scaling as pcs
+    m = re.search(
+        r"\*\*System A \(Control 1\):\*\* \$M\^\\ast\$ climbs with \$N_L\$ but "
+        r"equals it only at dims (\d+) and (\d+): \$M\^\\ast/N_L = ([\d/, ]+)\$ "
+        r"across dims (\d+) to (\d+)\. From dim (\d+) on, one run needs (\d+)% to "
+        r"(\d+)% of the operators; since the grid doubles, the true minimum can sit "
+        r"up to one grid step lower\. Over dims (\d+) to (\d+) \((\d+) points "
+        r"each\), one SLB run at \$M\^\\ast\$ and the (\d+)-substep exact solve "
+        r"both grow as \$N\^\{([\d.]+)\}\$ \(the legend's \$N\^\{([\d.]+)\}\$ for "
+        r"the exact solve is a (\d+)-point fit that starts at dim (\d+)\)\. The two "
+        r"curves run parallel rather than converging: over those sizes the exact "
+        r"solve costs ([\d.]+) to ([\d.]+) times one SLB run at (\d+) substeps, and "
+        r"about half that at matched substeps \(([\d.]+) to ([\d.]+) times, using "
+        r"the ([\d.]+)x measured on System B above\)\.", _flat(doc))
+    assert m, "Result 2's System A iso-accuracy bullet has changed shape"
+    (q_eq1, q_eq2, q_list, q_lo, q_hi, q_from, q_pmin, q_pmax, q_wlo, q_whi,
+     q_npts, q_ref, q_exp, q_leg, q_legn, q_legdim, q_rmin, q_rmax, q_slb,
+     q_mmin, q_mmax, q_margin) = m.groups()
+
+    document, dims, native, _, iso, m_star = _cost_curves("spin_chain")
+    n_ls = [p["n_l"] for p in document["points"]]
+    pairs = [tuple(int(x) for x in s.split("/")) for s in q_list.split(", ")]
+    assert pairs == [(int(a), int(b)) for a, b in zip(m_star, n_ls)]
+    assert (int(q_lo), int(q_hi)) == (int(dims[0]), int(dims[-1]))
+    equal = [int(d) for d, a, b in zip(dims, m_star, n_ls) if a == b]
+    assert equal == [int(q_eq1), int(q_eq2)]
+    share = [a / b for d, a, b in zip(dims, m_star, n_ls) if d >= int(q_from)]
+    assert int(q_from) == int(dims[1])
+    assert _near(q_pmin, 100 * min(share)) and _near(q_pmax, 100 * max(share))
+
+    meta = document["meta"]
+    assert int(q_ref) == meta["params"]["NATIVE_REF_SUBSTEPS"]
+    assert int(q_slb) == meta["substeps"]
+    s_iso, n_iso, lo, hi = _fit(dims, iso)
+    assert (lo, hi, n_iso) == (int(q_wlo), int(q_whi), int(q_npts))
+    window = (dims >= lo) & (dims <= hi)
+    s_same, n_same = pcs.fit_slope(dims[window], native[window])
+    assert n_same == int(q_npts)
+    assert _near(q_exp, s_iso) and _near(q_exp, s_same), (s_iso, s_same)
+    s_leg, n_leg, leg_lo, _ = _fit(dims, native)
+    assert _near(q_leg, s_leg) and (n_leg, leg_lo) == (int(q_legn), int(q_legdim))
+
+    ratio = native[window] / iso[window]
+    assert _near(q_rmin, ratio.min()) and _near(q_rmax, ratio.max())
+    margins = [_substep_margin(d) for d in (64, 128)]
+    assert all(_near(q_margin, g) for g in margins)
+    for g in margins:
+        assert _near(q_mmin, ratio.min() / g) and _near(q_mmax, ratio.max() / g)
+
+
+def test_p4c_system_b_ladder_fit_and_role_names(doc):
+    """The bullets used 'Generic' for System B; section 1's roles table calls
+    it Control 2. The ladder's N^0.77 is a fit over its six sizes."""
+    text = _flat(doc)
+    roles = re.search(r"\| Role here \| \*\*(.+?)\*\* —[^|]*\| \*\*(.+?)\*\* —[^|]*\| "
+                      r"\*\*(.+?)\*\* —", text)
+    assert roles, "section 1's roles row has changed shape"
+    for letter, role in zip("ABC", roles.groups()):
+        assert f"- **System {letter} ({role}):** $M^\\ast$" in text, (letter, role)
+    m = re.search(r"across dims 4 to 128 \(fitted over those (\d+) sizes, "
+                  r"\$M\^\\ast \\sim N\^\{([\d.]+)\}\$\)", text)
+    assert m, "System B's ladder fit has changed shape"
+    dims, m_star, _ = _p4c_ladder("mixed_chain", 0.02)
+    assert int(m.group(1)) == len(dims) and all(v == v for v in m_star)
+    slope = np.polyfit(np.log(dims), np.log(m_star), 1)[0]
+    assert _near(m.group(2), slope), slope
+
+
+def test_p4c_system_c_ladder_falls_and_dim8_is_a_stopped_sweep(doc):
+    """'Nearly flat because bias barely grows' read a falling M* as flat and
+    credited the wrong term: at M=4 the spread falls about 13x, the bias 2x."""
+    m = re.search(
+        r"\*\*System C \(Demonstration\):\*\* \$M\^\\ast\$ falls with size, "
+        r"\$((?:\d+ \\to )+\d+)\$ across dims (\d+) to (\d+)\. It falls because one "
+        r"run's error at a fixed \$M\$ shrinks as the oscillator grows \(above\), "
+        r"mostly through a smaller run-to-run spread: at \$M=(\d+)\$ the Std falls "
+        r"from ([\d.]+) at dim (\d+) to ([\d.]+) at dim (\d+), while the bias moves "
+        r"only from ([\d.]+) to ([\d.]+)\. Dim (\d+) is drawn as missed because its "
+        r"sweep stopped at \$M=(\d+)\$: the (\d+)-run average was already below the "
+        r"sweep's ([\d.]+) stopping floor, but one run there is at ([\d.]+), above "
+        r"the target\. Larger \$M\$ was never tried there\.", _flat(doc))
+    assert m, "Result 2's System C iso-accuracy bullet has changed shape"
+    (q_ladder, q_lo, q_hi, q_m, q_s0, q_d0, q_s1, q_d1, q_b0, q_b1, q_miss,
+     q_stop_m, q_nacc, q_floor, q_one) = m.groups()
+    import plot_cost_scaling as pcs
+    dims, m_star, unreached = _p4c_ladder(
+        "oscillator_bath", pcs.TARGET_BY_SYSTEM["oscillator_bath"])
+    reached = [(d, int(v)) for d, v in zip(dims, m_star) if v == v]
+    assert [v for _, v in reached] == [int(v) for v in q_ladder.split(r" \to ")]
+    assert (reached[0][0], reached[-1][0]) == (int(q_lo), int(q_hi))
+    assert [v for _, v in reached] == sorted((v for _, v in reached), reverse=True)
+
+    series = _p4c_single("oscillator_bath", int(q_m))
+    first, last = series[int(q_d0)], series[int(q_d1)]
+    assert (int(q_d0), int(q_d1)) == (min(series), max(series))
+    assert _near(q_s0, first[2]) and _near(q_s1, last[2])
+    assert _near(q_b0, first[1]) and _near(q_b1, last[1])
+    assert first[2] / last[2] > first[1] / last[1], "the bias fell faster than the spread"
+
+    assert [(u[0], u[2]) for u in unreached] == [(int(q_miss), int(q_stop_m))]
+    document = _p4c_doc("oscillator_bath")
+    params = document["meta"]["params"]
+    assert int(q_nacc) == params["N_ACC"] and float(q_floor) == params["SWEEP_STOP_RMSE"]
+    point = next(p for p in document["points"] if p["dim"] == int(q_miss))
+    top = point["m_sweep"][-1]
+    assert top["M"] == int(q_stop_m) and top["M"] < point["n_l"]
+    assert top["rmse"] <= params["SWEEP_STOP_RMSE"], "the sweep did not stop on its floor"
+    one = _p4c_single("oscillator_bath", int(q_stop_m))[int(q_miss)][0]
+    assert _near(q_one, one) and one > pcs.TARGET_BY_SYSTEM["oscillator_bath"]
+
+
+def test_p4c_cost_scaling_comment_drops_the_ensemble_era_reasons():
+    """plot_cost_scaling.py's target comment repeated the two stale reasons:
+    'M*=1 clears 0.02 at every size' and 'M = N_L ... 0.024 to 0.029'."""
+    source = (BENCHMARKS / "plot_cost_scaling.py").read_text(encoding="utf-8")
+    flat = re.sub(r"\s*\n\s*#\s*", " ", source)
+    assert "M*=1 clears 0.02" not in flat
+    assert "0.024 to 0.029" not in flat
+    import plot_cost_scaling as pcs
+    loose = re.search(r"one run's M\* is ((?:\d+ -> )+\d+) \(dims (\d+)-(\d+)\)", flat)
+    assert loose, "the System C 0.02 ladder has left the comment"
+    dims, m_star, _ = _p4c_ladder("oscillator_bath", 0.02)
+    reached = [(d, int(v)) for d, v in zip(dims, m_star) if v == v]
+    assert [int(v) for v in loose.group(1).split(" -> ")] == [v for _, v in reached]
+    assert (int(loose.group(2)), int(loose.group(3))) == (reached[0][0], reached[-1][0])
+    tight = re.search(r"\((\d+(?:, \d+)+) over dims (\d+)-(\d+); dim (\d+) is missed", flat)
+    assert tight, "the System C 0.005 ladder has left the comment"
+    dims, m_star, unreached = _p4c_ladder("oscillator_bath", 0.005)
+    met = [(d, int(v)) for d, v in zip(dims, m_star) if v == v]
+    assert [int(v) for v in tight.group(1).split(", ")] == [v for _, v in met]
+    assert [u[0] for u in unreached] == [int(tight.group(4))]
+    cap = re.search(r"\((\d\.\d+) to (\d\.\d+) across dims (\d+)-(\d+)\)", flat)
+    assert cap, "the System A at-N_L range has left the comment"
+    document = _p4c_doc("spin_chain")
+    at_cap = {p["dim"]: float(pcs.get_metrics(
+        next(e for e in p["m_sweep"] if e["M"] == p["n_l"]),
+        document["meta"]["params"]["N_ACC"])["single"]["rmse"])
+        for p in document["points"]}
+    window = [v for d, v in at_cap.items() if int(cap.group(3)) <= d <= int(cap.group(4))]
+    assert _near(cap.group(1), min(window)) and _near(cap.group(2), max(window))
+    frac = re.search(r"M\*/N_L over dims (\d+)-(\d+) is ((?:\d+/\d+, )+\d+/\d+)", flat)
+    assert frac, "the System A M*/N_L list has left the comment"
+    dims, m_star, _ = _p4c_ladder("spin_chain", 0.05)
+    n_l = {p["dim"]: p["n_l"] for p in document["points"]}
+    assert frac.group(3).split(", ") == [f"{int(v)}/{n_l[d]}" for d, v in zip(dims, m_star)]
+
+
+# --- part 4: Result 2's "Numerical Certification & Limits" -------------------
+#
+# The list said the two exact routes agree to 1e-10 everywhere (the oscillator
+# agrees only to 1.1e-8, as its own footer says), quoted a 4e17 divergence no
+# committed file records, called a 32-substep rerun of a 64-substep reference
+# "a 64-substep check", and wrote bundle assembly as N^4 on every system when
+# only System B's N_L grows as N^2. These pin the corrected sentences.
+
+_p4d_systems = ("spin_chain", "mixed_chain", "oscillator_bath")
+_P4D_SCI = r"\$([\d.]+)\\times 10\^\{(-?\d+)\}\$"
+# every key run_cost_scaling.py writes into a point; none of them is a size
+_P4D_POINT_KEYS = {"size", "dim", "n_l", "t_davies", "t_full", "t_slb_fixed",
+                   "t_slb_fixed_repeats", "slb_unstable_at_substeps",
+                   "reference", "reference_method", "t_native_ref",
+                   "native_ref_selfcheck", "t_native_ref_repeats", "m_sweep"}
+
+
+def _p4d_text(doc: str) -> str:
+    """The list items are indented, which _flat keeps; fold that too."""
+    return _flat_ws(_flat(doc))
+
+
+def _p4d_load(system: str) -> dict:
+    path = DATA / f"cost_scaling_{system}.json"
+    if not path.exists():
+        pytest.skip(f"{path.name} not committed")
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def _p4d_n_l(system: str):
+    """(dims, N_L) of every point in the Result 2 file, as float arrays."""
+    points = _p4d_load(system)["points"]
+    return (np.array([p["dim"] for p in points], dtype=float),
+            np.array([p["n_l"] for p in points], dtype=float))
+
+
+def test_result2_exact_routes_agreement_is_quoted_per_system(doc):
+    """Native RK4 and mesolve agree to 3.4e-10 on the chains but only 1.1e-8
+    on the oscillator, each over the dims, substeps and saved times its file
+    records; and the native route takes over where the sweep stops calling
+    mesolve."""
+    text = _p4d_text(doc)
+    m = re.search(
+        r"\(\$O\(N_L N\^2\)\$ memory instead of `mesolve`'s \$O\(N_L N\^4\)\$, "
+        r"§5\.2\)\. It supplies the certified exact reference past dim (\d+), "
+        r"where the sweep stops calling `mesolve` \(`max_full_dim = (\d+)`\)\. "
+        r"Where both ran, the two routes' energy curves agree to within "
+        + _P4D_SCI + r" on the two chains \(dims (\d+) to (\d+), (\d+) substeps\) "
+        r"and " + _P4D_SCI + r" on the oscillator \(dims (\d+) to (\d+), (\d+) "
+        r"substeps\)\. Each value is the largest gap over the (\d+) saved times "
+        r"between one deterministic solve per route\. The figure footers round "
+        r"these to (\S+) on both chains and (\S+) on the oscillator\.", text)
+    assert m, "Result 2's exact-route sentence has changed shape"
+    (past, cap, c_man, c_exp, c_lo, c_hi, c_sub,
+     o_man, o_exp, o_lo, o_hi, o_sub, n_times, c_footer, o_footer) = m.groups()
+    # the memory model it cites is section 5.2's
+    assert r"$N_L \times N^4 \times 16$" in doc
+
+    for system in _p4d_systems:
+        document = _p4d_load(system)
+        assert document["meta"]["max_full_dim"] == int(cap) == int(past)
+        assert document["meta"]["tlist"]["n"] == int(n_times)
+        ran = [p["dim"] for p in document["points"] if p.get("t_full") is not None]
+        assert max(ran) == int(cap), f"{system}: mesolve last ran at {max(ran)}"
+
+    chains = [_p4d_load(s)["native_vs_mesolve"] for s in _p4d_systems[:2]]
+    worst = max(max(v["max_devs"]) for v in chains)
+    _assert_latex_rounds_to(worst, c_man, c_exp, "chains' native-vs-mesolve gap")
+    for v in chains:
+        assert (min(v["dims"]), max(v["dims"])) == (int(c_lo), int(c_hi))
+        assert v["substeps"] == int(c_sub)
+        # plot_cost_scaling.figure prints each file's worst gap with :.0e
+        assert f"{max(v['max_devs']):.0e}" == c_footer
+
+    osc = _p4d_load("oscillator_bath")["native_vs_mesolve"]
+    _assert_latex_rounds_to(max(osc["max_devs"]), o_man, o_exp,
+                            "oscillator's native-vs-mesolve gap")
+    assert (min(osc["dims"]), max(osc["dims"])) == (int(o_lo), int(o_hi))
+    assert osc["substeps"] == int(o_sub)
+    assert f"{max(osc['max_devs']):.0e}" == o_footer
+    # the oscillator's gap is the larger one, so no single number covers both
+    assert max(osc["max_devs"]) > 10 * worst
+
+
+def test_result2_oscillator_limit_quotes_only_what_its_file_records(doc):
+    """Dim 256 records that the 32-substep SLB solve failed, with no size; the
+    dim-128 reference runs at 64 substeps and was checked against a 32-substep
+    rerun (downward), not by a 64-substep check."""
+    text = _p4d_text(doc)
+    m = re.search(
+        r"Why System C stops at dim (\d+) .*?Holding a uniform (\d+) substeps "
+        r"across all dimensions for slope comparability, the bundled solver goes "
+        r"unstable at dim (\d+)\. The file records only that it failed there "
+        r"\(`slb_unstable_at_substeps = (\d+)`\), not how large the state grew\. "
+        r"The ceiling is set by explicit fixed-step RK4 stability, not by operator "
+        r"count\. At dim (\d+) the exact reference runs at (\d+) substeps; a rerun "
+        r"at (\d+) substeps moves its energy curve by at most " + _P4D_SCI +
+        r", far inside the \$10\^\{(-?\d+)\}\$ tolerance\.", text)
+    assert m, "Result 2's oscillator-limit item has changed shape"
+    (stop, uniform, bad, unstable_at, ref_dim, ref_sub, rerun_sub,
+     man, exp, tol_exp) = m.groups()
+    document = _p4d_load("oscillator_bath")
+    points = {p["dim"]: p for p in document["points"]}
+
+    assert document["meta"]["substeps"] == int(uniform) == int(unstable_at)
+    assert document["stiff_dim"] == int(bad) == max(points)
+    failed = points[int(bad)]
+    assert failed["slb_unstable_at_substeps"] == int(unstable_at)
+    assert failed["t_slb_fixed"] is None
+    # nothing in the point says how large the state grew
+    assert set(failed) <= _P4D_POINT_KEYS, sorted(set(failed) - _P4D_POINT_KEYS)
+    timed = [d for d, p in points.items() if p.get("t_slb_fixed") is not None]
+    assert max(timed) == int(stop)
+
+    ref = points[int(ref_dim)]
+    assert ref["reference_method"] == f"native_rk4_substeps{ref_sub}"
+    check = ref["native_ref_selfcheck"]
+    assert check["direction"] == "down" and check["passed"] is True
+    assert check["substeps_pair"] == [int(rerun_sub), int(ref_sub)]
+    _assert_latex_rounds_to(check["max_abs_dev"], man, exp,
+                            "dim-128 reference self-check")
+    assert check["tol"] == 10.0 ** int(tol_exp)
+
+
+def test_result2_bundle_assembly_growth_follows_n_l(doc):
+    """O(M N_L N^2) is N^4 only where N_L grows as N^2 (System B). The N_L
+    ranges and the exponents are fitted by plot_cost_scaling.fit_slope over
+    every point of each Result 2 file."""
+    text = _p4d_text(doc)
+    m = re.search(
+        r"bundle assembly costs \$O\(M N_L N\^2\)\$, an implementation overhead "
+        r"rather than the \$O\(N\^3\)\$ propagation core\. How fast it grows "
+        r"depends on how fast \$N_L\$ grows\. On System B, \$N_L\$ is about "
+        r"\$N\^2/2\$ \(([\d,]+) at dim (\d+); fitted \$N\^\{([\d.]+)\}\$ "
+        r"over dims (\d+) to (\d+), (\d+) sizes\), so assembly grows as "
+        r"\$N\^\{([\d.]+)\}\$\. On System A, \$N_L\$ grows only from (\d+) to "
+        r"(\d+) across dims (\d+) to (\d+) \(fitted \$N\^\{([\d.]+)\}\$, (\d+) "
+        r"sizes\), and on System C from ([\d,]+) to ([\d,]+) across dims (\d+) "
+        r"to (\d+) \(\$N\^\{([\d.]+)\}\$, (\d+) sizes\), so assembly grows as "
+        r"about \$N\^\{([\d.]+)\}\$ and \$N\^\{([\d.]+)\}\$ there\. These are "
+        r"least-squares summaries: \$N_L\$ bends downward on A and C, so at "
+        r"their largest sizes it grows more slowly still\.", text)
+    assert m, "Result 2's bundle-assembly item has changed shape"
+    (b_top, b_dim, b_exp, b_lo, b_hi, b_n, b_asm,
+     a_first, a_last, a_lo, a_hi, a_exp, a_n,
+     c_first, c_last, c_lo, c_hi, c_exp, c_n, a_asm, c_asm) = m.groups()
+
+    dims, n_l = _p4d_n_l("mixed_chain")
+    assert (int(dims[-1]), n_l[-1]) == (int(b_dim), _printed(b_top))
+    assert np.all(np.abs(n_l / dims ** 2 - 0.5) < 0.1), n_l / dims ** 2
+    slope, n, lo, hi = _fit(dims, n_l)
+    assert (n, lo, hi) == (int(b_n), int(b_lo), int(b_hi)) == (len(dims), dims[0], dims[-1])
+    assert _near(b_exp, slope)
+    assert _near(b_asm, _fit(dims, n_l * dims ** 2)[0])
+
+    for first, last, lo_q, hi_q, exp_q, n_q, asm_q, system in (
+            (a_first, a_last, a_lo, a_hi, a_exp, a_n, a_asm, "spin_chain"),
+            (c_first, c_last, c_lo, c_hi, c_exp, c_n, c_asm, "oscillator_bath")):
+        dims, n_l = _p4d_n_l(system)
+        slope, n, lo, hi = _fit(dims, n_l)
+        assert (int(dims[0]), int(dims[-1])) == (int(lo_q), int(hi_q)) == (lo, hi)
+        assert (n_l[0], n_l[-1]) == (_printed(first), _printed(last))
+        assert n == int(n_q) == len(dims)
+        assert _near(exp_q, slope), (system, slope)
+        assert _near(asm_q, _fit(dims, n_l * dims ** 2)[0]), system
+        # "bends downward": every local slope is below the one before it, and
+        # the last is below the fitted one
+        local = np.diff(np.log(n_l)) / np.diff(np.log(dims))
+        assert np.all(np.diff(local) < 0) and local[-1] < slope, (system, local)
